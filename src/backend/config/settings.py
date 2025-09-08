@@ -6,7 +6,7 @@ Follows best practices for environment-based configuration.
 """
 
 import os
-from typing import List, Optional
+from typing import List
 from functools import lru_cache
 
 from pydantic import Field
@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     Application settings with environment variable support.
     
     All settings can be overridden via environment variables with
-    the prefix 'GATOR_' (e.g., GATOR_DATABASE_URL).
+    the prefix 'GATOR_' (e.g., GATOR_DEBUG).
     """
     
     model_config = SettingsConfigDict(
@@ -28,6 +28,25 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+    
+    # Application settings
+    debug: bool = Field(default=True, description="Enable debug mode")
+    environment: str = Field(default="development", description="Application environment")
+    
+    # Security settings
+    allowed_hosts: List[str] = Field(default=["*"], description="Allowed hosts for requests")
+    allowed_origins: List[str] = Field(default=["*"], description="Allowed origins for CORS")
+
+
+@lru_cache()
+def get_settings() -> Settings:
+    """
+    Get cached application settings.
+    
+    Returns:
+        Settings: Application configuration
+    """
+    return Settings()
     
     # Application settings
     debug: bool = Field(default=True, description="Enable debug mode")

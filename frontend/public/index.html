@@ -172,7 +172,7 @@
             <div class="card">
                 <h3>👥 Public Gallery</h3>
                 <p>Showcase your AI-generated content in a public gallery for audience engagement.</p>
-                <a href="/public/personas" class="btn" onclick="openPublic()">View Gallery</a>
+                <a href="/gallery" class="btn" onclick="openGallery()">View Gallery</a>
             </div>
             
             <div class="card">
@@ -208,9 +208,9 @@
             window.open(`${baseUrl}/docs`, '_blank');
         }
         
-        function openPublic() {
+        function openGallery() {
             const baseUrl = window.location.origin;
-            window.open(`${baseUrl}/public/personas`, '_blank');
+            window.open(`${baseUrl}/gallery`, '_blank');
         }
         
         // Check system health
