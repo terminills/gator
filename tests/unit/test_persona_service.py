@@ -22,7 +22,7 @@ class TestPersonaService:
             appearance="Young woman with blonde hair and blue eyes, professional attire",
             personality="Friendly, outgoing, tech-savvy, professional",
             content_themes=["technology", "business", "lifestyle"],
-            style_preferences=["professional", "modern", "clean"]
+            style_preferences={"style": "professional", "tone": "modern", "aesthetic": "clean"}
         )
     
     async def test_create_persona_success(self, db_session, sample_persona_data):
@@ -59,7 +59,8 @@ class TestPersonaService:
         """Test persona retrieval when persona doesn't exist."""
         service = PersonaService(db_session)
         
-        result = await service.get_persona("nonexistent-id")
+        from uuid import uuid4
+        result = await service.get_persona(uuid4())
         
         assert result is None
     
@@ -104,8 +105,9 @@ class TestPersonaService:
         """Test updating a non-existent persona."""
         service = PersonaService(db_session)
         
+        from uuid import uuid4
         updates = PersonaUpdate(name="Test")
-        result = await service.update_persona("nonexistent-id", updates)
+        result = await service.update_persona(uuid4(), updates)
         
         assert result is None
     
@@ -130,7 +132,8 @@ class TestPersonaService:
         """Test deleting a non-existent persona."""
         service = PersonaService(db_session)
         
-        result = await service.delete_persona("nonexistent-id")
+        from uuid import uuid4
+        result = await service.delete_persona(uuid4())
         
         assert result is False
     
@@ -161,7 +164,7 @@ class TestPersonaValidation:
             appearance="Test appearance description",
             personality="Test personality description",
             content_themes=["theme1", "theme2"],
-            style_preferences=["style1", "style2"]
+            style_preferences={"style1": "value1", "style2": "value2"}
         )
         
         assert persona.name == "Test"

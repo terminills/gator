@@ -38,7 +38,7 @@ class TestPersonaAPI:
             "appearance": "Young professional with dark hair and glasses",
             "personality": "Analytical, detail-oriented, friendly, approachable",
             "content_themes": ["technology", "education", "productivity"],
-            "style_preferences": ["minimalist", "professional", "modern"]
+            "style_preferences": {"style": "minimalist", "tone": "professional", "aesthetic": "modern"}
         }
         
         response = test_client.post("/api/v1/personas/", json=persona_data)
@@ -93,7 +93,7 @@ class TestPersonaAPI:
             "appearance": "Test appearance for CRUD operations",
             "personality": "Test personality for CRUD operations", 
             "content_themes": ["test", "crud"],
-            "style_preferences": ["test-style"]
+            "style_preferences": {"style": "test-style"}
         }
         
         create_response = test_client.post("/api/v1/personas/", json=persona_data)
