@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gator AI Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            gap: 20px;
+            list-style: none;
+        }
+        
+        .nav-tabs li {
+            cursor: pointer;
+            padding: 10px 15px;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        
+        .nav-tabs li:hover, .nav-tabs li.active {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .card-icon {
+            font-size: 2rem;
+            margin-right: 15px;
+        }
+        
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .card-description {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+        }
+        
+        .btn-secondary {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .btn-secondary:hover {
+            background: #dee2e6;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102,126,234,0.2);
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .dns-record {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .record-info {
+            flex: 1;
+        }
+        
+        .record-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .record-details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .record-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-active {
+            background: #28a745;
+        }
+        
+        .status-inactive {
+            background: #dc3545;
+        }
+        
+        .status-pending {
+            background: #ffc107;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 2px solid #667eea;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">🦎 Gator AI Admin Panel</div>
+            <ul class="nav-tabs">
+                <li class="tab-link active" data-tab="dashboard">Dashboard</li>
+                <li class="tab-link" data-tab="personas">Personas</li>
+                <li class="tab-link" data-tab="content">Content</li>
+                <li class="tab-link" data-tab="dns">DNS Management</li>
+                <li class="tab-link" data-tab="settings">Settings</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Dashboard Tab -->
+        <div class="tab-content active" id="dashboard">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">📊</div>
+                        <div>
+                            <div class="card-title">System Status</div>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        Monitor platform health and performance metrics
+                    </div>
+                    <button class="btn" onclick="checkSystemStatus()">Check Status</button>
+                    <div id="system-status" class="mt-3"></div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">🎭</div>
+                        <div>
+                            <div class="card-title">AI Personas</div>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        Manage your AI influencer personas and their characteristics
+                    </div>
+                    <button class="btn" onclick="showTab('personas')">Manage Personas</button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">🎨</div>
+                        <div>
+                            <div class="card-title">Generated Content</div>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        View and manage AI-generated images, videos, and text content
+                    </div>
+                    <button class="btn" onclick="showTab('content')">View Content</button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">🌐</div>
+                        <div>
+                            <div class="card-title">DNS Management</div>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        Configure domain names and DNS records through GoDaddy
+                    </div>
+                    <button class="btn" onclick="showTab('dns')">Manage DNS</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Personas Tab -->
+        <div class="tab-content" id="personas">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🎭</div>
+                    <div class="card-title">AI Personas</div>
+                </div>
+                <div class="card-description">
+                    Create and manage AI influencer personas. Each persona defines the appearance, personality, and content style for your AI influencer.
+                </div>
+                <button class="btn" onclick="createPersona()">Create New Persona</button>
+                <button class="btn btn-secondary" onclick="loadPersonas()">Refresh List</button>
+                <div id="personas-list" class="mt-3"></div>
+            </div>
+        </div>
+        
+        <!-- Content Tab -->
+        <div class="tab-content" id="content">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🎨</div>
+                    <div class="card-title">Generated Content</div>
+                </div>
+                <div class="card-description">
+                    Browse and manage all AI-generated content. Content is organized by persona and generation date.
+                </div>
+                <button class="btn" onclick="generateContent()">Generate New Content</button>
+                <button class="btn btn-secondary" onclick="loadContent()">Refresh Content</button>
+                <div id="content-list" class="mt-3"></div>
+            </div>
+        </div>
+        
+        <!-- DNS Management Tab -->
+        <div class="tab-content" id="dns">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">🌐</div>
+                        <div class="card-title">Domain Information</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Domain Name</label>
+                        <input type="text" class="form-control" id="domain-input" placeholder="example.com">
+                    </div>
+                    <button class="btn" onclick="loadDomainInfo()">Load Domain Info</button>
+                    <div id="domain-info" class="mt-3"></div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">⚡</div>
+                        <div class="card-title">Quick Setup</div>
+                    </div>
+                    <div class="card-description">
+                        Automatically configure DNS records for your Gator platform
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Domain</label>
+                        <input type="text" class="form-control" id="setup-domain" placeholder="yourdomain.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Server IP</label>
+                        <input type="text" class="form-control" id="setup-ip" placeholder="192.168.1.100">
+                    </div>
+                    <button class="btn" onclick="setupPlatformDNS()">Setup Platform DNS</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📝</div>
+                    <div class="card-title">DNS Records</div>
+                </div>
+                <div class="card-description">
+                    Manage individual DNS records for your domain
+                </div>
+                <button class="btn" onclick="showAddRecordForm()">Add DNS Record</button>
+                
+                <div id="add-record-form" class="hidden mt-3">
+                    <div class="form-group">
+                        <label class="form-label">Record Name</label>
+                        <input type="text" class="form-control" id="record-name" placeholder="www">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Record Type</label>
+                        <select class="form-control" id="record-type">
+                            <option value="A">A Record</option>
+                            <option value="CNAME">CNAME</option>
+                            <option value="MX">MX</option>
+                            <option value="TXT">TXT</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Record Value</label>
+                        <input type="text" class="form-control" id="record-value" placeholder="192.168.1.100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">TTL (seconds)</label>
+                        <input type="number" class="form-control" id="record-ttl" value="3600">
+                    </div>
+                    <button class="btn" onclick="addDNSRecord()">Add Record</button>
+                    <button class="btn btn-secondary" onclick="hideAddRecordForm()">Cancel</button>
+                </div>
+                
+                <div id="dns-records" class="mt-3"></div>
+            </div>
+        </div>
+        
+        <!-- Settings Tab -->
+        <div class="tab-content" id="settings">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">🔑</div>
+                        <div class="card-title">GoDaddy API Configuration</div>
+                    </div>
+                    <div class="card-description">
+                        Configure your GoDaddy API credentials for DNS management
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">API Key</label>
+                        <input type="text" class="form-control" id="godaddy-key" placeholder="Your GoDaddy API Key">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">API Secret</label>
+                        <input type="password" class="form-control" id="godaddy-secret" placeholder="Your GoDaddy API Secret">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Environment</label>
+                        <select class="form-control" id="godaddy-env">
+                            <option value="production">Production</option>
+                            <option value="ote">OTE (Testing)</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="saveGoDaddyConfig()">Save Configuration</button>
+                    <button class="btn btn-secondary" onclick="testGoDaddyConnection()">Test Connection</button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">⚙️</div>
+                        <div class="card-title">System Settings</div>
+                    </div>
+                    <div class="card-description">
+                        Configure general platform settings
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Default Domain</label>
+                        <input type="text" class="form-control" id="default-domain" placeholder="yourdomain.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Platform Environment</label>
+                        <select class="form-control" id="platform-env">
+                            <option value="development">Development</option>
+                            <option value="staging">Staging</option>
+                            <option value="production">Production</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="saveSystemSettings()">Save Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Tab management
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all tab links
+            document.querySelectorAll('.tab-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab link
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        }
+        
+        // Tab click handlers
+        document.querySelectorAll('.tab-link').forEach(link => {
+            link.addEventListener('click', () => {
+                const tabName = link.dataset.tab;
+                showTab(tabName);
+            });
+        });
+        
+        // API helper function
+        async function apiRequest(endpoint, options = {}) {
+            try {
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API request failed:', error);
+                throw error;
+            }
+        }
+        
+        // Show alert message
+        function showAlert(message, type = 'success') {
+            const alertClass = type === 'error' ? 'alert-error' : 'alert-success';
+            const alertHtml = `<div class="alert ${alertClass}">${message}</div>`;
+            
+            // Find the nearest container to show the alert
+            const activeTab = document.querySelector('.tab-content.active');
+            if (activeTab) {
+                activeTab.insertAdjacentHTML('afterbegin', alertHtml);
+                
+                // Remove alert after 5 seconds
+                setTimeout(() => {
+                    const alert = activeTab.querySelector('.alert');
+                    if (alert) alert.remove();
+                }, 5000);
+            }
+        }
+        
+        // System status check
+        async function checkSystemStatus() {
+            const statusDiv = document.getElementById('system-status');
+            statusDiv.innerHTML = '<div class="loading"></div>Checking system status...';
+            
+            try {
+                const response = await apiRequest('/health');
+                const status = response.status === 'healthy' ? 'active' : 'inactive';
+                statusDiv.innerHTML = `
+                    <div class="status-indicator status-${status}"></div>
+                    System Status: ${response.status}
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="status-indicator status-inactive"></div>
+                    System Status: Error - ${error.message}
+                `;
+            }
+        }
+        
+        // DNS Management Functions
+        async function loadDomainInfo() {
+            const domain = document.getElementById('domain-input').value.trim();
+            if (!domain) {
+                showAlert('Please enter a domain name', 'error');
+                return;
+            }
+            
+            const infoDiv = document.getElementById('domain-info');
+            infoDiv.innerHTML = '<div class="loading"></div>Loading domain information...';
+            
+            try {
+                const data = await apiRequest(`/api/v1/dns/domain/${domain}`);
+                
+                let recordsHtml = '';
+                data.records.forEach(record => {
+                    recordsHtml += `
+                        <div class="dns-record">
+                            <div class="record-info">
+                                <div class="record-name">${record.name}.${domain}</div>
+                                <div class="record-details">${record.type} → ${record.data} (TTL: ${record.ttl})</div>
+                            </div>
+                            <div class="record-actions">
+                                <button class="btn btn-sm" onclick="editRecord('${record.name}', '${record.type}')">Edit</button>
+                                <button class="btn btn-sm btn-secondary" onclick="deleteRecord('${record.name}', '${record.type}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                infoDiv.innerHTML = `
+                    <h4>Domain: ${data.domain}</h4>
+                    <p>Status: ${data.status} | Provider: ${data.provider}</p>
+                    ${data.expires ? `<p>Expires: ${new Date(data.expires).toLocaleDateString()}</p>` : ''}
+                    <h5>DNS Records:</h5>
+                    ${recordsHtml || '<p>No DNS records found.</p>'}
+                `;
+            } catch (error) {
+                infoDiv.innerHTML = `<div class="alert alert-error">Failed to load domain info: ${error.message}</div>`;
+            }
+        }
+        
+        async function setupPlatformDNS() {
+            const domain = document.getElementById('setup-domain').value.trim();
+            const serverIp = document.getElementById('setup-ip').value.trim();
+            
+            if (!domain || !serverIp) {
+                showAlert('Please enter both domain and server IP', 'error');
+                return;
+            }
+            
+            try {
+                const response = await apiRequest('/api/v1/dns/setup-platform', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        domain: domain,
+                        server_ip: serverIp,
+                        provider: 'godaddy'
+                    })
+                });
+                
+                showAlert(`Platform DNS setup completed for ${domain}!`);
+                
+                // Clear form
+                document.getElementById('setup-domain').value = '';
+                document.getElementById('setup-ip').value = '';
+                
+                // Auto-load domain info if it's the same domain
+                const domainInput = document.getElementById('domain-input');
+                if (!domainInput.value) {
+                    domainInput.value = domain;
+                    await loadDomainInfo();
+                }
+                
+            } catch (error) {
+                showAlert(`Failed to setup platform DNS: ${error.message}`, 'error');
+            }
+        }
+        
+        function showAddRecordForm() {
+            document.getElementById('add-record-form').classList.remove('hidden');
+        }
+        
+        function hideAddRecordForm() {
+            document.getElementById('add-record-form').classList.add('hidden');
+            // Clear form
+            document.getElementById('record-name').value = '';
+            document.getElementById('record-value').value = '';
+            document.getElementById('record-ttl').value = '3600';
+        }
+        
+        async function addDNSRecord() {
+            const domain = document.getElementById('domain-input').value.trim();
+            const name = document.getElementById('record-name').value.trim();
+            const type = document.getElementById('record-type').value;
+            const value = document.getElementById('record-value').value.trim();
+            const ttl = document.getElementById('record-ttl').value;
+            
+            if (!domain || !name || !value) {
+                showAlert('Please fill in all required fields', 'error');
+                return;
+            }
+            
+            try {
+                const response = await apiRequest(`/api/v1/dns/domain/${domain}/records`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: name,
+                        type: type,
+                        data: value,
+                        ttl: parseInt(ttl)
+                    })
+                });
+                
+                showAlert(`DNS record added successfully!`);
+                hideAddRecordForm();
+                await loadDomainInfo(); // Refresh domain info
+                
+            } catch (error) {
+                showAlert(`Failed to add DNS record: ${error.message}`, 'error');
+            }
+        }
+        
+        // Settings functions
+        function saveGoDaddyConfig() {
+            const key = document.getElementById('godaddy-key').value.trim();
+            const secret = document.getElementById('godaddy-secret').value.trim();
+            const env = document.getElementById('godaddy-env').value;
+            
+            if (!key || !secret) {
+                showAlert('Please enter both API key and secret', 'error');
+                return;
+            }
+            
+            // In a real implementation, this would save to backend
+            localStorage.setItem('godaddy_config', JSON.stringify({key, secret, env}));
+            showAlert('GoDaddy configuration saved!');
+        }
+        
+        async function testGoDaddyConnection() {
+            try {
+                const response = await apiRequest('/api/v1/dns/providers');
+                const godaddyProvider = response.providers.find(p => p.provider === 'godaddy');
+                
+                if (godaddyProvider && godaddyProvider.configured) {
+                    showAlert('GoDaddy connection test successful!');
+                } else {
+                    showAlert('GoDaddy is not configured. Please check your API credentials.', 'error');
+                }
+            } catch (error) {
+                showAlert(`Connection test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function saveSystemSettings() {
+            const domain = document.getElementById('default-domain').value.trim();
+            const env = document.getElementById('platform-env').value;
+            
+            // In a real implementation, this would save to backend
+            localStorage.setItem('system_settings', JSON.stringify({domain, env}));
+            showAlert('System settings saved!');
+        }
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load saved settings
+            const savedGoDaddy = localStorage.getItem('godaddy_config');
+            if (savedGoDaddy) {
+                const config = JSON.parse(savedGoDaddy);
+                document.getElementById('godaddy-key').value = config.key || '';
+                document.getElementById('godaddy-env').value = config.env || 'production';
+                // Don't show secret for security
+            }
+            
+            const savedSystem = localStorage.getItem('system_settings');
+            if (savedSystem) {
+                const settings = JSON.parse(savedSystem);
+                document.getElementById('default-domain').value = settings.domain || '';
+                document.getElementById('platform-env').value = settings.env || 'development';
+            }
+            
+            // Auto-check system status
+            checkSystemStatus();
+        });
+        
+        // Placeholder functions for other features
+        function loadPersonas() {
+            showAlert('Persona management coming soon!');
+        }
+        
+        function createPersona() {
+            showAlert('Persona creation coming soon!');
+        }
+        
+        function loadContent() {
+            showAlert('Content management coming soon!');
+        }
+        
+        function generateContent() {
+            showAlert('Content generation coming soon!');
+        }
+        
+        function editRecord(name, type) {
+            showAlert(`Edit record feature coming soon for ${name} (${type})`);
+        }
+        
+        function deleteRecord(name, type) {
+            if (confirm(`Are you sure you want to delete the ${type} record for ${name}?`)) {
+                showAlert(`Delete record feature coming soon`);
+            }
+        }
+    </script>
+</body>
+</html>
