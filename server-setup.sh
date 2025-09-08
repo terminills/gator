@@ -25,6 +25,8 @@ NC='\033[0m' # No Color
 DOMAIN=""
 EMAIL=""
 INSTALL_GPU_SUPPORT=false
+INSTALL_NVIDIA_SUPPORT=false
+INSTALL_ROCM_SUPPORT=false
 INSTALL_NGINX=true
 INSTALL_SSL=true
 SKIP_FIREWALL=false
@@ -53,7 +55,9 @@ Usage: $0 [OPTIONS]
 OPTIONS:
   --domain DOMAIN          Set primary domain name (e.g., example.com)
   --email EMAIL           Admin email for SSL certificates and notifications
-  --gpu                   Install GPU support (NVIDIA drivers, CUDA)
+  --gpu                   Install GPU support (auto-detect NVIDIA/AMD)
+  --nvidia                Install NVIDIA GPU support (drivers, CUDA)
+  --rocm                  Install AMD GPU support (ROCm)
   --no-nginx             Skip Nginx installation
   --no-ssl               Skip SSL certificate setup
   --skip-firewall        Skip firewall configuration
@@ -66,8 +70,14 @@ EXAMPLES:
   # Full installation with domain
   sudo $0 --domain myai.com --email admin@myai.com
 
-  # GPU-enabled installation
+  # GPU-enabled installation (auto-detect)
   sudo $0 --domain myai.com --email admin@myai.com --gpu
+
+  # NVIDIA-specific installation
+  sudo $0 --domain myai.com --email admin@myai.com --nvidia
+
+  # AMD ROCm installation
+  sudo $0 --domain myai.com --email admin@myai.com --rocm
 
 EOF
 }
@@ -85,6 +95,16 @@ while [[ $# -gt 0 ]]; do
             ;;
         --gpu)
             INSTALL_GPU_SUPPORT=true
+            shift
+            ;;
+        --nvidia)
+            INSTALL_GPU_SUPPORT=true
+            INSTALL_NVIDIA_SUPPORT=true
+            shift
+            ;;
+        --rocm)
+            INSTALL_GPU_SUPPORT=true
+            INSTALL_ROCM_SUPPORT=true
             shift
             ;;
         --no-nginx)
@@ -215,32 +235,132 @@ fi
 
 # Install GPU support if requested
 if [[ $INSTALL_GPU_SUPPORT == true ]]; then
-    log "🎮 Installing GPU support (NVIDIA drivers and CUDA)..."
+    log "🎮 Installing GPU support..."
     
-    # Check if NVIDIA GPU is present
-    if lspci | grep -i nvidia > /dev/null; then
-        log "NVIDIA GPU detected, installing drivers..."
+    # Auto-detect GPU types if not specifically requested
+    if [[ $INSTALL_NVIDIA_SUPPORT == false && $INSTALL_ROCM_SUPPORT == false ]]; then
+        if lspci | grep -i nvidia > /dev/null; then
+            log "NVIDIA GPU detected, enabling NVIDIA support..."
+            INSTALL_NVIDIA_SUPPORT=true
+        fi
+        if lspci | grep -i amd > /dev/null || lspci | grep -i "advanced micro devices" > /dev/null; then
+            log "AMD GPU detected, enabling ROCm support..."
+            INSTALL_ROCM_SUPPORT=true
+        fi
+    fi
+    
+    # Install NVIDIA support
+    if [[ $INSTALL_NVIDIA_SUPPORT == true ]]; then
+        log "🟢 Installing NVIDIA GPU support (drivers and CUDA)..."
         
-        # Install NVIDIA drivers
-        apt install -y nvidia-driver-470
+        if lspci | grep -i nvidia > /dev/null; then
+            # Install NVIDIA drivers
+            apt install -y nvidia-driver-470
+            
+            # Install CUDA toolkit
+            wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
+            mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600
+            wget https://developer.download.nvidia.com/compute/cuda/12.0.0/local_installers/cuda-repo-ubuntu2004-12-0-local_12.0.0-525.60.13-1_amd64.deb
+            dpkg -i cuda-repo-ubuntu2004-12-0-local_12.0.0-525.60.13-1_amd64.deb
+            cp /var/cuda-repo-ubuntu2004-12-0-local/cuda-*-keyring.gpg /usr/share/keyrings/
+            apt update
+            apt install -y cuda
+            
+            # Add CUDA to PATH
+            echo 'export PATH=/usr/local/cuda/bin:$PATH' >> /etc/environment
+            echo 'export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH' >> /etc/environment
+            
+            log "✅ NVIDIA GPU support installed successfully"
+        else
+            warn "No NVIDIA GPU detected. Skipping NVIDIA driver installation."
+        fi
+    fi
+    
+    # Install ROCm support
+    if [[ $INSTALL_ROCM_SUPPORT == true ]]; then
+        log "🔴 Installing AMD ROCm support..."
         
-        # Install CUDA toolkit
-        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
-        mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600
-        wget https://developer.download.nvidia.com/compute/cuda/12.0.0/local_installers/cuda-repo-ubuntu2004-12-0-local_12.0.0-525.60.13-1_amd64.deb
-        dpkg -i cuda-repo-ubuntu2004-12-0-local_12.0.0-525.60.13-1_amd64.deb
-        cp /var/cuda-repo-ubuntu2004-12-0-local/cuda-*-keyring.gpg /usr/share/keyrings/
-        apt update
-        apt install -y cuda
-        
-        # Add CUDA to PATH
-        echo 'export PATH=/usr/local/cuda/bin:$PATH' >> /etc/environment
-        echo 'export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH' >> /etc/environment
-        
-        warn "GPU drivers installed. System reboot required after installation completes."
-    else
-        warn "No NVIDIA GPU detected. Skipping GPU driver installation."
+        if lspci | grep -i amd > /dev/null || lspci | grep -i "advanced micro devices" > /dev/null; then
+            # Detect GPU architecture for version compatibility
+            GPU_INFO=$(lspci | grep -i "vga.*amd\|display.*amd\|3d.*amd")
+            
+            # Check for MI25 (Vega10/gfx900) specifically
+            if lspci -v | grep -i "radeon instinct mi25\|vega.*10" > /dev/null; then
+                log "AMD MI25 GPU detected - using ROCm 4.5.x for better compatibility..."
+                ROCM_VERSION="4.5.2"
+            else
+                log "Using latest ROCm version..."
+                ROCM_VERSION="5.7.1"
+            fi
+            
+            # Install ROCm repository
+            wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | apt-key add -
+            
+            # Determine Ubuntu version for repository URL
+            UBUNTU_VERSION=$(lsb_release -rs)
+            if [[ "$UBUNTU_VERSION" == "20.04" ]]; then
+                REPO_URL="deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION ubuntu main"
+            elif [[ "$UBUNTU_VERSION" == "22.04" ]]; then
+                REPO_URL="deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION jammy main"
+            else
+                warn "Ubuntu version $UBUNTU_VERSION may not be fully supported. Using 20.04 repository."
+                REPO_URL="deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION ubuntu main"
+            fi
+            
+            echo "$REPO_URL" > /etc/apt/sources.list.d/rocm.list
+            apt update
+            
+            # Install ROCm packages
+            log "Installing ROCm runtime and development packages..."
+            apt install -y rocm-dkms rocm-libs rocm-dev rocm-utils
+            
+            # Install additional packages for AI/ML workloads
+            apt install -y hip-runtime-amd hip-dev rocrand-dev rocblas-dev rocsparse-dev rocsolver-dev rocfft-dev
+            
+            # Add users to render and video groups for GPU access
+            usermod -aG render,video $GATOR_USER
+            usermod -aG render,video root
+            
+            # Set ROCm environment variables
+            echo 'export PATH=/opt/rocm/bin:/opt/rocm/opencl/bin:$PATH' >> /etc/environment
+            echo 'export LD_LIBRARY_PATH=/opt/rocm/lib:/opt/rocm/lib64:$LD_LIBRARY_PATH' >> /etc/environment
+            echo 'export ROCM_PATH=/opt/rocm' >> /etc/environment
+            echo 'export HIP_PATH=/opt/rocm/hip' >> /etc/environment
+            
+            # Configure GPU access for multiple MI25 GPUs
+            echo 'export HIP_VISIBLE_DEVICES=0,1,2,3,4,5,6,7' >> /etc/environment
+            echo 'export ROCR_VISIBLE_DEVICES=0,1,2,3,4,5,6,7' >> /etc/environment
+            
+            # Create ROCm info script for verification
+            cat > /opt/gator/check_rocm.sh << 'EOF'
+#!/bin/bash
+echo "=== ROCm Installation Check ==="
+echo "ROCm Version: $(cat /opt/rocm/.info/version 2>/dev/null || echo 'Not found')"
+echo "GPU Devices:"
+/opt/rocm/bin/rocm-smi --showid --showproductname 2>/dev/null || echo "rocm-smi not available"
+echo "HIP Devices:"
+/opt/rocm/bin/hipconfig --platform 2>/dev/null || echo "hipconfig not available"
+echo "Environment Variables:"
+echo "ROCM_PATH: $ROCM_PATH"
+echo "HIP_PATH: $HIP_PATH"
+echo "HIP_VISIBLE_DEVICES: $HIP_VISIBLE_DEVICES"
+EOF
+            chmod +x /opt/gator/check_rocm.sh
+            
+            log "✅ AMD ROCm support installed successfully"
+            log "   • ROCm Version: $ROCM_VERSION"
+            log "   • Configured for multiple GPU support"
+            log "   • Use '/opt/gator/check_rocm.sh' to verify installation"
+        else
+            warn "No AMD GPU detected. Skipping ROCm installation."
+        fi
+    fi
+    
+    if [[ $INSTALL_NVIDIA_SUPPORT == false && $INSTALL_ROCM_SUPPORT == false ]]; then
+        warn "No compatible GPU detected or GPU support disabled."
         INSTALL_GPU_SUPPORT=false
+    else
+        warn "GPU drivers installed. System reboot recommended after installation completes."
     fi
 fi
 
@@ -522,7 +642,15 @@ if [[ $INSTALL_SSL == true && -n "$DOMAIN" ]]; then
     log "   • SSL: Enabled with Let's Encrypt"
 fi
 if [[ $INSTALL_GPU_SUPPORT == true ]]; then
-    log "   • GPU support: Installed"
+    if [[ $INSTALL_NVIDIA_SUPPORT == true && $INSTALL_ROCM_SUPPORT == true ]]; then
+        log "   • GPU support: NVIDIA CUDA + AMD ROCm installed"
+    elif [[ $INSTALL_NVIDIA_SUPPORT == true ]]; then
+        log "   • GPU support: NVIDIA CUDA installed"
+    elif [[ $INSTALL_ROCM_SUPPORT == true ]]; then
+        log "   • GPU support: AMD ROCm installed (MI25 optimized)"
+    else
+        log "   • GPU support: Enabled but no compatible hardware detected"
+    fi
 fi
 
 log ""
@@ -549,6 +677,17 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
     warn ""
     warn "⚠️  GPU drivers were installed. Please reboot the system:"
     warn "   sudo reboot"
+    if [[ $INSTALL_ROCM_SUPPORT == true ]]; then
+        warn ""
+        warn "📋 After reboot, verify ROCm installation:"
+        warn "   sudo -u $GATOR_USER /opt/gator/check_rocm.sh"
+        warn "   rocm-smi    # Check GPU status"
+    fi
+    if [[ $INSTALL_NVIDIA_SUPPORT == true ]]; then
+        warn ""
+        warn "📋 After reboot, verify NVIDIA installation:"
+        warn "   nvidia-smi  # Check GPU status"
+    fi
 fi
 
 log ""
