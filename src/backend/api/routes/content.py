@@ -11,6 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.connection import get_db_session
+from backend.services.content_generation_service import ContentGenerationService, GenerationRequest
+from backend.models.content import ContentResponse, ContentCreate
 from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
@@ -22,29 +24,120 @@ router = APIRouter(
 )
 
 
-@router.get("/", status_code=status.HTTP_200_OK)
-async def list_content():
-    """
-    List generated content.
-    
-    Placeholder endpoint for content listing functionality.
-    Will be expanded as content generation services are implemented.
-    """
-    return {
-        "message": "Content listing endpoint - implementation pending",
-        "status": "placeholder"
-    }
+def get_content_service(
+    db: AsyncSession = Depends(get_db_session)
+) -> ContentGenerationService:
+    """Dependency injection for ContentGenerationService."""
+    return ContentGenerationService(db)
 
 
-@router.post("/generate", status_code=status.HTTP_202_ACCEPTED)
-async def generate_content():
+@router.post("/generate", response_model=ContentResponse, status_code=status.HTTP_201_CREATED)
+async def generate_content(
+    request: GenerationRequest,
+    content_service: ContentGenerationService = Depends(get_content_service),
+):
     """
-    Generate new content.
+    Generate new AI content.
     
-    Placeholder endpoint for content generation functionality.
-    Will integrate with AI models and persona services.
+    Creates new content (image, video, or text) based on persona configuration
+    and optional prompt or style overrides.
+    
+    Args:
+        request: Content generation parameters
+        content_service: Injected content generation service
+    
+    Returns:
+        ContentResponse: Generated content metadata
+    
+    Raises:
+        400: Invalid request parameters
+        404: Persona not found
+        500: Generation failed
     """
-    return {
-        "message": "Content generation endpoint - implementation pending", 
-        "status": "placeholder"
-    }
+    try:
+        content = await content_service.generate_content(request)
+        logger.info("Content generated via API", 
+                   content_id=content.id, 
+                   persona_id=request.persona_id,
+                   content_type=request.content_type)
+        return content
+        
+    except ValueError as e:
+        logger.warning("Content generation validation error", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error("Content generation failed", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Content generation failed"
+        )
+
+
+@router.get("/{content_id}", response_model=ContentResponse)
+async def get_content(
+    content_id: UUID,
+    content_service: ContentGenerationService = Depends(get_content_service),
+):
+    """
+    Get content by ID.
+    
+    Args:
+        content_id: Unique content identifier
+        content_service: Injected content generation service
+    
+    Returns:
+        ContentResponse: Content metadata
+    
+    Raises:
+        404: Content not found
+    """
+    content = await content_service.get_content(content_id)
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Content not found"
+        )
+    return content
+
+
+@router.get("/persona/{persona_id}", response_model=List[ContentResponse])
+async def list_persona_content(
+    persona_id: UUID,
+    limit: int = Query(default=50, ge=1, le=100, description="Maximum items to return"),
+    content_service: ContentGenerationService = Depends(get_content_service),
+):
+    """
+    List content for specific persona.
+    
+    Args:
+        persona_id: Persona identifier
+        limit: Maximum number of items to return
+        content_service: Injected content generation service
+    
+    Returns:
+        List[ContentResponse]: List of content items
+    """
+    return await content_service.list_persona_content(persona_id, limit)
+
+
+@router.get("/", response_model=List[ContentResponse])
+async def list_all_content(
+    limit: int = Query(default=50, ge=1, le=100, description="Maximum items to return"),
+    content_service: ContentGenerationService = Depends(get_content_service),
+):
+    """
+    List all generated content.
+    
+    Args:
+        limit: Maximum number of items to return
+        content_service: Injected content generation service
+    
+    Returns:
+        List[ContentResponse]: List of all content items
+    """
+    # For now, this would need to be implemented in the service
+    # Returning empty list as placeholder
+    return []

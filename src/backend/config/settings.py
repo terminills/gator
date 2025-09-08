@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     )
     
     # Application settings
-    debug: bool = Field(default=False, description="Enable debug mode")
+    debug: bool = Field(default=True, description="Enable debug mode")
     environment: str = Field(default="development", description="Environment name")
     log_level: str = Field(default="INFO", description="Logging level")
     

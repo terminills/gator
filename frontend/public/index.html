@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gator AI Influencer Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            padding: 40px 0;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+        
+        .card p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: opacity 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .feature {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 8px;
+            color: white;
+            text-align: center;
+        }
+        
+        .feature h4 {
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+        
+        .status {
+            display: inline-block;
+            background: #10B981;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .dashboard {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .card {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🐊 Gator AI Platform</h1>
+            <p>Private AI Influencer Content Generation System</p>
+            <div style="margin-top: 20px;">
+                <span class="status">✅ System Online</span>
+            </div>
+        </div>
+        
+        <div class="dashboard">
+            <div class="card">
+                <h3>🎭 Persona Management</h3>
+                <p>Create and manage AI personas with unique personalities, appearances, and content themes.</p>
+                <a href="/docs#/personas" class="btn" onclick="openAPI('personas')">Manage Personas</a>
+            </div>
+            
+            <div class="card">
+                <h3>🎨 Content Generation</h3>
+                <p>Generate high-quality images, videos, and text content using advanced AI models.</p>
+                <a href="/docs#/content" class="btn" onclick="openAPI('content')">Generate Content</a>
+            </div>
+            
+            <div class="card">
+                <h3>📡 RSS Feed Monitoring</h3>
+                <p>Ingest and analyze RSS feeds to stay current with trending topics and generate relevant content.</p>
+                <a href="/docs#/rss-feeds" class="btn" onclick="openAPI('feeds')">Manage Feeds</a>
+            </div>
+            
+            <div class="card">
+                <h3>📱 Social Media Integration</h3>
+                <p>Publish content across multiple social media platforms with automated optimization.</p>
+                <a href="/docs#/social-media" class="btn" onclick="openAPI('social')">Social Media</a>
+            </div>
+            
+            <div class="card">
+                <h3>👥 Public Gallery</h3>
+                <p>Showcase your AI-generated content in a public gallery for audience engagement.</p>
+                <a href="/public/personas" class="btn" onclick="openPublic()">View Gallery</a>
+            </div>
+            
+            <div class="card">
+                <h3>📊 Creator Dashboard</h3>
+                <p>Monitor performance, analytics, and get optimization suggestions for your AI personas.</p>
+                <a href="/docs#/creator-panel" class="btn" onclick="openAPI('creator')">Creator Panel</a>
+            </div>
+        </div>
+        
+        <div class="features">
+            <div class="feature">
+                <h4>🤖 AI Models</h4>
+                <p>Integrated with Stable Diffusion, GPT, and custom models</p>
+            </div>
+            <div class="feature">
+                <h4>🔒 Privacy First</h4>
+                <p>Self-hosted solution with complete data control</p>
+            </div>
+            <div class="feature">
+                <h4>⚡ High Performance</h4>
+                <p>Optimized for GPU acceleration and batch processing</p>
+            </div>
+            <div class="feature">
+                <h4>🎯 Smart Content</h4>
+                <p>Trend-aware generation based on RSS feed analysis</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openAPI(section) {
+            const baseUrl = window.location.origin;
+            window.open(`${baseUrl}/docs`, '_blank');
+        }
+        
+        function openPublic() {
+            const baseUrl = window.location.origin;
+            window.open(`${baseUrl}/public/personas`, '_blank');
+        }
+        
+        // Check system health
+        async function checkHealth() {
+            try {
+                const response = await fetch('/health');
+                const health = await response.json();
+                
+                const statusEl = document.querySelector('.status');
+                if (health.status === 'healthy') {
+                    statusEl.innerHTML = '✅ System Online';
+                    statusEl.style.background = '#10B981';
+                } else {
+                    statusEl.innerHTML = '⚠️ System Issues';
+                    statusEl.style.background = '#F59E0B';
+                }
+            } catch (error) {
+                const statusEl = document.querySelector('.status');
+                statusEl.innerHTML = '❌ System Offline';
+                statusEl.style.background = '#EF4444';
+            }
+        }
+        
+        // Check health on page load
+        checkHealth();
+        
+        // Refresh health status every 30 seconds
+        setInterval(checkHealth, 30000);
+    </script>
+</body>
+</html>

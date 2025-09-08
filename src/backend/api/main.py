@@ -13,10 +13,11 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from backend.config.settings import get_settings
 from backend.config.logging import setup_logging
-from backend.api.routes import persona, content, analytics
+from backend.api.routes import persona, content, analytics, feeds, social, public, creator
 from backend.database.connection import database_manager
 
 # Configure logging
@@ -83,6 +84,28 @@ def create_app() -> FastAPI:
     app.include_router(persona.router)
     app.include_router(content.router)
     app.include_router(analytics.router)
+    app.include_router(feeds.router)
+    app.include_router(social.router)
+    app.include_router(public.router)
+    app.include_router(creator.router)
+    
+    @app.get("/", tags=["system"])
+    async def root():
+        """Root endpoint - system status."""
+        return {
+            "message": "Gator AI Influencer Platform",
+            "version": "0.1.0",
+            "status": "operational"
+        }
+    
+    @app.get("/health", tags=["system"])
+    async def health_check():
+        """Health check endpoint for monitoring."""
+        return {
+            "status": "healthy",
+            "database": await database_manager.health_check(),
+            "timestamp": "2024-01-01T00:00:00Z"  # TODO: Use actual timestamp
+        }
     
     @app.get("/", tags=["system"])
     async def root():
