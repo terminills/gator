@@ -6,7 +6,7 @@ Follows best practices for environment-based configuration.
 """
 
 import os
-from typing import List
+from typing import List, Optional
 from functools import lru_cache
 
 from pydantic import Field
@@ -28,25 +28,6 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
-    
-    # Application settings
-    debug: bool = Field(default=True, description="Enable debug mode")
-    environment: str = Field(default="development", description="Application environment")
-    
-    # Security settings
-    allowed_hosts: List[str] = Field(default=["*"], description="Allowed hosts for requests")
-    allowed_origins: List[str] = Field(default=["*"], description="Allowed origins for CORS")
-
-
-@lru_cache()
-def get_settings() -> Settings:
-    """
-    Get cached application settings.
-    
-    Returns:
-        Settings: Application configuration
-    """
-    return Settings()
     
     # Application settings
     debug: bool = Field(default=True, description="Enable debug mode")
@@ -97,11 +78,29 @@ def get_settings() -> Settings:
         description="Rate limit for content generation"
     )
     
-    # Social media API settings (placeholder - will be expanded)
+    # Social media API settings
     facebook_api_key: Optional[str] = Field(default=None)
     facebook_api_secret: Optional[str] = Field(default=None)
     instagram_api_key: Optional[str] = Field(default=None)
     instagram_api_secret: Optional[str] = Field(default=None)
+    
+    # DNS Management (GoDaddy)
+    godaddy_api_key: Optional[str] = Field(
+        default=None,
+        description="GoDaddy API key for DNS management"
+    )
+    godaddy_api_secret: Optional[str] = Field(
+        default=None,
+        description="GoDaddy API secret for DNS management"
+    )
+    godaddy_environment: str = Field(
+        default="production",
+        description="GoDaddy API environment (production/ote)"
+    )
+    default_domain: Optional[str] = Field(
+        default=None,
+        description="Default domain for the platform"
+    )
     
     # Monitoring and observability
     sentry_dsn: Optional[str] = Field(
