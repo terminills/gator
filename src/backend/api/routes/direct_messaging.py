@@ -50,13 +50,13 @@ async def create_conversation(
         logger.info(f"Conversation created via API {conversation.id}")
         return conversation
     except ValueError as e:
-        logger.warning(f"Conversation creation failed: {str(e)"))
+        logger.warning(f"Conversation creation failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error(f"Failed to create conversation: {str(e)"))
+        logger.error(f"Failed to create conversation: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -80,7 +80,7 @@ async def get_conversation(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get conversation {conversation_id}: {str(e)"))
+        logger.error(f"Failed to get conversation {conversation_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -105,7 +105,7 @@ async def get_user_conversations(
         )
         return conversations
     except Exception as e:
-        logger.error(f"Failed to get user conversations {user_id}: {str(e)"))
+        logger.error(f"Failed to get user conversations {user_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -140,13 +140,13 @@ async def send_message(
         logger.info(f"Message sent via API message_id={message.id} sender={message.sender}")
         return message
     except ValueError as e:
-        logger.warning(f"Message sending failed: {str(e)"))
+        logger.warning(f"Message sending failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error(f"Failed to send message: {str(e)"))
+        logger.error(f"Failed to send message: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -171,7 +171,7 @@ async def get_conversation_messages(
         )
         return messages
     except Exception as e:
-        logger.error(f"Failed to get conversation messages {conversation_id}: {str(e)"))
+        logger.error(f"Failed to get conversation messages {conversation_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -199,7 +199,7 @@ async def get_next_conversation_for_response(
         )
         return conversation
     except Exception as e:
-        logger.error(f"Failed to get next conversation for response: {str(e)"))
+        logger.error(f"Failed to get next conversation for response: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -220,7 +220,7 @@ async def get_queue_status(
         status_info = await dm_service.get_queue_status()
         return status_info
     except Exception as e:
-        logger.error(f"Failed to get queue status: {str(e)"))
+        logger.error(f"Failed to get queue status: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -245,13 +245,13 @@ async def create_ppv_offer(
         logger.info(f"PPV offer created via API {offer.id} offer_type={offer.offer_type}")
         return offer
     except ValueError as e:
-        logger.warning(f"PPV offer creation failed: {str(e)"))
+        logger.warning(f"PPV offer creation failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error(f"Failed to create PPV offer: {str(e)"))
+        logger.error(f"Failed to create PPV offer: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -274,13 +274,13 @@ async def accept_ppv_offer(
         logger.info(f"PPV offer accepted via API {offer_id}")
         return offer
     except ValueError as e:
-        logger.warning(f"PPV offer acceptance failed: {str(e)"))
+        logger.warning(f"PPV offer acceptance failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error(f"Failed to accept PPV offer {offer_id}: {str(e)"))
+        logger.error(f"Failed to accept PPV offer {offer_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -323,4 +323,4 @@ async def _process_persona_response_queue(
             logger.debug("No conversations need persona response at this time")
             
     except Exception as e:
-        logger.error(f"Error processing persona response queue triggering_conversation_id={triggering_conversation_id}: {str(e)"))
+        logger.error(f"Error processing persona response queue triggering_conversation_id={triggering_conversation_id}: {str(e)}")

@@ -44,13 +44,13 @@ async def create_user(
         logger.info(f"User created via API {user.id} {user.username}")
         return user
     except ValueError as e:
-        logger.warning(f"User creation failed: {str(e)"))
+        logger.warning(f"User creation failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error(f"Failed to create user: {str(e)"))
+        logger.error(f"Failed to create user: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -74,7 +74,7 @@ async def get_user(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get user {user_id}: {str(e)"))
+        logger.error(f"Failed to get user {user_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -98,7 +98,7 @@ async def get_user_by_username(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get user by username {username}: {str(e)"))
+        logger.error(f"Failed to get user by username {username}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -124,7 +124,7 @@ async def update_user(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to update user {user_id}: {str(e)"))
+        logger.error(f"Failed to update user {user_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -148,7 +148,7 @@ async def update_user_activity(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to update user activity {user_id}: {str(e)"))
+        logger.error(f"Failed to update user activity {user_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -171,7 +171,7 @@ async def list_users(
         )
         return users
     except Exception as e:
-        logger.error(f"Failed to list users: {str(e)"))
+        logger.error(f"Failed to list users: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"

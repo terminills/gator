@@ -247,7 +247,7 @@ class AIModelManager:
                         
         except Exception as e:
             logger.error(f"Failed to initialize local text models: {str(e)}")
-    )
+
     async def _initialize_local_image_models(self) -> None:
         """Initialize local image generation models."""
         try:
