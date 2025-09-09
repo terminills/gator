@@ -138,7 +138,7 @@ async def get_public_persona(persona_id: str):
 @router.get("/personas/{persona_id}/gallery", response_model=List[Dict[str, Any]])
 async def get_persona_gallery(
     persona_id: str,
-    content_type: Optional[str] = Query(None, regex="^(image|video|text)$", description="Filter by content type"),
+    content_type: Optional[str] = Query(None, pattern="^(image|video|text)$", description="Filter by content type"),
     limit: int = Query(default=20, ge=1, le=100, description="Maximum items to return"),
     offset: int = Query(default=0, ge=0, description="Number of items to skip"),
 ):
