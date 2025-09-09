@@ -56,16 +56,16 @@ async def create_persona(
     """
     try:
         persona = await persona_service.create_persona(persona_data)
-        logger.info("Persona created", persona_id=persona.id)
+        logger.info(f"Persona created: {persona.id}")
         return persona
     except ValueError as e:
-        logger.warning("Persona validation failed", error=str(e))
+        logger.warning(f"Persona validation failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error("Failed to create persona", error=str(e))
+        logger.error(f"Failed to create persona: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -102,7 +102,7 @@ async def list_personas(
         )
         return personas
     except Exception as e:
-        logger.error("Failed to list personas", error=str(e))
+        logger.error(f"Failed to list personas: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -139,7 +139,7 @@ async def get_persona(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to get persona", persona_id=persona_id, error=str(e))
+        logger.error(f"Failed to get persona {persona_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -178,18 +178,18 @@ async def update_persona(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Persona {persona_id} not found"
             )
-        logger.info("Persona updated", persona_id=persona_id)
+        logger.info(f"Persona updated {persona_id}")
         return persona
     except HTTPException:
         raise
     except ValueError as e:
-        logger.warning("Persona update validation failed", error=str(e))
+        logger.warning(f"Persona update validation failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error("Failed to update persona", persona_id=persona_id, error=str(e))
+        logger.error(f"Failed to update persona {persona_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -222,11 +222,11 @@ async def delete_persona(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Persona {persona_id} not found"
             )
-        logger.info("Persona deleted", persona_id=persona_id)
+        logger.info(f"Persona deleted {persona_id}")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to delete persona", persona_id=persona_id, error=str(e))
+        logger.error(f"Failed to delete persona {persona_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"

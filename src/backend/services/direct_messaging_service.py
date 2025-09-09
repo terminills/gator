@@ -65,9 +65,7 @@ class DirectMessagingService:
                 conversation_data.persona_id
             )
             if existing:
-                logger.info("Returning existing conversation", 
-                          user_id=conversation_data.user_id,
-                          persona_id=conversation_data.persona_id)
+                logger.info(f"Returning existing conversation {conversation_data.user_id} {conversation_data.persona_id}")
                 return ConversationResponse.model_validate(existing)
             
             # Create new conversation
@@ -83,20 +81,17 @@ class DirectMessagingService:
             await self.db.commit()
             await self.db.refresh(db_conversation)
             
-            logger.info("Created new conversation",
-                       conversation_id=db_conversation.id,
-                       user_id=conversation_data.user_id,
-                       persona_id=conversation_data.persona_id)
+            logger.info(f"Created new conversation {db_conversation.id} {conversation_data.user_id} {conversation_data.persona_id}")
             
             return ConversationResponse.model_validate(db_conversation)
             
         except IntegrityError as e:
             await self.db.rollback()
-            logger.error("Database integrity error creating conversation", error=str(e))
+            logger.error(f"Database integrity error creating conversation: {str(e)}")
             raise ValueError("Failed to create conversation due to data constraints")
         except Exception as e:
             await self.db.rollback()
-            logger.error("Unexpected error creating conversation", error=str(e))
+            logger.error(f"Unexpected error creating conversation: {str(e)}")
             raise ValueError(f"Conversation creation failed: {str(e)}")
     
     async def get_conversation(self, conversation_id: uuid.UUID) -> Optional[ConversationResponse]:
@@ -111,7 +106,7 @@ class DirectMessagingService:
                 
             return ConversationResponse.model_validate(db_conversation)
         except Exception as e:
-            logger.error("Failed to get conversation", conversation_id=conversation_id, error=str(e))
+            logger.error(f"Failed to get conversation {conversation_id}: {str(e)}")
             raise
     
     async def get_user_conversations(
@@ -135,7 +130,7 @@ class DirectMessagingService:
             
             return [ConversationResponse.model_validate(conv) for conv in db_conversations]
         except Exception as e:
-            logger.error("Failed to get user conversations", user_id=user_id, error=str(e))
+            logger.error(f"Failed to get user conversations for {user_id}: {str(e)}")
             raise
     
     # ==================== Message Management ====================
@@ -187,16 +182,13 @@ class DirectMessagingService:
             await self.db.commit()
             await self.db.refresh(db_message)
             
-            logger.info("Message sent",
-                       message_id=db_message.id,
-                       conversation_id=message_data.conversation_id,
-                       sender=message_data.sender)
+            logger.info(f"Message sent message_id={db_message.id} {message_data.conversation_id} sender={message_data.sender}")
             
             return MessageResponse.model_validate(db_message)
             
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to send message", error=str(e))
+            logger.error(f"Failed to send message: {str(e)}")
             raise
     
     async def get_conversation_messages(
@@ -220,8 +212,7 @@ class DirectMessagingService:
             
             return [MessageResponse.model_validate(msg) for msg in db_messages]
         except Exception as e:
-            logger.error("Failed to get conversation messages", 
-                        conversation_id=conversation_id, error=str(e))
+            logger.error(f"Failed to get conversation messages {conversation_id}: {str(e)"))
             raise
     
     # ==================== Round-Robin Queue System ====================
@@ -280,16 +271,14 @@ class DirectMessagingService:
             db_conversation = result.scalar_one_or_none()
             
             if db_conversation:
-                logger.info("Found next conversation for persona response",
-                           conversation_id=db_conversation.id,
-                           persona_id=db_conversation.persona_id)
+                logger.info(f"Found next conversation for persona response {db_conversation.id} {db_conversation.persona_id}")
                 return ConversationResponse.model_validate(db_conversation)
             
-            logger.debug("No conversations need persona response", persona_id=persona_id)
+            logger.debug(f"No conversations need persona response for persona {persona_id}")
             return None
             
         except Exception as e:
-            logger.error("Failed to get next conversation for response", error=str(e))
+            logger.error(f"Failed to get next conversation for response: {str(e)}")
             raise
     
     async def get_queue_status(self) -> Dict[str, Any]:
@@ -327,7 +316,7 @@ class DirectMessagingService:
             }
             
         except Exception as e:
-            logger.error("Failed to get queue status", error=str(e))
+            logger.error(f"Failed to get queue status: {str(e)}")
             raise
     
     # ==================== PPV Offer System ====================
@@ -375,17 +364,13 @@ class DirectMessagingService:
             await self.db.commit()
             await self.db.refresh(db_offer)
             
-            logger.info("Created PPV offer",
-                       offer_id=db_offer.id,
-                       conversation_id=offer_data.conversation_id,
-                       offer_type=offer_data.offer_type,
-                       price=offer_data.price)
+            logger.info(f"Created PPV offer {db_offer.id} {offer_data.conversation_id} offer_type={offer_data.offer_type} price={offer_data.price}")
             
             return PPVOfferResponse.model_validate(db_offer)
             
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to create PPV offer", error=str(e))
+            logger.error(f"Failed to create PPV offer: {str(e)}")
             raise
     
     async def accept_ppv_offer(self, offer_id: uuid.UUID) -> PPVOfferResponse:
@@ -437,16 +422,13 @@ class DirectMessagingService:
             # Refresh to get updated data
             await self.db.refresh(db_offer)
             
-            logger.info("PPV offer accepted",
-                       offer_id=offer_id,
-                       conversation_id=db_offer.conversation_id,
-                       price=db_offer.price)
+            logger.info(f"PPV offer accepted {offer_id} {db_offer.conversation_id} price={db_offer.price}")
             
             return PPVOfferResponse.model_validate(db_offer)
             
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to accept PPV offer", offer_id=offer_id, error=str(e))
+            logger.error(f"Failed to accept PPV offer {offer_id}: {str(e)}")
             raise
     
     # ==================== Helper Methods ====================

@@ -47,16 +47,16 @@ async def create_conversation(
     """
     try:
         conversation = await dm_service.create_conversation(conversation_data)
-        logger.info("Conversation created via API", conversation_id=conversation.id)
+        logger.info(f"Conversation created via API {conversation.id}")
         return conversation
     except ValueError as e:
-        logger.warning("Conversation creation failed", error=str(e))
+        logger.warning(f"Conversation creation failed: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error("Failed to create conversation", error=str(e))
+        logger.error(f"Failed to create conversation: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -80,7 +80,7 @@ async def get_conversation(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to get conversation", conversation_id=conversation_id, error=str(e))
+        logger.error(f"Failed to get conversation {conversation_id}: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -105,7 +105,7 @@ async def get_user_conversations(
         )
         return conversations
     except Exception as e:
-        logger.error("Failed to get user conversations", user_id=user_id, error=str(e))
+        logger.error(f"Failed to get user conversations {user_id}: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -137,16 +137,16 @@ async def send_message(
                 message.conversation_id
             )
         
-        logger.info("Message sent via API", message_id=message.id, sender=message.sender)
+        logger.info(f"Message sent via API message_id={message.id} sender={message.sender}")
         return message
     except ValueError as e:
-        logger.warning("Message sending failed", error=str(e))
+        logger.warning(f"Message sending failed: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error("Failed to send message", error=str(e))
+        logger.error(f"Failed to send message: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -171,8 +171,7 @@ async def get_conversation_messages(
         )
         return messages
     except Exception as e:
-        logger.error("Failed to get conversation messages", 
-                    conversation_id=conversation_id, error=str(e))
+        logger.error(f"Failed to get conversation messages {conversation_id}: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -200,7 +199,7 @@ async def get_next_conversation_for_response(
         )
         return conversation
     except Exception as e:
-        logger.error("Failed to get next conversation for response", error=str(e))
+        logger.error(f"Failed to get next conversation for response: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -221,7 +220,7 @@ async def get_queue_status(
         status_info = await dm_service.get_queue_status()
         return status_info
     except Exception as e:
-        logger.error("Failed to get queue status", error=str(e))
+        logger.error(f"Failed to get queue status: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -243,16 +242,16 @@ async def create_ppv_offer(
     """
     try:
         offer = await dm_service.create_ppv_offer(offer_data)
-        logger.info("PPV offer created via API", offer_id=offer.id, offer_type=offer.offer_type)
+        logger.info(f"PPV offer created via API {offer.id} offer_type={offer.offer_type}")
         return offer
     except ValueError as e:
-        logger.warning("PPV offer creation failed", error=str(e))
+        logger.warning(f"PPV offer creation failed: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error("Failed to create PPV offer", error=str(e))
+        logger.error(f"Failed to create PPV offer: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -272,16 +271,16 @@ async def accept_ppv_offer(
     """
     try:
         offer = await dm_service.accept_ppv_offer(offer_id)
-        logger.info("PPV offer accepted via API", offer_id=offer_id)
+        logger.info(f"PPV offer accepted via API {offer_id}")
         return offer
     except ValueError as e:
-        logger.warning("PPV offer acceptance failed", error=str(e))
+        logger.warning(f"PPV offer acceptance failed: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error("Failed to accept PPV offer", offer_id=offer_id, error=str(e))
+        logger.error(f"Failed to accept PPV offer {offer_id}: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
@@ -310,9 +309,7 @@ async def _process_persona_response_queue(
         
         conversation = await dm_service.get_next_conversation_for_persona_response()
         if conversation:
-            logger.info("Processing persona response for conversation",
-                       conversation_id=conversation.id,
-                       triggered_by=triggering_conversation_id)
+            logger.info(f"Processing persona response for conversation {conversation.id} triggered_by={triggering_conversation_id}")
             
             # TODO: Implement actual AI response generation here
             # This would involve:
@@ -326,6 +323,4 @@ async def _process_persona_response_queue(
             logger.debug("No conversations need persona response at this time")
             
     except Exception as e:
-        logger.error("Error processing persona response queue", 
-                    triggering_conversation_id=triggering_conversation_id,
-                    error=str(e))
+        logger.error(f"Error processing persona response queue triggering_conversation_id={triggering_conversation_id}: {str(e)"))

@@ -73,7 +73,7 @@ class DatabaseManager:
             async with self.engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
         
-        logger.info("Database connected", database_url=database_url)
+        logger.info(f"Database connected database_url={database_url}")
     
     async def disconnect(self) -> None:
         """Close database connection."""
@@ -120,7 +120,7 @@ class DatabaseManager:
                     return "healthy"
             return "unhealthy"
         except Exception as e:
-            logger.error("Database health check failed", error=str(e))
+            logger.error(f"Database health check failed: {str(e)}")
             return "unhealthy"
 
 

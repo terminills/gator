@@ -171,17 +171,14 @@ class ContentGenerationService:
             # Update persona generation count
             await self._increment_persona_count(persona.id)
             
-            logger.info("Content generated successfully", extra={
-                       "content_id": content_record.id, 
-                       "persona_id": persona.id,
-                       "content_type": request.content_type
-            })
+            logger.info(f"Content generated successfully extra={{
+                       "content_id": content_record.id}")
             
             return content_record
             
         except Exception as e:
-            logger.error("Content generation failed", extra={
-                        "error": str(e), 
+            logger.error(f"Content generation failed extra={{
+                        "error": str(e)"), 
                         "persona_id": request.persona_id,
                         "content_type": request.content_type
             })
@@ -199,7 +196,7 @@ class ContentGenerationService:
             return None
             
         except Exception as e:
-            logger.error("Error retrieving content", extra={"error": str(e), "content_id": content_id})
+            logger.error(f"Error retrieving content extra={{"error": str(e)"), "content_id": content_id})
             return None
     
     async def list_persona_content(self, persona_id: UUID, limit: int = 50) -> List[ContentResponse]:
@@ -216,7 +213,7 @@ class ContentGenerationService:
             return [ContentResponse.model_validate(content) for content in contents]
             
         except Exception as e:
-            logger.error("Error listing persona content", extra={"error": str(e), "persona_id": persona_id})
+            logger.error(f"Error listing persona content extra={{"error": str(e)"), "persona_id": persona_id})
             return []
     
     async def _get_persona(self, persona_id: UUID) -> Optional[PersonaModel]:

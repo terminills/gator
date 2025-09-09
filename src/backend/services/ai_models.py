@@ -197,7 +197,7 @@ class AIModelManager:
             await self._initialize_video_models()
             
             self.models_loaded = True
-            logger.info("AI model initialization complete", extra={"available_models": self.available_models})
+            logger.info(f"AI model initialization complete extra={{"available_models": self.available_models}}")
             
         except Exception as e:
             logger.error(f"Failed to initialize AI models: {str(e)}")

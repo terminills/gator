@@ -128,14 +128,11 @@ class SocialMediaService:
             account_key = f"{account.platform}_{account.account_id}"
             self.accounts[account_key] = account
             
-            logger.info("Social media account added", 
-                       platform=account.platform, 
-                       account_id=account.account_id)
+            logger.info(f"Social media account added platform={account.platform} account_id={account.account_id}")
             return True
             
         except Exception as e:
-            logger.error("Failed to add social media account", 
-                        error=str(e), 
+            logger.error(f"Failed to add social media account: {str(e)"), 
                         platform=account.platform)
             return False
     
@@ -170,16 +167,12 @@ class SocialMediaService:
                 responses.append(response)
                 
                 # Log publishing attempt
-                logger.info("Content published to platform", 
-                           content_id=request.content_id,
-                           platform=platform,
-                           status=response.status)
+                logger.info(f"Content published to platform content_id={request.content_id} platform={platform} status={response.status}")
             
             return responses
             
         except Exception as e:
-            logger.error("Failed to publish content", 
-                        error=str(e), 
+            logger.error(f"Failed to publish content: {str(e)"), 
                         content_id=request.content_id)
             
             # Return error responses for all platforms
@@ -220,18 +213,14 @@ class SocialMediaService:
                 
                 # TODO: Implement actual scheduling with job queue
                 # For now, just log the scheduling request
-                logger.info("Post scheduled", 
-                           schedule_id=schedule_id,
-                           platform=platform,
-                           schedule_time=request.schedule_time,
-                           content_id=request.content_id)
+                logger.info(f"Post scheduled schedule_id={schedule_id} platform={platform} schedule_time={request.schedule_time} content_id={request.content_id}")
                 
                 schedule_ids.append(schedule_id)
             
             return schedule_ids
             
         except Exception as e:
-            logger.error("Failed to schedule post", error=str(e))
+            logger.error(f"Failed to schedule post: {str(e)"))
             return []
     
     async def get_engagement_metrics(self, post_id: str, platform: PlatformType) -> Dict[str, Any]:
@@ -254,8 +243,7 @@ class SocialMediaService:
             return metrics
             
         except Exception as e:
-            logger.error("Failed to get engagement metrics", 
-                        error=str(e), 
+            logger.error(f"Failed to get engagement metrics: {str(e)"), 
                         post_id=post_id, 
                         platform=platform)
             return {"error": str(e)}
@@ -417,7 +405,7 @@ class SocialMediaService:
             return None
             
         except Exception as e:
-            logger.error("Error retrieving content", error=str(e))
+            logger.error(f"Error retrieving content: {str(e)"))
             return None
     
     async def _get_persona(self, persona_id: UUID) -> Optional[PersonaModel]:
@@ -429,6 +417,6 @@ class SocialMediaService:
             return result.scalar_one_or_none()
             
         except Exception as e:
-            logger.error("Error retrieving persona", error=str(e))
+            logger.error(f"Error retrieving persona: {str(e)"))
             return None
 

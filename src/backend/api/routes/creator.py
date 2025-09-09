@@ -154,11 +154,11 @@ async def get_creator_dashboard(
             content_breakdown=content_breakdown
         )
         
-        logger.info("Creator dashboard accessed", stats=dashboard_stats.dict())
+        logger.info(f"Creator dashboard accessed stats={dashboard_stats.dict(}"))
         return dashboard_stats
         
     except Exception as e:
-        logger.error("Error generating dashboard stats", error=str(e))
+        logger.error(f"Error generating dashboard stats: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve dashboard statistics"
@@ -234,13 +234,13 @@ async def get_persona_analytics(
             ]
         }
         
-        logger.info("Persona analytics retrieved", persona_id=persona_id)
+        logger.info(f"Persona analytics retrieved {persona_id}")
         return analytics
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Error retrieving persona analytics", error=str(e))
+        logger.error(f"Error retrieving persona analytics: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve analytics"
@@ -280,14 +280,12 @@ async def generate_content_batch(
                 content = await content_service.generate_content(request)
                 generated_content.append(content)
         
-        logger.info("Batch content generated", 
-                   persona_id=batch_request.persona_id,
-                   total_items=len(generated_content))
+        logger.info(f"Batch content generated {batch_request.persona_id} total_items={len(generated_content}"))
         
         return generated_content
         
     except Exception as e:
-        logger.error("Batch content generation failed", error=str(e))
+        logger.error(f"Batch content generation failed: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Batch content generation failed"
@@ -345,9 +343,7 @@ async def get_content_suggestions(
             
             suggestions.append(suggestion)
         
-        logger.info("Content suggestions generated", 
-                   persona_id=persona_id, 
-                   count=len(suggestions))
+        logger.info(f"Content suggestions generated {persona_id} count={len(suggestions}"))
         
         return {
             "suggestions": suggestions,
@@ -355,7 +351,7 @@ async def get_content_suggestions(
         }
         
     except Exception as e:
-        logger.error("Error generating content suggestions", error=str(e))
+        logger.error(f"Error generating content suggestions: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate content suggestions"
@@ -452,16 +448,14 @@ async def optimize_persona(
             "next_review_date": (datetime.utcnow() + timedelta(days=30)).isoformat()
         }
         
-        logger.info("Persona optimized", 
-                   persona_id=persona_id,
-                   changes_applied=len(changes_applied))
+        logger.info(f"Persona optimized {persona_id} changes_applied={len(changes_applied}"))
         
         return result
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Error optimizing persona", error=str(e))
+        logger.error(f"Error optimizing persona: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to optimize persona"

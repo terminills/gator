@@ -82,7 +82,7 @@ class RSSIngestionService:
             await self.db.commit()
             await self.db.refresh(feed)
             
-            logger.info("RSS feed added", feed_id=feed.id, url=feed.url)
+            logger.info(f"RSS feed added {feed.id}: {feed.url}")
             
             # Perform initial fetch
             await self._fetch_feed_content(feed)
@@ -91,7 +91,7 @@ class RSSIngestionService:
             
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to add RSS feed", error=str(e), url=str(feed_data.url))
+            logger.error(f"Failed to add RSS feed {str(feed_data.url)}: {str(e)}")
             raise ValueError(f"Failed to add RSS feed: {str(e)}")
     
     async def list_feeds(self, active_only: bool = True) -> List[RSSFeedResponse]:
@@ -108,7 +108,7 @@ class RSSIngestionService:
             return [RSSFeedResponse.model_validate(feed) for feed in feeds]
             
         except Exception as e:
-            logger.error("Error listing RSS feeds", error=str(e))
+            logger.error(f"Error listing RSS feeds: {str(e)}")
             return []
     
     async def fetch_all_feeds(self) -> Dict[str, int]:
@@ -134,12 +134,10 @@ class RSSIngestionService:
                     await self.db.commit()
                     
             except Exception as e:
-                logger.error("Error fetching feed", 
-                           feed_id=feed_response.id, 
-                           error=str(e))
+                logger.error(f"Error fetching feed {feed_response.id}: {str(e)"))
                 results[str(feed_response.id)] = 0
         
-        logger.info("Completed feed fetch cycle", results=results)
+        logger.info(f"Completed feed fetch cycle: {results}")
         return results
     
     async def get_trending_topics(self, limit: int = 20, hours: int = 24) -> List[Dict[str, Any]]:
@@ -204,7 +202,7 @@ class RSSIngestionService:
             return trending[:limit]
             
         except Exception as e:
-            logger.error("Error analyzing trending topics", error=str(e))
+            logger.error(f"Error analyzing trending topics: {str(e)"))
             return []
     
     async def get_content_suggestions(self, persona_themes: List[str], limit: int = 10) -> List[FeedItemResponse]:
@@ -258,7 +256,7 @@ class RSSIngestionService:
             return [FeedItemResponse.model_validate(item) for _, item in scored_items[:limit]]
             
         except Exception as e:
-            logger.error("Error getting content suggestions", error=str(e))
+            logger.error(f"Error getting content suggestions: {str(e)"))
             return []
     
     async def _validate_feed_url(self, url: str) -> None:
@@ -278,7 +276,7 @@ class RSSIngestionService:
                 raise ValueError("URL does not contain valid RSS/Atom feed")
             
             if not feed.entries:
-                logger.warning("RSS feed contains no entries", url=url)
+                logger.warning(f"RSS feed contains no entries: {url}")
                 
         except httpx.HTTPError as e:
             raise ValueError(f"Cannot fetch RSS feed: {str(e)}")
@@ -345,16 +343,12 @@ class RSSIngestionService:
             
             if new_items > 0:
                 await self.db.commit()
-                logger.info("Processed feed items", 
-                           feed_id=feed.id, 
-                           new_items=new_items)
+                logger.info(f"Processed feed items {feed.id} new_items={new_items}")
             
             return new_items
             
         except Exception as e:
-            logger.error("Error fetching feed content", 
-                        feed_id=feed.id, 
-                        error=str(e))
+            logger.error(f"Error fetching feed content {feed.id}: {str(e)"))
             return 0
     
     async def _get_feed_item_by_link(self, link: str) -> Optional[FeedItemModel]:
