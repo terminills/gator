@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.config.settings import get_settings
 from backend.config.logging import setup_logging
-from backend.api.routes import public, dns
+from backend.api.routes import public, dns, persona, users, direct_messaging
 
 # Configure logging
 setup_logging()
@@ -85,6 +85,9 @@ def create_app() -> FastAPI:
     # Include API routers
     app.include_router(public.router)
     app.include_router(dns.router, prefix="/api/v1")
+    app.include_router(persona.router)
+    app.include_router(users.router)
+    app.include_router(direct_messaging.router)
     
     @app.get("/", tags=["system"])
     async def root():
