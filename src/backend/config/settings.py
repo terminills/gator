@@ -67,6 +67,14 @@ class Settings(BaseSettings):
         default=None,
         description="OpenAI API key"
     )
+    anthropic_api_key: Optional[str] = Field(
+        default=None,
+        description="Anthropic Claude API key"
+    )
+    elevenlabs_api_key: Optional[str] = Field(
+        default=None,
+        description="ElevenLabs voice synthesis API key"
+    )
     hugging_face_token: Optional[str] = Field(
         default=None,
         description="Hugging Face API token"
