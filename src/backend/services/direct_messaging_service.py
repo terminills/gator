@@ -92,8 +92,8 @@ class DirectMessagingService:
         except Exception as e:
             await self.db.rollback()
             logger.error(f"Unexpected error creating conversation: {str(e)}")
-            raise ValueError(f"Conversation creation failed: {str(e)}")
-    
+            raise ValueError(f"Conversation creation failed: {str(e)}"
+    )
     async def get_conversation(self, conversation_id: uuid.UUID) -> Optional[ConversationResponse]:
         """Get a conversation by ID."""
         try:

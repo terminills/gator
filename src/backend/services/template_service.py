@@ -116,8 +116,8 @@ class PersonaService:
             
         except Exception as e:
             logger.error(f"Failed to create persona: {str(e)}")
-            raise PersonaValidationError(f"Persona creation failed: {str(e)}")
-    
+            raise PersonaValidationError(f"Persona creation failed: {str(e)}"
+    )
     async def get_persona(self, persona_id: str) -> PersonaData:
         """
         Retrieve a persona by ID.

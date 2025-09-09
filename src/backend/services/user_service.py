@@ -63,8 +63,8 @@ class UserService:
         except Exception as e:
             await self.db.rollback()
             logger.error(f"Unexpected error creating user: {str(e)"))
-            raise ValueError(f"User creation failed: {str(e)}")
-    
+            raise ValueError(f"User creation failed: {str(e)}"
+    )
     async def get_user(self, user_id: str) -> Optional[UserResponse]:
         """Get a user by ID."""
         try:

@@ -182,8 +182,8 @@ class ContentGenerationService:
                         "persona_id": request.persona_id,
                         "content_type": request.content_type
             })
-            raise ValueError(f"Content generation failed: {str(e)}")
-    
+            raise ValueError(f"Content generation failed: {str(e)}"
+    )
     async def get_content(self, content_id: UUID) -> Optional[ContentResponse]:
         """Get content record by ID."""
         try:

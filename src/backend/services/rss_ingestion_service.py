@@ -92,8 +92,8 @@ class RSSIngestionService:
         except Exception as e:
             await self.db.rollback()
             logger.error(f"Failed to add RSS feed {str(feed_data.url)}: {str(e)}")
-            raise ValueError(f"Failed to add RSS feed: {str(e)}")
-    
+            raise ValueError(f"Failed to add RSS feed: {str(e)}"
+    )
     async def list_feeds(self, active_only: bool = True) -> List[RSSFeedResponse]:
         """List all RSS feeds."""
         try:
@@ -279,10 +279,10 @@ class RSSIngestionService:
                 logger.warning(f"RSS feed contains no entries: {url}")
                 
         except httpx.HTTPError as e:
-            raise ValueError(f"Cannot fetch RSS feed: {str(e)}")
+            raise ValueError(f"Cannot fetch RSS feed: {str(e)}"
         except Exception as e:
-            raise ValueError(f"Invalid RSS feed: {str(e)}")
-    
+            raise ValueError(f"Invalid RSS feed: {str(e)}"
+    )
     async def _get_feed_by_url(self, url: str) -> Optional[RSSFeedModel]:
         """Check if feed with URL already exists."""
         stmt = select(RSSFeedModel).where(RSSFeedModel.url == url)
