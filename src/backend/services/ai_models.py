@@ -197,7 +197,7 @@ class AIModelManager:
             await self._initialize_video_models()
             
             self.models_loaded = True
-            logger.info(f"AI model initialization complete extra={{"available_models": self.available_models}}")
+            logger.info("AI model initialization complete")
             
         except Exception as e:
             logger.error(f"Failed to initialize AI models: {str(e)}")
@@ -247,7 +247,7 @@ class AIModelManager:
                         
         except Exception as e:
             logger.error(f"Failed to initialize local text models: {str(e)}")
-    )
+    
     async def _initialize_local_image_models(self) -> None:
         """Initialize local image generation models."""
         try:
@@ -284,7 +284,7 @@ class AIModelManager:
                     
         except Exception as e:
             logger.error(f"Failed to initialize local image models: {str(e)}")
-    )
+    
     async def _initialize_local_voice_models(self) -> None:
         """Initialize local voice synthesis models."""
         try:
@@ -316,7 +316,7 @@ class AIModelManager:
                         
         except Exception as e:
             logger.error(f"Failed to initialize local voice models: {str(e)}")
-    )
+    
     async def _check_inference_engine(self, engine: str) -> bool:
         """Check if inference engine is available."""
         try:
@@ -377,7 +377,7 @@ class AIModelManager:
                 
         except Exception as e:
             logger.error(f"Failed to initialize cloud text models: {str(e)}")
-    )
+    
     async def _initialize_cloud_image_models(self) -> None:
         """Initialize cloud-based image generation models."""
         try:
@@ -394,7 +394,7 @@ class AIModelManager:
                 
         except Exception as e:
             logger.error(f"Failed to initialize cloud image models: {str(e)}")
-    )
+    
     async def _initialize_cloud_voice_models(self) -> None:
         """Initialize cloud-based voice synthesis models."""
         try:
@@ -422,7 +422,7 @@ class AIModelManager:
             
         except Exception as e:
             logger.error(f"Failed to initialize cloud voice models: {str(e)}")
-    )
+    
     async def _initialize_video_models(self) -> None:
         """Initialize video generation models."""
         try:
@@ -438,7 +438,7 @@ class AIModelManager:
             
         except Exception as e:
             logger.error(f"Failed to initialize video models: {str(e)}")
-    )
+    
     async def generate_image(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """Generate image from text prompt using best available model."""
         try:
@@ -715,10 +715,21 @@ class AIModelManager:
             raise
     
     async def _generate_image_stable_diffusion(self, prompt: str, **kwargs) -> Dict[str, Any]:
-        """Generate image using Stable Diffusion (placeholder for now)."""
-        # This would use the actual Stable Diffusion pipeline in production
-        # For now, return a placeholder response
-        raise NotImplementedError("Stable Diffusion integration not yet implemented - requires model download")
+        """Generate image using Stable Diffusion (placeholder implementation)."""
+        # Minimal stub implementation for development/testing
+        logger.warning("Using stub Stable Diffusion implementation - no actual image generated")
+        
+        return {
+            "image_url": f"https://via.placeholder.com/1024x1024.png?text=Generated+Image",
+            "prompt": prompt,
+            "model": "stable-diffusion-xl-base-1.0",
+            "width": kwargs.get("width", 1024),
+            "height": kwargs.get("height", 1024),
+            "guidance_scale": kwargs.get("guidance_scale", 7.5),
+            "num_inference_steps": kwargs.get("steps", 20),
+            "seed": kwargs.get("seed"),
+            "stub_implementation": True
+        }
     
     async def _generate_text_openai(self, prompt: str, model: str, **kwargs) -> str:
         """Generate text using OpenAI models."""

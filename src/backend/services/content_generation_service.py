@@ -171,19 +171,14 @@ class ContentGenerationService:
             # Update persona generation count
             await self._increment_persona_count(persona.id)
             
-            logger.info(f"Content generated successfully extra={{
-                       "content_id": content_record.id}")
+            logger.info(f"Content generated successfully content_id={content_record.id}")
             
             return content_record
             
         except Exception as e:
-            logger.error(f"Content generation failed extra={{
-                        "error": str(e)"), 
-                        "persona_id": request.persona_id,
-                        "content_type": request.content_type
-            })
-            raise ValueError(f"Content generation failed: {str(e)}"
-    )
+            logger.error(f"Content generation failed error={str(e)} persona_id={request.persona_id} content_type={request.content_type}")
+            raise ValueError(f"Content generation failed: {str(e)}")
+    
     async def get_content(self, content_id: UUID) -> Optional[ContentResponse]:
         """Get content record by ID."""
         try:
@@ -196,7 +191,7 @@ class ContentGenerationService:
             return None
             
         except Exception as e:
-            logger.error(f"Error retrieving content extra={{"error": str(e)"), "content_id": content_id})
+            logger.error(f"Error retrieving content error={str(e)} content_id={content_id}")
             return None
     
     async def list_persona_content(self, persona_id: UUID, limit: int = 50) -> List[ContentResponse]:
@@ -213,7 +208,7 @@ class ContentGenerationService:
             return [ContentResponse.model_validate(content) for content in contents]
             
         except Exception as e:
-            logger.error(f"Error listing persona content extra={{"error": str(e)"), "persona_id": persona_id})
+            logger.error(f"Error listing persona content error={str(e)} persona_id={persona_id}")
             return []
     
     async def _get_persona(self, persona_id: UUID) -> Optional[PersonaModel]:
@@ -321,7 +316,7 @@ class ContentGenerationService:
                 "file_size": file_path.stat().st_size,
                 "width": 1024,
                 "height": 1024,
-                "format": "PLACEHOLDER",
+                "format": "PNG",
                 "content_rating": request.content_rating.value,
                 "error": str(e),
                 "fallback": True
@@ -450,7 +445,7 @@ class ContentGenerationService:
                 "file_path": str(file_path),
                 "file_size": file_path.stat().st_size,
                 "duration": len(request.prompt.split()) * 0.6,  # Rough estimate
-                "format": "PLACEHOLDER",
+                "format": "WAV",
                 "sample_rate": "44.1kHz",
                 "voice_characteristics": voice_characteristics,
                 "content_rating": request.content_rating.value,
