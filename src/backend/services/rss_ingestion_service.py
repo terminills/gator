@@ -134,7 +134,7 @@ class RSSIngestionService:
                     await self.db.commit()
                     
             except Exception as e:
-                logger.error(f"Error fetching feed {feed_response.id}: {str(e)"))
+                logger.error(f"Error fetching feed {feed_response.id}: {str(e)}")
                 results[str(feed_response.id)] = 0
         
         logger.info(f"Completed feed fetch cycle: {results}")
@@ -202,7 +202,7 @@ class RSSIngestionService:
             return trending[:limit]
             
         except Exception as e:
-            logger.error(f"Error analyzing trending topics: {str(e)"))
+            logger.error(f"Error analyzing trending topics: {str(e)}")
             return []
     
     async def get_content_suggestions(self, persona_themes: List[str], limit: int = 10) -> List[FeedItemResponse]:
@@ -256,7 +256,7 @@ class RSSIngestionService:
             return [FeedItemResponse.model_validate(item) for _, item in scored_items[:limit]]
             
         except Exception as e:
-            logger.error(f"Error getting content suggestions: {str(e)"))
+            logger.error(f"Error getting content suggestions: {str(e)}")
             return []
     
     async def _validate_feed_url(self, url: str) -> None:
@@ -279,10 +279,10 @@ class RSSIngestionService:
                 logger.warning(f"RSS feed contains no entries: {url}")
                 
         except httpx.HTTPError as e:
-            raise ValueError(f"Cannot fetch RSS feed: {str(e)}"
+            raise ValueError(f"Cannot fetch RSS feed: {str(e)}")
         except Exception as e:
-            raise ValueError(f"Invalid RSS feed: {str(e)}"
-    )
+            raise ValueError(f"Invalid RSS feed: {str(e)}")
+    
     async def _get_feed_by_url(self, url: str) -> Optional[RSSFeedModel]:
         """Check if feed with URL already exists."""
         stmt = select(RSSFeedModel).where(RSSFeedModel.url == url)
@@ -348,7 +348,7 @@ class RSSIngestionService:
             return new_items
             
         except Exception as e:
-            logger.error(f"Error fetching feed content {feed.id}: {str(e)"))
+            logger.error(f"Error fetching feed content {feed.id}: {str(e)}")
             return 0
     
     async def _get_feed_item_by_link(self, link: str) -> Optional[FeedItemModel]:

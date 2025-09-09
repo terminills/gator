@@ -59,13 +59,13 @@ async def add_feed(
         return feed
         
     except ValueError as e:
-        logger.warning(f"RSS feed validation error: {str(e)"))
+        logger.warning(f"RSS feed validation error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error(f"RSS feed creation failed: {str(e)"))
+        logger.error(f"RSS feed creation failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to add RSS feed"
@@ -112,7 +112,7 @@ async def fetch_all_feeds(
         return results
         
     except Exception as e:
-        logger.error(f"RSS fetch failed: {str(e)"))
+        logger.error(f"RSS fetch failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Feed fetch failed"
@@ -141,11 +141,11 @@ async def get_trending_topics(
     """
     try:
         topics = await rss_service.get_trending_topics(limit, hours)
-        logger.info(f"Trending topics retrieved count={len(topics}"))
+        logger.info(f"Trending topics retrieved count={len(topics)}")
         return topics
         
     except Exception as e:
-        logger.error(f"Trending topics analysis failed: {str(e)"))
+        logger.error(f"Trending topics analysis failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Trending topics analysis failed"
@@ -178,11 +178,11 @@ async def get_content_suggestions(
         persona_themes = ["technology", "business", "innovation"]  # Placeholder
         
         suggestions = await rss_service.get_content_suggestions(persona_themes, limit)
-        logger.info(f"Content suggestions retrieved {persona_id} count={len(suggestions}"))
+        logger.info(f"Content suggestions retrieved {persona_id} count={len(suggestions)}")
         return suggestions
         
     except Exception as e:
-        logger.error(f"Content suggestions failed: {str(e)"))
+        logger.error(f"Content suggestions failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Content suggestions failed"

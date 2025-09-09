@@ -132,8 +132,7 @@ class SocialMediaService:
             return True
             
         except Exception as e:
-            logger.error(f"Failed to add social media account: {str(e)"), 
-                        platform=account.platform)
+            logger.error(f"Failed to add social media account: {str(e)}")
             return False
     
     async def publish_content(self, request: PostRequest) -> List[PostResponse]:
@@ -172,8 +171,7 @@ class SocialMediaService:
             return responses
             
         except Exception as e:
-            logger.error(f"Failed to publish content: {str(e)"), 
-                        content_id=request.content_id)
+            logger.error(f"Failed to publish content: {str(e)} content_id={request.content_id}")
             
             # Return error responses for all platforms
             return [
@@ -220,7 +218,7 @@ class SocialMediaService:
             return schedule_ids
             
         except Exception as e:
-            logger.error(f"Failed to schedule post: {str(e)"))
+            logger.error(f"Failed to schedule post: {str(e)}")
             return []
     
     async def get_engagement_metrics(self, post_id: str, platform: PlatformType) -> Dict[str, Any]:
@@ -243,9 +241,7 @@ class SocialMediaService:
             return metrics
             
         except Exception as e:
-            logger.error(f"Failed to get engagement metrics: {str(e)"), 
-                        post_id=post_id, 
-                        platform=platform)
+            logger.error(f"Failed to get engagement metrics: {str(e)} post_id={post_id} platform={platform}")
             return {"error": str(e)}
     
     async def _publish_to_platform(
@@ -405,7 +401,7 @@ class SocialMediaService:
             return None
             
         except Exception as e:
-            logger.error(f"Error retrieving content: {str(e)"))
+            logger.error(f"Error retrieving content: {str(e)}")
             return None
     
     async def _get_persona(self, persona_id: UUID) -> Optional[PersonaModel]:
@@ -417,6 +413,6 @@ class SocialMediaService:
             return result.scalar_one_or_none()
             
         except Exception as e:
-            logger.error(f"Error retrieving persona: {str(e)"))
+            logger.error(f"Error retrieving persona: {str(e)}")
             return None
 
