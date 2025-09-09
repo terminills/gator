@@ -12,6 +12,7 @@ from enum import Enum
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import Column, String, DateTime, Boolean, Integer, Text, JSON
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from backend.database.connection import Base
@@ -65,6 +66,9 @@ class PersonaModel(Base):
         onupdate=func.now(),
         nullable=False
     )
+    
+    # Relationships (use string references to avoid circular imports)
+    content = relationship("ContentModel", back_populates="persona", lazy="dynamic")
 
 
 class PersonaCreate(BaseModel):
