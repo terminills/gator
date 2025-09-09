@@ -22,10 +22,13 @@ class GatorAgentService:
     def __init__(self):
         self.conversation_history: List[Dict[str, str]] = []
         
-        # Gator's characteristic phrases and expressions
+        # Gator's characteristic phrases and expressions (authentic movie quotes)
         self.gator_phrases = [
+            "I'm a peacock, you gotta let me fly!",
+            "I'm like a tiny peacock with a big beak",
+            "I'm a lion, and I want to be free like a lion",
             "Listen here",
-            "I'm gonna break it down for you",
+            "I'm gonna break it down for you", 
             "Don't waste my time",
             "Pay attention",
             "You better understand this",
@@ -36,35 +39,42 @@ class GatorAgentService:
             "I ain't playing games"
         ]
         
+        # Gator's confidence and bravado quotes
+        self.gator_confidence = [
+            "I'm a pimp and pimps don't commit suicide",
+            "I'm a peacock, you gotta let me fly!",
+            "I'm a lion, and I want to be free like a lion"
+        ]
+        
         self.gator_responses = {
             "greeting": [
-                "Yeah, what do you need? I ain't got all day.",
-                "Speak up! What's the problem?",
-                "I'm listening. Make it quick.",
+                "Yeah, what do you need? I'm a peacock, you gotta let me fly!",
+                "Speak up! What's the problem? I'm like a tiny peacock with a big beak.",
+                "I'm listening. Make it quick - I'm a lion and I want to be free like a lion.",
                 "What brings you to Gator? Better be important."
             ],
             "help_general": [
-                "Alright, listen up. I'm here to help you navigate this platform, but I don't have patience for stupid questions.",
+                "Alright, listen up. I'm here to help you navigate this platform, but I don't have patience for stupid questions. I'm a peacock, you gotta let me fly!",
                 "I'll walk you through this once. Pay attention because I don't like repeating myself.",
-                "You came to the right gator. I know this system inside and out.",
+                "You came to the right gator. I know this system inside and out - I'm a lion, and I want to be free like a lion.",
                 "What specific help do you need? Don't give me any vague nonsense."
             ],
             "error": [
                 "Hold up - something's not right here. Let me check what's going on.",
-                "That's not supposed to happen. Give me a second to figure this out.",
+                "That's not supposed to happen. I'm a pimp and pimps don't commit suicide - we fix problems!",
                 "Error? I don't like errors. Let me handle this.",
                 "Something's broken. I'm gonna fix it, but this better not happen again."
             ],
             "success": [
-                "There we go. Problem solved. Was that so hard?",
+                "There we go. Problem solved. I'm a peacock, you gotta let me fly!",
                 "Done. Next time, try to figure it out yourself first.",
                 "All fixed. You owe me one.",
-                "That's how it's done. Take notes."
+                "That's how it's done. Take notes - I'm like a tiny peacock with a big beak, but I get results."
             ],
             "goodbye": [
                 "Alright, we're done here. Don't break anything else.",
                 "You're good to go. Try not to mess it up.",
-                "That's all from Gator. Keep it tight.",
+                "That's all from Gator. Keep it tight - I'm a lion, and I want to be free like a lion.",
                 "Peace out. Call me if you need real help."
             ]
         }
@@ -144,7 +154,8 @@ class GatorAgentService:
         
         # Default response with some attitude
         gator_start = random.choice(self.gator_phrases)
-        return f"{gator_start}, I'm not sure what you're asking about. Be more specific - what do you need help with? Personas? Content? DNS? System status? Give me something to work with here."
+        confidence_quote = random.choice(self.gator_confidence)
+        return f"{gator_start}, I'm not sure what you're asking about. Be more specific - what do you need help with? Personas? Content? DNS? System status? {confidence_quote} - now give me something to work with here."
     
     async def _handle_help_request(self, message: str, context: Optional[Dict] = None) -> str:
         """Handle help requests with specific guidance."""
@@ -213,7 +224,8 @@ class GatorAgentService:
         else:
             advice = "First, check the system status in the dashboard. Most problems show up there. If it's green, the problem might be on your end."
         
-        return f"{gator_start} {advice} And next time, give me more details about what exactly went wrong."
+        confidence_quote = random.choice(self.gator_confidence)
+        return f"{gator_start} {advice} {confidence_quote} - and next time, give me more details about what exactly went wrong."
     
     def get_conversation_history(self) -> List[Dict[str, str]]:
         """Get the conversation history."""

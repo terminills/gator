@@ -29,9 +29,9 @@ class TestGatorAgentService:
         assert len(response) > 0
         # Should be one of Gator's greeting responses
         expected_responses = [
-            "Yeah, what do you need? I ain't got all day.",
-            "Speak up! What's the problem?", 
-            "I'm listening. Make it quick.",
+            "Yeah, what do you need? I'm a peacock, you gotta let me fly!",
+            "Speak up! What's the problem? I'm like a tiny peacock with a big beak.",
+            "I'm listening. Make it quick - I'm a lion and I want to be free like a lion.",
             "What brings you to Gator? Better be important."
         ]
         assert any(expected in response for expected in expected_responses)
@@ -72,7 +72,8 @@ class TestGatorAgentService:
             "Alright, we're done here",
             "You're good to go", 
             "That's all from Gator",
-            "Peace out"
+            "Peace out",
+            "I'm a lion, and I want to be free like a lion"
         ]
         assert any(expected in response for expected in expected_responses)
 
@@ -122,7 +123,8 @@ class TestGatorAgentService:
         
         attitude_phrases = [
             "listen", "don't", "ain't", "better", "gator", 
-            "pay attention", "make it", "gonna", "alright"
+            "pay attention", "make it", "gonna", "alright",
+            "peacock", "lion", "pimp"
         ]
         
         attitude_count = 0
@@ -229,7 +231,7 @@ class TestGatorPersonality:
         # Should be direct and to the point
         attitude_indicators = [
             "listen", "don't", "ain't", "gonna", "pay attention",
-            "make it", "better", "specific"
+            "make it", "better", "specific", "peacock", "lion"
         ]
         
         assert any(indicator in response.lower() for indicator in attitude_indicators)
@@ -242,7 +244,7 @@ class TestGatorPersonality:
         # Should be tough but still provide help
         assert "persona" in response.lower()
         assert any(tough_word in response.lower() for tough_word in [
-            "listen", "don't", "ain't", "better"
+            "listen", "don't", "ain't", "better", "peacock", "lion"
         ])
 
     def test_gator_phrases_variety(self, agent):
@@ -252,3 +254,33 @@ class TestGatorPersonality:
         assert len(phrases) >= 5
         assert all(isinstance(phrase, str) for phrase in phrases)
         assert len(set(phrases)) == len(phrases)  # No duplicates
+        
+    def test_authentic_gator_quotes_included(self, agent):
+        """Test that authentic movie quotes are included."""
+        authentic_quotes = [
+            "I'm a peacock, you gotta let me fly!",
+            "I'm like a tiny peacock with a big beak",
+            "I'm a lion, and I want to be free like a lion"
+        ]
+        
+        all_phrases = agent.gator_phrases + agent.gator_confidence
+        
+        for quote in authentic_quotes:
+            assert quote in all_phrases, f"Missing authentic quote: {quote}"
+            
+    @pytest.mark.asyncio
+    async def test_confidence_quotes_in_responses(self, agent):
+        """Test that confidence quotes appear in responses."""
+        # Test multiple times to increase chance of getting confidence quotes
+        responses = []
+        for _ in range(10):
+            response = await agent.process_message("I don't understand")
+            responses.append(response.lower())
+        
+        confidence_indicators = ["peacock", "lion", "pimp"]
+        quote_found = any(
+            any(indicator in response for indicator in confidence_indicators)
+            for response in responses
+        )
+        
+        assert quote_found, "Confidence quotes should appear in some responses"
