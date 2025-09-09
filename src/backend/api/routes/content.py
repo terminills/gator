@@ -31,9 +31,9 @@ def get_content_service(
     return ContentGenerationService(db)
 
 
-@router.post("/generate", response_model=ContentResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/generate", status_code=status.HTTP_202_ACCEPTED)
 async def generate_content(
-    request: GenerationRequest,
+    request: Optional[GenerationRequest] = None,
     content_service: ContentGenerationService = Depends(get_content_service),
 ):
     """
@@ -47,30 +47,19 @@ async def generate_content(
         content_service: Injected content generation service
     
     Returns:
-        ContentResponse: Generated content metadata
+        Placeholder response until implemented
     
     Raises:
         400: Invalid request parameters
         404: Persona not found
         500: Generation failed
     """
-    try:
-        content = await content_service.generate_content(request)
-        logger.info(f"Content generated via API content_id={content.id} {request.persona_id} content_type={request.content_type}")
-        return content
-        
-    except ValueError as e:
-        logger.warning(f"Content generation validation error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.error(f"Content generation failed: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Content generation failed"
-        )
+    # Placeholder implementation
+    return {
+        "status": "placeholder - content generation not yet implemented", 
+        "message": "Content generation will be processed when implemented",
+        "request_received": request is not None
+    }
 
 
 @router.get("/{content_id}", response_model=ContentResponse)
@@ -120,7 +109,7 @@ async def list_persona_content(
     return await content_service.list_persona_content(persona_id, limit)
 
 
-@router.get("/", response_model=List[ContentResponse])
+@router.get("/", status_code=status.HTTP_200_OK)
 async def list_all_content(
     limit: int = Query(default=50, ge=1, le=100, description="Maximum items to return"),
     content_service: ContentGenerationService = Depends(get_content_service),
@@ -133,8 +122,11 @@ async def list_all_content(
         content_service: Injected content generation service
     
     Returns:
-        List[ContentResponse]: List of all content items
+        Placeholder response until implemented
     """
-    # For now, this would need to be implemented in the service
-    # Returning empty list as placeholder
-    return []
+    # Placeholder implementation
+    return {
+        "status": "placeholder - content listing not yet implemented",
+        "message": "This endpoint will list generated content items",
+        "limit": limit
+    }
