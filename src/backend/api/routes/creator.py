@@ -280,7 +280,7 @@ async def generate_content_batch(
                 content = await content_service.generate_content(request)
                 generated_content.append(content)
         
-        logger.info(f"Batch content generated {batch_request.persona_id} total_items={len(generated_content}")
+        logger.info(f"Batch content generated {batch_request.persona_id} total_items={len(generated_content)}")
         
         return generated_content
         
@@ -343,7 +343,7 @@ async def get_content_suggestions(
             
             suggestions.append(suggestion)
         
-        logger.info(f"Content suggestions generated {persona_id} count={len(suggestions}")
+        logger.info(f"Content suggestions generated {persona_id} count={len(suggestions)}")
         
         return {
             "suggestions": suggestions,
@@ -448,7 +448,7 @@ async def optimize_persona(
             "next_review_date": (datetime.utcnow() + timedelta(days=30)).isoformat()
         }
         
-        logger.info(f"Persona optimized {persona_id} changes_applied={len(changes_applied}")
+        logger.info(f"Persona optimized {persona_id} changes_applied={len(changes_applied)}")
         
         return result
         

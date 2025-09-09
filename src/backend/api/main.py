@@ -10,15 +10,22 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import uvicorn
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.database.connection import get_db_session
 
 from backend.config.settings import get_settings
 from backend.config.logging import setup_logging
-from backend.api.routes import public, dns, persona, users, direct_messaging, gator_agent
+from backend.api.routes import (
+    public, dns, persona, users, direct_messaging, gator_agent,
+    analytics, content, creator, feeds, social
+)
 
 # Configure logging
 setup_logging()
@@ -89,6 +96,11 @@ def create_app() -> FastAPI:
     app.include_router(users.router)
     app.include_router(direct_messaging.router)
     app.include_router(gator_agent.router, prefix="/api/v1")
+    app.include_router(analytics.router)
+    app.include_router(content.router)
+    app.include_router(creator.router)
+    app.include_router(feeds.router)
+    app.include_router(social.router)
     
     @app.get("/", tags=["system"])
     async def root(request: Request):
@@ -142,11 +154,26 @@ def create_app() -> FastAPI:
         return {"error": "Persona page not found"}
     
     @app.get("/health", tags=["system"])
-    async def health_check():
+    async def health_check(db: AsyncSession = Depends(get_db_session)):
         """Health check endpoint for monitoring."""
+        from datetime import datetime, timezone
+        
+        # Basic database connectivity check
+        database_status = "unknown"
+        try:
+            # Simple query to check database connectivity
+            result = await db.execute(text("SELECT 1"))
+            if result.scalar() == 1:
+                database_status = "healthy"
+            else:
+                database_status = "unhealthy"
+        except Exception:
+            database_status = "unhealthy"
+        
         return {
             "status": "healthy",
-            "timestamp": "2024-01-01T00:00:00Z"  # TODO: Use actual timestamp
+            "database": database_status,
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
     
     @app.exception_handler(404)

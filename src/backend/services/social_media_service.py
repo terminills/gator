@@ -171,8 +171,7 @@ class SocialMediaService:
             return responses
             
         except Exception as e:
-            logger.error(f"Failed to publish content: {str(e)}"), 
-                        content_id=request.content_id)
+            logger.error(f"Failed to publish content: {str(e)} content_id={request.content_id}")
             
             # Return error responses for all platforms
             return [
@@ -242,9 +241,7 @@ class SocialMediaService:
             return metrics
             
         except Exception as e:
-            logger.error(f"Failed to get engagement metrics: {str(e)}"), 
-                        post_id=post_id, 
-                        platform=platform)
+            logger.error(f"Failed to get engagement metrics: {str(e)} post_id={post_id} platform={platform}")
             return {"error": str(e)}
     
     async def _publish_to_platform(

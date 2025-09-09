@@ -178,7 +178,7 @@ async def get_content_suggestions(
         persona_themes = ["technology", "business", "innovation"]  # Placeholder
         
         suggestions = await rss_service.get_content_suggestions(persona_themes, limit)
-        logger.info(f"Content suggestions retrieved {persona_id} count={len(suggestions}")
+        logger.info(f"Content suggestions retrieved {persona_id} count={len(suggestions)}")
         return suggestions
         
     except Exception as e:
