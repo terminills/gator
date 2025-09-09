@@ -197,9 +197,7 @@ class AIModelManager:
             await self._initialize_video_models()
             
             self.models_loaded = True
-            logger.info("AI model initialization complete", extra={
-                "available_models": self.available_models
-            })
+            logger.info(f"AI model initialization complete extra={{"available_models": self.available_models}}")
             
         except Exception as e:
             logger.error(f"Failed to initialize AI models: {str(e)}")
@@ -249,7 +247,7 @@ class AIModelManager:
                         
         except Exception as e:
             logger.error(f"Failed to initialize local text models: {str(e)}")
-    
+    )
     async def _initialize_local_image_models(self) -> None:
         """Initialize local image generation models."""
         try:
@@ -286,7 +284,7 @@ class AIModelManager:
                     
         except Exception as e:
             logger.error(f"Failed to initialize local image models: {str(e)}")
-    
+    )
     async def _initialize_local_voice_models(self) -> None:
         """Initialize local voice synthesis models."""
         try:
@@ -318,7 +316,7 @@ class AIModelManager:
                         
         except Exception as e:
             logger.error(f"Failed to initialize local voice models: {str(e)}")
-    
+    )
     async def _check_inference_engine(self, engine: str) -> bool:
         """Check if inference engine is available."""
         try:
@@ -379,6 +377,7 @@ class AIModelManager:
                 
         except Exception as e:
             logger.error(f"Failed to initialize cloud text models: {str(e)}")
+    )
     async def _initialize_cloud_image_models(self) -> None:
         """Initialize cloud-based image generation models."""
         try:
@@ -395,6 +394,7 @@ class AIModelManager:
                 
         except Exception as e:
             logger.error(f"Failed to initialize cloud image models: {str(e)}")
+    )
     async def _initialize_cloud_voice_models(self) -> None:
         """Initialize cloud-based voice synthesis models."""
         try:
@@ -422,6 +422,7 @@ class AIModelManager:
             
         except Exception as e:
             logger.error(f"Failed to initialize cloud voice models: {str(e)}")
+    )
     async def _initialize_video_models(self) -> None:
         """Initialize video generation models."""
         try:
@@ -437,6 +438,7 @@ class AIModelManager:
             
         except Exception as e:
             logger.error(f"Failed to initialize video models: {str(e)}")
+    )
     async def generate_image(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """Generate image from text prompt using best available model."""
         try:

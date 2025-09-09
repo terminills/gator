@@ -68,7 +68,7 @@ class PersonaModel(Base):
     )
     
     # Relationships (use string references to avoid circular imports)
-    contents = relationship("ContentModel", back_populates="persona", lazy="dynamic")
+    content = relationship("ContentModel", back_populates="persona", lazy="dynamic")
 
 
 class PersonaCreate(BaseModel):
