@@ -14,8 +14,10 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from backend.database.connection import database_manager, Base
 from backend.models.persona import PersonaModel
-from backend.models.content import ContentModel
-from backend.models.feed import RSSFeedModel, FeedItemModel
+from backend.models.user import UserModel
+from backend.models.conversation import ConversationModel
+from backend.models.message import MessageModel
+from backend.models.ppv_offer import PPVOfferModel
 from backend.config.logging import setup_logging, get_logger
 
 # Setup logging
@@ -38,9 +40,10 @@ async def create_tables():
         print("✅ Database tables created successfully!")
         print("   Tables:")
         print("   • personas - AI persona configurations")
-        print("   • generated_content - Generated content tracking") 
-        print("   • rss_feeds - RSS feed sources")
-        print("   • feed_items - RSS feed item data")
+        print("   • users - User accounts and authentication") 
+        print("   • conversations - Conversation threads")
+        print("   • messages - Individual messages")
+        print("   • ppv_offers - Pay-per-view offer management")
         
         # Disconnect
         await database_manager.disconnect()

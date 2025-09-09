@@ -44,12 +44,18 @@ async def demo_persona_management():
             appearance="Professional woman in her 30s with short dark hair, wearing modern business attire. Confident posture and intelligent eyes behind stylish glasses.",
             personality="Innovative, analytical, forward-thinking tech leader. Passionate about AI and emerging technologies. Clear communicator who makes complex topics accessible.",
             content_themes=["artificial intelligence", "technology trends", "innovation", "startup culture", "digital transformation"],
-            style_preferences=["professional", "modern", "clean", "high-tech", "minimalist"]
+            style_preferences={
+                "aesthetic": "professional",
+                "color_scheme": "modern", 
+                "design_style": "clean",
+                "tech_level": "high-tech",
+                "layout": "minimalist"
+            }
         )
         
         try:
             persona = await service.create_persona(persona_data)
-            print(f"✅ Created persona: {persona.name} (ID: {persona.id[:8]}...)")
+            print(f"✅ Created persona: {persona.name} (ID: {str(persona.id)[:8]}...)")
             print(f"   Themes: {', '.join(persona.content_themes)}")
             print(f"   Style: {', '.join(persona.style_preferences)}")
             
@@ -68,15 +74,14 @@ async def demo_persona_management():
             updates = PersonaUpdate(
                 content_themes=persona.content_themes + ["machine learning", "data science"]
             )
-            updated = await service.update_persona(persona.id, updates)
-            if updated:
-                print(f"✅ Updated themes: {', '.join(updated.content_themes)}")
+            updated = await service.update_persona(str(persona.id), updates)
+            print(f"✅ Updated themes: {', '.join(updated.content_themes)}")
             
             # Demonstrate generation count increment
             print(f"\n📈 Simulating content generation...")
-            await service.increment_generation_count(persona.id)
-            await service.increment_generation_count(persona.id)
-            updated_persona = await service.get_persona(persona.id)
+            await service.increment_generation_count(str(persona.id))
+            await service.increment_generation_count(str(persona.id))
+            updated_persona = await service.get_persona(str(persona.id))
             if updated_persona:
                 print(f"✅ Generation count updated: {updated_persona.generation_count}")
             
@@ -88,6 +93,7 @@ async def demo_persona_management():
             
         except Exception as e:
             print(f"❌ Error during demo: {e}")
+            logger.error(f"Demo failed: {e}")
             return False
     
     # Disconnect from database
@@ -143,7 +149,7 @@ async def main():
         print(f"   Next: Implement content generation pipeline")
         
     except Exception as e:
-        logger.error("Demo failed", error=str(e))
+        logger.error(f"Demo failed: {e}")
         print(f"❌ Demo failed: {e}")
         sys.exit(1)
 
