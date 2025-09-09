@@ -47,19 +47,46 @@ async def generate_content(
         content_service: Injected content generation service
     
     Returns:
-        Placeholder response until implemented
+        Content generation status and details
     
     Raises:
         400: Invalid request parameters
         404: Persona not found
         500: Generation failed
     """
-    # Placeholder implementation
-    return {
-        "status": "placeholder - content generation not yet implemented", 
-        "message": "Content generation will be processed when implemented",
-        "request_received": request is not None
-    }
+    try:
+        if not request:
+            # Provide a default generation request
+            from backend.models.content import GenerationRequest, ContentType
+            request = GenerationRequest(
+                content_type=ContentType.IMAGE,
+                prompt="AI generated content placeholder",
+                persona_id=None  # Will use default persona or create one
+            )
+        
+        # Generate content using the service
+        result = await content_service.generate_content(request)
+        
+        return {
+            "status": "accepted",
+            "message": "Content generation started",
+            "content_id": str(result.id) if result else None,
+            "generation_type": request.content_type,
+            "prompt": request.prompt[:100] + "..." if len(request.prompt) > 100 else request.prompt
+        }
+        
+    except ValueError as e:
+        logger.warning(f"Invalid content generation request: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Content generation failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Content generation failed"
+        )
 
 
 @router.get("/{content_id}", response_model=ContentResponse)
@@ -122,11 +149,22 @@ async def list_all_content(
         content_service: Injected content generation service
     
     Returns:
-        Placeholder response until implemented
+        List of generated content items
     """
-    # Placeholder implementation
-    return {
-        "status": "placeholder - content listing not yet implemented",
-        "message": "This endpoint will list generated content items",
-        "limit": limit
-    }
+    try:
+        # Get content from service
+        content_list = await content_service.list_all_content(limit=limit)
+        
+        return {
+            "status": "success",
+            "content": [content.model_dump() for content in content_list] if content_list else [],
+            "count": len(content_list) if content_list else 0,
+            "limit": limit
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to list content: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve content list"
+        )
