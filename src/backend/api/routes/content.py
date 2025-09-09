@@ -11,8 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.connection import get_db_session
-from backend.services.content_generation_service import ContentGenerationService, GenerationRequest
-from backend.models.content import ContentResponse, ContentCreate
+from backend.services.content_generation_service import ContentGenerationService
+from backend.models.content import ContentResponse, ContentCreate, GenerationRequest
 from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
