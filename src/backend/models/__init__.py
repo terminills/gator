@@ -9,6 +9,11 @@ from .user import UserModel, UserCreate, UserResponse, UserUpdate
 from .conversation import ConversationModel, ConversationCreate, ConversationResponse
 from .message import MessageModel, MessageCreate, MessageResponse
 from .ppv_offer import PPVOfferModel, PPVOfferCreate, PPVOfferResponse
+from .content import (
+    ContentModel, ContentCreate, ContentResponse, ContentUpdate,
+    GenerationRequest, ContentListResponse, ContentStats,
+    ContentType, ContentRating, ModerationStatus
+)
 
 __all__ = [
     "PersonaModel",
@@ -28,4 +33,15 @@ __all__ = [
     "PPVOfferModel",
     "PPVOfferCreate",
     "PPVOfferResponse",
+    # Content models
+    "ContentModel",
+    "ContentCreate", 
+    "ContentResponse",
+    "ContentUpdate",
+    "GenerationRequest",
+    "ContentListResponse", 
+    "ContentStats",
+    "ContentType",
+    "ContentRating",
+    "ModerationStatus",
 ]

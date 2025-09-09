@@ -67,8 +67,8 @@ class PersonaModel(Base):
         nullable=False
     )
     
-    # Relationships (commented out until ContentModel is implemented)
-    # content = relationship("ContentModel", back_populates="persona", lazy="dynamic")
+    # Relationships
+    content = relationship("ContentModel", back_populates="persona", lazy="dynamic")
 
 
 class PersonaCreate(BaseModel):
