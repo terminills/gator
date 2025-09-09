@@ -24,7 +24,8 @@ from backend.config.settings import get_settings
 from backend.config.logging import setup_logging
 from backend.api.routes import (
     public, dns, persona, users, direct_messaging, gator_agent,
-    analytics, content, creator, feeds, social
+    analytics
+    # , content, creator, feeds, social  # Commented out until models are implemented
 )
 
 # Configure logging
@@ -97,10 +98,10 @@ def create_app() -> FastAPI:
     app.include_router(direct_messaging.router)
     app.include_router(gator_agent.router, prefix="/api/v1")
     app.include_router(analytics.router)
-    app.include_router(content.router)
-    app.include_router(creator.router)
-    app.include_router(feeds.router)
-    app.include_router(social.router)
+    # app.include_router(content.router)  # Commented out until models are implemented
+    # app.include_router(creator.router)  # Commented out until models are implemented
+    # app.include_router(feeds.router)    # Commented out until models are implemented
+    # app.include_router(social.router)   # Commented out until models are implemented
     
     @app.get("/", tags=["system"])
     async def root(request: Request):
