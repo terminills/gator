@@ -177,8 +177,8 @@ class ContentGenerationService:
             
         except Exception as e:
             logger.error(f"Content generation failed error={str(e)} persona_id={request.persona_id} content_type={request.content_type}")
-            raise ValueError(f"Content generation failed: {str(e)}")
-    
+            raise ValueError(f"Content generation failed: {str(e)}"
+    )
     async def get_content(self, content_id: UUID) -> Optional[ContentResponse]:
         """Get content record by ID."""
         try:
@@ -316,7 +316,7 @@ class ContentGenerationService:
                 "file_size": file_path.stat().st_size,
                 "width": 1024,
                 "height": 1024,
-                "format": "PNG",
+                "format": "txt",
                 "content_rating": request.content_rating.value,
                 "error": str(e),
                 "fallback": True
@@ -445,7 +445,7 @@ class ContentGenerationService:
                 "file_path": str(file_path),
                 "file_size": file_path.stat().st_size,
                 "duration": len(request.prompt.split()) * 0.6,  # Rough estimate
-                "format": "WAV",
+                "format": "wav",
                 "sample_rate": "44.1kHz",
                 "voice_characteristics": voice_characteristics,
                 "content_rating": request.content_rating.value,

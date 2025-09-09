@@ -715,21 +715,10 @@ class AIModelManager:
             raise
     
     async def _generate_image_stable_diffusion(self, prompt: str, **kwargs) -> Dict[str, Any]:
-        """Generate image using Stable Diffusion (placeholder implementation)."""
-        # Minimal stub implementation for development/testing
-        logger.warning("Using stub Stable Diffusion implementation - no actual image generated")
-        
-        return {
-            "image_url": f"https://via.placeholder.com/1024x1024.png?text=Generated+Image",
-            "prompt": prompt,
-            "model": "stable-diffusion-xl-base-1.0",
-            "width": kwargs.get("width", 1024),
-            "height": kwargs.get("height", 1024),
-            "guidance_scale": kwargs.get("guidance_scale", 7.5),
-            "num_inference_steps": kwargs.get("steps", 20),
-            "seed": kwargs.get("seed"),
-            "stub_implementation": True
-        }
+        """Generate image using Stable Diffusion (placeholder for now)."""
+        # This would use the actual Stable Diffusion pipeline in production
+        # For now, return a placeholder response
+        return {"error": "NotImplementedError: Stable Diffusion integration not yet implemented - requires model download"}
     
     async def _generate_text_openai(self, prompt: str, model: str, **kwargs) -> str:
         """Generate text using OpenAI models."""

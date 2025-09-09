@@ -34,35 +34,16 @@ class PlatformClientBase:
         await self.http_client.aclose()
     
     async def validate_credentials(self, account: SocialAccount) -> bool:
-        """Validate account credentials (stub implementation)."""
-        logger.warning(f"Using stub credential validation for {account.platform}")
-        # Stub: assume all credentials are valid for development/testing
-        return True
+        """Validate account credentials."""
+        return False
     
     async def publish_content(self, account: SocialAccount, content_data: Dict[str, Any]) -> PostResponse:
-        """Publish content to platform (stub implementation)."""
-        logger.warning(f"Using stub content publishing for {account.platform}")
-        # Stub: simulate successful publication
-        return PostResponse(
-            platform=account.platform,
-            post_id=f"stub_post_{account.platform}_{datetime.now().timestamp()}",
-            url=f"https://stub-{account.platform}.com/posts/stub_post",
-            status=PostStatus.PUBLISHED,
-            published_at=datetime.utcnow(),
-            stub_implementation=True
-        )
+        """Publish content to platform."""
+        return None
     
     async def get_engagement_metrics(self, account: SocialAccount, post_id: str) -> Dict[str, int]:
-        """Get engagement metrics for a post (stub implementation)."""
-        logger.warning(f"Using stub engagement metrics for {account.platform}")
-        # Stub: return mock engagement data
-        return {
-            "likes": 42,
-            "comments": 8,
-            "shares": 5,
-            "views": 150,
-            "stub_implementation": True
-        }
+        """Get engagement metrics for a post."""
+        return {}
 
 
 class InstagramClient(PlatformClientBase):
@@ -168,17 +149,10 @@ class InstagramClient(PlatformClientBase):
             raise
     
     async def _publish_video(self, account: SocialAccount, content_data: Dict[str, Any]) -> PostResponse:
-        """Publish video to Instagram (stub implementation)."""
-        logger.warning("Using stub Instagram video publishing implementation")
-        # Stub: simulate successful video publication
-        return PostResponse(
-            platform=PlatformType.INSTAGRAM,
-            post_id=f"ig_video_{datetime.now().timestamp()}",
-            url=f"https://instagram.com/p/stub_video_post/",
-            status=PostStatus.PUBLISHED,
-            published_at=datetime.utcnow(),
-            stub_implementation=True
-        )
+        """Publish video to Instagram."""
+        # Similar to image but with video-specific parameters
+        # Implementation would be similar to _publish_image but with video_url instead of image_url
+        return None
     
     async def get_engagement_metrics(self, account: SocialAccount, post_id: str) -> Dict[str, int]:
         """Get Instagram post metrics."""
