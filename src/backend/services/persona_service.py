@@ -90,7 +90,16 @@ class PersonaService:
             PersonaResponse: The requested persona, or None if not found
         """
         try:
-            stmt = select(PersonaModel).where(PersonaModel.id == persona_id)
+            # Convert string to UUID 
+            import uuid
+            try:
+                uuid_id = uuid.UUID(persona_id)
+            except ValueError:
+                # Invalid UUID format
+                logger.debug(f"Invalid UUID format for persona_id: {persona_id}")
+                return None
+                
+            stmt = select(PersonaModel).where(PersonaModel.id == uuid_id)
             result = await self.db.execute(stmt)
             db_persona = result.scalar_one_or_none()
             
@@ -185,9 +194,11 @@ class PersonaService:
             update_data['updated_at'] = datetime.now(timezone.utc)
             
             # Perform update
+            import uuid
+            uuid_id = uuid.UUID(persona_id)
             stmt = (
                 update(PersonaModel)
-                .where(PersonaModel.id == persona_id)
+                .where(PersonaModel.id == uuid_id)
                 .values(**update_data)
             )
             
@@ -226,9 +237,11 @@ class PersonaService:
                 return False
             
             # Soft delete by marking inactive
+            import uuid
+            uuid_id = uuid.UUID(persona_id)
             stmt = (
                 update(PersonaModel)
-                .where(PersonaModel.id == persona_id)
+                .where(PersonaModel.id == uuid_id)
                 .values(
                     is_active=False,
                     updated_at=datetime.now(timezone.utc)
