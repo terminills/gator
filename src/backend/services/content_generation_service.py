@@ -199,6 +199,7 @@ class ContentGenerationService:
         try:
             stmt = (select(ContentModel)
                    .where(ContentModel.persona_id == persona_id)
+                   .where(ContentModel.is_deleted == False)
                    .order_by(ContentModel.created_at.desc())
                    .limit(limit))
             
@@ -209,6 +210,24 @@ class ContentGenerationService:
             
         except Exception as e:
             logger.error(f"Error listing persona content error={str(e)} persona_id={persona_id}")
+            return []
+    
+    async def list_all_content(self, limit: int = 50, offset: int = 0) -> List[ContentResponse]:
+        """List all generated content across all personas."""
+        try:
+            stmt = (select(ContentModel)
+                   .where(ContentModel.is_deleted == False)
+                   .order_by(ContentModel.created_at.desc())
+                   .limit(limit)
+                   .offset(offset))
+            
+            result = await self.db.execute(stmt)
+            contents = result.scalars().all()
+            
+            return [ContentResponse.model_validate(content) for content in contents]
+            
+        except Exception as e:
+            logger.error(f"Error listing all content error={str(e)}")
             return []
     
     async def _get_persona(self, persona_id: UUID) -> Optional[PersonaModel]:
@@ -254,10 +273,15 @@ class ContentGenerationService:
     
     async def _validate_content_rating(self, persona: PersonaModel, requested_rating: ContentRating) -> bool:
         """Validate that the requested content rating is allowed for this persona."""
+        # Get allowed ratings from persona, default to ['sfw'] if empty
         allowed_ratings = getattr(persona, 'allowed_content_ratings', ['sfw'])
+        if not allowed_ratings:  # If empty list, default to sfw
+            allowed_ratings = ['sfw']
+        
         if isinstance(allowed_ratings, str):
             allowed_ratings = [allowed_ratings]
         
+        # Check if requested rating is allowed
         return requested_rating.value in [r.lower() for r in allowed_ratings]
     
     async def _generate_image(self, persona: PersonaModel, request: GenerationRequest) -> Dict[str, Any]:

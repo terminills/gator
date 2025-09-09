@@ -24,8 +24,8 @@ from backend.config.settings import get_settings
 from backend.config.logging import setup_logging
 from backend.api.routes import (
     public, dns, persona, users, direct_messaging, gator_agent,
-    analytics
-    # , content, creator, feeds, social  # Commented out until models are implemented
+    analytics, content
+    # , creator, feeds, social  # Still commented out until other models are implemented
 )
 
 # Configure logging
@@ -43,13 +43,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Handles startup and shutdown tasks including database connections,
     AI model loading, and resource cleanup.
     """
-    # Startup - for now just log startup
+    # Startup
     print("Starting up Gator AI Platform...")
+    
+    # Initialize database connection
+    from backend.database.connection import database_manager
+    await database_manager.connect()
+    print("Database connection established.")
     
     yield
     
     # Shutdown
     print("Shutting down Gator AI Platform...")
+    # Disconnect from database
+    await database_manager.disconnect()
+    print("Database connection closed.")
 
 
 def create_app() -> FastAPI:
@@ -98,7 +106,7 @@ def create_app() -> FastAPI:
     app.include_router(direct_messaging.router)
     app.include_router(gator_agent.router, prefix="/api/v1")
     app.include_router(analytics.router)
-    # app.include_router(content.router)  # Commented out until models are implemented
+    app.include_router(content.router)  # Now enabled with content models
     # app.include_router(creator.router)  # Commented out until models are implemented
     # app.include_router(feeds.router)    # Commented out until models are implemented
     # app.include_router(social.router)   # Commented out until models are implemented
