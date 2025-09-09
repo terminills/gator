@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.config.settings import get_settings
 from backend.config.logging import setup_logging
-from backend.api.routes import public, dns, persona, users, direct_messaging
+from backend.api.routes import public, dns, persona, users, direct_messaging, gator_agent
 
 # Configure logging
 setup_logging()
@@ -53,7 +53,7 @@ def create_app() -> FastAPI:
     """
     app = FastAPI(
         title="Gator AI Influencer Platform",
-        description="Private hosting solution for AI-driven content generation",
+        description="Gator don't play no shit - AI-powered content generation platform",
         version="0.1.0",
         docs_url="/docs" if settings.debug else None,
         redoc_url="/redoc" if settings.debug else None,
@@ -88,6 +88,7 @@ def create_app() -> FastAPI:
     app.include_router(persona.router)
     app.include_router(users.router)
     app.include_router(direct_messaging.router)
+    app.include_router(gator_agent.router, prefix="/api/v1")
     
     @app.get("/", tags=["system"])
     async def root():
@@ -96,10 +97,18 @@ def create_app() -> FastAPI:
         if os.path.exists(index_path):
             return FileResponse(index_path)
         return {
-            "message": "Gator AI Influencer Platform",
+            "message": "Gator don't play no shit",
             "version": "0.1.0", 
             "status": "operational"
         }
+    
+    @app.get("/admin", tags=["system"])
+    async def admin_dashboard():
+        """Serve admin dashboard."""
+        admin_path = os.path.join(project_root, "admin.html")
+        if os.path.exists(admin_path):
+            return FileResponse(admin_path)
+        return {"error": "Admin dashboard not found"}
     
     @app.get("/gallery", tags=["public"])
     async def public_gallery():

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gator"
 version = "0.1.0"
-description = "AI Influencer Platform - Private hosting solution for AI-driven content generation"
+description = "Gator don't play no shit - AI-powered content generation platform"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {file = "LICENSE"}
