@@ -401,6 +401,17 @@ sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e .
 # Install development dependencies for production builds
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install gunicorn uvicorn[standard] supervisor
 
+# Setup AI models and dependencies
+log "🤖 Setting up AI models..."
+cd $GATOR_HOME/app
+if [[ $INSTALL_GPU_SUPPORT == true ]]; then
+    # Run AI model setup with GPU support
+    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/python setup_ai_models.py --models-dir $GATOR_HOME/data/models --types text image || warn "AI model setup failed - will use API-based models"
+else
+    # Run AI model setup without GPU-intensive models
+    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/python setup_ai_models.py --models-dir $GATOR_HOME/data/models --types text --no-install || warn "AI model setup failed - will use API-based models"
+fi
+
 # Create environment file
 log "⚙️ Creating environment configuration..."
 if [[ ! -f "$GATOR_HOME/app/.env" ]]; then

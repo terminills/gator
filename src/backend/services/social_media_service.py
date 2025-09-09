@@ -94,13 +94,16 @@ class SocialMediaService:
         self.accounts: Dict[str, SocialAccount] = {}
         self.http_client = httpx.AsyncClient(timeout=30.0)
         
-        # Platform-specific clients (would be implemented for each platform)
+        # Import platform clients
+        from backend.services.social_media_clients import create_platform_client
+        
+        # Platform-specific clients
         self.platform_clients = {
-            PlatformType.INSTAGRAM: InstagramClient(),
-            PlatformType.FACEBOOK: FacebookClient(),
-            PlatformType.TWITTER: TwitterClient(),
-            PlatformType.TIKTOK: TikTokClient(),
-            PlatformType.LINKEDIN: LinkedInClient(),
+            PlatformType.INSTAGRAM: create_platform_client(PlatformType.INSTAGRAM),
+            PlatformType.FACEBOOK: create_platform_client(PlatformType.FACEBOOK),
+            PlatformType.TWITTER: create_platform_client(PlatformType.TWITTER),
+            PlatformType.TIKTOK: create_platform_client(PlatformType.TIKTOK),
+            PlatformType.LINKEDIN: create_platform_client(PlatformType.LINKEDIN),
         }
     
     async def add_account(self, account: SocialAccount) -> bool:
@@ -429,101 +432,3 @@ class SocialMediaService:
             logger.error("Error retrieving persona", error=str(e))
             return None
 
-
-# Platform-specific client implementations (placeholders)
-
-class BasePlatformClient:
-    """Base class for platform-specific clients."""
-    
-    async def validate_credentials(self, account: SocialAccount) -> bool:
-        """Validate account credentials."""
-        return True  # Placeholder
-    
-    async def publish_post(self, account: SocialAccount, post_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Publish post to platform."""
-        return {"success": False, "error": "Not implemented"}
-    
-    async def get_metrics(self, post_id: str) -> Dict[str, Any]:
-        """Get engagement metrics for post."""
-        return {"views": 0, "likes": 0, "comments": 0, "shares": 0}
-
-
-class InstagramClient(BasePlatformClient):
-    """Instagram API client."""
-    
-    async def publish_post(self, account: SocialAccount, post_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Publish to Instagram."""
-        # Placeholder implementation
-        logger.info("Publishing to Instagram", account_id=account.account_id)
-        
-        # Simulate API call
-        await asyncio.sleep(0.1)
-        
-        return {
-            "success": True,
-            "post_id": f"ig_post_{datetime.utcnow().timestamp()}",
-            "url": f"https://instagram.com/p/fake_post_id/"
-        }
-
-
-class FacebookClient(BasePlatformClient):
-    """Facebook API client."""
-    
-    async def publish_post(self, account: SocialAccount, post_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Publish to Facebook."""
-        logger.info("Publishing to Facebook", account_id=account.account_id)
-        await asyncio.sleep(0.1)
-        
-        return {
-            "success": True,
-            "post_id": f"fb_post_{datetime.utcnow().timestamp()}",
-            "url": f"https://facebook.com/fake_post_id/"
-        }
-
-
-class TwitterClient(BasePlatformClient):
-    """Twitter API client."""
-    
-    async def publish_post(self, account: SocialAccount, post_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Publish to Twitter."""
-        logger.info("Publishing to Twitter", account_id=account.account_id)
-        await asyncio.sleep(0.1)
-        
-        return {
-            "success": True,
-            "post_id": f"tweet_{datetime.utcnow().timestamp()}",
-            "url": f"https://twitter.com/user/status/fake_tweet_id"
-        }
-
-
-class TikTokClient(BasePlatformClient):
-    """TikTok API client."""
-    
-    async def publish_post(self, account: SocialAccount, post_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Publish to TikTok."""
-        if post_data.get("content_type") != "video":
-            return {"success": False, "error": "TikTok only supports video content"}
-        
-        logger.info("Publishing to TikTok", account_id=account.account_id)
-        await asyncio.sleep(0.2)  # Video uploads take longer
-        
-        return {
-            "success": True,
-            "post_id": f"tiktok_video_{datetime.utcnow().timestamp()}",
-            "url": f"https://tiktok.com/@user/video/fake_video_id"
-        }
-
-
-class LinkedInClient(BasePlatformClient):
-    """LinkedIn API client."""
-    
-    async def publish_post(self, account: SocialAccount, post_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Publish to LinkedIn."""
-        logger.info("Publishing to LinkedIn", account_id=account.account_id)
-        await asyncio.sleep(0.1)
-        
-        return {
-            "success": True,
-            "post_id": f"linkedin_post_{datetime.utcnow().timestamp()}",
-            "url": f"https://linkedin.com/posts/user_fake_post_id"
-        }

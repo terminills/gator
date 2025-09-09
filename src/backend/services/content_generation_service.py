@@ -272,26 +272,63 @@ class ContentGenerationService:
         """
         Generate image using AI model.
         
-        This is a placeholder implementation. In a production system, this would
-        integrate with Stable Diffusion or similar models.
+        Integrated with real AI models including OpenAI DALL-E and Stable Diffusion.
         """
-        # Simulate image generation
-        await asyncio.sleep(0.1)  # Simulate processing time
-        
-        filename = f"image_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-        file_path = self.content_dir / "images" / filename
-        
-        # Create placeholder image file
-        file_path.write_text("# Placeholder for generated image content")
-        
-        return {
-            "file_path": str(file_path),
-            "file_size": file_path.stat().st_size,
-            "width": 1024,
-            "height": 1024,
-            "format": "JPEG",
-            "content_rating": request.content_rating.value
-        }
+        try:
+            from backend.services.ai_models import ai_models
+            
+            # Ensure AI models are initialized
+            if not ai_models.models_loaded:
+                await ai_models.initialize_models()
+            
+            # Generate image using AI model
+            image_result = await ai_models.generate_image(
+                prompt=request.prompt,
+                size="1024x1024",
+                quality=request.quality if request.quality in ["standard", "hd"] else "standard"
+            )
+            
+            # Save the generated image
+            filename = f"image_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+            file_path = self.content_dir / "images" / filename
+            
+            # Write image data to file
+            with open(file_path, 'wb') as f:
+                f.write(image_result["image_data"])
+            
+            return {
+                "file_path": str(file_path),
+                "file_size": len(image_result["image_data"]),
+                "width": image_result.get("width", 1024),
+                "height": image_result.get("height", 1024),
+                "format": image_result.get("format", "PNG"),
+                "content_rating": request.content_rating.value,
+                "model": image_result.get("model", "unknown"),
+                "provider": image_result.get("provider", "unknown")
+            }
+            
+        except Exception as e:
+            # Fallback to placeholder if AI generation fails
+            logger.warning(f"AI image generation failed, using placeholder: {str(e)}")
+            await asyncio.sleep(0.1)  # Simulate processing time
+            
+            filename = f"image_placeholder_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            file_path = self.content_dir / "images" / filename
+            
+            # Create placeholder image file with error info
+            placeholder_content = f"# Placeholder for generated image content\n# Original prompt: {request.prompt}\n# Error: {str(e)}"
+            file_path.write_text(placeholder_content)
+            
+            return {
+                "file_path": str(file_path),
+                "file_size": file_path.stat().st_size,
+                "width": 1024,
+                "height": 1024,
+                "format": "PLACEHOLDER",
+                "content_rating": request.content_rating.value,
+                "error": str(e),
+                "fallback": True
+            }
     
     async def _generate_video(self, persona: PersonaModel, request: GenerationRequest) -> Dict[str, Any]:
         """
@@ -347,34 +384,82 @@ class ContentGenerationService:
         """
         Generate voice content using AI model.
         
-        This is a placeholder implementation. In production, this would
-        integrate with voice synthesis models like ElevenLabs or Tortoise TTS.
+        Integrated with real AI models including ElevenLabs and OpenAI TTS.
         """
-        # Simulate voice generation
-        await asyncio.sleep(0.4)  # Simulate processing time
-        
-        filename = f"voice_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
-        file_path = self.content_dir / "voice" / filename
-        
-        # Create placeholder voice file
-        file_path.write_text("# Placeholder for generated voice content")
-        
-        voice_characteristics = {
-            "voice_id": persona.style_preferences.get("voice_id", "default"),
-            "pitch": persona.style_preferences.get("voice_pitch", "medium"),
-            "speed": persona.style_preferences.get("voice_speed", "normal"),
-            "emotion": persona.style_preferences.get("voice_emotion", "neutral")
-        }
-        
-        return {
-            "file_path": str(file_path),
-            "file_size": file_path.stat().st_size,
-            "duration": len(request.prompt.split()) * 0.6,  # Rough estimate: 0.6 seconds per word
-            "format": "WAV",
-            "sample_rate": "44.1kHz",
-            "voice_characteristics": voice_characteristics,
-            "content_rating": request.content_rating.value
-        }
+        try:
+            from backend.services.ai_models import ai_models
+            
+            # Ensure AI models are initialized
+            if not ai_models.models_loaded:
+                await ai_models.initialize_models()
+            
+            # Get voice settings from persona preferences
+            voice_settings = {
+                "voice_id": persona.style_preferences.get("voice_id", "default"),
+                "voice": persona.style_preferences.get("voice_style", "alloy"),
+                "stability": persona.style_preferences.get("voice_stability", 0.5),
+                "similarity_boost": persona.style_preferences.get("voice_similarity", 0.5)
+            }
+            
+            # Generate voice using AI model
+            voice_result = await ai_models.generate_voice(
+                text=request.prompt,
+                **voice_settings
+            )
+            
+            # Save the generated voice file
+            format_ext = voice_result.get("format", "MP3").lower()
+            filename = f"voice_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{format_ext}"
+            file_path = self.content_dir / "voice" / filename
+            
+            # Write audio data to file
+            with open(file_path, 'wb') as f:
+                f.write(voice_result["audio_data"])
+            
+            return {
+                "file_path": str(file_path),
+                "file_size": len(voice_result["audio_data"]),
+                "duration": len(request.prompt.split()) * 0.6,  # Rough estimate
+                "format": voice_result.get("format", "MP3"),
+                "sample_rate": "44.1kHz",
+                "voice_characteristics": {
+                    "voice_id": voice_result.get("voice_id", voice_settings["voice_id"]),
+                    "voice": voice_result.get("voice", voice_settings["voice"]),
+                    "provider": voice_result.get("provider", "unknown")
+                },
+                "content_rating": request.content_rating.value
+            }
+            
+        except Exception as e:
+            # Fallback to placeholder if AI generation fails
+            logger.warning(f"AI voice generation failed, using placeholder: {str(e)}")
+            await asyncio.sleep(0.4)  # Simulate processing time
+            
+            filename = f"voice_placeholder_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            file_path = self.content_dir / "voice" / filename
+            
+            # Create placeholder voice file with error info
+            placeholder_content = f"# Placeholder for generated voice content\n# Text: {request.prompt}\n# Error: {str(e)}"
+            file_path.write_text(placeholder_content)
+            
+            voice_characteristics = {
+                "voice_id": persona.style_preferences.get("voice_id", "default"),
+                "pitch": persona.style_preferences.get("voice_pitch", "medium"),
+                "speed": persona.style_preferences.get("voice_speed", "normal"),
+                "emotion": persona.style_preferences.get("voice_emotion", "neutral")
+            }
+            
+            return {
+                "file_path": str(file_path),
+                "file_size": file_path.stat().st_size,
+                "duration": len(request.prompt.split()) * 0.6,  # Rough estimate
+                "format": "PLACEHOLDER",
+                "sample_rate": "44.1kHz",
+                "voice_characteristics": voice_characteristics,
+                "content_rating": request.content_rating.value,
+                "error": str(e),
+                "fallback": True
+            }
         """
         Generate video using AI model.
         
@@ -403,37 +488,91 @@ class ContentGenerationService:
         """
         Generate text using AI model.
         
-        This is a placeholder implementation. In a production system, this would
-        integrate with language models like GPT or Claude.
+        Integrated with real AI models including OpenAI GPT and Anthropic Claude.
         """
-        # Simulate text generation
-        await asyncio.sleep(0.05)  # Simulate processing time
-        
-        # Generate sample text based on persona
-        personality_traits = persona.personality.split(", ")[:2]
-        themes = persona.content_themes[:2] if persona.content_themes else ["lifestyle"]
-        
-        sample_texts = [
-            f"Excited to share my thoughts on {themes[0]}! As someone who's {personality_traits[0]}, I believe...",
-            f"Today's focus: {themes[0]}. Being {personality_traits[0]} has taught me that...",
-            f"Quick thoughts on {themes[0] if themes else 'today'}: Life is about...",
-        ]
-        
-        generated_text = sample_texts[0]  # In real system, this would be AI-generated
-        
-        filename = f"text_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-        file_path = self.content_dir / "text" / filename
-        
-        file_path.write_text(generated_text)
-        
-        return {
-            "file_path": str(file_path),
-            "file_size": file_path.stat().st_size,
-            "word_count": len(generated_text.split()),
-            "character_count": len(generated_text),
-            "text_preview": generated_text[:200] + "..." if len(generated_text) > 200 else generated_text,
-            "content_rating": request.content_rating.value
-        }
+        try:
+            from backend.services.ai_models import ai_models
+            
+            # Ensure AI models are initialized
+            if not ai_models.models_loaded:
+                await ai_models.initialize_models()
+            
+            # Enhanced prompt with persona context
+            enhanced_prompt = f"""You are {persona.name}, an AI influencer with the following characteristics:
+            
+Appearance: {persona.appearance}
+Personality: {persona.personality}
+Content Themes: {', '.join(persona.content_themes[:3]) if persona.content_themes else 'general topics'}
+
+Create engaging social media content that matches this persona. The content should be:
+- Authentic to the personality described
+- Relevant to the content themes
+- Appropriate for {request.content_rating.value} rating
+- Engaging and shareable
+
+Original request: {request.prompt}
+
+Generate the social media content now:"""
+
+            # Generate text using AI model
+            generated_text = await ai_models.generate_text(
+                prompt=enhanced_prompt,
+                max_tokens=500 if request.quality == "draft" else 800,
+                temperature=0.7 if request.quality in ["standard", "high"] else 0.5
+            )
+            
+            # Clean up and format the text
+            generated_text = generated_text.strip()
+            
+            # Save the generated text
+            filename = f"text_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            file_path = self.content_dir / "text" / filename
+            
+            file_path.write_text(generated_text, encoding='utf-8')
+            
+            return {
+                "file_path": str(file_path),
+                "file_size": file_path.stat().st_size,
+                "word_count": len(generated_text.split()),
+                "character_count": len(generated_text),
+                "text_preview": generated_text[:200] + "..." if len(generated_text) > 200 else generated_text,
+                "content_rating": request.content_rating.value,
+                "full_text": generated_text
+            }
+            
+        except Exception as e:
+            # Fallback to placeholder if AI generation fails
+            logger.warning(f"AI text generation failed, using placeholder: {str(e)}")
+            await asyncio.sleep(0.05)  # Simulate processing time
+            
+            # Generate fallback text based on persona
+            personality_traits = persona.personality.split(", ")[:2]
+            themes = persona.content_themes[:2] if persona.content_themes else ["lifestyle"]
+            
+            fallback_texts = [
+                f"Excited to share my thoughts on {themes[0]}! As someone who's {personality_traits[0]}, I believe authenticity is key. What do you think? #authentic #{themes[0].replace(' ', '')}",
+                f"Today's focus: {themes[0]}. Being {personality_traits[0]} has taught me that every challenge is an opportunity to grow. 💪 #growth #{themes[0].replace(' ', '')}",
+                f"Quick thoughts on {themes[0] if themes else 'today'}: Life is about finding balance and staying true to yourself. What's your perspective? #perspective #balance",
+            ]
+            
+            generated_text = fallback_texts[0]  # Use first fallback
+            
+            filename = f"text_fallback_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            file_path = self.content_dir / "text" / filename
+            
+            file_path.write_text(f"{generated_text}\n\n# Fallback content due to AI generation error: {str(e)}", encoding='utf-8')
+            
+            return {
+                "file_path": str(file_path),
+                "file_size": file_path.stat().st_size,
+                "word_count": len(generated_text.split()),
+                "character_count": len(generated_text),
+                "text_preview": generated_text[:200] + "..." if len(generated_text) > 200 else generated_text,
+                "content_rating": request.content_rating.value,
+                "full_text": generated_text,
+                "error": str(e),
+                "fallback": True
+            }
     
     async def _create_platform_adaptations(
         self, 
