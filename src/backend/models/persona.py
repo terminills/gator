@@ -7,6 +7,7 @@ Database and API models for AI persona management.
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
+from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import Column, String, DateTime, Boolean, Integer, Text, JSON
@@ -14,6 +15,12 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
 from backend.database.connection import Base
+
+
+class ContentRating(str, Enum):
+    """Content rating enumeration for persona settings."""
+    SFW = "sfw"
+    NSFW = "nsfw"
 
 
 class PersonaModel(Base):
@@ -37,6 +44,11 @@ class PersonaModel(Base):
     personality = Column(Text, nullable=False)
     content_themes = Column(JSON, nullable=False, default=list)
     style_preferences = Column(JSON, nullable=False, default=dict)
+    
+    # Content rating and platform controls
+    default_content_rating = Column(String(20), nullable=False, default="sfw", index=True)
+    allowed_content_ratings = Column(JSON, nullable=False, default=list)  # ["sfw"] or ["sfw", "nsfw"]
+    platform_restrictions = Column(JSON, nullable=False, default=dict)  # {"instagram": "sfw_only", "onlyfans": "both"}
     
     is_active = Column(Boolean, default=True, index=True)
     generation_count = Column(Integer, default=0)
@@ -82,6 +94,18 @@ class PersonaCreate(BaseModel):
         default={},
         description="Style and aesthetic preferences"
     )
+    default_content_rating: ContentRating = Field(
+        default=ContentRating.SFW,
+        description="Default content rating for this persona"
+    )
+    allowed_content_ratings: List[ContentRating] = Field(
+        default=[ContentRating.SFW],
+        description="Content ratings this persona is allowed to generate"
+    )
+    platform_restrictions: Dict[str, str] = Field(
+        default={},
+        description="Platform-specific content restrictions"
+    )
     
     @field_validator("name")
     @classmethod
@@ -118,6 +142,9 @@ class PersonaUpdate(BaseModel):
     personality: Optional[str] = Field(None, min_length=10, max_length=2000)
     content_themes: Optional[List[str]] = Field(None, max_length=10)
     style_preferences: Optional[Dict[str, Any]] = None
+    default_content_rating: Optional[ContentRating] = None
+    allowed_content_ratings: Optional[List[ContentRating]] = None
+    platform_restrictions: Optional[Dict[str, str]] = None
     is_active: Optional[bool] = None
 
 
@@ -130,6 +157,9 @@ class PersonaResponse(BaseModel):
     personality: str
     content_themes: List[str]
     style_preferences: Dict[str, Any]
+    default_content_rating: str
+    allowed_content_ratings: List[str]
+    platform_restrictions: Dict[str, str]
     is_active: bool
     generation_count: int
     created_at: datetime
