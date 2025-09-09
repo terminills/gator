@@ -212,7 +212,7 @@ class DirectMessagingService:
             
             return [MessageResponse.model_validate(msg) for msg in db_messages]
         except Exception as e:
-            logger.error(f"Failed to get conversation messages {conversation_id}: {str(e)"))
+            logger.error(f"Failed to get conversation messages {conversation_id}: {str(e)}")
             raise
     
     # ==================== Round-Robin Queue System ====================

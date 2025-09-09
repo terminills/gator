@@ -171,19 +171,20 @@ class ContentGenerationService:
             # Update persona generation count
             await self._increment_persona_count(persona.id)
             
-            logger.info(f"Content generated successfully extra={{
-                       "content_id": content_record.id}")
+            logger.info("Content generated successfully", extra={
+                "content_id": str(content_record.id)
+            })
             
             return content_record
             
         except Exception as e:
-            logger.error(f"Content generation failed extra={{
-                        "error": str(e)"), 
-                        "persona_id": request.persona_id,
-                        "content_type": request.content_type
+            logger.error("Content generation failed", extra={
+                "error": str(e),
+                "persona_id": str(request.persona_id),
+                "content_type": request.content_type.value
             })
-            raise ValueError(f"Content generation failed: {str(e)}"
-    )
+            raise ValueError(f"Content generation failed: {str(e)}")
+    
     async def get_content(self, content_id: UUID) -> Optional[ContentResponse]:
         """Get content record by ID."""
         try:
@@ -196,7 +197,10 @@ class ContentGenerationService:
             return None
             
         except Exception as e:
-            logger.error(f"Error retrieving content extra={{"error": str(e)"), "content_id": content_id})
+            logger.error("Error retrieving content", extra={
+                "error": str(e),
+                "content_id": str(content_id)
+            })
             return None
     
     async def list_persona_content(self, persona_id: UUID, limit: int = 50) -> List[ContentResponse]:
@@ -213,7 +217,10 @@ class ContentGenerationService:
             return [ContentResponse.model_validate(content) for content in contents]
             
         except Exception as e:
-            logger.error(f"Error listing persona content extra={{"error": str(e)"), "persona_id": persona_id})
+            logger.error("Error listing persona content", extra={
+                "error": str(e),
+                "persona_id": str(persona_id)
+            })
             return []
     
     async def _get_persona(self, persona_id: UUID) -> Optional[PersonaModel]:
