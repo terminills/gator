@@ -18,11 +18,26 @@ import platform
 
 try:
     import torch
-    import requests
+    TORCH_AVAILABLE = True
 except ImportError:
     print("Installing required packages...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "torch", "requests"])
-    import torch
+    try:
+        import torch
+        TORCH_AVAILABLE = True
+    except ImportError:
+        print("Warning: torch not available, using CPU-only mode")
+        TORCH_AVAILABLE = False
+        # Create a mock torch module
+        class MockTorch:
+            class cuda:
+                @staticmethod
+                def is_available():
+                    return False
+                @staticmethod
+                def device_count():
+                    return 0
+        torch = MockTorch()
     import requests
 
 
@@ -34,69 +49,131 @@ class ModelSetupManager:
         self.models_dir.mkdir(exist_ok=True)
         
         # Hardware detection
-        self.has_gpu = torch.cuda.is_available()
+        self.has_gpu = torch.cuda.is_available() if TORCH_AVAILABLE else False
         self.gpu_count = torch.cuda.device_count() if self.has_gpu else 0
         self.gpu_memory = self._get_gpu_memory() if self.has_gpu else 0
+        self.gpu_type = self._detect_gpu_type()
         
-        # Model configurations
+        print(f"Detected hardware: GPU={self.gpu_type}, Memory={self.gpu_memory:.1f}GB, Count={self.gpu_count}")
+        
+        # Model configurations based on local model stack recommendations
         self.model_configs = {
             "text": [
                 {
-                    "name": "gpt2-medium",
-                    "model_id": "gpt2-medium", 
-                    "size_gb": 1.5,
-                    "min_ram_gb": 4,
-                    "type": "transformers",
-                    "description": "Medium-sized GPT-2 model for text generation"
+                    "name": "llama-3.1-70b",
+                    "model_id": "meta-llama/Llama-3.1-70B-Instruct", 
+                    "size_gb": 140,
+                    "min_ram_gb": 64,
+                    "min_gpu_memory_gb": 48,
+                    "inference_engine": "vllm",
+                    "rocm_compatible": True,
+                    "quant_options": ["Q4_K_M", "FP16", "BF16"],
+                    "description": "Best general local base model (Llama 3.1 70B)"
                 },
                 {
-                    "name": "distilbert-sentiment",
-                    "model_id": "distilbert-base-uncased-finetuned-sst-2-english",
-                    "size_gb": 0.3,
-                    "min_ram_gb": 2,
-                    "type": "transformers",
-                    "description": "Sentiment analysis model"
+                    "name": "qwen2.5-72b",
+                    "model_id": "Qwen/Qwen2.5-72B-Instruct",
+                    "size_gb": 144,
+                    "min_ram_gb": 64,
+                    "min_gpu_memory_gb": 48,
+                    "inference_engine": "vllm",
+                    "rocm_compatible": True,
+                    "description": "Stronger tools/code, longer context (Qwen2.5-72B)"
+                },
+                {
+                    "name": "mixtral-8x7b",
+                    "model_id": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                    "size_gb": 90,
+                    "min_ram_gb": 32,
+                    "min_gpu_memory_gb": 24,
+                    "inference_engine": "vllm",
+                    "rocm_compatible": True,
+                    "description": "Fast per token, solid instruction following at lower VRAM"
+                },
+                {
+                    "name": "llama-3.1-8b",
+                    "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+                    "size_gb": 16,
+                    "min_ram_gb": 16,
+                    "min_gpu_memory_gb": 8,
+                    "inference_engine": "vllm",
+                    "rocm_compatible": True,
+                    "description": "Snappy persona worker for fast mode"
+                },
+                {
+                    "name": "qwen2.5-7b", 
+                    "model_id": "Qwen/Qwen2.5-7B-Instruct",
+                    "size_gb": 14,
+                    "min_ram_gb": 16,
+                    "min_gpu_memory_gb": 8,
+                    "inference_engine": "vllm",
+                    "rocm_compatible": True,
+                    "description": "Balanced persona worker"
                 }
             ],
             "image": [
+                {
+                    "name": "sdxl-1.0",
+                    "model_id": "stabilityai/stable-diffusion-xl-base-1.0",
+                    "size_gb": 7,
+                    "min_ram_gb": 16,
+                    "min_gpu_memory_gb": 8,
+                    "inference_engine": "comfyui",
+                    "rocm_compatible": True,
+                    "description": "Safest, most supported local base (SDXL 1.0)"
+                },
+                {
+                    "name": "flux.1-dev",
+                    "model_id": "black-forest-labs/FLUX.1-dev",
+                    "size_gb": 12,
+                    "min_ram_gb": 24,
+                    "min_gpu_memory_gb": 12,
+                    "inference_engine": "comfyui",
+                    "rocm_compatible": True,
+                    "description": "Very good quality; verify license for commercial use"
+                },
                 {
                     "name": "stable-diffusion-v1-5",
                     "model_id": "runwayml/stable-diffusion-v1-5",
                     "size_gb": 4.0,
                     "min_ram_gb": 8,
                     "min_gpu_memory_gb": 6,
-                    "type": "diffusers",
-                    "description": "Stable Diffusion 1.5 for image generation"
-                },
-                {
-                    "name": "stable-diffusion-xl-base",
-                    "model_id": "stabilityai/stable-diffusion-xl-base-1.0",
-                    "size_gb": 6.9,
-                    "min_ram_gb": 16,
-                    "min_gpu_memory_gb": 10,
-                    "type": "diffusers", 
-                    "description": "Stable Diffusion XL for higher quality images"
+                    "inference_engine": "diffusers",
+                    "rocm_compatible": True,
+                    "description": "Classic Stable Diffusion 1.5 for image generation"
                 }
             ],
             "voice": [
                 {
-                    "name": "tts-1",
-                    "provider": "openai",
-                    "api_key_required": True,
-                    "description": "OpenAI Text-to-Speech API"
+                    "name": "xtts-v2",
+                    "model_id": "coqui/XTTS-v2",
+                    "size_gb": 2,
+                    "min_ram_gb": 8,
+                    "min_gpu_memory_gb": 4,
+                    "description": "Multilingual, cloning, runs locally; best all-around"
                 },
                 {
-                    "name": "elevenlabs-tts",
-                    "provider": "elevenlabs",
-                    "api_key_required": True,
-                    "description": "ElevenLabs Voice Synthesis API"
+                    "name": "piper",
+                    "model_id": "rhasspy/piper",
+                    "size_gb": 0.1,
+                    "min_ram_gb": 2,
+                    "min_gpu_memory_gb": 0,
+                    "description": "Ultralight, CPU-friendly for systems TTS"
+                },
+                {
+                    "name": "bark",
+                    "model_id": "suno/bark",
+                    "size_gb": 8,
+                    "min_ram_gb": 16,
+                    "min_gpu_memory_gb": 8,
+                    "description": "Decent zero-shot style, heavier; character speech"
                 }
             ]
         }
         
     def _get_gpu_memory(self) -> float:
         """Get total GPU memory in GB."""
-        if not self.has_gpu:
+        if not self.has_gpu or not TORCH_AVAILABLE:
             return 0.0
         
         total_memory = 0
@@ -106,19 +183,187 @@ class ModelSetupManager:
         
         return total_memory / (1024 ** 3)  # Convert to GB
     
+    def _detect_gpu_type(self) -> str:
+        """Detect GPU type (CUDA, ROCm, or CPU)."""
+        try:
+            if self.has_gpu and TORCH_AVAILABLE:
+                # Check for AMD ROCm
+                try:
+                    result = subprocess.run(['rocm-smi', '--showproduct'], 
+                                          capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0 and ('MI210' in result.stdout or 'MI25' in result.stdout):
+                        return "rocm"
+                except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.CalledProcessError):
+                    pass
+                
+                # Check GPU name for AMD
+                try:
+                    gpu_name = torch.cuda.get_device_name(0)
+                    if 'AMD' in gpu_name or 'Radeon' in gpu_name:
+                        return "rocm"
+                except Exception:
+                    pass
+                
+                # Default to CUDA
+                return "cuda"
+        except Exception:
+            pass
+        return "cpu"
+    
+    def _get_recommended_inference_engines(self, gpu_type: str) -> Dict[str, str]:
+        """Get recommended inference engines based on hardware."""
+        if gpu_type == "rocm":
+            return {
+                "text": "vllm-rocm or llama.cpp-hip",
+                "image": "comfyui-rocm or automatic1111-rocm", 
+                "voice": "local-cpu or xtts-rocm"
+            }
+        elif gpu_type == "cuda":
+            return {
+                "text": "vllm or transformers",
+                "image": "comfyui or diffusers",
+                "voice": "xtts or local-gpu"
+            }
+        else:
+            return {
+                "text": "llama.cpp or transformers-cpu",
+                "image": "diffusers-cpu",
+                "voice": "piper or local-cpu"
+            }
+    
     def get_system_info(self) -> Dict:
         """Get system hardware information."""
-        import psutil
+        try:
+            import psutil
+            ram_gb = psutil.virtual_memory().total / (1024 ** 3)
+        except ImportError:
+            # Fallback for systems without psutil
+            ram_gb = 8.0  # Assume 8GB default
         
         return {
             "platform": platform.platform(),
             "cpu_count": os.cpu_count(),
-            "ram_gb": psutil.virtual_memory().total / (1024 ** 3),
+            "ram_gb": ram_gb,
             "gpu_available": self.has_gpu,
+            "gpu_type": self.gpu_type,
             "gpu_count": self.gpu_count,
             "gpu_memory_gb": self.gpu_memory,
-            "disk_space_gb": shutil.disk_usage(self.models_dir).free / (1024 ** 3)
+            "disk_space_gb": shutil.disk_usage(self.models_dir).free / (1024 ** 3),
+            "recommended_engines": self._get_recommended_inference_engines(self.gpu_type)
         }
+    
+    def analyze_system_requirements(self) -> Dict:
+        """Analyze which models can be run on current system."""
+        sys_info = self.get_system_info()
+        recommendations = {
+            "installable": [],
+            "requires_upgrade": [],
+            "api_only": []
+        }
+        
+        for category, models in self.model_configs.items():
+            for model in models:
+                if model.get("api_key_required"):
+                    recommendations["api_only"].append(model)
+                    continue
+                
+    
+    async def setup_inference_engines(self) -> Dict[str, str]:
+        """Setup recommended inference engines based on hardware."""
+        results = {}
+        
+        try:
+            if self.gpu_type == "rocm":
+                # Setup ROCm-compatible engines
+                results["vllm"] = await self._setup_vllm_rocm()
+                results["comfyui"] = await self._setup_comfyui_rocm()
+                results["xtts"] = await self._setup_xtts_rocm()
+            elif self.gpu_type == "cuda":
+                # Setup CUDA engines
+                results["vllm"] = await self._setup_vllm_cuda()
+                results["comfyui"] = await self._setup_comfyui_cuda()
+                results["xtts"] = await self._setup_xtts_cuda()
+            else:
+                # CPU-only setup
+                results["llama_cpp"] = await self._setup_llama_cpp()
+                results["diffusers"] = await self._setup_diffusers_cpu()
+                results["piper"] = await self._setup_piper()
+                
+        except Exception as e:
+            results["error"] = str(e)
+            
+        return results
+    
+    async def _setup_vllm_rocm(self) -> str:
+        """Setup vLLM with ROCm support."""
+        try:
+            # This would install vLLM with ROCm in production
+            return "vLLM (ROCm build) - installation commands needed"
+        except Exception as e:
+            return f"Failed: {str(e)}"
+    
+    async def _setup_comfyui_rocm(self) -> str:
+        """Setup ComfyUI with ROCm support."""
+        try:
+            # This would clone and setup ComfyUI with ROCm PyTorch
+            comfyui_dir = self.models_dir.parent / "ComfyUI"
+            if not comfyui_dir.exists():
+                return "ComfyUI - requires manual setup with ROCm PyTorch"
+            return "ComfyUI available"
+        except Exception as e:
+            return f"Failed: {str(e)}"
+    
+    async def _setup_xtts_rocm(self) -> str:
+        """Setup XTTS-v2 with ROCm support."""
+        try:
+            return "XTTS-v2 (ROCm) - requires Coqui-AI installation"
+        except Exception as e:
+            return f"Failed: {str(e)}"
+    
+    async def _setup_vllm_cuda(self) -> str:
+        """Setup vLLM with CUDA support."""
+        try:
+            return "vLLM (CUDA) - pip install vllm"
+        except Exception as e:
+            return f"Failed: {str(e)}"
+    
+    async def _setup_comfyui_cuda(self) -> str:
+        """Setup ComfyUI with CUDA support."""
+        try:
+            comfyui_dir = self.models_dir.parent / "ComfyUI" 
+            if not comfyui_dir.exists():
+                return "ComfyUI - git clone https://github.com/comfyanonymous/ComfyUI"
+            return "ComfyUI available"
+        except Exception as e:
+            return f"Failed: {str(e)}"
+    
+    async def _setup_xtts_cuda(self) -> str:
+        """Setup XTTS-v2 with CUDA support."""
+        try:
+            return "XTTS-v2 (CUDA) - pip install TTS"
+        except Exception as e:
+            return f"Failed: {str(e)}"
+    
+    async def _setup_llama_cpp(self) -> str:
+        """Setup llama.cpp for CPU inference."""
+        try:
+            return "llama.cpp - build from source or pip install llama-cpp-python"
+        except Exception as e:
+            return f"Failed: {str(e)}"
+    
+    async def _setup_diffusers_cpu(self) -> str:
+        """Setup diffusers for CPU inference."""
+        try:
+            return "diffusers (CPU) - pip install diffusers"
+        except Exception as e:
+            return f"Failed: {str(e)}"
+    
+    async def _setup_piper(self) -> str:
+        """Setup Piper TTS."""
+        try:
+            return "Piper TTS - download from rhasspy/piper releases"
+        except Exception as e:
+            return f"Failed: {str(e)}"
     
     def analyze_system_requirements(self) -> Dict:
         """Analyze which models can be run on current system."""
@@ -398,24 +643,73 @@ class ModelSetupManager:
         print("Update your .env file with API keys for best performance.")
 
 
-def main():
+async def main():
     """Main setup script entry point."""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Setup AI models for Gator")
-    parser.add_argument("--models-dir", default="./models", help="Directory to store models")
-    parser.add_argument("--no-install", action="store_true", help="Skip model installation")
-    parser.add_argument("--types", nargs="+", choices=["text", "image", "voice"], 
-                       default=["text", "image"], help="Model types to install")
+    parser = argparse.ArgumentParser(description="Setup AI models for Gator platform")
+    parser.add_argument("--analyze", action="store_true", help="Analyze system capabilities")
+    parser.add_argument("--install", nargs="*", help="Install specific models", default=[])
+    parser.add_argument("--setup-engines", action="store_true", help="Setup inference engines")
+    parser.add_argument("--models-dir", default="./models", help="Models directory")
     
     args = parser.parse_args()
     
-    setup_manager = ModelSetupManager(args.models_dir)
-    setup_manager.run_setup(
-        install_models=not args.no_install,
-        model_types=args.types
-    )
+    manager = ModelSetupManager(args.models_dir)
+    
+    if args.analyze:
+        print("🔍 Analyzing system capabilities...")
+        sys_info = manager.get_system_info()
+        print(f"\n💻 System Information:")
+        print(f"Platform: {sys_info['platform']}")
+        print(f"CPU cores: {sys_info['cpu_count']}")
+        print(f"RAM: {sys_info['ram_gb']:.1f} GB")
+        print(f"GPU: {sys_info['gpu_type']} ({sys_info['gpu_count']} devices)")
+        print(f"GPU Memory: {sys_info['gpu_memory_gb']:.1f} GB")
+        print(f"Disk Space: {sys_info['disk_space_gb']:.1f} GB")
+        
+        print(f"\n🛠️ Recommended Inference Engines:")
+        for model_type, engine in sys_info['recommended_engines'].items():
+            print(f"  {model_type.title()}: {engine}")
+        
+        print("\n📊 Model Compatibility Analysis:")
+        recommendations = manager.analyze_system_requirements()
+        
+        if recommendations["installable"]:
+            print("\n✅ Models you can install:")
+            for model in recommendations["installable"]:
+                print(f"  • {model['name']}: {model['description']}")
+        
+        if recommendations["requires_upgrade"]:
+            print("\n⚠️ Models requiring hardware upgrade:")
+            for model in recommendations["requires_upgrade"]:
+                print(f"  • {model['name']}: {', '.join(model['requirements_check'])}")
+    
+    if args.setup_engines:
+        print("\n🔧 Setting up inference engines...")
+        results = await manager.setup_inference_engines()
+        for engine, status in results.items():
+            print(f"  {engine}: {status}")
+    
+    if args.install:
+        print(f"\n📦 Installing models: {args.install}")
+        # This would implement actual model installation
+        
+    if not any([args.analyze, args.install, args.setup_engines]):
+        # Default behavior - show system info and recommendations
+        print("🚀 Gator AI Model Setup")
+        print("======================\n")
+        
+        sys_info = manager.get_system_info()
+        print(f"Detected hardware: {sys_info['gpu_type']} GPU with {sys_info['gpu_memory_gb']:.1f}GB")
+        
+        recommendations = manager.analyze_system_requirements()
+        installable_count = len(recommendations["installable"])
+        
+        print(f"Found {installable_count} compatible models")
+        print("\nRun with --analyze for detailed analysis")
+        print("Run with --setup-engines to install inference tools")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
