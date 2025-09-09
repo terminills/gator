@@ -1,6 +1,6 @@
 # 🦎 Gator AI Influencer Platform
 
-**A Private, Self-Hosted AI Influencer Content Generation Platform**
+**Gator don't play no shit**
 
 Gator is a comprehensive AI-powered platform that enables you to create, manage, and deploy AI influencers with complete control over their persona, content generation, and social media presence. Built for privacy, customization, and professional-grade content creation.
 

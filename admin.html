@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gator AI Admin Panel</title>
+    <title>Gator AI - Admin Panel</title>
     <style>
         * {
             margin: 0;
@@ -257,18 +257,204 @@
         .hidden {
             display: none !important;
         }
+        
+        /* Gator Chat Styles */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .chat-header {
+            background: linear-gradient(135deg, #2c5530 0%, #3d7c3d 100%);
+            color: white;
+            padding: 15px 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+        
+        .chat-message {
+            margin-bottom: 15px;
+            max-width: 80%;
+        }
+        
+        .chat-message.user {
+            margin-left: auto;
+        }
+        
+        .chat-message.gator {
+            margin-right: auto;
+        }
+        
+        .message-content {
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .chat-message.user .message-content {
+            background: #667eea;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .chat-message.gator .message-content {
+            background: #2c5530;
+            color: white;
+            border-bottom-left-radius: 4px;
+            border: 2px solid #3d7c3d;
+        }
+        
+        .message-author {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .chat-message.user .message-author {
+            text-align: right;
+        }
+        
+        .chat-message.gator .message-author {
+            text-align: left;
+        }
+        
+        .chat-input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #eee;
+        }
+        
+        .chat-input-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+            font-size: 14px;
+        }
+        
+        .chat-input:focus {
+            border-color: #2c5530;
+            box-shadow: 0 0 0 2px rgba(44, 85, 48, 0.2);
+        }
+        
+        .chat-send-btn {
+            background: #2c5530;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .chat-send-btn:hover {
+            background: #3d7c3d;
+            transform: translateY(-1px);
+        }
+        
+        .chat-send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .quick-help-topics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .quick-help-btn {
+            background: #f8f9fa;
+            border: 1px solid #2c5530;
+            color: #2c5530;
+            padding: 8px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .quick-help-btn:hover {
+            background: #2c5530;
+            color: white;
+        }
+        
+        .chat-typing {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            color: #666;
+            font-size: 14px;
+            font-style: italic;
+        }
+        
+        .typing-dots {
+            display: flex;
+            gap: 3px;
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #2c5530;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out both;
+        }
+        
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        .typing-dot:nth-child(3) { animation-delay: 0; }
+        
+        @keyframes typing {
+            0%, 80%, 100% { 
+                transform: scale(0);
+                opacity: 0.5;
+            } 
+            40% { 
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <div class="header-content">
-            <div class="logo">🦎 Gator AI Admin Panel</div>
+            <div class="logo">🦎 Gator - Don't Play No Shit</div>
             <ul class="nav-tabs">
                 <li class="tab-link active" data-tab="dashboard">Dashboard</li>
                 <li class="tab-link" data-tab="personas">Personas</li>
                 <li class="tab-link" data-tab="content">Content</li>
                 <li class="tab-link" data-tab="dns">DNS Management</li>
                 <li class="tab-link" data-tab="settings">Settings</li>
+                <li class="tab-link" data-tab="gator-help">🐊 Ask Gator</li>
             </ul>
         </div>
     </div>
@@ -491,6 +677,66 @@
                         </select>
                     </div>
                     <button class="btn" onclick="saveSystemSettings()">Save Settings</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Gator Help Tab -->
+        <div class="tab-content" id="gator-help">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🐊</div>
+                    <div class="card-title">Ask Gator - Your AI Help Agent</div>
+                </div>
+                <div class="card-description">
+                    Need help? Gator's here to guide you through the platform. He don't play no shit and he'll get you sorted out.
+                </div>
+                
+                <div id="quick-help-section" class="quick-help-topics">
+                    <!-- Quick help buttons will be loaded here -->
+                </div>
+                
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <span>🐊</span>
+                        <span>Gator - Platform Help Agent</span>
+                        <div style="margin-left: auto; font-size: 12px; opacity: 0.8;">
+                            No-nonsense help when you need it
+                        </div>
+                    </div>
+                    
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="chat-message gator">
+                            <div class="message-author">Gator</div>
+                            <div class="message-content">
+                                Alright, listen up! I'm Gator, your platform help agent. I don't have time for games, so tell me what you need help with and I'll get you sorted. What's the problem?
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="chat-typing" id="chat-typing">
+                        <span>Gator is thinking</span>
+                        <div class="typing-dots">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="chat-input-container">
+                        <form class="chat-input-form" id="chat-form">
+                            <input 
+                                type="text" 
+                                class="chat-input" 
+                                id="chat-input" 
+                                placeholder="Ask Gator anything about the platform..."
+                                maxlength="500"
+                            />
+                            <button type="submit" class="chat-send-btn" id="chat-send-btn">
+                                Send
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -795,6 +1041,156 @@
                 showAlert(`Delete record feature coming soon`);
             }
         }
+        
+        // Gator Chat Functions
+        let chatInitialized = false;
+        
+        async function initializeGatorChat() {
+            if (chatInitialized) return;
+            
+            try {
+                // Load quick help topics
+                const response = await apiRequest('/api/v1/gator-agent/quick-help');
+                const quickHelpSection = document.getElementById('quick-help-section');
+                
+                quickHelpSection.innerHTML = response.map(topic => 
+                    `<button class="quick-help-btn" onclick="sendQuickMessage('${topic.message}')">${topic.topic}</button>`
+                ).join('');
+                
+                chatInitialized = true;
+            } catch (error) {
+                console.error('Failed to initialize Gator chat:', error);
+            }
+        }
+        
+        function sendQuickMessage(message) {
+            const chatInput = document.getElementById('chat-input');
+            chatInput.value = message;
+            sendChatMessage();
+        }
+        
+        async function sendChatMessage() {
+            const chatInput = document.getElementById('chat-input');
+            const chatMessages = document.getElementById('chat-messages');
+            const chatTyping = document.getElementById('chat-typing');
+            const sendBtn = document.getElementById('chat-send-btn');
+            
+            const message = chatInput.value.trim();
+            if (!message) return;
+            
+            // Disable input while processing
+            chatInput.disabled = true;
+            sendBtn.disabled = true;
+            
+            // Add user message to chat
+            const userMessageHtml = `
+                <div class="chat-message user">
+                    <div class="message-author">You</div>
+                    <div class="message-content">${escapeHtml(message)}</div>
+                </div>
+            `;
+            chatMessages.insertAdjacentHTML('beforeend', userMessageHtml);
+            
+            // Clear input
+            chatInput.value = '';
+            
+            // Show typing indicator
+            chatTyping.style.display = 'flex';
+            
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            try {
+                // Send message to Gator
+                const response = await apiRequest('/api/v1/gator-agent/chat', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        message: message,
+                        context: {
+                            current_tab: getCurrentTab(),
+                            timestamp: new Date().toISOString()
+                        }
+                    })
+                });
+                
+                // Hide typing indicator
+                chatTyping.style.display = 'none';
+                
+                // Add Gator's response
+                const gatorMessageHtml = `
+                    <div class="chat-message gator">
+                        <div class="message-author">Gator</div>
+                        <div class="message-content">${escapeHtml(response.response)}</div>
+                    </div>
+                `;
+                chatMessages.insertAdjacentHTML('beforeend', gatorMessageHtml);
+                
+            } catch (error) {
+                // Hide typing indicator
+                chatTyping.style.display = 'none';
+                
+                // Show error message
+                const errorMessageHtml = `
+                    <div class="chat-message gator">
+                        <div class="message-author">Gator</div>
+                        <div class="message-content">Hold up - something went wrong on my end. ${error.message || 'Try again in a minute.'}</div>
+                    </div>
+                `;
+                chatMessages.insertAdjacentHTML('beforeend', errorMessageHtml);
+            }
+            
+            // Re-enable input
+            chatInput.disabled = false;
+            sendBtn.disabled = false;
+            chatInput.focus();
+            
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        function getCurrentTab() {
+            const activeTab = document.querySelector('.tab-content.active');
+            return activeTab ? activeTab.id : 'dashboard';
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Enhanced tab management to handle chat initialization
+        const originalShowTab = showTab;
+        showTab = function(tabName) {
+            originalShowTab(tabName);
+            
+            // Initialize chat when Gator tab is shown
+            if (tabName === 'gator-help') {
+                initializeGatorChat();
+            }
+        };
+        
+        // Chat form submission
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatForm = document.getElementById('chat-form');
+            if (chatForm) {
+                chatForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    sendChatMessage();
+                });
+            }
+            
+            // Enter key handler for chat input
+            const chatInput = document.getElementById('chat-input');
+            if (chatInput) {
+                chatInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendChatMessage();
+                    }
+                });
+            }
+        });
     </script>
 </body>
 </html>
