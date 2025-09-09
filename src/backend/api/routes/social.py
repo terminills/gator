@@ -77,9 +77,7 @@ async def add_social_account(
         if not success:
             raise ValueError("Invalid account credentials")
         
-        logger.info("Social media account added", 
-                   platform=account_request.platform,
-                   account_id=account_request.account_id)
+        logger.info(f"Social media account added platform={account_request.platform} account_id={account_request.account_id}")
         
         return {
             "message": "Social media account added successfully",
@@ -88,13 +86,13 @@ async def add_social_account(
         }
         
     except ValueError as e:
-        logger.warning("Social account validation error", error=str(e))
+        logger.warning(f"Social account validation error: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error("Social account registration failed", error=str(e))
+        logger.error(f"Social account registration failed: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to add social media account"
@@ -129,22 +127,18 @@ async def publish_content(
         
         # Log publishing results
         for result in results:
-            logger.info("Content published", 
-                       content_id=request.content_id,
-                       platform=result.platform,
-                       status=result.status,
-                       post_id=result.post_id)
+            logger.info(f"Content published content_id={request.content_id} platform={result.platform} status={result.status} post_id={result.post_id}")
         
         return results
         
     except ValueError as e:
-        logger.warning("Publishing validation error", error=str(e))
+        logger.warning(f"Publishing validation error: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error("Content publishing failed", error=str(e))
+        logger.error(f"Content publishing failed: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Content publishing failed"
@@ -176,22 +170,18 @@ async def schedule_content(
     try:
         schedule_ids = await social_service.schedule_post(request)
         
-        logger.info("Content scheduled", 
-                   content_id=request.content_id,
-                   schedule_time=request.schedule_time,
-                   platforms=request.platforms,
-                   schedule_count=len(schedule_ids))
+        logger.info(f"Content scheduled content_id={request.content_id} schedule_time={request.schedule_time} platforms={request.platforms} schedule_count={len(schedule_ids}"))
         
         return schedule_ids
         
     except ValueError as e:
-        logger.warning("Scheduling validation error", error=str(e))
+        logger.warning(f"Scheduling validation error: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error("Content scheduling failed", error=str(e))
+        logger.error(f"Content scheduling failed: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Content scheduling failed"
@@ -226,9 +216,7 @@ async def get_engagement_metrics(
     try:
         metrics = await social_service.get_engagement_metrics(post_id, platform)
         
-        logger.info("Engagement metrics retrieved", 
-                   platform=platform,
-                   post_id=post_id)
+        logger.info(f"Engagement metrics retrieved platform={platform} post_id={post_id}")
         
         return {
             "platform": platform,
@@ -237,7 +225,7 @@ async def get_engagement_metrics(
         }
         
     except Exception as e:
-        logger.error("Metrics retrieval failed", error=str(e))
+        logger.error(f"Metrics retrieval failed: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve engagement metrics"

@@ -64,21 +64,21 @@ class PersonaService:
             await self.db.commit()
             await self.db.refresh(db_persona)
             
-            logger.info("Created new persona", persona_id=db_persona.id, name=db_persona.name)
+            logger.info(f"Created new persona {db_persona.id}: {db_persona.name}")
             
             # Convert to response model
             return PersonaResponse.model_validate(db_persona)
         
         except IntegrityError as e:
             await self.db.rollback()
-            logger.error("Database integrity error creating persona", error=str(e))
+            logger.error(f"Database integrity error creating persona: {str(e)}")
             raise ValueError("Failed to create persona due to data constraints")
         
         except Exception as e:
             await self.db.rollback()
-            logger.error("Unexpected error creating persona", error=str(e))
-            raise ValueError(f"Persona creation failed: {str(e)}")
-    
+            logger.error(f"Unexpected error creating persona: {str(e)}")
+            raise ValueError(f"Persona creation failed: {str(e)}"
+    )
     async def get_persona(self, persona_id: str) -> Optional[PersonaResponse]:
         """
         Retrieve a persona by ID.
@@ -95,13 +95,13 @@ class PersonaService:
             db_persona = result.scalar_one_or_none()
             
             if not db_persona:
-                logger.debug("Persona not found", persona_id=persona_id)
+                logger.debug(f"Persona not found: {persona_id}")
                 return None
             
             return PersonaResponse.model_validate(db_persona)
         
         except Exception as e:
-            logger.error("Failed to get persona", persona_id=persona_id, error=str(e))
+            logger.error(f"Failed to get persona {persona_id}: {str(e)}")
             raise
     
     async def list_personas(
@@ -135,7 +135,7 @@ class PersonaService:
             return [PersonaResponse.model_validate(persona) for persona in db_personas]
         
         except Exception as e:
-            logger.error("Failed to list personas", error=str(e))
+            logger.error(f"Failed to list personas: {str(e)}")
             raise
     
     async def update_persona(
@@ -194,19 +194,19 @@ class PersonaService:
             await self.db.execute(stmt)
             await self.db.commit()
             
-            logger.info("Updated persona", persona_id=persona_id, fields=list(update_data.keys()))
+            logger.info(f"Updated persona {persona_id}: {list(update_data.keys())}")
             
             # Return updated persona
             return await self.get_persona(persona_id)
         
         except IntegrityError as e:
             await self.db.rollback()
-            logger.error("Database integrity error updating persona", persona_id=persona_id, error=str(e))
+            logger.error(f"Database integrity error updating persona {persona_id}: {str(e)}")
             raise ValueError("Failed to update persona due to data constraints")
         
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to update persona", persona_id=persona_id, error=str(e))
+            logger.error(f"Failed to update persona {persona_id}: {str(e)}")
             raise
     
     async def delete_persona(self, persona_id: str) -> bool:
@@ -239,14 +239,14 @@ class PersonaService:
             await self.db.commit()
             
             if result.rowcount > 0:
-                logger.info("Soft deleted persona", persona_id=persona_id)
+                logger.info(f"Soft deleted persona: {persona_id}")
                 return True
             
             return False
         
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to delete persona", persona_id=persona_id, error=str(e))
+            logger.error(f"Failed to delete persona {persona_id}: {str(e)}")
             raise
     
     async def increment_generation_count(self, persona_id: str) -> bool:
@@ -272,12 +272,12 @@ class PersonaService:
             await self.db.commit()
             
             if result.rowcount > 0:
-                logger.debug("Incremented generation count", persona_id=persona_id)
+                logger.debug(f"Incremented generation count for persona: {persona_id}")
                 return True
             
             return False
         
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to increment generation count", persona_id=persona_id, error=str(e))
+            logger.error(f"Failed to increment generation count {persona_id}: {str(e)}")
             return False

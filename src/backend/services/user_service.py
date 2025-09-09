@@ -49,7 +49,7 @@ class UserService:
             await self.db.commit()
             await self.db.refresh(db_user)
             
-            logger.info("Created new user", user_id=db_user.id, username=db_user.username)
+            logger.info(f"Created new user {db_user.id} {db_user.username}")
             return UserResponse.model_validate(db_user)
             
         except IntegrityError as e:
@@ -62,9 +62,9 @@ class UserService:
                 raise ValueError("User creation failed due to data constraints")
         except Exception as e:
             await self.db.rollback()
-            logger.error("Unexpected error creating user", error=str(e))
-            raise ValueError(f"User creation failed: {str(e)}")
-    
+            logger.error(f"Unexpected error creating user: {str(e)"))
+            raise ValueError(f"User creation failed: {str(e)}"
+    )
     async def get_user(self, user_id: str) -> Optional[UserResponse]:
         """Get a user by ID."""
         try:
@@ -77,7 +77,7 @@ class UserService:
                 
             return UserResponse.model_validate(db_user)
         except Exception as e:
-            logger.error("Failed to get user", user_id=user_id, error=str(e))
+            logger.error(f"Failed to get user {user_id}: {str(e)"))
             raise
     
     async def get_user_by_username(self, username: str) -> Optional[UserResponse]:
@@ -92,7 +92,7 @@ class UserService:
                 
             return UserResponse.model_validate(db_user)
         except Exception as e:
-            logger.error("Failed to get user by username", username=username, error=str(e))
+            logger.error(f"Failed to get user by username {username}: {str(e)"))
             raise
     
     async def update_user(self, user_id: str, updates: UserUpdate) -> Optional[UserResponse]:
@@ -133,12 +133,12 @@ class UserService:
             await self.db.execute(stmt)
             await self.db.commit()
             
-            logger.info("Updated user", user_id=user_id, fields=list(update_data.keys()))
+            logger.info(f"Updated user {user_id} fields={list(update_data.keys(}")))
             return await self.get_user(user_id)
             
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to update user", user_id=user_id, error=str(e))
+            logger.error(f"Failed to update user {user_id}: {str(e)"))
             raise
     
     async def update_last_active(self, user_id: str) -> bool:
@@ -156,7 +156,7 @@ class UserService:
             return result.rowcount > 0
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to update last active", user_id=user_id, error=str(e))
+            logger.error(f"Failed to update last active {user_id}: {str(e)"))
             return False
     
     async def list_users(
@@ -179,5 +179,5 @@ class UserService:
             
             return [UserResponse.model_validate(user) for user in db_users]
         except Exception as e:
-            logger.error("Failed to list users", error=str(e))
+            logger.error(f"Failed to list users: {str(e)"))
             raise

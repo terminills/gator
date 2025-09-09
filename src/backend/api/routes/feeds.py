@@ -55,17 +55,17 @@ async def add_feed(
     """
     try:
         feed = await rss_service.add_feed(feed_data)
-        logger.info("RSS feed added via API", feed_id=feed.id, url=feed.url)
+        logger.info(f"RSS feed added via API {feed.id}: {feed.url}")
         return feed
         
     except ValueError as e:
-        logger.warning("RSS feed validation error", error=str(e))
+        logger.warning(f"RSS feed validation error: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error("RSS feed creation failed", error=str(e))
+        logger.error(f"RSS feed creation failed: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to add RSS feed"
@@ -108,11 +108,11 @@ async def fetch_all_feeds(
     """
     try:
         results = await rss_service.fetch_all_feeds()
-        logger.info("Manual RSS fetch completed", results=results)
+        logger.info(f"Manual RSS fetch completed results={results}")
         return results
         
     except Exception as e:
-        logger.error("RSS fetch failed", error=str(e))
+        logger.error(f"RSS fetch failed: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Feed fetch failed"
@@ -141,11 +141,11 @@ async def get_trending_topics(
     """
     try:
         topics = await rss_service.get_trending_topics(limit, hours)
-        logger.info("Trending topics retrieved", count=len(topics))
+        logger.info(f"Trending topics retrieved count={len(topics}"))
         return topics
         
     except Exception as e:
-        logger.error("Trending topics analysis failed", error=str(e))
+        logger.error(f"Trending topics analysis failed: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Trending topics analysis failed"
@@ -178,13 +178,11 @@ async def get_content_suggestions(
         persona_themes = ["technology", "business", "innovation"]  # Placeholder
         
         suggestions = await rss_service.get_content_suggestions(persona_themes, limit)
-        logger.info("Content suggestions retrieved", 
-                   persona_id=persona_id, 
-                   count=len(suggestions))
+        logger.info(f"Content suggestions retrieved {persona_id} count={len(suggestions}"))
         return suggestions
         
     except Exception as e:
-        logger.error("Content suggestions failed", error=str(e))
+        logger.error(f"Content suggestions failed: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Content suggestions failed"

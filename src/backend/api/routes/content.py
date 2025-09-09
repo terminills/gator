@@ -56,20 +56,17 @@ async def generate_content(
     """
     try:
         content = await content_service.generate_content(request)
-        logger.info("Content generated via API", 
-                   content_id=content.id, 
-                   persona_id=request.persona_id,
-                   content_type=request.content_type)
+        logger.info(f"Content generated via API content_id={content.id} {request.persona_id} content_type={request.content_type}")
         return content
         
     except ValueError as e:
-        logger.warning("Content generation validation error", error=str(e))
+        logger.warning(f"Content generation validation error: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error("Content generation failed", error=str(e))
+        logger.error(f"Content generation failed: {str(e)"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Content generation failed"
