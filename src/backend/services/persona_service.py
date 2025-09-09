@@ -5,8 +5,9 @@ Core business logic for AI persona management including validation,
 moderation, and lifecycle management.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime, timezone
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
@@ -79,24 +80,30 @@ class PersonaService:
             logger.error(f"Unexpected error creating persona: {str(e)}")
             raise ValueError(f"Persona creation failed: {str(e)}"
     )
-    async def get_persona(self, persona_id: str) -> Optional[PersonaResponse]:
+    async def get_persona(self, persona_id: Union[str, UUID]) -> Optional[PersonaResponse]:
         """
         Retrieve a persona by ID.
         
         Args:
-            persona_id: The unique persona identifier
+            persona_id: The unique persona identifier (string UUID or UUID object)
         
         Returns:
             PersonaResponse: The requested persona, or None if not found
         """
         try:
-            # Convert string to UUID 
+            # Convert to UUID object if needed
             import uuid
-            try:
-                uuid_id = uuid.UUID(persona_id)
-            except ValueError:
-                # Invalid UUID format
-                logger.debug(f"Invalid UUID format for persona_id: {persona_id}")
+            if isinstance(persona_id, str):
+                try:
+                    uuid_id = uuid.UUID(persona_id)
+                except ValueError:
+                    # Invalid UUID format
+                    logger.debug(f"Invalid UUID format for persona_id: {persona_id}")
+                    return None
+            elif isinstance(persona_id, uuid.UUID):
+                uuid_id = persona_id
+            else:
+                logger.debug(f"Invalid persona_id type: {type(persona_id)}")
                 return None
                 
             stmt = select(PersonaModel).where(PersonaModel.id == uuid_id)
@@ -149,7 +156,7 @@ class PersonaService:
     
     async def update_persona(
         self, 
-        persona_id: str, 
+        persona_id: Union[str, UUID], 
         updates: PersonaUpdate
     ) -> Optional[PersonaResponse]:
         """
@@ -195,7 +202,13 @@ class PersonaService:
             
             # Perform update
             import uuid
-            uuid_id = uuid.UUID(persona_id)
+            if isinstance(persona_id, str):
+                uuid_id = uuid.UUID(persona_id)
+            elif isinstance(persona_id, uuid.UUID):
+                uuid_id = persona_id
+            else:
+                raise ValueError(f"Invalid persona_id type: {type(persona_id)}")
+            
             stmt = (
                 update(PersonaModel)
                 .where(PersonaModel.id == uuid_id)
@@ -220,7 +233,7 @@ class PersonaService:
             logger.error(f"Failed to update persona {persona_id}: {str(e)}")
             raise
     
-    async def delete_persona(self, persona_id: str) -> bool:
+    async def delete_persona(self, persona_id: Union[str, UUID]) -> bool:
         """
         Soft delete a persona by marking it inactive.
         
@@ -238,7 +251,13 @@ class PersonaService:
             
             # Soft delete by marking inactive
             import uuid
-            uuid_id = uuid.UUID(persona_id)
+            if isinstance(persona_id, str):
+                uuid_id = uuid.UUID(persona_id)
+            elif isinstance(persona_id, uuid.UUID):
+                uuid_id = persona_id
+            else:
+                raise ValueError(f"Invalid persona_id type: {type(persona_id)}")
+            
             stmt = (
                 update(PersonaModel)
                 .where(PersonaModel.id == uuid_id)
@@ -262,23 +281,40 @@ class PersonaService:
             logger.error(f"Failed to delete persona {persona_id}: {str(e)}")
             raise
     
-    async def increment_generation_count(self, persona_id: str) -> bool:
+    async def increment_generation_count(self, persona_id: Union[str, UUID]) -> bool:
         """
         Increment the generation count for a persona.
         
         This method is called when content is generated using this persona.
         
         Args:
-            persona_id: The persona to update
+            persona_id: The persona to update (string UUID or UUID object)
         
         Returns:
             bool: True if successful, False if persona not found
         """
         try:
+            # Convert to UUID object if needed
+            import uuid
+            if isinstance(persona_id, str):
+                try:
+                    uuid_id = uuid.UUID(persona_id)
+                except ValueError:
+                    logger.debug(f"Invalid UUID format for persona_id: {persona_id}")
+                    return False
+            elif isinstance(persona_id, uuid.UUID):
+                uuid_id = persona_id
+            else:
+                logger.debug(f"Invalid persona_id type: {type(persona_id)}")
+                return False
+            
             stmt = (
                 update(PersonaModel)
-                .where(PersonaModel.id == persona_id)
-                .values(generation_count=PersonaModel.generation_count + 1)
+                .where(PersonaModel.id == uuid_id)
+                .values(
+                    generation_count=PersonaModel.generation_count + 1,
+                    updated_at=datetime.now(timezone.utc)
+                )
             )
             
             result = await self.db.execute(stmt)

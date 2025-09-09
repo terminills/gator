@@ -106,12 +106,9 @@ class PersonaService:
             persona = PersonaData(**persona_data.dict())
             
             # Save to database
-            # TODO: Implement database operations
-            # db_persona = PersonaModel(**persona.dict())
-            # self.db.add(db_persona)
-            # self.db.commit()
-            
-            logger.info(f"Created new persona: {persona.id}")
+            # For now, return the persona without database persistence
+            # In production, this would save to PersonaModel table
+            logger.info(f"Created new persona (placeholder mode): {persona.id}")
             return persona
             
         except Exception as e:
@@ -131,16 +128,10 @@ class PersonaService:
         Raises:
             PersonaNotFoundError: If persona doesn't exist
         """
-        # TODO: Implement database lookup
-        # db_persona = self.db.query(PersonaModel).filter(
-        #     PersonaModel.id == persona_id
-        # ).first()
-        
-        # if not db_persona:
-        #     raise PersonaNotFoundError(f"Persona {persona_id} not found")
-        
-        # return PersonaData.from_orm(db_persona)
-        pass
+        # For now, return None indicating persona not found
+        # In production, this would query PersonaModel table
+        logger.warning(f"Get persona {persona_id} not implemented - returning None")
+        return None
     
     async def update_persona(self, persona_id: str, updates: Dict[str, Any]) -> PersonaData:
         """
@@ -176,9 +167,9 @@ class PersonaService:
             )
         
         # Save changes
-        # TODO: Implement database update
-        
-        logger.info(f"Updated persona: {persona_id}")
+        # For now, just log the update without database persistence
+        # In production, this would update PersonaModel table
+        logger.info(f"Updated persona (placeholder mode): {persona_id}")
         return persona
     
     async def list_personas(
@@ -198,14 +189,10 @@ class PersonaService:
         Returns:
             List[PersonaData]: List of personas
         """
-        # TODO: Implement database query with filters
-        # query = self.db.query(PersonaModel)
-        # if active_only:
-        #     query = query.filter(PersonaModel.is_active == True)
-        # 
-        # personas = query.offset(skip).limit(limit).all()
-        # return [PersonaData.from_orm(p) for p in personas]
-        pass
+        # For now, return empty list
+        # In production, this would query PersonaModel table with filters
+        logger.warning(f"List personas not implemented - returning empty list")
+        return []
     
     async def delete_persona(self, persona_id: str) -> bool:
         """
@@ -225,9 +212,9 @@ class PersonaService:
         persona.updated_at = datetime.now(timezone.utc)
         
         # Save changes
-        # TODO: Implement database update
-        
-        logger.info(f"Deleted persona: {persona_id}")
+        # For now, just log the deletion without database persistence
+        # In production, this would update PersonaModel table
+        logger.info(f"Deleted persona (placeholder mode): {persona_id}")
         return True
 
 
@@ -240,9 +227,10 @@ router = APIRouter(prefix="/api/v1/personas", tags=["personas"])
 
 def get_persona_service() -> PersonaService:
     """Dependency injection for PersonaService."""
-    # TODO: Implement proper dependency injection
-    # return PersonaService(get_db_session(), get_content_moderator())
-    pass
+    # For now, return a basic service instance without database
+    # In production, this would inject proper database session
+    logger.warning("Using placeholder PersonaService without database session")
+    return PersonaService()
 
 
 @router.post("/", response_model=PersonaData, status_code=status.HTTP_201_CREATED)
