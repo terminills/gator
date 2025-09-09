@@ -154,7 +154,7 @@ async def get_creator_dashboard(
             content_breakdown=content_breakdown
         )
         
-        logger.info(f"Creator dashboard accessed stats={dashboard_stats.dict(}")
+        logger.info(f"Creator dashboard accessed stats={dashboard_stats.dict()}")
         return dashboard_stats
         
     except Exception as e:

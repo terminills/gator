@@ -132,8 +132,7 @@ class SocialMediaService:
             return True
             
         except Exception as e:
-            logger.error(f"Failed to add social media account: {str(e)}"), 
-                        platform=account.platform)
+            logger.error(f"Failed to add social media account: {str(e)}")
             return False
     
     async def publish_content(self, request: PostRequest) -> List[PostResponse]:

@@ -170,7 +170,7 @@ async def schedule_content(
     try:
         schedule_ids = await social_service.schedule_post(request)
         
-        logger.info(f"Content scheduled content_id={request.content_id} schedule_time={request.schedule_time} platforms={request.platforms} schedule_count={len(schedule_ids}")
+        logger.info(f"Content scheduled content_id={request.content_id} schedule_time={request.schedule_time} platforms={request.platforms} schedule_count={len(schedule_ids)}")
         
         return schedule_ids
         

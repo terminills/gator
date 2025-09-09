@@ -284,7 +284,7 @@ class AIModelManager:
                     
         except Exception as e:
             logger.error(f"Failed to initialize local image models: {str(e)}")
-    )
+
     async def _initialize_local_voice_models(self) -> None:
         """Initialize local voice synthesis models."""
         try:

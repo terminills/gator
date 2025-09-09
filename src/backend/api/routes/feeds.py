@@ -141,7 +141,7 @@ async def get_trending_topics(
     """
     try:
         topics = await rss_service.get_trending_topics(limit, hours)
-        logger.info(f"Trending topics retrieved count={len(topics}")
+        logger.info(f"Trending topics retrieved count={len(topics)}")
         return topics
         
     except Exception as e:
