@@ -191,16 +191,28 @@ class ModelSetupManager:
                 try:
                     result = subprocess.run(['rocm-smi', '--showproduct'], 
                                           capture_output=True, text=True, timeout=5)
-                    if result.returncode == 0 and ('MI210' in result.stdout or 'MI25' in result.stdout):
-                        return "rocm"
+                    if result.returncode == 0:
+                        if 'MI210' in result.stdout or 'MI25' in result.stdout or 'MI250' in result.stdout:
+                            return "rocm"
+                        if 'Vega' in result.stdout:  # Covers MI25/Vega 10
+                            return "rocm"
                 except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.CalledProcessError):
                     pass
                 
-                # Check GPU name for AMD
+                # Check GPU name for AMD via PyTorch
                 try:
                     gpu_name = torch.cuda.get_device_name(0)
-                    if 'AMD' in gpu_name or 'Radeon' in gpu_name:
+                    if 'AMD' in gpu_name or 'Radeon' in gpu_name or 'Instinct' in gpu_name:
                         return "rocm"
+                except Exception:
+                    pass
+                
+                # Check for ROCm installation
+                try:
+                    if os.path.exists('/opt/rocm'):
+                        result = subprocess.run(['lspci'], capture_output=True, text=True, timeout=5)
+                        if 'AMD' in result.stdout or 'Advanced Micro Devices' in result.stdout:
+                            return "rocm"
                 except Exception:
                     pass
                 
@@ -240,7 +252,30 @@ class ModelSetupManager:
             # Fallback for systems without psutil
             ram_gb = 8.0  # Assume 8GB default
         
-        return {
+        # Detect MI25/gfx900 specifically
+        is_mi25 = False
+        rocm_arch = "unknown"
+        if self.gpu_type == "rocm":
+            try:
+                result = subprocess.run(['rocm-smi', '--showproduct'], 
+                                      capture_output=True, text=True, timeout=5)
+                if result.returncode == 0 and 'MI25' in result.stdout:
+                    is_mi25 = True
+                    rocm_arch = "gfx900"
+            except Exception:
+                pass
+            
+            # Also check via lspci
+            try:
+                result = subprocess.run(['lspci', '-v'], 
+                                      capture_output=True, text=True, timeout=5)
+                if 'Radeon Instinct MI25' in result.stdout or 'Vega 10' in result.stdout:
+                    is_mi25 = True
+                    rocm_arch = "gfx900"
+            except Exception:
+                pass
+        
+        sys_info = {
             "platform": platform.platform(),
             "cpu_count": os.cpu_count(),
             "ram_gb": ram_gb,
@@ -251,6 +286,18 @@ class ModelSetupManager:
             "disk_space_gb": shutil.disk_usage(self.models_dir).free / (1024 ** 3),
             "recommended_engines": self._get_recommended_inference_engines(self.gpu_type)
         }
+        
+        if is_mi25:
+            sys_info["gpu_architecture"] = rocm_arch
+            sys_info["is_mi25"] = True
+            sys_info["compatibility_notes"] = [
+                "MI25 (gfx900) detected - ROCm 5.7.1 confirmed working",
+                "HSA_OVERRIDE_GFX_VERSION=9.0.0 should be set",
+                "PyTorch with ROCm 5.7 support recommended",
+                "Some frameworks may require HSA override for gfx900 support"
+            ]
+        
+        return sys_info
     
     def analyze_system_requirements(self) -> Dict:
         """Analyze which models can be run on current system."""

@@ -130,7 +130,15 @@ cd src && python -m backend.api.main
 ```bash
 # Download and run automated setup script
 curl -sSL https://raw.githubusercontent.com/terminills/gator/main/server-setup.sh | sudo bash -s -- --domain your-domain.com --email admin@your-domain.com
+
+# With AMD GPU support (auto-detects MI25)
+curl -sSL https://raw.githubusercontent.com/terminills/gator/main/server-setup.sh | sudo bash -s -- --rocm --domain your-domain.com --email admin@your-domain.com
+
+# With NVIDIA GPU support
+curl -sSL https://raw.githubusercontent.com/terminills/gator/main/server-setup.sh | sudo bash -s -- --nvidia --domain your-domain.com --email admin@your-domain.com
 ```
+
+**Note for AMD MI25 Users**: The setup script automatically detects MI25 GPUs and installs ROCm 4.5.2 with gfx900-optimized configuration. See [MI25 Compatibility Guide](docs/MI25_COMPATIBILITY.md) for details.
 
 ### Manual Installation
 ```bash
@@ -161,6 +169,44 @@ cd src && python -m backend.api.main
 git clone https://github.com/terminills/gator.git
 cd gator
 docker-compose up -d
+```
+
+## 🎮 GPU Support
+
+### AMD GPUs (ROCm)
+
+Gator supports AMD GPUs through ROCm, with special optimizations for the MI25:
+
+- **MI25 (Vega 10/gfx900)**: Fully supported with ROCm 4.5.2
+- **MI210/MI250**: Supported with ROCm 5.7.1+
+- **RX 6000 Series**: Supported with ROCm 5.7.1+
+
+**MI25 Users**: See the dedicated [MI25 Compatibility Guide](docs/MI25_COMPATIBILITY.md) for Ubuntu 20.04 installation instructions, performance tuning, and troubleshooting.
+
+Installation:
+```bash
+# Automatic detection and installation
+sudo bash server-setup.sh --rocm
+```
+
+### NVIDIA GPUs (CUDA)
+
+- **RTX 40 Series**: Full support with CUDA 12.0+
+- **RTX 30 Series**: Full support with CUDA 11.x+
+- **GTX 16/10 Series**: Supported with CUDA 11.x+
+
+Installation:
+```bash
+# Automatic detection and installation
+sudo bash server-setup.sh --nvidia
+```
+
+### CPU-Only Mode
+
+Gator can run without GPU using CPU-based inference engines, though performance will be reduced:
+```bash
+# Install without GPU support
+sudo bash server-setup.sh
 ```
 
 ## 🌍 Domain & DNS Management
