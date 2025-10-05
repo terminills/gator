@@ -8,7 +8,7 @@
 set -euo pipefail
 
 # Script configuration
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.0.1"
 GATOR_USER="gator"
 GATOR_HOME="/opt/gator"
 PYTHON_VERSION="3.9"
@@ -529,20 +529,31 @@ log "📦 Installing Python dependencies..."
 sudo -u $GATOR_USER python -m venv $GATOR_HOME/venv
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install --upgrade pip
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install wheel setuptools
+sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install pydantic[email]
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e .
-
-# Install development dependencies for production builds
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install gunicorn uvicorn[standard] supervisor
 
 # Setup AI models and dependencies
 log "🤖 Setting up AI models..."
 cd $GATOR_HOME/app
-if [[ $INSTALL_GPU_SUPPORT == true ]]; then
-    # Run AI model setup with GPU support
-    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/python setup_ai_models.py --models-dir $GATOR_HOME/data/models --types text image || warn "AI model setup failed - will use API-based models"
+if [[ -f "setup_ai_models.py" ]]; then
+    # Run AI model setup with appropriate arguments
+    if [[ $INSTALL_GPU_SUPPORT == true ]]; then
+        sudo -u $GATOR_USER $GATOR_HOME/venv/bin/python setup_ai_models.py --models-dir $GATOR_HOME/data/models 2>&1 | tee $GATOR_HOME/logs/setup_ai_models.log || {
+            warn "AI model setup failed. Check $GATOR_HOME/logs/setup_ai_models.log for details."
+            warn "The platform will fall back to API-based models."
+            warn "To debug, verify the setup_ai_models.py script and its dependencies."
+        }
+    else
+        sudo -u $GATOR_USER $GATOR_HOME/venv/bin/python setup_ai_models.py --models-dir $GATOR_HOME/data/models 2>&1 | tee $GATOR_HOME/logs/setup_ai_models.log || {
+            warn "AI model setup failed. Check $GATOR_HOME/logs/setup_ai_models.log for details."
+            warn "The platform will fall back to API-based models."
+            warn "To debug, verify the setup_ai_models.py script and its dependencies."
+        }
+    fi
 else
-    # Run AI model setup without GPU-intensive models
-    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/python setup_ai_models.py --models-dir $GATOR_HOME/data/models --types text --no-install || warn "AI model setup failed - will use API-based models"
+    warn "setup_ai_models.py not found in $GATOR_HOME/app. Skipping AI model setup."
+    warn "The platform will fall back to API-based models."
 fi
 
 # Create environment file
@@ -567,207 +578,115 @@ fi
 # Setup database
 log "🗃️ Initializing database..."
 cd $GATOR_HOME/app
-sudo -u $GATOR_USER $GATOR_HOME/venv/bin/python setup_db.py || warn "Database setup may have failed"
+if [[ -f "setup_db.py" ]]; then
+    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/python setup_db.py 2>&1 | tee $GATOR_HOME/logs/setup_db.log || {
+        warn "Database setup failed. Check $GATOR_HOME/logs/setup_db.log for details."
+        warn "Ensure all dependencies (e.g., pydantic[email]) are installed and check setup_db.py for errors."
+    }
+else
+    warn "setup_db.py not found in $GATOR_HOME/app. Skipping database setup."
+    warn "Manually initialize the database using the appropriate setup script."
+fi
 
 # Create systemd service
 log "🔧 Creating systemd service..."
 cat > /etc/systemd/system/gator.service << EOF
 [Unit]
 Description=Gator AI Influencer Platform
-After=network.target postgresql.service redis.service
-Requires=postgresql.service redis.service
+After=network.target postgresql.service redis-server.service
 
 [Service]
-Type=exec
 User=$GATOR_USER
 Group=$GATOR_USER
-WorkingDirectory=$GATOR_HOME/app/src
-Environment=PATH=$GATOR_HOME/venv/bin
-ExecStart=$GATOR_HOME/venv/bin/uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --workers 4
-ExecReload=/bin/kill -s HUP \$MAINPID
+WorkingDirectory=$GATOR_HOME/app
+Environment="PATH=$GATOR_HOME/venv/bin:/opt/rocm/bin:/opt/rocm/opencl/bin:/usr/local/cuda/bin:$PATH"
+Environment="LD_LIBRARY_PATH=/opt/rocm/lib:/opt/rocm/lib64:/usr/local/cuda/lib64:$LD_LIBRARY_PATH"
+Environment="ROCM_PATH=/opt/rocm"
+Environment="HIP_PATH=/opt/rocm/hip"
+Environment="HIP_VISIBLE_DEVICES=0,1,2,3,4,5,6,7"
+Environment="ROCR_VISIBLE_DEVICES=0,1,2,3,4,5,6,7"
+Environment="HSA_OVERRIDE_GFX_VERSION=9.0.0"
+Environment="HCC_AMDGPU_TARGET=gfx900"
+Environment="PYTORCH_ROCM_ARCH=gfx900"
+Environment="TF_ROCM_AMDGPU_TARGETS=gfx900"
+ExecStart=$GATOR_HOME/venv/bin/gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app -b 0.0.0.0:8000
 Restart=always
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=gator
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# Enable and start service
 systemctl daemon-reload
 systemctl enable gator
 systemctl start gator
 
-# Configure NGINX if installed
-if [[ $INSTALL_NGINX == true && -n "$DOMAIN" ]]; then
-    log "🌐 Configuring NGINX..."
-    
-    cat > /etc/nginx/sites-available/gator << EOF
-server {
-    listen 80;
-    server_name $DOMAIN www.$DOMAIN;
-    
-    # Security headers
-    add_header X-Content-Type-Options nosniff;
-    add_header X-Frame-Options DENY;
-    add_header X-XSS-Protection "1; mode=block";
-    
-    # Gator API
-    location /api/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_read_timeout 300s;
-        proxy_connect_timeout 300s;
-        proxy_send_timeout 300s;
-    }
-    
-    # Gator docs
-    location /docs {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-    
-    # Frontend static files
-    location / {
-        root $GATOR_HOME/app/frontend/public;
-        try_files \$uri \$uri/ /index.html;
-        expires 1d;
-        add_header Cache-Control "public, no-transform";
-    }
-    
-    # Generated content
-    location /content/ {
-        alias $GATOR_HOME/data/generated_content/;
-        expires 7d;
-        add_header Cache-Control "public, no-transform";
-    }
-    
-    # File upload size limit
-    client_max_body_size 100M;
-}
-EOF
-
-    ln -sf /etc/nginx/sites-available/gator /etc/nginx/sites-enabled/
-    rm -f /etc/nginx/sites-enabled/default
-    nginx -t && systemctl reload nginx
-fi
-
-# Setup SSL certificates if requested
-if [[ $INSTALL_SSL == true && $INSTALL_NGINX == true && -n "$DOMAIN" && -n "$EMAIL" ]]; then
-    log "🔒 Setting up SSL certificates..."
-    
-    # Install certbot
-    apt install -y certbot python3-certbot-nginx
-    
-    # Get SSL certificate
-    certbot --nginx -d "$DOMAIN" -d "www.$DOMAIN" --email "$EMAIL" --agree-tos --non-interactive --redirect
-    
-    # Setup auto-renewal
-    systemctl enable certbot.timer
-    systemctl start certbot.timer
-fi
-
-# Configure firewall if not skipped
+# Configure firewall
 if [[ $SKIP_FIREWALL == false ]]; then
     log "🔥 Configuring firewall..."
+    apt install -y ufw
     
-    ufw --force reset
+    # Backup existing UFW rules
+    timestamp=$(date +%Y%m%d_%H%M%S)
+    for file in /etc/ufw/{user,before,after}{,6}.rules; do
+        if [[ -f "$file" ]]; then
+            cp "$file" "${file}.${timestamp}"
+            log "Backing up '$file' to '${file}.${timestamp}'"
+        fi
+    done
+    
+    # Configure UFW
     ufw default deny incoming
     ufw default allow outgoing
-    ufw allow ssh
-    ufw allow http
-    ufw allow https
-    ufw allow 8000/tcp  # Gator API (development)
-    
-    # Enable firewall
+    ufw allow 22/tcp    # SSH
+    ufw allow 80/tcp    # HTTP
+    ufw allow 443/tcp   # HTTPS
+    ufw allow 8000/tcp  # Gator app
+    ufw allow 5432/tcp  # PostgreSQL
+    ufw allow 6379/tcp  # Redis
     ufw --force enable
 fi
 
 # Create backup script
 log "💾 Creating backup script..."
-cat > $GATOR_HOME/backup.sh << 'EOF'
+cat > /opt/gator/backup.sh << 'EOF'
 #!/bin/bash
-
-# Gator backup script
-BACKUP_DIR="/opt/gator/backups"
-DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_NAME="gator_backup_$DATE"
-
-mkdir -p "$BACKUP_DIR"
-
-# Backup database
-sudo -u postgres pg_dump gator_production > "$BACKUP_DIR/${BACKUP_NAME}_db.sql"
-
-# Backup application data
-tar -czf "$BACKUP_DIR/${BACKUP_NAME}_data.tar.gz" \
-    -C /opt/gator \
-    app/.env \
-    data/generated_content \
-    data/uploads \
-    logs
-
-# Backup configuration
-tar -czf "$BACKUP_DIR/${BACKUP_NAME}_config.tar.gz" \
-    /etc/nginx/sites-available/gator \
-    /etc/systemd/system/gator.service
-
-# Clean old backups (keep last 7 days)
-find "$BACKUP_DIR" -name "gator_backup_*" -mtime +7 -delete
-
-echo "Backup completed: $BACKUP_NAME"
+BACKUP_DIR=/opt/gator/backups
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_NAME="gator_backup_${TIMESTAMP}"
+mkdir -p $BACKUP_DIR
+sudo -u postgres pg_dump gator_production | gzip > $BACKUP_DIR/${BACKUP_NAME}.sql.gz
+tar -czf $BACKUP_DIR/${BACKUP_NAME}_data.tar.gz -C /opt/gator data
+find $BACKUP_DIR -type f -mtime +7 -delete
 EOF
+chmod +x /opt/gator/backup.sh
 
-chmod +x $GATOR_HOME/backup.sh
-chown $GATOR_USER:$GATOR_USER $GATOR_HOME/backup.sh
-
-# Setup daily backups
-cat > /etc/cron.d/gator-backup << EOF
-# Gator daily backup
-0 2 * * * $GATOR_USER $GATOR_HOME/backup.sh >> $GATOR_HOME/logs/backup.log 2>&1
-EOF
-
-# Create log rotation config
-cat > /etc/logrotate.d/gator << EOF
-$GATOR_HOME/logs/*.log {
-    daily
-    rotate 30
-    compress
-    delaycompress
-    missingok
-    notifempty
-    create 644 $GATOR_USER $GATOR_USER
-    postrotate
-        systemctl reload gator
-    endscript
-}
-EOF
-
-# Final system status check
-log "🔍 Checking system status..."
-
-# Check services
-services=("postgresql" "redis-server" "gator")
-if [[ $INSTALL_NGINX == true ]]; then
-    services+=("nginx")
+# Install SSL if requested
+if [[ $INSTALL_SSL == true && -n "$DOMAIN" && -n "$EMAIL" ]]; then
+    log "🔒 Installing SSL certificates..."
+    apt install -y certbot python3-certbot-nginx
+    certbot --nginx -d "$DOMAIN" --email "$EMAIL" --agree-tos --non-interactive || warn "SSL setup may need manual configuration"
 fi
 
-for service in "${services[@]}"; do
-    if systemctl is-active --quiet "$service"; then
+# Check system status
+log "🔍 Checking system status..."
+for service in postgresql redis-server gator; do
+    if systemctl is-active --quiet $service; then
         log "✅ $service is running"
     else
-        warn "❌ $service is not running"
+        warn "$service is not running"
     fi
 done
 
-# Installation complete
+if [[ $INSTALL_NGINX == true ]]; then
+    if systemctl is-active --quiet nginx; then
+        log "✅ nginx is running"
+    else
+        warn "nginx is not running"
+    fi
+fi
+
+# Installation summary
 log ""
 log "🎉 Gator AI Influencer Platform installation completed!"
 log ""
@@ -776,75 +695,41 @@ log "   • Platform installed in: $GATOR_HOME"
 log "   • Database: PostgreSQL (gator_production)"
 log "   • Python environment: $GATOR_HOME/venv"
 log "   • System service: gator.service"
-if [[ -n "$DOMAIN" ]]; then
-    log "   • Domain: $DOMAIN"
-fi
-if [[ $INSTALL_NGINX == true ]]; then
-    log "   • Web server: NGINX"
-fi
-if [[ $INSTALL_SSL == true && -n "$DOMAIN" ]]; then
-    log "   • SSL: Enabled with Let's Encrypt"
-fi
+log "   • Web server: $(if [[ $INSTALL_NGINX == true ]]; then echo 'NGINX'; else echo 'None'; fi)"
 if [[ $INSTALL_GPU_SUPPORT == true ]]; then
-    if [[ $INSTALL_NVIDIA_SUPPORT == true && $INSTALL_ROCM_SUPPORT == true ]]; then
-        log "   • GPU support: NVIDIA CUDA + AMD ROCm installed"
+    if [[ $INSTALL_ROCM_SUPPORT == true ]]; then
+        log "   • GPU support: AMD ROCm 5.7.1 (MI25/gfx900 optimized)"
     elif [[ $INSTALL_NVIDIA_SUPPORT == true ]]; then
-        log "   • GPU support: NVIDIA CUDA installed"
-    elif [[ $INSTALL_ROCM_SUPPORT == true ]]; then
-        if [[ ${IS_MI25:-false} == true ]]; then
-            log "   • GPU support: AMD ROCm 5.7.1 (MI25/gfx900 optimized)"
-        else
-            log "   • GPU support: AMD ROCm installed"
-        fi
-    else
-        log "   • GPU support: Enabled but no compatible hardware detected"
+        log "   • GPU support: NVIDIA CUDA"
     fi
 fi
-
 log ""
 log "🚀 Next steps:"
 log "   1. Update database password in: $GATOR_HOME/app/.env"
-log "   2. Configure API keys for social media platforms"
+log "   2. Configure API keys for social media platforms in: $GATOR_HOME/app/.env"
 log "   3. Run demo: sudo -u $GATOR_USER $GATOR_HOME/venv/bin/python $GATOR_HOME/app/demo.py"
-if [[ -n "$DOMAIN" ]]; then
-    log "   4. Access your platform: https://$DOMAIN"
-    log "   5. API documentation: https://$DOMAIN/docs"
-else
-    log "   4. Access your platform: http://YOUR_SERVER_IP:8000"
-    log "   5. API documentation: http://YOUR_SERVER_IP:8000/docs"
-fi
-
+log "   4. Access your platform: http://YOUR_SERVER_IP:8000"
+log "   5. API documentation: http://YOUR_SERVER_IP:8000/docs"
 log ""
 log "📚 Important files:"
 log "   • Main config: $GATOR_HOME/app/.env"
 log "   • Service logs: journalctl -u gator -f"
 log "   • Application logs: $GATOR_HOME/logs/"
 log "   • Backup script: $GATOR_HOME/backup.sh"
-
 if [[ $INSTALL_GPU_SUPPORT == true ]]; then
-    warn ""
-    warn "⚠️  GPU drivers were installed. Please reboot the system:"
+    log ""
+    warn "⚠️ GPU drivers were installed. Please reboot the system:"
     warn "   sudo reboot"
-    if [[ $INSTALL_ROCM_SUPPORT == true ]]; then
-        warn ""
-        warn "📋 After reboot, verify ROCm installation:"
-        warn "   sudo -u $GATOR_USER /opt/gator/check_rocm.sh"
-        warn "   rocm-smi    # Check GPU status"
-        if [[ ${IS_MI25:-false} == true ]]; then
-            warn ""
-            warn "📋 MI25 (gfx900) specific notes:"
-            warn "   • ROCm 5.7.1 confirmed working with MI25"
-            warn "   • HSA_OVERRIDE_GFX_VERSION=9.0.0 is set for compatibility"
-            warn "   • For PyTorch: Install pytorch-rocm from AMD repositories"
-            warn "   • Some ML frameworks may need HSA override for gfx900 support"
-        fi
-    fi
-    if [[ $INSTALL_NVIDIA_SUPPORT == true ]]; then
-        warn ""
-        warn "📋 After reboot, verify NVIDIA installation:"
-        warn "   nvidia-smi  # Check GPU status"
-    fi
+    log ""
+    warn "📋 After reboot, verify ROCm installation:"
+    warn "   sudo -u $GATOR_USER /opt/gator/check_rocm.sh"
+    warn "   rocm-smi    # Check GPU status"
+    log ""
+    warn "📋 MI25 (gfx900) specific notes:"
+    warn "   • ROCm 5.7.1 confirmed working with MI25"
+    warn "   • HSA_OVERRIDE_GFX_VERSION=9.0.0 is set for compatibility"
+    warn "   • For PyTorch: Install pytorch-rocm from AMD repositories"
+    warn "   • Some ML frameworks may need HSA override for gfx900 support"
 fi
-
 log ""
 log "🦎 Gator AI Influencer Platform is ready!"
