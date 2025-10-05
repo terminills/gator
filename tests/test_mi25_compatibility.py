@@ -105,6 +105,24 @@ def test_compatibility_documentation():
     print("✓ MI25 compatibility documentation complete")
 
 
+def test_amdgpu_install_utility():
+    """Test that server-setup.sh uses AMD's official amdgpu-install utility."""
+    script_path = Path('server-setup.sh')
+    content = script_path.read_text()
+    
+    # Check for amdgpu-install utility usage
+    assert 'amdgpu-install' in content, "Missing amdgpu-install utility"
+    assert 'amdgpu-install_5.7.50701-1_all.deb' in content, "Missing amdgpu-install package"
+    assert '--usecase=rocm,hiplibsdk,dkms' in content, "Missing ROCm use-case configuration"
+    assert '--rocmrelease=' in content, "Missing ROCm release specification"
+    
+    # Check for proper Ubuntu codename handling
+    assert 'focal' in content, "Missing Ubuntu 20.04 (focal) support"
+    assert 'jammy' in content, "Missing Ubuntu 22.04 (jammy) support"
+    
+    print("✓ amdgpu-install utility properly configured")
+
+
 def test_setup_ai_models_mi25_detection():
     """Test that setup_ai_models.py detects MI25 correctly."""
     script_path = Path('setup_ai_models.py')
@@ -125,6 +143,7 @@ def run_all_tests():
         test_mi25_detection_logic,
         test_rocm_version_selection,
         test_gfx900_environment_variables,
+        test_amdgpu_install_utility,
         test_enhanced_verification_script,
         test_compatibility_documentation,
         test_setup_ai_models_mi25_detection,
