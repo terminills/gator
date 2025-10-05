@@ -54,6 +54,7 @@ Thumbs.db
 *.h5
 *.onnx
 models/
+!src/backend/models/
 datasets/
 data/
 !data/sample/
