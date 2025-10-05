@@ -629,6 +629,157 @@
         <!-- Settings Tab -->
         <div class="tab-content" id="settings">
             <div class="dashboard-grid">
+                <!-- Initial System Setup Card -->
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <div class="card-icon">⚙️</div>
+                        <div class="card-title">System Setup Wizard</div>
+                    </div>
+                    <div class="card-description">
+                        Configure your Gator platform environment variables. Changes require application restart.
+                    </div>
+                    
+                    <!-- Setup Status -->
+                    <div id="setup-status-section" class="mb-3">
+                        <h3 style="margin-top: 1rem; margin-bottom: 0.5rem;">Configuration Status</h3>
+                        <div id="setup-status-display" style="padding: 1rem; background: #f5f5f5; border-radius: 4px;">
+                            <p style="margin: 0;">Loading configuration status...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Setup Form Sections -->
+                    <div class="setup-sections">
+                        <!-- Database Configuration -->
+                        <div class="setup-section">
+                            <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: #333;">Database Configuration</h3>
+                            <div class="form-group">
+                                <label class="form-label">Database URL</label>
+                                <input type="text" class="form-control" id="setup-database-url" 
+                                       placeholder="postgresql://user:password@localhost:5432/gator_dev">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Redis URL</label>
+                                <input type="text" class="form-control" id="setup-redis-url" 
+                                       placeholder="redis://localhost:6379/0">
+                            </div>
+                        </div>
+                        
+                        <!-- Security Configuration -->
+                        <div class="setup-section">
+                            <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: #333;">Security Configuration</h3>
+                            <div class="form-group">
+                                <label class="form-label">Secret Key (required)</label>
+                                <input type="password" class="form-control" id="setup-secret-key" 
+                                       placeholder="Enter a strong secret key">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">JWT Secret (required)</label>
+                                <input type="password" class="form-control" id="setup-jwt-secret" 
+                                       placeholder="Enter JWT secret key">
+                            </div>
+                        </div>
+                        
+                        <!-- AI Model Configuration -->
+                        <div class="setup-section">
+                            <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: #333;">AI Model Configuration</h3>
+                            <div class="form-group">
+                                <label class="form-label">OpenAI API Key</label>
+                                <input type="password" class="form-control" id="setup-openai-key" 
+                                       placeholder="sk-...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Anthropic API Key</label>
+                                <input type="password" class="form-control" id="setup-anthropic-key" 
+                                       placeholder="sk-ant-...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Hugging Face Token</label>
+                                <input type="password" class="form-control" id="setup-huggingface-token" 
+                                       placeholder="hf_...">
+                            </div>
+                        </div>
+                        
+                        <!-- Social Media APIs -->
+                        <div class="setup-section">
+                            <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: #333;">Social Media APIs</h3>
+                            <div class="form-group">
+                                <label class="form-label">Facebook API Key</label>
+                                <input type="password" class="form-control" id="setup-facebook-key" 
+                                       placeholder="Facebook API Key">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Instagram API Key</label>
+                                <input type="password" class="form-control" id="setup-instagram-key" 
+                                       placeholder="Instagram API Key">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Twitter API Key</label>
+                                <input type="password" class="form-control" id="setup-twitter-key" 
+                                       placeholder="Twitter API Key">
+                            </div>
+                        </div>
+                        
+                        <!-- DNS Management -->
+                        <div class="setup-section">
+                            <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: #333;">DNS Management (GoDaddy)</h3>
+                            <div class="form-group">
+                                <label class="form-label">GoDaddy API Key</label>
+                                <input type="password" class="form-control" id="setup-godaddy-key" 
+                                       placeholder="GoDaddy API Key">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">GoDaddy API Secret</label>
+                                <input type="password" class="form-control" id="setup-godaddy-secret" 
+                                       placeholder="GoDaddy API Secret">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Default Domain</label>
+                                <input type="text" class="form-control" id="setup-default-domain" 
+                                       placeholder="yourdomain.com">
+                            </div>
+                        </div>
+                        
+                        <!-- Application Settings -->
+                        <div class="setup-section">
+                            <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: #333;">Application Settings</h3>
+                            <div class="form-group">
+                                <label class="form-label">Environment</label>
+                                <select class="form-control" id="setup-environment">
+                                    <option value="development">Development</option>
+                                    <option value="staging">Staging</option>
+                                    <option value="production">Production</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Debug Mode</label>
+                                <select class="form-control" id="setup-debug">
+                                    <option value="true">Enabled</option>
+                                    <option value="false">Disabled</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Log Level</label>
+                                <select class="form-control" id="setup-log-level">
+                                    <option value="DEBUG">DEBUG</option>
+                                    <option value="INFO">INFO</option>
+                                    <option value="WARNING">WARNING</option>
+                                    <option value="ERROR">ERROR</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+                        <button class="btn" onclick="loadSetupStatus()">Refresh Status</button>
+                        <button class="btn" onclick="saveSetupConfiguration()" style="background: #22c55e;">Save Configuration</button>
+                        <button class="btn btn-secondary" onclick="resetSetupForm()">Reset Form</button>
+                    </div>
+                    
+                    <!-- Result Display -->
+                    <div id="setup-result" style="margin-top: 1rem;"></div>
+                </div>
+                
                 <div class="card">
                     <div class="card-header">
                         <div class="card-icon">🔑</div>
@@ -1190,7 +1341,242 @@
                     }
                 });
             }
+            
+            // Load setup status on settings tab load
+            if (document.getElementById('settings')) {
+                loadSetupStatus();
+            }
         });
+        
+        // Setup Management Functions
+        async function loadSetupStatus() {
+            const statusDisplay = document.getElementById('setup-status-display');
+            if (!statusDisplay) return;
+            
+            statusDisplay.innerHTML = '<p style="margin: 0;">Loading configuration status...</p>';
+            
+            try {
+                const response = await apiRequest('/api/v1/setup/status');
+                
+                let statusHtml = '<div style="line-height: 1.6;">';
+                statusHtml += `<p><strong>Environment File:</strong> ${response.env_file_exists ? '✅ Found' : '❌ Not Found'}</p>`;
+                statusHtml += `<p><strong>Location:</strong> ${response.env_file_path}</p>`;
+                
+                if (response.configured_sections) {
+                    statusHtml += '<p><strong>Configured Sections:</strong></p><ul style="margin: 0.5rem 0; padding-left: 1.5rem;">';
+                    statusHtml += `<li>Database: ${response.configured_sections.database ? '✅' : '❌'}</li>`;
+                    statusHtml += `<li>AI Models: ${response.configured_sections.ai_models ? '✅' : '❌'}</li>`;
+                    statusHtml += `<li>Social Media: ${response.configured_sections.social_media ? '✅' : '❌'}</li>`;
+                    statusHtml += `<li>DNS Management: ${response.configured_sections.dns ? '✅' : '❌'}</li>`;
+                    statusHtml += `<li>Security: ${response.configured_sections.security ? '✅' : '❌'}</li>`;
+                    statusHtml += '</ul>';
+                }
+                
+                statusHtml += '</div>';
+                statusDisplay.innerHTML = statusHtml;
+                
+                // Load current values into form
+                if (response.current_config) {
+                    loadConfigIntoForm(response.current_config);
+                }
+                
+            } catch (error) {
+                statusDisplay.innerHTML = `<p style="margin: 0; color: #dc2626;">Error loading status: ${error.message}</p>`;
+            }
+        }
+        
+        function loadConfigIntoForm(config) {
+            // Database
+            if (config.DATABASE_URL && !config.DATABASE_URL.includes('sqlite')) {
+                document.getElementById('setup-database-url').value = config.DATABASE_URL;
+            }
+            if (config.REDIS_URL) {
+                document.getElementById('setup-redis-url').value = config.REDIS_URL;
+            }
+            
+            // Security - don't load secrets, just show they're configured
+            if (config.SECRET_KEY === '***CONFIGURED***') {
+                document.getElementById('setup-secret-key').placeholder = '***CONFIGURED*** (leave blank to keep current)';
+            }
+            if (config.JWT_SECRET === '***CONFIGURED***') {
+                document.getElementById('setup-jwt-secret').placeholder = '***CONFIGURED*** (leave blank to keep current)';
+            }
+            
+            // AI Models
+            if (config.OPENAI_API_KEY === '***CONFIGURED***') {
+                document.getElementById('setup-openai-key').placeholder = '***CONFIGURED*** (leave blank to keep current)';
+            }
+            if (config.ANTHROPIC_API_KEY === '***CONFIGURED***') {
+                document.getElementById('setup-anthropic-key').placeholder = '***CONFIGURED*** (leave blank to keep current)';
+            }
+            if (config.HUGGING_FACE_TOKEN === '***CONFIGURED***') {
+                document.getElementById('setup-huggingface-token').placeholder = '***CONFIGURED*** (leave blank to keep current)';
+            }
+            
+            // Social Media
+            if (config.FACEBOOK_API_KEY === '***CONFIGURED***') {
+                document.getElementById('setup-facebook-key').placeholder = '***CONFIGURED*** (leave blank to keep current)';
+            }
+            if (config.INSTAGRAM_API_KEY === '***CONFIGURED***') {
+                document.getElementById('setup-instagram-key').placeholder = '***CONFIGURED*** (leave blank to keep current)';
+            }
+            if (config.TWITTER_API_KEY === '***CONFIGURED***') {
+                document.getElementById('setup-twitter-key').placeholder = '***CONFIGURED*** (leave blank to keep current)';
+            }
+            
+            // DNS
+            if (config.GODADDY_API_KEY === '***CONFIGURED***') {
+                document.getElementById('setup-godaddy-key').placeholder = '***CONFIGURED*** (leave blank to keep current)';
+            }
+            if (config.GODADDY_API_SECRET === '***CONFIGURED***') {
+                document.getElementById('setup-godaddy-secret').placeholder = '***CONFIGURED*** (leave blank to keep current)';
+            }
+            if (config.DEFAULT_DOMAIN) {
+                document.getElementById('setup-default-domain').value = config.DEFAULT_DOMAIN;
+            }
+            
+            // Application Settings
+            if (config.ENVIRONMENT) {
+                document.getElementById('setup-environment').value = config.ENVIRONMENT;
+            }
+            if (config.DEBUG) {
+                document.getElementById('setup-debug').value = config.DEBUG;
+            }
+            if (config.LOG_LEVEL) {
+                document.getElementById('setup-log-level').value = config.LOG_LEVEL;
+            }
+        }
+        
+        async function saveSetupConfiguration() {
+            const resultDiv = document.getElementById('setup-result');
+            resultDiv.innerHTML = '<p style="color: #3b82f6;">Saving configuration...</p>';
+            
+            // Gather form values - only include non-empty values
+            const config = {};
+            
+            // Database
+            const dbUrl = document.getElementById('setup-database-url').value.trim();
+            if (dbUrl) config.database_url = dbUrl;
+            
+            const redisUrl = document.getElementById('setup-redis-url').value.trim();
+            if (redisUrl) config.redis_url = redisUrl;
+            
+            // Security
+            const secretKey = document.getElementById('setup-secret-key').value.trim();
+            if (secretKey) config.secret_key = secretKey;
+            
+            const jwtSecret = document.getElementById('setup-jwt-secret').value.trim();
+            if (jwtSecret) config.jwt_secret = jwtSecret;
+            
+            // AI Models
+            const openaiKey = document.getElementById('setup-openai-key').value.trim();
+            if (openaiKey) config.openai_api_key = openaiKey;
+            
+            const anthropicKey = document.getElementById('setup-anthropic-key').value.trim();
+            if (anthropicKey) config.anthropic_api_key = anthropicKey;
+            
+            const hfToken = document.getElementById('setup-huggingface-token').value.trim();
+            if (hfToken) config.hugging_face_token = hfToken;
+            
+            // Social Media
+            const fbKey = document.getElementById('setup-facebook-key').value.trim();
+            if (fbKey) config.facebook_api_key = fbKey;
+            
+            const igKey = document.getElementById('setup-instagram-key').value.trim();
+            if (igKey) config.instagram_api_key = igKey;
+            
+            const twitterKey = document.getElementById('setup-twitter-key').value.trim();
+            if (twitterKey) config.twitter_api_key = twitterKey;
+            
+            // DNS
+            const godaddyKey = document.getElementById('setup-godaddy-key').value.trim();
+            if (godaddyKey) config.godaddy_api_key = godaddyKey;
+            
+            const godaddySecret = document.getElementById('setup-godaddy-secret').value.trim();
+            if (godaddySecret) config.godaddy_api_secret = godaddySecret;
+            
+            const defaultDomain = document.getElementById('setup-default-domain').value.trim();
+            if (defaultDomain) config.default_domain = defaultDomain;
+            
+            // Application Settings
+            const environment = document.getElementById('setup-environment').value;
+            if (environment) config.environment = environment;
+            
+            const debug = document.getElementById('setup-debug').value;
+            if (debug) config.debug = debug === 'true';
+            
+            const logLevel = document.getElementById('setup-log-level').value;
+            if (logLevel) config.log_level = logLevel;
+            
+            if (Object.keys(config).length === 0) {
+                resultDiv.innerHTML = '<p style="color: #dc2626;">No configuration values to save. Please fill in at least one field.</p>';
+                return;
+            }
+            
+            try {
+                const response = await apiRequest('/api/v1/setup/config', {
+                    method: 'POST',
+                    body: JSON.stringify(config)
+                });
+                
+                if (response.success) {
+                    let message = `<div style="padding: 1rem; background: #d1fae5; border: 1px solid #22c55e; border-radius: 4px; color: #166534;">
+                        <strong>✅ Configuration Saved Successfully!</strong><br>
+                        ${response.message}
+                    </div>`;
+                    
+                    if (response.validation.warnings && response.validation.warnings.length > 0) {
+                        message += `<div style="margin-top: 0.5rem; padding: 0.5rem; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; color: #92400e;">
+                            <strong>⚠️ Warnings:</strong><ul style="margin: 0.25rem 0; padding-left: 1.5rem;">`;
+                        response.validation.warnings.forEach(warning => {
+                            message += `<li>${warning}</li>`;
+                        });
+                        message += `</ul></div>`;
+                    }
+                    
+                    if (response.restart_required) {
+                        message += `<p style="margin-top: 0.5rem; font-weight: bold; color: #dc2626;">
+                            ⚠️ Application restart required for changes to take effect.
+                        </p>`;
+                    }
+                    
+                    resultDiv.innerHTML = message;
+                    
+                    // Refresh status after save
+                    setTimeout(() => loadSetupStatus(), 1000);
+                    
+                } else {
+                    resultDiv.innerHTML = `<div style="padding: 1rem; background: #fee2e2; border: 1px solid #dc2626; border-radius: 4px; color: #991b1b;">
+                        <strong>❌ Configuration Save Failed</strong><br>
+                        ${response.message}
+                    </div>`;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div style="padding: 1rem; background: #fee2e2; border: 1px solid #dc2626; border-radius: 4px; color: #991b1b;">
+                    <strong>❌ Error Saving Configuration</strong><br>
+                    ${error.message}
+                </div>`;
+            }
+        }
+        
+        function resetSetupForm() {
+            // Clear all input fields
+            document.querySelectorAll('.setup-sections input').forEach(input => {
+                input.value = '';
+            });
+            
+            // Reset dropdowns to default
+            document.getElementById('setup-environment').value = 'development';
+            document.getElementById('setup-debug').value = 'true';
+            document.getElementById('setup-log-level').value = 'DEBUG';
+            
+            // Clear result
+            document.getElementById('setup-result').innerHTML = '';
+            
+            // Reload status to restore placeholders
+            loadSetupStatus();
+        }
     </script>
 </body>
 </html>
