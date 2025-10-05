@@ -42,24 +42,25 @@ sudo bash server-setup.sh --rocm
 
 ### Manual Installation
 
-If you need to install ROCm 5.7.1 manually:
+If you need to install ROCm 5.7.1 manually, use AMD's official installer utility:
 
 ```bash
-# Add ROCm repository
-wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add -
-echo 'deb [arch=amd64] https://repo.radeon.com/rocm/apt/5.7.1 ubuntu main' | sudo tee /etc/apt/sources.list.d/rocm.list
+# Download AMD GPU installer package
+wget https://repo.radeon.com/amdgpu-install/5.7.1/ubuntu/focal/amdgpu-install_5.7.50701-1_all.deb
 
-# Update and install
-sudo apt update
-sudo apt install -y rocm-dkms rocm-dev rocm-libs rocm-utils
+# Install the package
+sudo dpkg -i ./amdgpu-install_5.7.50701-1_all.deb
+sudo apt install -f
 
-# Install additional libraries
-sudo apt install -y hip-runtime-amd hip-dev rocrand-dev rocblas-dev rocsparse-dev rocsolver-dev rocfft-dev
+# Install ROCm with required components
+sudo amdgpu-install --usecase=rocm,hiplibsdk,dkms --rocmrelease=5.7.1
 
 # Add users to required groups
 sudo usermod -aG render,video $USER
 sudo usermod -aG render,video root
 ```
+
+**Note**: For Ubuntu 22.04, replace `focal` with `jammy` in the installer URL.
 
 ### Post-Installation Configuration
 
@@ -265,8 +266,14 @@ export HSA_OVERRIDE_GFX_VERSION=9.0.0
 ### Issue 4: Package installation failures
 
 **Solutions**:
-1. Check repository URL is correct for ROCm 5.7.1
-2. Try installing packages individually
+1. Use the official AMD GPU installer utility (recommended):
+   ```bash
+   wget https://repo.radeon.com/amdgpu-install/5.7.1/ubuntu/focal/amdgpu-install_5.7.50701-1_all.deb
+   sudo dpkg -i ./amdgpu-install_5.7.50701-1_all.deb
+   sudo apt install -f
+   sudo amdgpu-install --usecase=rocm,hiplibsdk,dkms --rocmrelease=5.7.1
+   ```
+2. Check repository URL is correct for ROCm 5.7.1
 3. Clear apt cache: `sudo apt clean && sudo apt update`
 4. Check network connectivity to repo.radeon.com
 

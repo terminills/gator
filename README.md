@@ -138,7 +138,7 @@ curl -sSL https://raw.githubusercontent.com/terminills/gator/main/server-setup.s
 curl -sSL https://raw.githubusercontent.com/terminills/gator/main/server-setup.sh | sudo bash -s -- --nvidia --domain your-domain.com --email admin@your-domain.com
 ```
 
-**Note for AMD MI25 Users**: The setup script automatically detects MI25 GPUs and installs ROCm 4.5.2 with gfx900-optimized configuration. See [MI25 Compatibility Guide](docs/MI25_COMPATIBILITY.md) for details.
+**Note for AMD MI25 Users**: The setup script automatically detects MI25 GPUs and installs ROCm 5.7.1 with gfx900-optimized configuration. See [MI25 Compatibility Guide](docs/MI25_COMPATIBILITY.md) for details.
 
 ### Manual Installation
 ```bash
@@ -177,7 +177,7 @@ docker-compose up -d
 
 Gator supports AMD GPUs through ROCm, with special optimizations for the MI25:
 
-- **MI25 (Vega 10/gfx900)**: Fully supported with ROCm 4.5.2
+- **MI25 (Vega 10/gfx900)**: Fully supported with ROCm 5.7.1
 - **MI210/MI250**: Supported with ROCm 5.7.1+
 - **RX 6000 Series**: Supported with ROCm 5.7.1+
 
