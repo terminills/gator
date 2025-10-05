@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gator"
 version = "0.1.0"
-description = "Gator don't play no shit - AI-powered content generation platform"
+description = "Gator don't play no shit - AI-powered content generation platform with ROCm support for AMD GPUs"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {file = "LICENSE"}
 authors = [
     {name = "Terminills", email = "contact@terminills.com"},
 ]
-keywords = ["ai", "influencer", "content-generation", "social-media"]
+keywords = ["ai", "influencer", "content-generation", "social-media", "rocm", "amd"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -22,13 +22,14 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Operating System :: POSIX :: Linux",  # Added for ROCm compatibility
 ]
 dependencies = [
     "fastapi>=0.100.0",
     "uvicorn[standard]>=0.22.0",
     "sqlalchemy>=2.0.18",
     "alembic>=1.11.1",
-    "pydantic>=2.0.3",
+    "pydantic[email]>=2.0.3",  # Updated to include email-validator
     "pydantic-settings>=2.0.0",
     "python-multipart>=0.0.6",
     "python-jose[cryptography]>=3.3.0",
@@ -40,7 +41,7 @@ dependencies = [
     "pillow>=10.0.0",
     "opencv-python>=4.8.0.74",
     "transformers>=4.30.2",
-    "torch>=2.0.1",
+    "torch>=2.0.1",  # Keep for CPU/CUDA users
     "torchvision>=0.15.2",
     "diffusers>=0.18.2",
     "accelerate>=0.20.3",
@@ -75,6 +76,11 @@ dev = [
     "pre-commit>=3.3.3",
     "sphinx>=7.1.0",
     "sphinx-rtd-theme>=1.3.0",
+]
+rocm = [
+    "torch>=2.0.1; sys_platform == 'linux'",  # ROCm-specific PyTorch (will specify index-url in installation)
+    "torchvision>=0.15.2; sys_platform == 'linux'",  # ROCm-specific torchvision
+    # Optional: Add ROCm-specific packages like vllm-rocm if available
 ]
 
 [project.urls]
