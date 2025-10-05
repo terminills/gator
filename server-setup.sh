@@ -278,93 +278,136 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
     
     # Install ROCm support
     if [[ $INSTALL_ROCM_SUPPORT == true ]]; then
-        log "🔴 Installing AMD ROCm support..."
-        
+        log "🔴 Checking for AMD ROCm support..."
+
+        # Function to check ROCm installation and version
+        check_rocm() {
+            local desired_version="$1"
+            if command -v rocminfo >/dev/null 2>&1; then
+                local installed_version=$(cat /opt/rocm/.info/version 2>/dev/null || echo "unknown")
+                if [[ "$installed_version" == "$desired_version" ]]; then
+                    log "✅ ROCm $desired_version is already installed. Skipping installation."
+                    return 0
+                else
+                    warn "ROCm version $installed_version found, but $desired_version is required. Proceeding with installation."
+                    return 1
+                fi
+            else
+                log "No ROCm installation detected. Proceeding with installation."
+                return 1
+            fi
+        }
+
+        # Function to check if amdgpu-install package is installed
+        check_amdgpu_install() {
+            if dpkg -l | grep -q amdgpu-install; then
+                local installed_version=$(dpkg -l | grep amdgpu-install | awk '{print $3}' | cut -d'-' -f1)
+                if [[ "$installed_version" == "5.7.50701" ]]; then
+                    log "✅ amdgpu-install 5.7.50701 is already installed."
+                    return 0
+                else
+                    warn "amdgpu-install version $installed_version found. Will attempt to install 5.7.50701."
+                    return 1
+                fi
+            else
+                log "No amdgpu-install package detected."
+                return 1
+            fi
+        }
+
         if lspci | grep -i amd > /dev/null || lspci | grep -i "advanced micro devices" > /dev/null; then
-            # Detect GPU architecture for version compatibility
-            GPU_INFO=$(lspci | grep -i "vga.*amd\|display.*amd\|3d.*amd")
-            IS_MI25=false
-            
-            # Check for MI25 (Vega10/gfx900) specifically with multiple detection methods
-            if lspci -v | grep -i "radeon instinct mi25\|vega.*10" > /dev/null; then
-                IS_MI25=true
-            fi
-            
-            # Also check via device ID (Vega 10 = 0x6860-0x686f)
-            if lspci -n | grep -E "1002:(6860|6861|6862|6863|6864|6865|6866|6867|6868|6869|686a|686b|686c|686d|686e|686f)" > /dev/null; then
-                IS_MI25=true
-            fi
-            
-            if [[ $IS_MI25 == true ]]; then
-                log "AMD MI25 (gfx900/Vega10) GPU detected - using ROCm 5.7.1 with gfx900 optimizations..."
-                ROCM_VERSION="5.7.1"
-                GFX_ARCH="gfx900"
+            # Check for existing ROCm installation
+            ROCM_VERSION="5.7.1"
+            if check_rocm "$ROCM_VERSION"; then
+                # ROCm is already installed with the correct version, skip installation
+                log "Using existing ROCm $ROCM_VERSION installation."
             else
-                log "Using latest ROCm version..."
-                ROCM_VERSION="5.7.1"
-                GFX_ARCH="auto"
-            fi
-            
-            # Install ROCm using AMD's official installer utility
-            log "Downloading AMD GPU installer for ROCm $ROCM_VERSION..."
-            
-            # Determine Ubuntu version for installer package
-            UBUNTU_VERSION=$(lsb_release -rs)
-            if [[ "$UBUNTU_VERSION" == "20.04" ]]; then
-                UBUNTU_CODENAME="focal"
-            elif [[ "$UBUNTU_VERSION" == "22.04" ]]; then
-                UBUNTU_CODENAME="jammy"
-            else
-                warn "Ubuntu version $UBUNTU_VERSION may not be fully supported. Using focal (20.04) installer."
-                UBUNTU_CODENAME="focal"
-            fi
-            
-            # Download and install amdgpu-install package
-            INSTALLER_DEB="amdgpu-install_5.7.50701-1_all.deb"
-            wget https://repo.radeon.com/amdgpu-install/5.7.1/ubuntu/$UBUNTU_CODENAME/$INSTALLER_DEB
-            
-            log "Installing AMD GPU installer package..."
-            dpkg -i ./$INSTALLER_DEB || true
-            apt install -f -y
-            
-            # Use amdgpu-install to set up ROCm with required components
-            log "Installing ROCm runtime and development packages..."
-            amdgpu-install --usecase=rocm,hiplibsdk,dkms --rocmrelease=$ROCM_VERSION -y --no-dkms
-            
-            # Clean up installer package
-            rm -f ./$INSTALLER_DEB
-            
-            # Add users to render and video groups for GPU access
-            usermod -aG render,video $GATOR_USER
-            usermod -aG render,video root
-            
-            # Set ROCm environment variables
-            log "Configuring ROCm environment variables..."
-            echo 'export PATH=/opt/rocm/bin:/opt/rocm/opencl/bin:$PATH' >> /etc/environment
-            echo 'export LD_LIBRARY_PATH=/opt/rocm/lib:/opt/rocm/lib64:$LD_LIBRARY_PATH' >> /etc/environment
-            echo 'export ROCM_PATH=/opt/rocm' >> /etc/environment
-            echo 'export HIP_PATH=/opt/rocm/hip' >> /etc/environment
-            
-            # Configure GPU access for multiple MI25 GPUs
-            echo 'export HIP_VISIBLE_DEVICES=0,1,2,3,4,5,6,7' >> /etc/environment
-            echo 'export ROCR_VISIBLE_DEVICES=0,1,2,3,4,5,6,7' >> /etc/environment
-            
-            # Set gfx900-specific environment variables for MI25
-            if [[ $IS_MI25 == true ]]; then
-                log "Setting gfx900-specific environment variables for MI25..."
-                echo 'export HSA_OVERRIDE_GFX_VERSION=9.0.0' >> /etc/environment
-                echo 'export HCC_AMDGPU_TARGET=gfx900' >> /etc/environment
-                echo 'export GPU_DEVICE_ORDINAL=0,1,2,3,4,5,6,7' >> /etc/environment
-                
-                # PyTorch ROCm compatibility
-                echo 'export PYTORCH_ROCM_ARCH=gfx900' >> /etc/environment
-                
-                # TensorFlow ROCm compatibility  
-                echo 'export TF_ROCM_AMDGPU_TARGETS=gfx900' >> /etc/environment
-            fi
-            
-            # Create enhanced ROCm info script for verification
-            cat > /opt/gator/check_rocm.sh << 'EOF'
+                log "Installing AMD ROCm $ROCM_VERSION..."
+
+                # Detect GPU architecture for version compatibility
+                GPU_INFO=$(lspci | grep -i "vga.*amd\|display.*amd\|3d.*amd")
+                IS_MI25=false
+
+                # Check for MI25 (Vega10/gfx900) specifically with multiple detection methods
+                if lspci -v | grep -i "radeon instinct mi25\|vega.*10" > /dev/null; then
+                    IS_MI25=true
+                fi
+
+                # Also check via device ID (Vega 10 = 0x6860-0x686f)
+                if lspci -n | grep -E "1002:(6860|6861|6862|6863|6864|6865|6866|6867|6868|6869|686a|686b|686c|686d|686e|686f)" > /dev/null; then
+                    IS_MI25=true
+                fi
+
+                if [[ $IS_MI25 == true ]]; then
+                    log "AMD MI25 (gfx900/Vega10) GPU detected - using ROCm 5.7.1 with gfx900 optimizations..."
+                    GFX_ARCH="gfx900"
+                else
+                    log "Using latest ROCm version..."
+                    GFX_ARCH="auto"
+                fi
+
+                # Install amdgpu-install package if not already installed
+                if ! check_amdgpu_install; then
+                    log "Downloading AMD GPU installer for ROCm $ROCM_VERSION..."
+
+                    # Determine Ubuntu version for installer package
+                    UBUNTU_VERSION=$(lsb_release -rs)
+                    if [[ "$UBUNTU_VERSION" == "20.04" ]]; then
+                        UBUNTU_CODENAME="focal"
+                    elif [[ "$UBUNTU_VERSION" == "22.04" ]]; then
+                        UBUNTU_CODENAME="jammy"
+                    else
+                        warn "Ubuntu version $UBUNTU_VERSION may not be fully supported. Using focal (20.04) installer."
+                        UBUNTU_CODENAME="focal"
+                    fi
+
+                    # Download and install amdgpu-install package
+                    INSTALLER_DEB="amdgpu-install_5.7.50701-1_all.deb"
+                    wget https://repo.radeon.com/amdgpu-install/5.7.1/ubuntu/$UBUNTU_CODENAME/$INSTALLER_DEB
+
+                    log "Installing AMD GPU installer package..."
+                    dpkg -i ./$INSTALLER_DEB || true
+                    apt install -f -y
+
+                    # Clean up installer package
+                    rm -f ./$INSTALLER_DEB
+                fi
+
+                # Install ROCm runtime and development packages
+                log "Installing ROCm runtime and development packages..."
+                amdgpu-install --usecase=rocm,hiplibsdk,dkms --rocmrelease=$ROCM_VERSION -y
+
+                # Add users to render and video groups for GPU access
+                usermod -aG render,video $GATOR_USER
+                usermod -aG render,video root
+
+                # Set ROCm environment variables
+                log "Configuring ROCm environment variables..."
+                echo 'export PATH=/opt/rocm/bin:/opt/rocm/opencl/bin:$PATH' >> /etc/environment
+                echo 'export LD_LIBRARY_PATH=/opt/rocm/lib:/opt/rocm/lib64:$LD_LIBRARY_PATH' >> /etc/environment
+                echo 'export ROCM_PATH=/opt/rocm' >> /etc/environment
+                echo 'export HIP_PATH=/opt/rocm/hip' >> /etc/environment
+
+                # Configure GPU access for multiple MI25 GPUs
+                echo 'export HIP_VISIBLE_DEVICES=0,1,2,3,4,5,6,7' >> /etc/environment
+                echo 'export ROCR_VISIBLE_DEVICES=0,1,2,3,4,5,6,7' >> /etc/environment
+
+                # Set gfx900-specific environment variables for MI25
+                if [[ $IS_MI25 == true ]]; then
+                    log "Setting gfx900-specific environment variables for MI25..."
+                    echo 'export HSA_OVERRIDE_GFX_VERSION=9.0.0' >> /etc/environment
+                    echo 'export HCC_AMDGPU_TARGET=gfx900' >> /etc/environment
+                    echo 'export GPU_DEVICE_ORDINAL=0,1,2,3,4,5,6,7' >> /etc/environment
+
+                    # PyTorch ROCm compatibility
+                    echo 'export PYTORCH_ROCM_ARCH=gfx900' >> /etc/environment
+
+                    # TensorFlow ROCm compatibility
+                    echo 'export TF_ROCM_AMDGPU_TARGETS=gfx900' >> /etc/environment
+                fi
+
+                # Create enhanced ROCm info script for verification
+                cat > /opt/gator/check_rocm.sh << 'EOF'
 #!/bin/bash
 echo "=== ROCm Installation Check ==="
 echo ""
@@ -426,20 +469,21 @@ echo ""
 
 echo "=== End ROCm Check ==="
 EOF
-            chmod +x /opt/gator/check_rocm.sh
-            
-            log "✅ AMD ROCm support installed successfully"
-            log "   • ROCm Version: $ROCM_VERSION"
-            if [[ $IS_MI25 == true ]]; then
-                log "   • GPU Architecture: gfx900 (MI25/Vega10)"
-                log "   • HSA_OVERRIDE_GFX_VERSION=9.0.0 configured for compatibility"
+                chmod +x /opt/gator/check_rocm.sh
+
+                log "✅ AMD ROCm support installed successfully"
+                log "   • ROCm Version: $ROCM_VERSION"
+                if [[ $IS_MI25 == true ]]; then
+                    log "   • GPU Architecture: gfx900 (MI25/Vega10)"
+                    log "   • HSA_OVERRIDE_GFX_VERSION=9.0.0 configured for compatibility"
+                fi
+                log "   • Configured for multiple GPU support (up to 8 GPUs)"
+                log "   • Use '/opt/gator/check_rocm.sh' to verify installation"
+                log ""
+                log "⚠️  Important: After reboot, verify ROCm with:"
+                log "      sudo -u $GATOR_USER /opt/gator/check_rocm.sh"
+                log "      rocm-smi"
             fi
-            log "   • Configured for multiple GPU support (up to 8 GPUs)"
-            log "   • Use '/opt/gator/check_rocm.sh' to verify installation"
-            log ""
-            log "⚠️  Important: After reboot, verify ROCm with:"
-            log "      sudo -u $GATOR_USER /opt/gator/check_rocm.sh"
-            log "      rocm-smi"
         else
             warn "No AMD GPU detected. Skipping ROCm installation."
         fi
