@@ -29,7 +29,7 @@ dependencies = [
     "uvicorn[standard]>=0.22.0",
     "sqlalchemy>=2.0.18",
     "alembic>=1.11.1",
-    "pydantic[email]>=2.0.3",  # Includes email-validator
+    "pydantic[email]>=2.0.3",
     "pydantic-settings>=2.0.0",
     "python-multipart>=0.0.6",
     "python-jose[cryptography]>=3.3.0",
@@ -76,8 +76,8 @@ dev = [
     "sphinx-rtd-theme>=1.3.0",
 ]
 rocm = [
-    "torch==2.0.1+rocm5.7",  # ROCm-specific PyTorch for MI25 (gfx900)
-    "torchvision==0.15.2+rocm5.7",  # ROCm-specific torchvision
+    "torch==2.0.1+rocm5.7.1",
+    "torchvision==0.15.2+rocm5.7.1",
 ]
 
 [project.urls]
@@ -192,10 +192,10 @@ exclude_lines = [
 
 [tool.pylint.messages_control]
 disable = [
-    "C0330",  # Wrong hanging indentation
-    "C0326",  # Bad whitespace
-    "W0613",  # Unused argument
-    "R0903",  # Too few public methods
+    "C0330",
+    "C0326",
+    "W0613",
+    "R0903",
 ]
 
 [tool.pylint.format]
