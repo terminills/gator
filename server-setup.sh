@@ -8,7 +8,7 @@
 set -euo pipefail
 
 # Script configuration
-SCRIPT_VERSION="1.0.3"
+SCRIPT_VERSION="1.0.4"
 GATOR_USER="gator"
 GATOR_HOME="/opt/gator"
 PYTHON_VERSION="3.9"
@@ -292,8 +292,10 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
             local desired_version="$1"
             if command -v rocminfo >/dev/null 2>&1; then
                 local installed_version=$(cat /opt/rocm/.info/version 2>/dev/null || echo "unknown")
-                if [[ "$installed_version" == "$desired_version" ]]; then
-                    log "✅ ROCm $desired_version is already installed. Skipping installation."
+                # Strip any suffix (e.g., -98) for comparison
+                local installed_base_version=$(echo "$installed_version" | cut -d'-' -f1)
+                if [[ "$installed_base_version" == "$desired_version" ]]; then
+                    log "✅ ROCm $installed_version is compatible with $desired_version. Skipping installation."
                     return 0
                 else
                     warn "ROCm version $installed_version found, but $desired_version is required. Proceeding with installation."
