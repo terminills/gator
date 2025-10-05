@@ -8,7 +8,7 @@
 set -euo pipefail
 
 # Script configuration
-SCRIPT_VERSION="1.0.4"
+SCRIPT_VERSION="1.0.6"
 GATOR_USER="gator"
 GATOR_HOME="/opt/gator"
 PYTHON_VERSION="3.9"
@@ -537,9 +537,14 @@ sudo -u $GATOR_USER python -m venv $GATOR_HOME/venv
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install --upgrade pip
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install wheel setuptools
 if [[ $INSTALL_ROCM_SUPPORT == true ]]; then
-    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e .[rocm] --index-url https://download.pytorch.org/whl/rocm5.7.1 --extra-index-url https://pypi.org/simple
+    # Try installing with [rocm] extra
+    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e .[rocm] --index-url https://download.pytorch.org/whl/rocm5.7 --extra-index-url https://pypi.org/simple --no-cache-dir || {
+        warn "Failed to install torch with [rocm] extra. Attempting to install torch and torchvision separately."
+        sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install torch==2.2.0+rocm5.7.1 torchvision==0.17.0+rocm5.7.1 --index-url https://download.pytorch.org/whl/rocm5.7 --extra-index-url https://pypi.org/simple --no-cache-dir
+        sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e . --extra-index-url https://pypi.org/simple --no-cache-dir
+    }
 else
-    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e . --extra-index-url https://pypi.org/simple
+    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e . --extra-index-url https://pypi.org/simple --no-cache-dir
 fi
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install gunicorn uvicorn[standard] supervisor
 
