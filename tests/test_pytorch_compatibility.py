@@ -157,6 +157,26 @@ def test_ml_dependencies_compatibility():
     print("✓ ML dependencies are compatible with PyTorch 2.2.0")
 
 
+def test_numpy_version_constraint():
+    """Test that numpy version is constrained to be compatible with PyTorch 2.2.0."""
+    pyproject_path = Path('pyproject.toml')
+    content = pyproject_path.read_text()
+    
+    # PyTorch 2.2.0 requires numpy < 2.0
+    # Check that numpy has an upper bound constraint
+    numpy_pattern = r'numpy>=1\.[0-9]+\.[0-9]+,<2\.0'
+    matches = re.findall(numpy_pattern, content)
+    
+    assert len(matches) > 0, \
+        "numpy must be constrained to <2.0 for PyTorch 2.2.0 compatibility (requires numpy<2.0)"
+    
+    # Verify the lower bound is at least 1.24.0
+    assert 'numpy>=1.24.0,<2.0' in content, \
+        "numpy should be >=1.24.0,<2.0 for PyTorch 2.2.0 compatibility"
+    
+    print("✓ numpy version is constrained to <2.0 for PyTorch 2.2.0 compatibility")
+
+
 def run_all_tests():
     """Run all PyTorch compatibility tests."""
     import sys
@@ -169,6 +189,7 @@ def run_all_tests():
         test_rocm_version_alignment,
         test_no_conflicting_versions,
         test_ml_dependencies_compatibility,
+        test_numpy_version_constraint,
     ]
     
     print("Running PyTorch 2.2.0 compatibility tests...\n")

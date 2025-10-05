@@ -28,6 +28,7 @@ torch==2.2.0+rocm5.7 torchvision==0.17.0+rocm5.7
 "transformers>=4.30.2"
 "diffusers>=0.18.2"
 "accelerate>=0.20.3"
+"numpy>=1.24.0"
 ```
 
 **After:**
@@ -35,12 +36,14 @@ torch==2.2.0+rocm5.7 torchvision==0.17.0+rocm5.7
 "transformers>=4.35.0"
 "diffusers>=0.21.0"
 "accelerate>=0.21.0"
+"numpy>=1.24.0,<2.0"
 ```
 
 **Rationale:** These updated versions are recommended for full compatibility with PyTorch 2.2.0:
 - **transformers>=4.35.0**: Full PyTorch 2.x support with optimizations
 - **diffusers>=0.21.0**: PyTorch 2.2.0 compatibility and performance improvements
 - **accelerate>=0.21.0**: PyTorch 2.2.0 compatibility and enhanced device handling
+- **numpy>=1.24.0,<2.0**: PyTorch 2.2.0 requires numpy < 2.0 (constrained to prevent conflicts)
 
 ### 3. Updated setup_ai_models.py PyTorch Requirements
 **File:** `setup_ai_models.py` (lines 463-467)
@@ -101,7 +104,7 @@ After the changes, all PyTorch version references are now correct and consistent
 | transformers | >=4.30.2 | >=4.35.0 | ✅ Updated |
 | diffusers | >=0.18.2 | >=0.21.0 | ✅ Updated |
 | accelerate | >=0.20.3 | >=0.21.0 | ✅ Updated |
-| numpy | >=1.24.0 | >=1.24.0 | ✅ Compatible |
+| numpy | >=1.24.0 | >=1.24.0,<2.0 | ✅ Updated |
 | pillow | >=10.0.0 | >=10.0.0 | ✅ Compatible |
 
 ## Compatibility Notes
