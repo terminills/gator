@@ -8,11 +8,12 @@
 set -euo pipefail
 
 # Script configuration
-SCRIPT_VERSION="1.0.2"
+SCRIPT_VERSION="1.0.3"
 GATOR_USER="gator"
 GATOR_HOME="/opt/gator"
 PYTHON_VERSION="3.9"
 NODE_VERSION="18"
+ROCM_VERSION="5.7.1"
 
 # Color codes for output
 RED='\033[0;31m'
@@ -57,7 +58,7 @@ OPTIONS:
   --email EMAIL           Admin email for SSL certificates and notifications
   --gpu                   Install GPU support (auto-detect NVIDIA/AMD)
   --nvidia                Install NVIDIA GPU support (drivers, CUDA)
-  --rocm                  Install AMD GPU support (ROCm)
+  --rocm                  Install AMD GPU support (ROCm ${ROCM_VERSION})
   --no-nginx             Skip Nginx installation
   --no-ssl               Skip SSL certificate setup
   --skip-firewall        Skip firewall configuration
@@ -214,10 +215,16 @@ apt install -y postgresql postgresql-contrib postgresql-client
 systemctl enable postgresql
 systemctl start postgresql
 
+# Clean up existing PostgreSQL user and database for reinstall
+log "🔐 Cleaning up existing PostgreSQL user and database..."
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS gator_production;" || warn "Failed to drop database, may not exist"
+sudo -u postgres psql -c "DROP ROLE IF EXISTS gator;" || warn "Failed to drop role, may not exist"
+
 # Create PostgreSQL database and user
 log "🔐 Setting up PostgreSQL database..."
-sudo -u postgres createuser --createdb --login --pwprompt ${GATOR_USER} || warn "User ${GATOR_USER} may already exist"
-sudo -u postgres createdb gator_production --owner=${GATOR_USER} || warn "Database may already exist"
+GATOR_DB_PASSWORD=$(openssl rand -base64 12)
+sudo -u postgres psql -c "CREATE ROLE gator WITH LOGIN PASSWORD '$GATOR_DB_PASSWORD' CREATEDB;" || error "Failed to create PostgreSQL user"
+sudo -u postgres createdb gator_production --owner=gator || error "Failed to create PostgreSQL database"
 
 # Install Redis
 log "📮 Installing Redis..."
@@ -317,9 +324,7 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
 
         if lspci | grep -i amd > /dev/null || lspci | grep -i "advanced micro devices" > /dev/null; then
             # Check for existing ROCm installation
-            ROCM_VERSION="5.7.1"
             if check_rocm "$ROCM_VERSION"; then
-                # ROCm is already installed with the correct version, skip installation
                 log "Using existing ROCm $ROCM_VERSION installation."
             else
                 log "Installing AMD ROCm $ROCM_VERSION..."
@@ -339,7 +344,7 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
                 fi
 
                 if [[ $IS_MI25 == true ]]; then
-                    log "AMD MI25 (gfx900/Vega10) GPU detected - using ROCm 5.7.1 with gfx900 optimizations..."
+                    log "AMD MI25 (gfx900/Vega10) GPU detected - using ROCm $ROCM_VERSION with gfx900 optimizations..."
                     GFX_ARCH="gfx900"
                 else
                     log "Using latest ROCm version..."
@@ -530,9 +535,9 @@ sudo -u $GATOR_USER python -m venv $GATOR_HOME/venv
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install --upgrade pip
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install wheel setuptools
 if [[ $INSTALL_ROCM_SUPPORT == true ]]; then
-    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e .[rocm] --index-url https://download.pytorch.org/whl/rocm5.7
+    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e .[rocm] --index-url https://download.pytorch.org/whl/rocm5.7.1 --extra-index-url https://pypi.org/simple
 else
-    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e .
+    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e . --extra-index-url https://pypi.org/simple
 fi
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install gunicorn uvicorn[standard] supervisor
 
@@ -570,13 +575,16 @@ if [[ ! -f "$GATOR_HOME/app/.env" ]]; then
     
     # Update environment file
     sudo -u $GATOR_USER sed -i "s/your_secret_key_here/$SECRET_KEY/g" $GATOR_HOME/app/.env
-    sudo -u $GATOR_USER sed -i "s|postgresql://user:password@localhost:5432/gator|postgresql://$GATOR_USER:password@localhost:5432/gator_production|g" $GATOR_HOME/app/.env
+    sudo -u $GATOR_USER sed -i "s|postgresql://user:password@localhost:5432/gator|postgresql://$GATOR_USER:$GATOR_DB_PASSWORD@localhost:5432/gator_production|g" $GATOR_HOME/app/.env
     
     if [[ -n "$DOMAIN" ]]; then
         sudo -u $GATOR_USER sed -i "s/localhost/$DOMAIN/g" $GATOR_HOME/app/.env
     fi
     
-    log "Environment file created. Please update database password and API keys in $GATOR_HOME/app/.env"
+    log "Environment file created. Please update API keys in $GATOR_HOME/app/.env"
+else
+    log "Environment file already exists. Updating database password..."
+    sudo -u $GATOR_USER sed -i "s|postgresql://$GATOR_USER:.*@localhost:5432/gator_production|postgresql://$GATOR_USER:$GATOR_DB_PASSWORD@localhost:5432/gator_production|g" $GATOR_HOME/app/.env
 fi
 
 # Setup database
@@ -702,14 +710,14 @@ log "   • System service: gator.service"
 log "   • Web server: $(if [[ $INSTALL_NGINX == true ]]; then echo 'NGINX'; else echo 'None'; fi)"
 if [[ $INSTALL_GPU_SUPPORT == true ]]; then
     if [[ $INSTALL_ROCM_SUPPORT == true ]]; then
-        log "   • GPU support: AMD ROCm 5.7.1 (MI25/gfx900 optimized)"
+        log "   • GPU support: AMD ROCm $ROCM_VERSION (MI25/gfx900 optimized)"
     elif [[ $INSTALL_NVIDIA_SUPPORT == true ]]; then
         log "   • GPU support: NVIDIA CUDA"
     fi
 fi
 log ""
 log "🚀 Next steps:"
-log "   1. Update database password in: $GATOR_HOME/app/.env"
+log "   1. Database password set to: $GATOR_DB_PASSWORD"
 log "   2. Configure API keys for social media platforms in: $GATOR_HOME/app/.env"
 log "   3. Run demo: sudo -u $GATOR_USER /opt/gator/venv/bin/python $GATOR_HOME/app/demo.py"
 log "   4. Access your platform: http://YOUR_SERVER_IP:8000"
@@ -730,7 +738,7 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
     warn "   rocm-smi    # Check GPU status"
     log ""
     warn "📋 MI25 (gfx900) specific notes:"
-    warn "   • ROCm 5.7.1 confirmed working with MI25"
+    warn "   • ROCm $ROCM_VERSION confirmed working with MI25"
     warn "   • HSA_OVERRIDE_GFX_VERSION=9.0.0 is set for compatibility"
     warn "   • For PyTorch: Ensure ROCm version is installed"
     warn "   • Some ML frameworks may need HSA override for gfx900 support"
