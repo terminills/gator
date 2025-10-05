@@ -127,3 +127,8 @@ wandb/
 *.tar.gz
 *.rar
 *.7z
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
