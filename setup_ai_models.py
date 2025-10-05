@@ -462,9 +462,9 @@ class ModelSetupManager:
         required_packages = [
             "torch>=2.2.0",
             "torchvision>=0.17.0", 
-            "transformers>=4.30.0",
-            "diffusers>=0.18.0",
-            "accelerate>=0.20.0",
+            "transformers>=4.35.0",
+            "diffusers>=0.21.0",
+            "accelerate>=0.21.0",
             "pillow>=10.0.0",
             "requests>=2.31.0",
             "httpx>=0.24.0",

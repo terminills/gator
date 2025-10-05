@@ -12,35 +12,31 @@ import re
 
 
 def test_pyproject_toml_pytorch_version():
-    """Test that pyproject.toml specifies PyTorch 2.2.0 with ROCm 5.7.1."""
+    """Test that pyproject.toml specifies PyTorch 2.2.0 with ROCm 5.7."""
     pyproject_path = Path('pyproject.toml')
     content = pyproject_path.read_text()
     
     # Check for exact PyTorch version in rocm extras
-    assert 'torch==2.2.0+rocm5.7.1' in content, \
-        "pyproject.toml must specify torch==2.2.0+rocm5.7.1 in rocm extras"
-    assert 'torchvision==0.17.0+rocm5.7.1' in content, \
-        "pyproject.toml must specify torchvision==0.17.0+rocm5.7.1 in rocm extras"
+    assert 'torch==2.2.0+rocm5.7' in content, \
+        "pyproject.toml must specify torch==2.2.0+rocm5.7 in rocm extras"
+    assert 'torchvision==0.17.0+rocm5.7' in content, \
+        "pyproject.toml must specify torchvision==0.17.0+rocm5.7 in rocm extras"
     
-    # Verify no older versions are specified
-    assert 'torch==2.2.0+rocm5.7"' not in content, \
-        "pyproject.toml should not use rocm5.7 (missing .1)"
-    
-    print("✓ pyproject.toml specifies PyTorch 2.2.0+rocm5.7.1")
+    print("✓ pyproject.toml specifies PyTorch 2.2.0+rocm5.7")
 
 
 def test_setup_script_pytorch_version():
-    """Test that server-setup.sh installs PyTorch 2.2.0 with ROCm 5.7.1."""
+    """Test that server-setup.sh installs PyTorch 2.2.0 with ROCm 5.7."""
     script_path = Path('server-setup.sh')
     content = script_path.read_text()
     
     # Check for PyTorch installation command with correct version
-    assert 'torch==2.2.0+rocm5.7.1' in content, \
-        "server-setup.sh must install torch==2.2.0+rocm5.7.1"
-    assert 'torchvision==0.17.0+rocm5.7.1' in content, \
-        "server-setup.sh must install torchvision==0.17.0+rocm5.7.1"
+    assert 'torch==2.2.0+rocm5.7' in content, \
+        "server-setup.sh must install torch==2.2.0+rocm5.7"
+    assert 'torchvision==0.17.0+rocm5.7' in content, \
+        "server-setup.sh must install torchvision==0.17.0+rocm5.7"
     
-    print("✓ server-setup.sh installs PyTorch 2.2.0+rocm5.7.1")
+    print("✓ server-setup.sh installs PyTorch 2.2.0+rocm5.7")
 
 
 def test_setup_ai_models_pytorch_version():
@@ -69,8 +65,8 @@ def test_setup_ai_models_pytorch_version():
 def test_version_consistency():
     """Test that all PyTorch version references are consistent."""
     files_to_check = {
-        'pyproject.toml': '2.2.0+rocm5.7.1',
-        'server-setup.sh': '2.2.0+rocm5.7.1',
+        'pyproject.toml': '2.2.0+rocm5.7',
+        'server-setup.sh': '2.2.0+rocm5.7',
     }
     
     for filename, expected_version in files_to_check.items():
@@ -89,8 +85,8 @@ def test_version_consistency():
 
 
 def test_rocm_version_alignment():
-    """Test that PyTorch version aligns with ROCm 5.7.1."""
-    # Check that we're using ROCm 5.7.1
+    """Test that PyTorch version aligns with ROCm 5.7."""
+    # Check that we're using ROCm 5.7.1 as the base ROCm version
     script_path = Path('server-setup.sh')
     content = script_path.read_text()
     
@@ -98,11 +94,11 @@ def test_rocm_version_alignment():
     assert 'ROCM_VERSION="5.7.1"' in content, \
         "server-setup.sh must set ROCM_VERSION to 5.7.1"
     
-    # PyTorch version should match ROCm version
-    assert 'torch==2.2.0+rocm5.7.1' in content, \
-        "PyTorch version must match ROCm version 5.7.1"
+    # PyTorch version tag uses rocm5.7 (not rocm5.7.1)
+    assert 'torch==2.2.0+rocm5.7' in content, \
+        "PyTorch version must use rocm5.7 tag (PyTorch naming convention)"
     
-    print("✓ PyTorch 2.2.0 aligns with ROCm 5.7.1")
+    print("✓ PyTorch 2.2.0+rocm5.7 aligns with ROCm 5.7.1")
 
 
 def test_no_conflicting_versions():
@@ -134,6 +130,33 @@ def test_no_conflicting_versions():
     print("✓ No conflicting PyTorch versions found")
 
 
+def test_ml_dependencies_compatibility():
+    """Test that ML dependencies are compatible with PyTorch 2.2.0."""
+    pyproject_path = Path('pyproject.toml')
+    content = pyproject_path.read_text()
+    
+    # Check for updated versions compatible with PyTorch 2.2.0
+    assert 'transformers>=4.35.0' in content, \
+        "transformers must be >=4.35.0 for PyTorch 2.2.0 compatibility"
+    assert 'diffusers>=0.21.0' in content, \
+        "diffusers must be >=0.21.0 for PyTorch 2.2.0 compatibility"
+    assert 'accelerate>=0.21.0' in content, \
+        "accelerate must be >=0.21.0 for PyTorch 2.2.0 compatibility"
+    
+    # Check setup_ai_models.py as well
+    setup_path = Path('setup_ai_models.py')
+    setup_content = setup_path.read_text()
+    
+    assert 'transformers>=4.35.0' in setup_content, \
+        "setup_ai_models.py must specify transformers>=4.35.0"
+    assert 'diffusers>=0.21.0' in setup_content, \
+        "setup_ai_models.py must specify diffusers>=0.21.0"
+    assert 'accelerate>=0.21.0' in setup_content, \
+        "setup_ai_models.py must specify accelerate>=0.21.0"
+    
+    print("✓ ML dependencies are compatible with PyTorch 2.2.0")
+
+
 def run_all_tests():
     """Run all PyTorch compatibility tests."""
     import sys
@@ -145,6 +168,7 @@ def run_all_tests():
         test_version_consistency,
         test_rocm_version_alignment,
         test_no_conflicting_versions,
+        test_ml_dependencies_compatibility,
     ]
     
     print("Running PyTorch 2.2.0 compatibility tests...\n")
