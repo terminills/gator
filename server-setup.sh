@@ -8,7 +8,7 @@
 set -euo pipefail
 
 # Script configuration
-SCRIPT_VERSION="1.0.1"
+SCRIPT_VERSION="1.0.2"
 GATOR_USER="gator"
 GATOR_HOME="/opt/gator"
 PYTHON_VERSION="3.9"
@@ -529,28 +529,32 @@ log "📦 Installing Python dependencies..."
 sudo -u $GATOR_USER python -m venv $GATOR_HOME/venv
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install --upgrade pip
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install wheel setuptools
-sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install pydantic[email]
-sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e .
+if [[ $INSTALL_ROCM_SUPPORT == true ]]; then
+    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e .[rocm] --index-url https://download.pytorch.org/whl/rocm5.7
+else
+    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e .
+fi
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install gunicorn uvicorn[standard] supervisor
+
+# Verify backend.models.content module
+log "🔍 Verifying backend.models.content module..."
+if [[ ! -f "$GATOR_HOME/app/src/backend/models/content.py" ]]; then
+    warn "backend.models.content module not found. Creating placeholder to allow database setup."
+    sudo -u $GATOR_USER mkdir -p $GATOR_HOME/app/src/backend/models
+    sudo -u $GATOR_USER touch $GATOR_HOME/app/src/backend/models/content.py
+    sudo -u $GATOR_USER bash -c "echo '# Placeholder for backend.models.content' > $GATOR_HOME/app/src/backend/models/content.py"
+    warn "Placeholder created. Check repository for missing content.py or update __init__.py imports."
+fi
 
 # Setup AI models and dependencies
 log "🤖 Setting up AI models..."
 cd $GATOR_HOME/app
 if [[ -f "setup_ai_models.py" ]]; then
-    # Run AI model setup with appropriate arguments
-    if [[ $INSTALL_GPU_SUPPORT == true ]]; then
-        sudo -u $GATOR_USER $GATOR_HOME/venv/bin/python setup_ai_models.py --models-dir $GATOR_HOME/data/models 2>&1 | tee $GATOR_HOME/logs/setup_ai_models.log || {
-            warn "AI model setup failed. Check $GATOR_HOME/logs/setup_ai_models.log for details."
-            warn "The platform will fall back to API-based models."
-            warn "To debug, verify the setup_ai_models.py script and its dependencies."
-        }
-    else
-        sudo -u $GATOR_USER $GATOR_HOME/venv/bin/python setup_ai_models.py --models-dir $GATOR_HOME/data/models 2>&1 | tee $GATOR_HOME/logs/setup_ai_models.log || {
-            warn "AI model setup failed. Check $GATOR_HOME/logs/setup_ai_models.log for details."
-            warn "The platform will fall back to API-based models."
-            warn "To debug, verify the setup_ai_models.py script and its dependencies."
-        }
-    fi
+    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/python setup_ai_models.py --models-dir $GATOR_HOME/data/models 2>&1 | tee $GATOR_HOME/logs/setup_ai_models.log || {
+        warn "AI model setup failed. Check $GATOR_HOME/logs/setup_ai_models.log for details."
+        warn "The platform will fall back to API-based models."
+        warn "To debug, verify the setup_ai_models.py script and its dependencies."
+    }
 else
     warn "setup_ai_models.py not found in $GATOR_HOME/app. Skipping AI model setup."
     warn "The platform will fall back to API-based models."
@@ -581,7 +585,7 @@ cd $GATOR_HOME/app
 if [[ -f "setup_db.py" ]]; then
     sudo -u $GATOR_USER $GATOR_HOME/venv/bin/python setup_db.py 2>&1 | tee $GATOR_HOME/logs/setup_db.log || {
         warn "Database setup failed. Check $GATOR_HOME/logs/setup_db.log for details."
-        warn "Ensure all dependencies (e.g., pydantic[email]) are installed and check setup_db.py for errors."
+        warn "Ensure all dependencies are installed and check setup_db.py for errors."
     }
 else
     warn "setup_db.py not found in $GATOR_HOME/app. Skipping database setup."
@@ -707,7 +711,7 @@ log ""
 log "🚀 Next steps:"
 log "   1. Update database password in: $GATOR_HOME/app/.env"
 log "   2. Configure API keys for social media platforms in: $GATOR_HOME/app/.env"
-log "   3. Run demo: sudo -u $GATOR_USER $GATOR_HOME/venv/bin/python $GATOR_HOME/app/demo.py"
+log "   3. Run demo: sudo -u $GATOR_USER /opt/gator/venv/bin/python $GATOR_HOME/app/demo.py"
 log "   4. Access your platform: http://YOUR_SERVER_IP:8000"
 log "   5. API documentation: http://YOUR_SERVER_IP:8000/docs"
 log ""
@@ -728,7 +732,7 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
     warn "📋 MI25 (gfx900) specific notes:"
     warn "   • ROCm 5.7.1 confirmed working with MI25"
     warn "   • HSA_OVERRIDE_GFX_VERSION=9.0.0 is set for compatibility"
-    warn "   • For PyTorch: Install pytorch-rocm from AMD repositories"
+    warn "   • For PyTorch: Ensure ROCm version is installed"
     warn "   • Some ML frameworks may need HSA override for gfx900 support"
 fi
 log ""
