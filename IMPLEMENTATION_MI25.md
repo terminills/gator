@@ -25,16 +25,26 @@ if lspci -n | grep -E "1002:(6860|6861|...)" > /dev/null; then
 fi
 ```
 
-### 2. ROCm 5.7.1 Repository Configuration
+### 2. ROCm 5.7.1 Installation Method
 
-**Problem**: MI25 (gfx900) needs proper ROCm configuration with HSA override.
+**Problem**: MI25 (gfx900) needs reliable ROCm installation with proper configuration.
 
-**Solution**: Use ROCm 5.7.1 (confirmed working) with proper environment variables:
+**Solution**: Use AMD's official amdgpu-install utility for ROCm 5.7.1:
 ```bash
-if [[ "$UBUNTU_VERSION" == "20.04" ]]; then
-    REPO_URL="deb [arch=amd64] https://repo.radeon.com/rocm/apt/5.7.1 ubuntu main"
-fi
+# Download and install AMD GPU installer
+wget https://repo.radeon.com/amdgpu-install/5.7.1/ubuntu/focal/amdgpu-install_5.7.50701-1_all.deb
+dpkg -i ./amdgpu-install_5.7.50701-1_all.deb
+apt install -f
+
+# Install ROCm with required components
+amdgpu-install --usecase=rocm,hiplibsdk,dkms --rocmrelease=5.7.1
 ```
+
+This provides:
+- More reliable installation than manual repository configuration
+- Automatic dependency resolution
+- Better Ubuntu 20.04 focal support
+- Streamlined use-case based installation
 
 ### 3. Environment Variables for gfx900 Compatibility
 

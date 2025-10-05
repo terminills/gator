@@ -305,31 +305,34 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
                 GFX_ARCH="auto"
             fi
             
-            # Install ROCm repository with GPG key
-            log "Adding ROCm repository..."
-            wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | apt-key add -
+            # Install ROCm using AMD's official installer utility
+            log "Downloading AMD GPU installer for ROCm $ROCM_VERSION..."
             
-            # Determine Ubuntu version for repository URL
+            # Determine Ubuntu version for installer package
             UBUNTU_VERSION=$(lsb_release -rs)
             if [[ "$UBUNTU_VERSION" == "20.04" ]]; then
-                REPO_URL="deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION ubuntu main"
+                UBUNTU_CODENAME="focal"
             elif [[ "$UBUNTU_VERSION" == "22.04" ]]; then
-                REPO_URL="deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION jammy main"
+                UBUNTU_CODENAME="jammy"
             else
-                warn "Ubuntu version $UBUNTU_VERSION may not be fully supported. Using 20.04 repository."
-                REPO_URL="deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION ubuntu main"
+                warn "Ubuntu version $UBUNTU_VERSION may not be fully supported. Using focal (20.04) installer."
+                UBUNTU_CODENAME="focal"
             fi
             
-            echo "$REPO_URL" > /etc/apt/sources.list.d/rocm.list
-            apt update
+            # Download and install amdgpu-install package
+            INSTALLER_DEB="amdgpu-install_5.7.50701-1_all.deb"
+            wget https://repo.radeon.com/amdgpu-install/5.7.1/ubuntu/$UBUNTU_CODENAME/$INSTALLER_DEB
             
-            # Install ROCm packages
+            log "Installing AMD GPU installer package..."
+            dpkg -i ./$INSTALLER_DEB || true
+            apt install -f -y
+            
+            # Use amdgpu-install to set up ROCm with required components
             log "Installing ROCm runtime and development packages..."
-            apt install -y rocm-dkms rocm-libs rocm-dev rocm-utils
+            amdgpu-install --usecase=rocm,hiplibsdk,dkms --rocmrelease=$ROCM_VERSION -y --no-dkms
             
-            # Install additional packages for AI/ML workloads
-            log "Installing HIP and ROCm math libraries..."
-            apt install -y hip-runtime-amd hip-dev rocrand-dev rocblas-dev rocsparse-dev rocsolver-dev rocfft-dev
+            # Clean up installer package
+            rm -f ./$INSTALLER_DEB
             
             # Add users to render and video groups for GPU access
             usermod -aG render,video $GATOR_USER
