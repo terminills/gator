@@ -620,6 +620,7 @@ Group=$GATOR_USER
 WorkingDirectory=$GATOR_HOME/app
 Environment="PATH=$GATOR_HOME/venv/bin:/opt/rocm/bin:/opt/rocm/opencl/bin:/usr/local/cuda/bin:$PATH"
 Environment="LD_LIBRARY_PATH=/opt/rocm/lib:/opt/rocm/lib64:/usr/local/cuda/lib64:$LD_LIBRARY_PATH"
+Environment="PYTHONPATH=$GATOR_HOME/app/src:$PYTHONPATH"
 Environment="ROCM_PATH=/opt/rocm"
 Environment="HIP_PATH=/opt/rocm/hip"
 Environment="HIP_VISIBLE_DEVICES=0,1,2,3,4,5,6,7"
@@ -628,7 +629,7 @@ Environment="HSA_OVERRIDE_GFX_VERSION=9.0.0"
 Environment="HCC_AMDGPU_TARGET=gfx900"
 Environment="PYTORCH_ROCM_ARCH=gfx900"
 Environment="TF_ROCM_AMDGPU_TARGETS=gfx900"
-ExecStart=$GATOR_HOME/venv/bin/gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app -b 0.0.0.0:8000
+ExecStart=$GATOR_HOME/venv/bin/gunicorn -w 4 -k uvicorn.workers.UvicornWorker backend.api.main:app -b 0.0.0.0:8000
 Restart=always
 RestartSec=10
 

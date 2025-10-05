@@ -89,7 +89,7 @@ Documentation = "https://gator.readthedocs.io/"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["gator*"]
+include = ["backend*", "gator*"]
 exclude = ["tests*"]
 
 [tool.black]
