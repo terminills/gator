@@ -291,10 +291,10 @@ class ModelSetupManager:
             sys_info["gpu_architecture"] = rocm_arch
             sys_info["is_mi25"] = True
             sys_info["compatibility_notes"] = [
-                "MI25 (gfx900) detected - ROCm 4.5.2 recommended",
+                "MI25 (gfx900) detected - ROCm 5.7.1 confirmed working",
                 "HSA_OVERRIDE_GFX_VERSION=9.0.0 should be set",
-                "PyTorch ROCm 4.5.2 or compatible version required",
-                "Some newer frameworks may have limited gfx900 support"
+                "PyTorch with ROCm 5.7 support recommended",
+                "Some frameworks may require HSA override for gfx900 support"
             ]
         
         return sys_info

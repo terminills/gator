@@ -296,19 +296,9 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
             fi
             
             if [[ $IS_MI25 == true ]]; then
-                log "AMD MI25 (gfx900/Vega10) GPU detected - using ROCm 4.5.2 for optimal compatibility..."
-                ROCM_VERSION="4.5.2"
+                log "AMD MI25 (gfx900/Vega10) GPU detected - using ROCm 5.7.1 with gfx900 optimizations..."
+                ROCM_VERSION="5.7.1"
                 GFX_ARCH="gfx900"
-                
-                # Check kernel version - ROCm 4.5.2 on Ubuntu 20.04 requires kernel 5.4+
-                KERNEL_VERSION=$(uname -r | cut -d. -f1-2)
-                KERNEL_MAJOR=$(echo $KERNEL_VERSION | cut -d. -f1)
-                KERNEL_MINOR=$(echo $KERNEL_VERSION | cut -d. -f2)
-                
-                if [[ $KERNEL_MAJOR -lt 5 ]] || [[ $KERNEL_MAJOR -eq 5 && $KERNEL_MINOR -lt 4 ]]; then
-                    warn "Kernel version $KERNEL_VERSION detected. ROCm 4.5.2 recommends kernel 5.4 or higher."
-                    warn "Consider upgrading kernel: sudo apt install linux-generic-hwe-20.04"
-                fi
             else
                 log "Using latest ROCm version..."
                 ROCM_VERSION="5.7.1"
@@ -322,12 +312,7 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
             # Determine Ubuntu version for repository URL
             UBUNTU_VERSION=$(lsb_release -rs)
             if [[ "$UBUNTU_VERSION" == "20.04" ]]; then
-                if [[ "$ROCM_VERSION" == "4.5.2" ]]; then
-                    # ROCm 4.5.2 for Ubuntu 20.04 uses specific repository structure
-                    REPO_URL="deb [arch=amd64] https://repo.radeon.com/rocm/apt/4.5.2 ubuntu main"
-                else
-                    REPO_URL="deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION ubuntu main"
-                fi
+                REPO_URL="deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION ubuntu main"
             elif [[ "$UBUNTU_VERSION" == "22.04" ]]; then
                 REPO_URL="deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION jammy main"
             else
@@ -340,27 +325,11 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
             
             # Install ROCm packages
             log "Installing ROCm runtime and development packages..."
-            # For ROCm 4.5.2 on Ubuntu 20.04, install in specific order
-            if [[ "$ROCM_VERSION" == "4.5.2" ]]; then
-                log "Installing ROCm 4.5.2 packages for MI25 compatibility..."
-                apt install -y rocm-dkms rocm-dev rocm-libs rocm-utils || {
-                    warn "Some ROCm packages failed to install. Trying alternative package names..."
-                    apt install -y rocm-dkms rocm-dev rocm-device-libs rocm-opencl-dev
-                }
-            else
-                apt install -y rocm-dkms rocm-libs rocm-dev rocm-utils
-            fi
+            apt install -y rocm-dkms rocm-libs rocm-dev rocm-utils
             
             # Install additional packages for AI/ML workloads
             log "Installing HIP and ROCm math libraries..."
-            if [[ "$ROCM_VERSION" == "4.5.2" ]]; then
-                # ROCm 4.5.2 package names
-                apt install -y hip-runtime-amd hip-dev rocrand rocblas rocsparse rocsolver rocfft || {
-                    warn "Some math libraries may not be available for ROCm 4.5.2"
-                }
-            else
-                apt install -y hip-runtime-amd hip-dev rocrand-dev rocblas-dev rocsparse-dev rocsolver-dev rocfft-dev
-            fi
+            apt install -y hip-runtime-amd hip-dev rocrand-dev rocblas-dev rocsparse-dev rocsolver-dev rocfft-dev
             
             # Add users to render and video groups for GPU access
             usermod -aG render,video $GATOR_USER
@@ -776,7 +745,7 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
         log "   • GPU support: NVIDIA CUDA installed"
     elif [[ $INSTALL_ROCM_SUPPORT == true ]]; then
         if [[ ${IS_MI25:-false} == true ]]; then
-            log "   • GPU support: AMD ROCm 4.5.2 (MI25/gfx900 optimized)"
+            log "   • GPU support: AMD ROCm 5.7.1 (MI25/gfx900 optimized)"
         else
             log "   • GPU support: AMD ROCm installed"
         fi
@@ -817,11 +786,10 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
         if [[ ${IS_MI25:-false} == true ]]; then
             warn ""
             warn "📋 MI25 (gfx900) specific notes:"
-            warn "   • ROCm 4.5.2 is the recommended version for MI25"
+            warn "   • ROCm 5.7.1 confirmed working with MI25"
             warn "   • HSA_OVERRIDE_GFX_VERSION=9.0.0 is set for compatibility"
             warn "   • For PyTorch: Install pytorch-rocm from AMD repositories"
-            warn "   • TensorFlow ROCm support for gfx900 requires TF 2.7 or earlier"
-            warn "   • Some newer ML frameworks may need HSA override to work"
+            warn "   • Some ML frameworks may need HSA override for gfx900 support"
         fi
     fi
     if [[ $INSTALL_NVIDIA_SUPPORT == true ]]; then

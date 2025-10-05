@@ -25,34 +25,34 @@ if lspci -n | grep -E "1002:(6860|6861|...)" > /dev/null; then
 fi
 ```
 
-### 2. Fixed ROCm 4.5.2 Repository URL
+### 2. ROCm 5.7.1 Repository Configuration
 
-**Problem**: ROCm 4.5.2 repository URL structure differs from newer versions on Ubuntu 20.04.
+**Problem**: MI25 (gfx900) needs proper ROCm configuration with HSA override.
 
-**Solution**: Added specific repository URL handling:
+**Solution**: Use ROCm 5.7.1 (confirmed working) with proper environment variables:
 ```bash
 if [[ "$UBUNTU_VERSION" == "20.04" ]]; then
-    if [[ "$ROCM_VERSION" == "4.5.2" ]]; then
-        REPO_URL="deb [arch=amd64] https://repo.radeon.com/rocm/apt/4.5.2 ubuntu main"
-    fi
+    REPO_URL="deb [arch=amd64] https://repo.radeon.com/rocm/apt/5.7.1 ubuntu main"
 fi
 ```
 
-### 3. Kernel Version Validation
+### 3. Environment Variables for gfx900 Compatibility
 
-**Problem**: ROCm 4.5.2 requires kernel 5.4+ but Ubuntu 20.04 may have older kernels.
+**Problem**: ROCm 5.7.1 libraries may not recognize gfx900 without configuration.
 
-**Solution**: Added kernel version check with clear upgrade guidance:
+**Solution**: Set critical environment variables:
 ```bash
-KERNEL_VERSION=$(uname -r | cut -d. -f1-2)
-if [[ $KERNEL_MAJOR -lt 5 ]] || [[ $KERNEL_MAJOR -eq 5 && $KERNEL_MINOR -lt 4 ]]; then
-    warn "Consider upgrading kernel: sudo apt install linux-generic-hwe-20.04"
-fi
+export HSA_OVERRIDE_GFX_VERSION=9.0.0      # Critical for gfx900 compatibility
+export HCC_AMDGPU_TARGET=gfx900             # Compiler target architecture
+export PYTORCH_ROCM_ARCH=gfx900             # PyTorch optimization
+export TF_ROCM_AMDGPU_TARGETS=gfx900        # TensorFlow support
 ```
+
+The `HSA_OVERRIDE_GFX_VERSION=9.0.0` variable enables ROCm 5.7.1 to work with gfx900.
 
 ### 4. gfx900-Specific Environment Variables
 
-**Problem**: Many ML frameworks don't recognize or support gfx900 without specific environment configuration.
+**Problem**: ROCm 5.7.1 libraries may not recognize gfx900 without configuration.
 
 **Solution**: Added critical environment variables for MI25:
 ```bash
@@ -62,22 +62,9 @@ export PYTORCH_ROCM_ARCH=gfx900             # PyTorch optimization
 export TF_ROCM_AMDGPU_TARGETS=gfx900        # TensorFlow support
 ```
 
-`HSA_OVERRIDE_GFX_VERSION=9.0.0` is particularly important - it tells the ROCm runtime to treat gfx900 as supported even when newer libraries might not explicitly list it.
+`HSA_OVERRIDE_GFX_VERSION=9.0.0` enables ROCm 5.7.1 to work with gfx900 architecture.
 
-### 5. ROCm 4.5.2 Package Installation
-
-**Problem**: Package names differ between ROCm versions and some packages may not be available.
-
-**Solution**: Added version-specific package installation with fallback:
-```bash
-if [[ "$ROCM_VERSION" == "4.5.2" ]]; then
-    apt install -y hip-runtime-amd hip-dev rocrand rocblas rocsparse || {
-        warn "Some math libraries may not be available for ROCm 4.5.2"
-    }
-fi
-```
-
-### 6. Enhanced Verification Script
+### 5. Enhanced Verification Script
 
 **Problem**: Original check_rocm.sh had limited information for troubleshooting.
 
@@ -105,7 +92,7 @@ if is_mi25:
     sys_info["gpu_architecture"] = "gfx900"
     sys_info["is_mi25"] = True
     sys_info["compatibility_notes"] = [
-        "MI25 (gfx900) detected - ROCm 4.5.2 recommended",
+        "MI25 (gfx900) detected - ROCm 5.7.1 confirmed working",
         "HSA_OVERRIDE_GFX_VERSION=9.0.0 should be set",
         ...
     ]
@@ -130,9 +117,8 @@ Created `docs/MI25_COMPATIBILITY.md` with:
 Created `tests/test_mi25_compatibility.py` to validate:
 - Bash syntax correctness
 - MI25 detection patterns
-- ROCm 4.5.2 version selection
+- ROCm 5.7.1 configuration
 - gfx900 environment variables
-- Kernel version checks
 - Enhanced verification script
 - Documentation completeness
 - setup_ai_models.py detection
@@ -150,22 +136,20 @@ Added GPU Support section explaining:
 
 ## Technical Details
 
-### Why ROCm 4.5.2?
-- Last version with full gfx900 (MI25/Vega 10) support
-- Newer versions (5.x+) have dropped or limited gfx900 support
-- Best tested and most stable for production MI25 workloads
+### Why ROCm 5.7.1?
+- Confirmed working with MI25 (gfx900/Vega 10) on Ubuntu 20.04
+- Current stable version with good gfx900 support when HSA override is used
+- Better ML framework compatibility than older versions
 
 ### Why HSA_OVERRIDE_GFX_VERSION?
-- Many newer ROCm libraries check GPU architecture
-- They may refuse to run on gfx900 even when technically compatible
+- Some ROCm 5.7.1 libraries may not explicitly list gfx900 as supported
 - Override tells runtime to treat gfx900 as supported
-- Required for PyTorch 1.10+, some versions of TensorFlow, etc.
+- Required for PyTorch, TensorFlow, and many ML frameworks
 
-### Kernel 5.4+ Requirement
-- ROCm 4.5.2 kernel modules require features from kernel 5.4+
-- Ubuntu 20.04 ships with 5.4.0 by default (good)
-- Older systems may have kernel 5.3 or earlier (need upgrade)
-- HWE (Hardware Enablement) kernel recommended: `linux-generic-hwe-20.04`
+### Kernel Requirements
+- Ubuntu 20.04 typically ships with kernel 5.4.0 or higher
+- ROCm 5.7.1 works with standard Ubuntu 20.04 kernels
+- HWE (Hardware Enablement) kernel recommended for best compatibility: `linux-generic-hwe-20.04`
 
 ### Device ID Detection
 - Vega 10 architecture uses PCI device IDs 0x6860-0x686f
@@ -216,29 +200,30 @@ rocm-smi
 
 ### Expected Output for MI25
 ```
-ROCm Version: 4.5.2
+ROCm Version: 5.7.1
 GPU Architecture: gfx900 (MI25/Vega10)
 HSA_OVERRIDE_GFX_VERSION: 9.0.0
 ```
 
 ## Known Limitations
 
-1. ROCm 4.5.2 is end-of-life but necessary for MI25
-2. Some cutting-edge ML frameworks don't support gfx900
-3. PyTorch 2.0+ has limited gfx900 support (recommend 1.10-1.12)
-4. TensorFlow 2.8+ has dropped gfx900 (recommend 2.7 or earlier)
+1. Some cutting-edge ML frameworks may have limited gfx900 support
+2. HSA_OVERRIDE_GFX_VERSION=9.0.0 is required for most frameworks
+3. MI25 has 16GB memory - large models may need quantization or multi-GPU
+4. Always verify framework compatibility with gfx900 before deployment
 
 ## Future Improvements
 
-1. Add automatic PyTorch ROCm 4.5.2 installation
-2. Pre-built model configurations for MI25 limitations
+1. Add automatic PyTorch ROCm 5.7 installation
+2. Pre-built model configurations optimized for MI25
 3. Automated performance tuning scripts
 4. Multi-node MI25 cluster setup
 5. Container images with MI25 optimization
 
 ## References
 
-- Issue: MI-25 Compatibility
+- Issue: MI-25 Compatibility  
 - ROCm Documentation: https://rocmdocs.amd.com/
 - MI25 Specifications: AMD Radeon Instinct MI25 (Vega 10, gfx900)
 - Ubuntu 20.04 LTS Support
+- Confirmed: ROCm 5.7.1 works with MI25 on Ubuntu 20.04

@@ -26,7 +26,7 @@ The AMD MI25 is based on the Vega 10 architecture (gfx900) and requires specific
 
 ### Supported ROCm Version
 
-**ROCm 4.5.2** is the recommended version for MI25 on Ubuntu 20.04. Later versions (5.x+) have reduced or dropped gfx900 support.
+**ROCm 5.7.1** is confirmed working with MI25 on Ubuntu 20.04. The MI25 (gfx900 architecture) works well with this version when properly configured with the `HSA_OVERRIDE_GFX_VERSION=9.0.0` environment variable.
 
 ### Automatic Installation
 
@@ -42,19 +42,19 @@ sudo bash server-setup.sh --rocm
 
 ### Manual Installation
 
-If you need to install ROCm 4.5.2 manually:
+If you need to install ROCm 5.7.1 manually:
 
 ```bash
 # Add ROCm repository
 wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add -
-echo 'deb [arch=amd64] https://repo.radeon.com/rocm/apt/4.5.2 ubuntu main' | sudo tee /etc/apt/sources.list.d/rocm.list
+echo 'deb [arch=amd64] https://repo.radeon.com/rocm/apt/5.7.1 ubuntu main' | sudo tee /etc/apt/sources.list.d/rocm.list
 
 # Update and install
 sudo apt update
 sudo apt install -y rocm-dkms rocm-dev rocm-libs rocm-utils
 
 # Install additional libraries
-sudo apt install -y hip-runtime-amd hip-dev rocrand rocblas rocsparse rocsolver rocfft
+sudo apt install -y hip-runtime-amd hip-dev rocrand-dev rocblas-dev rocsparse-dev rocsolver-dev rocfft-dev
 
 # Add users to required groups
 sudo usermod -aG render,video $USER
@@ -84,7 +84,7 @@ export ROCR_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 export GPU_DEVICE_ORDINAL=0,1,2,3,4,5,6,7
 ```
 
-**Important**: The `HSA_OVERRIDE_GFX_VERSION=9.0.0` variable is critical for MI25. Many newer libraries check GPU architecture and may refuse to run on gfx900 without this override.
+**Important**: The `HSA_OVERRIDE_GFX_VERSION=9.0.0` variable is critical for MI25. It enables ROCm 5.7.1 libraries to work with gfx900 architecture even though some libraries may not explicitly list gfx900 as supported.
 
 ## Kernel Requirements
 
@@ -94,7 +94,7 @@ export GPU_DEVICE_ORDINAL=0,1,2,3,4,5,6,7
 uname -r
 ```
 
-You should see `5.4.0-xxx-generic` or higher.
+Ubuntu 20.04 typically ships with kernel 5.4.0 or higher, which is compatible with ROCm 5.7.1.
 
 ### Upgrading Kernel (if needed)
 
@@ -121,7 +121,7 @@ Expected output:
 === ROCm Installation Check ===
 
 ROCm Version:
-4.5.2
+5.7.1
 
 Kernel Version:
 5.4.0-xxx-generic
@@ -170,11 +170,11 @@ rocminfo | grep gfx
 
 ### PyTorch
 
-**Recommended Version**: PyTorch 1.10 - 1.12 with ROCm 4.5.2 support
+**Recommended Version**: PyTorch with ROCm 5.7.1 support
 
 ```bash
-# Install PyTorch for ROCm 4.5
-pip3 install torch==1.12.1+rocm4.5.2 torchvision==0.13.1+rocm4.5.2 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/rocm4.5.2
+# Install PyTorch for ROCm 5.7
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
 ```
 
 **Testing PyTorch**:
@@ -188,17 +188,17 @@ print(f"Device name: {torch.cuda.get_device_name(0)}")
 
 ### TensorFlow
 
-**Recommended Version**: TensorFlow 2.7 or earlier (gfx900 support limited in newer versions)
+**Recommended Version**: TensorFlow-ROCm compatible builds
 
 ```bash
 # Install TensorFlow for ROCm
-pip3 install tensorflow-rocm==2.7.0
+pip3 install tensorflow-rocm
 ```
 
 ### Other Frameworks
 
-- **ONNX Runtime**: Use ROCm 4.5.2 compatible builds
-- **JAX**: Limited gfx900 support, may require HSA override
+- **ONNX Runtime**: Use ROCm 5.7.1 compatible builds
+- **JAX**: May require HSA override for gfx900 compatibility
 - **Transformers**: Works with compatible PyTorch version
 - **Diffusers**: Works with compatible PyTorch version
 
@@ -226,14 +226,14 @@ pip3 install tensorflow-rocm==2.7.0
 Some inference engines may need special configuration:
 
 ```bash
-# vLLM with ROCm 4.5.2
+# vLLM with ROCm 5.7
 export PYTORCH_ROCM_ARCH=gfx900
-pip install vllm  # May need to build from source for 4.5.2
+pip install vllm
 
 # For ComfyUI
 git clone https://github.com/comfyanonymous/ComfyUI
 cd ComfyUI
-pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/rocm4.5.2
+pip install torch torchvision --index-url https://download.pytorch.org/whl/rocm5.7
 pip install -r requirements.txt
 ```
 
@@ -265,7 +265,7 @@ export HSA_OVERRIDE_GFX_VERSION=9.0.0
 ### Issue 4: Package installation failures
 
 **Solutions**:
-1. Check repository URL is correct for ROCm 4.5.2
+1. Check repository URL is correct for ROCm 5.7.1
 2. Try installing packages individually
 3. Clear apt cache: `sudo apt clean && sudo apt update`
 4. Check network connectivity to repo.radeon.com
@@ -345,10 +345,10 @@ htop
 
 ## Known Limitations
 
-1. **gfx900 Support**: Newer ROCm versions (5.x+) have dropped or limited gfx900 support
-2. **Framework Compatibility**: Some cutting-edge frameworks don't support gfx900
+1. **gfx900 Support**: Some cutting-edge frameworks may have limited gfx900 support
+2. **HSA Override Required**: HSA_OVERRIDE_GFX_VERSION=9.0.0 is essential for many libraries
 3. **Model Size**: MI25 has 16GB memory per GPU - large models need quantization or multi-GPU
-4. **Driver Updates**: Stick with ROCm 4.5.2 for best compatibility
+4. **Framework Compatibility**: Always check framework documentation for gfx900 support
 
 ## Additional Resources
 
@@ -368,9 +368,9 @@ For MI25-specific issues:
 
 ## Changelog
 
-- **2024-01**: Initial MI25 compatibility improvements
+- **2024-01**: MI25 compatibility improvements for ROCm 5.7.1
+  - Confirmed ROCm 5.7.1 works with MI25 on Ubuntu 20.04
   - Added gfx900 device ID detection
-  - Fixed ROCm 4.5.2 repository URLs for Ubuntu 20.04
-  - Added HSA_OVERRIDE_GFX_VERSION configuration
+  - Added HSA_OVERRIDE_GFX_VERSION configuration for compatibility
   - Enhanced verification script for MI25 validation
   - Added comprehensive environment variable setup

@@ -39,15 +39,15 @@ def test_mi25_detection_logic():
 
 
 def test_rocm_version_selection():
-    """Test that ROCm 4.5.2 is selected for MI25."""
+    """Test that ROCm 5.7.1 is used (MI25 compatible)."""
     script_path = Path('server-setup.sh')
     content = script_path.read_text()
     
-    # Check for ROCm 4.5.2 selection for MI25
-    assert '4.5.2' in content, "Missing ROCm 4.5.2 version"
-    assert 'ROCM_VERSION="4.5.2"' in content, "ROCm 4.5.2 not set as version"
+    # Check for ROCm 5.7.1 as default version
+    assert '5.7.1' in content, "Missing ROCm 5.7.1 version"
+    assert 'ROCM_VERSION="5.7.1"' in content, "ROCm 5.7.1 not set as version"
     
-    print("✓ ROCm 4.5.2 version selection present")
+    print("✓ ROCm 5.7.1 version selection present")
 
 
 def test_gfx900_environment_variables():
@@ -69,20 +69,8 @@ def test_gfx900_environment_variables():
     print("✓ gfx900 environment variables configured")
 
 
-def test_kernel_version_check():
-    """Test that kernel version check is present."""
-    script_path = Path('server-setup.sh')
-    content = script_path.read_text()
-    
-    # Check for kernel version validation
-    assert 'KERNEL_VERSION' in content or 'uname -r' in content, "Missing kernel version check"
-    assert '5.4' in content, "Missing kernel 5.4 requirement"
-    
-    print("✓ Kernel version check present")
-
-
 def test_enhanced_verification_script():
-    """Test that the verification script includes MI25 specific checks."""
+    """Test that the verification script includes comprehensive checks."""
     script_path = Path('server-setup.sh')
     content = script_path.read_text()
     
@@ -104,7 +92,7 @@ def test_compatibility_documentation():
     # Check for key sections
     required_sections = [
         'gfx900',
-        'ROCm 4.5.2',
+        'ROCm 5.7.1',
         'Ubuntu 20.04',
         'HSA_OVERRIDE_GFX_VERSION',
         'PyTorch',
@@ -137,7 +125,6 @@ def run_all_tests():
         test_mi25_detection_logic,
         test_rocm_version_selection,
         test_gfx900_environment_variables,
-        test_kernel_version_check,
         test_enhanced_verification_script,
         test_compatibility_documentation,
         test_setup_ai_models_mi25_detection,
