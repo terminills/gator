@@ -28,38 +28,45 @@ async def test_db():
     """Create test database engine and session factory."""
     # Use in-memory SQLite for testing
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    
+
     # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
-    session_factory = async_sessionmaker(bind=engine, class_=AsyncSession)
-    
+
+    session_factory = async_sessionmaker(
+        bind=engine, class_=AsyncSession, expire_on_commit=False
+    )
+
     yield session_factory
-    
+
     await engine.dispose()
 
 
 @pytest.fixture
 async def db_session(test_db):
-    """Provide a database session for tests."""
+    """Provide a database session for tests with automatic cleanup."""
     async with test_db() as session:
-        yield session
+        try:
+            yield session
+        finally:
+            # Roll back any uncommitted changes to ensure test isolation
+            await session.rollback()
+            await session.close()
 
 
 @pytest.fixture
 async def test_client(db_session):
     """Create test client with dependency override."""
     app = create_app()
-    
+
     # Override database dependency with async generator
     async def override_get_db():
         yield db_session
-    
+
     app.dependency_overrides[get_db_session] = override_get_db
-    
+
     with TestClient(app) as client:
         yield client
-    
+
     # Clean up overrides
     app.dependency_overrides.clear()
