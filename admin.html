@@ -442,6 +442,117 @@
                 opacity: 1;
             }
         }
+        
+        /* Persona and Content Grid Styles */
+        .personas-grid, .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .persona-card, .content-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .persona-card:hover, .content-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .persona-header, .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .persona-header h4 {
+            margin: 0;
+            color: #333;
+            font-size: 1.2rem;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-badge.active {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-badge.inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .persona-personality {
+            color: #666;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        
+        .persona-stats {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+            color: #777;
+        }
+        
+        .persona-actions, .content-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        
+        .content-type {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .content-rating {
+            background: #f0f0f0;
+            color: #333;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .content-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 6px;
+            margin: 12px 0;
+        }
+        
+        .content-text {
+            color: #666;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        
+        .error {
+            color: #d9534f;
+            padding: 20px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -1166,30 +1277,269 @@
             checkSystemStatus();
         });
         
-        // Placeholder functions for other features
-        function loadPersonas() {
-            showAlert('Persona management coming soon!');
+        // Persona Management Functions
+        async function loadPersonas() {
+            const personasDiv = document.getElementById('personas-list');
+            if (!personasDiv) {
+                showAlert('Personas view not found', 'error');
+                return;
+            }
+            
+            personasDiv.innerHTML = '<div class="loading"></div>Loading personas...';
+            
+            try {
+                const data = await apiRequest('/api/v1/personas/?skip=0&limit=50&active_only=false');
+                
+                if (!data || data.length === 0) {
+                    personasDiv.innerHTML = '<p>No personas found. Create your first persona to get started!</p>';
+                    return;
+                }
+                
+                let personasHtml = '<div class="personas-grid">';
+                data.forEach(persona => {
+                    personasHtml += `
+                        <div class="persona-card">
+                            <div class="persona-header">
+                                <h4>${persona.name}</h4>
+                                <span class="status-badge ${persona.is_active ? 'active' : 'inactive'}">
+                                    ${persona.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                            </div>
+                            <p class="persona-personality">${persona.personality.substring(0, 100)}${persona.personality.length > 100 ? '...' : ''}</p>
+                            <div class="persona-stats">
+                                <span>📊 Generated: ${persona.generation_count || 0}</span>
+                                <span>⭐ Rating: ${persona.default_content_rating}</span>
+                            </div>
+                            <div class="persona-actions">
+                                <button class="btn btn-sm" onclick="editPersona('${persona.id}')">Edit</button>
+                                <button class="btn btn-sm btn-secondary" onclick="deletePersona('${persona.id}', '${persona.name}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                personasHtml += '</div>';
+                
+                personasDiv.innerHTML = personasHtml;
+                showAlert('Personas loaded successfully!');
+                
+            } catch (error) {
+                personasDiv.innerHTML = '<p class="error">Failed to load personas. Please try again.</p>';
+                showAlert(`Failed to load personas: ${error.message}`, 'error');
+            }
         }
         
-        function createPersona() {
-            showAlert('Persona creation coming soon!');
+        async function createPersona() {
+            const name = prompt('Enter persona name:');
+            if (!name) return;
+            
+            const personality = prompt('Enter personality description:');
+            if (!personality) return;
+            
+            const appearance = prompt('Enter appearance description:');
+            if (!appearance) return;
+            
+            try {
+                const personaData = {
+                    name: name,
+                    personality: personality,
+                    appearance: appearance,
+                    content_themes: ['general', 'lifestyle'],
+                    style_preferences: {
+                        tone: 'friendly',
+                        format: 'casual'
+                    },
+                    default_content_rating: 'PG',
+                    allowed_content_ratings: ['G', 'PG', 'PG13'],
+                    platform_restrictions: {}
+                };
+                
+                const result = await apiRequest('/api/v1/personas/', {
+                    method: 'POST',
+                    body: JSON.stringify(personaData)
+                });
+                
+                showAlert(`Persona "${name}" created successfully!`);
+                loadPersonas(); // Reload the list
+                
+            } catch (error) {
+                showAlert(`Failed to create persona: ${error.message}`, 'error');
+            }
         }
         
-        function loadContent() {
-            showAlert('Content management coming soon!');
+        async function editPersona(personaId) {
+            showAlert('Edit persona feature coming soon! Persona ID: ' + personaId);
         }
         
-        function generateContent() {
-            showAlert('Content generation coming soon!');
+        async function deletePersona(personaId, personaName) {
+            if (!confirm(`Are you sure you want to delete "${personaName}"?`)) {
+                return;
+            }
+            
+            try {
+                await apiRequest(`/api/v1/personas/${personaId}`, {
+                    method: 'DELETE'
+                });
+                
+                showAlert(`Persona "${personaName}" deleted successfully!`);
+                loadPersonas(); // Reload the list
+                
+            } catch (error) {
+                showAlert(`Failed to delete persona: ${error.message}`, 'error');
+            }
         }
         
-        function editRecord(name, type) {
-            showAlert(`Edit record feature coming soon for ${name} (${type})`);
+        // Content Management Functions
+        async function loadContent() {
+            const contentDiv = document.getElementById('content-list');
+            if (!contentDiv) {
+                showAlert('Content view not found', 'error');
+                return;
+            }
+            
+            contentDiv.innerHTML = '<div class="loading"></div>Loading content...';
+            
+            try {
+                const data = await apiRequest('/api/v1/content/?skip=0&limit=50');
+                
+                if (!data || data.length === 0) {
+                    contentDiv.innerHTML = '<p>No content generated yet. Generate your first content to get started!</p>';
+                    return;
+                }
+                
+                let contentHtml = '<div class="content-grid">';
+                data.forEach(content => {
+                    contentHtml += `
+                        <div class="content-card">
+                            <div class="content-header">
+                                <span class="content-type">${content.content_type}</span>
+                                <span class="content-rating">${content.content_rating}</span>
+                            </div>
+                            ${content.image_url ? `<img src="${content.image_url}" alt="Generated content">` : ''}
+                            <p class="content-text">${(content.text_content || 'No text').substring(0, 100)}...</p>
+                            <div class="content-actions">
+                                <button class="btn btn-sm" onclick="viewContent('${content.id}')">View</button>
+                                <button class="btn btn-sm btn-secondary" onclick="deleteContent('${content.id}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                contentHtml += '</div>';
+                
+                contentDiv.innerHTML = contentHtml;
+                showAlert('Content loaded successfully!');
+                
+            } catch (error) {
+                contentDiv.innerHTML = '<p class="error">Failed to load content. Please try again.</p>';
+                showAlert(`Failed to load content: ${error.message}`, 'error');
+            }
         }
         
-        function deleteRecord(name, type) {
-            if (confirm(`Are you sure you want to delete the ${type} record for ${name}?`)) {
-                showAlert(`Delete record feature coming soon`);
+        async function generateContent() {
+            try {
+                const personas = await apiRequest('/api/v1/personas/?skip=0&limit=100');
+                
+                if (!personas || personas.length === 0) {
+                    showAlert('Please create a persona first before generating content!', 'error');
+                    return;
+                }
+                
+                const personaId = personas[0].id; // Use first persona
+                const prompt = prompt('Enter a prompt for content generation (or leave empty for auto):') || 'Generate engaging social media content';
+                
+                const requestData = {
+                    persona_id: personaId,
+                    content_type: 'image',
+                    prompt: prompt
+                };
+                
+                const result = await apiRequest('/api/v1/content/generate', {
+                    method: 'POST',
+                    body: JSON.stringify(requestData)
+                });
+                
+                showAlert('Content generation started! This may take a few moments...');
+                
+                // Refresh content list after a delay
+                setTimeout(() => {
+                    loadContent();
+                }, 3000);
+                
+            } catch (error) {
+                showAlert(`Failed to generate content: ${error.message}`, 'error');
+            }
+        }
+        
+        async function viewContent(contentId) {
+            showAlert('View content feature coming soon! Content ID: ' + contentId);
+        }
+        
+        async function deleteContent(contentId) {
+            if (!confirm('Are you sure you want to delete this content?')) {
+                return;
+            }
+            
+            try {
+                await apiRequest(`/api/v1/content/${contentId}`, {
+                    method: 'DELETE'
+                });
+                
+                showAlert('Content deleted successfully!');
+                loadContent(); // Reload the list
+                
+            } catch (error) {
+                showAlert(`Failed to delete content: ${error.message}`, 'error');
+            }
+        }
+        
+        // DNS Record Management Functions
+        async function editRecord(name, type) {
+            const domain = document.getElementById('domain-input').value.trim();
+            if (!domain) {
+                showAlert('Please load a domain first', 'error');
+                return;
+            }
+            
+            const newValue = prompt(`Enter new value for ${name} (${type}):`);
+            if (!newValue) return;
+            
+            try {
+                await apiRequest(`/api/v1/dns/domain/${domain}/records/${type}/${name}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        data: newValue,
+                        ttl: 3600
+                    })
+                });
+                
+                showAlert(`DNS record updated successfully!`);
+                loadDomainInfo(); // Reload domain info
+                
+            } catch (error) {
+                showAlert(`Failed to update DNS record: ${error.message}`, 'error');
+            }
+        }
+        
+        async function deleteRecord(name, type) {
+            const domain = document.getElementById('domain-input').value.trim();
+            if (!domain) {
+                showAlert('Please load a domain first', 'error');
+                return;
+            }
+            
+            if (!confirm(`Are you sure you want to delete the ${type} record for ${name}?`)) {
+                return;
+            }
+            
+            try {
+                await apiRequest(`/api/v1/dns/domain/${domain}/records/${type}/${name}`, {
+                    method: 'DELETE'
+                });
+                
+                showAlert('DNS record deleted successfully!');
+                loadDomainInfo(); // Reload domain info
+                
+            } catch (error) {
+                showAlert(`Failed to delete DNS record: ${error.message}`, 'error');
             }
         }
         
