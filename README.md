@@ -24,6 +24,18 @@ cd src && python -m backend.api.main
 # Visit http://localhost:8000 for the dashboard
 ```
 
+### 3. Updating an Existing Installation
+```bash
+# Update dependencies and migrate database
+./update.sh
+
+# For verbose output
+./update.sh --verbose
+
+# Skip verification step
+./update.sh --skip-verification
+```
+
 ## ✨ Current Features
 
 ### 🎭 AI Persona Management
@@ -318,6 +330,56 @@ Gator supports multiple database backends:
 - **Content Labeling**: AI-generated content disclosure and watermarking
 - **Age Verification**: Built-in age verification for adult content platforms
 - **Audit Trails**: Comprehensive logging for regulatory compliance
+
+## 🔧 Maintenance & Updates
+
+### Updating Your Installation
+Keep your Gator installation up-to-date with the latest features, bug fixes, and security patches:
+
+```bash
+# Standard update (recommended)
+./update.sh
+
+# Update with detailed output
+./update.sh --verbose
+
+# Quick update without verification
+./update.sh --skip-verification
+
+# Update without running migrations (if already applied)
+./update.sh --skip-migrations
+```
+
+The update script automatically:
+- ✅ Checks Python version and prerequisites
+- ✅ Updates pip to the latest version
+- ✅ Updates all Python dependencies
+- ✅ Runs database migration scripts
+- ✅ Updates database schema to latest version
+- ✅ Verifies installation integrity
+
+### Manual Database Migrations
+If you need to run migrations manually:
+
+```bash
+# Run a specific migration
+python migrate_add_base_image_status.py
+python migrate_add_appearance_locking.py
+
+# Reinitialize database (caution: may reset data)
+python setup_db.py
+```
+
+### Backup Before Updates
+Always backup your database before updating:
+
+```bash
+# SQLite backup
+cp gator.db gator.db.backup.$(date +%Y%m%d)
+
+# PostgreSQL backup
+pg_dump -U gator_user gator_production > backup_$(date +%Y%m%d).sql
+```
 
 ## 📞 Support & Community
 
