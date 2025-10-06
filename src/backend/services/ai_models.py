@@ -537,6 +537,124 @@ class AIModelManager:
             logger.error(f"Image generation failed: {str(e)}")
             raise
 
+    async def generate_images_batch(
+        self, prompts: List[str], **kwargs
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate multiple images from text prompts using available GPUs in parallel.
+        
+        Distributes batch requests across multiple detected GPU devices for improved performance.
+        Uses parallel processing to leverage multi-card hardware (e.g., ROCm/MI25 setup).
+        
+        Args:
+            prompts: List of text prompts for image generation
+            **kwargs: Additional generation parameters
+            
+        Returns:
+            List[Dict[str, Any]]: List of generated image results
+        """
+        try:
+            if not prompts:
+                return []
+            
+            # Find best available local image model
+            local_models = [
+                m
+                for m in self.available_models["image"]
+                if m.get("provider") == "local" and m.get("loaded", False)
+            ]
+            
+            if not local_models:
+                # Fallback to sequential generation with cloud models
+                logger.warning("No local models available, falling back to sequential generation")
+                results = []
+                for prompt in prompts:
+                    result = await self.generate_image(prompt, **kwargs)
+                    results.append(result)
+                return results
+            
+            model = local_models[0]
+            
+            # Detect available GPU devices
+            gpu_count = torch.cuda.device_count() if torch.cuda.is_available() else 0
+            
+            if gpu_count <= 1:
+                # Single GPU or CPU - sequential processing
+                logger.info(f"Using single device for batch generation ({gpu_count} GPU detected)")
+                results = []
+                for prompt in prompts:
+                    result = await self._generate_image_local(prompt, model, **kwargs)
+                    results.append(result)
+                return results
+            
+            # Multi-GPU parallel processing
+            logger.info(f"Using {gpu_count} GPUs for parallel batch generation")
+            
+            # Distribute prompts across available GPUs
+            tasks = []
+            for i, prompt in enumerate(prompts):
+                gpu_id = i % gpu_count
+                task = self._generate_image_on_device(
+                    prompt, model, gpu_id, **kwargs
+                )
+                tasks.append(task)
+            
+            # Execute all tasks in parallel
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Process results and handle any exceptions
+            processed_results = []
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.error(f"Batch generation failed for prompt {i}: {str(result)}")
+                    processed_results.append({
+                        "error": str(result),
+                        "prompt": prompts[i],
+                        "status": "failed"
+                    })
+                else:
+                    processed_results.append(result)
+            
+            return processed_results
+            
+        except Exception as e:
+            logger.error(f"Batch image generation failed: {str(e)}")
+            raise
+
+    async def _generate_image_on_device(
+        self, prompt: str, model: Dict[str, Any], device_id: int, **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Generate image on a specific GPU device.
+        
+        Args:
+            prompt: Text prompt for generation
+            model: Model configuration
+            device_id: GPU device ID to use
+            **kwargs: Additional generation parameters
+            
+        Returns:
+            Dict[str, Any]: Generated image result
+        """
+        try:
+            # Override device in kwargs
+            kwargs_with_device = kwargs.copy()
+            kwargs_with_device["device_id"] = device_id
+            
+            logger.debug(f"Generating image on GPU {device_id}: {prompt[:50]}...")
+            
+            # Generate image using specified device
+            result = await self._generate_image_local(prompt, model, **kwargs_with_device)
+            
+            # Add device info to result
+            result["device_id"] = device_id
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Image generation failed on device {device_id}: {str(e)}")
+            raise
+
     async def generate_text(self, prompt: str, **kwargs) -> str:
         """Generate text from prompt using best available model."""
         try:
@@ -745,13 +863,26 @@ class AIModelManager:
             reference_image_path = kwargs.get("reference_image_path")
             use_controlnet = kwargs.get("use_controlnet", False)
 
-            # Load or get cached pipeline
-            pipeline_key = f"diffusers_{model_name}"
+            # Get device ID if specified for multi-GPU support
+            device_id = kwargs.get("device_id", None)
+
+            # Load or get cached pipeline (with device-specific caching for multi-GPU)
+            if device_id is not None:
+                pipeline_key = f"diffusers_{model_name}_gpu{device_id}"
+            else:
+                pipeline_key = f"diffusers_{model_name}"
+                
             if pipeline_key not in self._loaded_pipelines:
-                logger.info(f"Loading diffusion model: {model_name}")
+                logger.info(f"Loading diffusion model: {model_name} on device {device_id if device_id is not None else 'default'}")
 
                 # Determine device
-                device = "cuda" if torch.cuda.is_available() else "cpu"
+                if torch.cuda.is_available():
+                    if device_id is not None:
+                        device = f"cuda:{device_id}"
+                    else:
+                        device = "cuda"
+                else:
+                    device = "cpu"
 
                 # Try to load from local path first, fallback to HuggingFace Hub
                 if model_path.exists():
@@ -759,7 +890,7 @@ class AIModelManager:
                     pipe = StableDiffusionPipeline.from_pretrained(
                         str(model_path),
                         torch_dtype=(
-                            torch.float16 if device == "cuda" else torch.float32
+                            torch.float16 if "cuda" in device else torch.float32
                         ),
                         safety_checker=None,  # Disable for performance
                     )
@@ -768,7 +899,7 @@ class AIModelManager:
                     pipe = StableDiffusionPipeline.from_pretrained(
                         model_id,
                         torch_dtype=(
-                            torch.float16 if device == "cuda" else torch.float32
+                            torch.float16 if "cuda" in device else torch.float32
                         ),
                         safety_checker=None,  # Disable for performance
                     )
@@ -785,7 +916,7 @@ class AIModelManager:
                 pipe = pipe.to(device)
 
                 # Enable memory optimizations
-                if device == "cuda":
+                if "cuda" in device:
                     pipe.enable_attention_slicing()
                     # Try to enable xformers if available
                     try:
@@ -813,8 +944,12 @@ class AIModelManager:
             # Set seed for reproducibility if provided
             generator = None
             if seed is not None:
-                device = "cuda" if torch.cuda.is_available() else "cpu"
-                generator = torch.Generator(device=device).manual_seed(seed)
+                # Use the specific device for generator if device_id is provided
+                if device_id is not None and torch.cuda.is_available():
+                    gen_device = f"cuda:{device_id}"
+                else:
+                    gen_device = "cuda" if torch.cuda.is_available() else "cpu"
+                generator = torch.Generator(device=gen_device).manual_seed(seed)
 
             # Handle reference image for visual consistency
             if reference_image_path and use_controlnet:
