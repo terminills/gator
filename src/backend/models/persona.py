@@ -21,6 +21,7 @@ from backend.database.connection import Base
 class ContentRating(str, Enum):
     """Content rating enumeration for persona settings."""
     SFW = "sfw"
+    MODERATE = "moderate"
     NSFW = "nsfw"
 
 

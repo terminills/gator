@@ -71,9 +71,39 @@ class ContentModerationService:
 
     @staticmethod
     def platform_content_filter(
-        content_rating: ContentRating, target_platform: str
+        content_rating: ContentRating, 
+        target_platform: str,
+        persona_platform_restrictions: Optional[Dict[str, str]] = None
     ) -> bool:
-        """Check if content is appropriate for target platform."""
+        """
+        Check if content is appropriate for target platform.
+        
+        Args:
+            content_rating: The content rating to check (SFW, MODERATE, NSFW)
+            target_platform: The target platform name (e.g., "instagram", "onlyfans")
+            persona_platform_restrictions: Optional persona-specific platform restrictions.
+                Format: {"instagram": "sfw_only", "onlyfans": "both", "twitter": "moderate_allowed"}
+                Supported values: "sfw_only", "moderate_allowed", "both" (all ratings)
+        
+        Returns:
+            bool: True if content is allowed, False otherwise
+        """
+        platform_lower = target_platform.lower()
+        
+        # Check persona-specific restrictions first (per-site override)
+        if persona_platform_restrictions and platform_lower in persona_platform_restrictions:
+            restriction = persona_platform_restrictions[platform_lower].lower()
+            
+            if restriction == "sfw_only":
+                return content_rating == ContentRating.SFW
+            elif restriction == "moderate_allowed":
+                return content_rating in [ContentRating.SFW, ContentRating.MODERATE]
+            elif restriction == "both" or restriction == "all":
+                # Allow all content types for this persona on this platform
+                return True
+            # If unrecognized restriction, fall through to default policies
+        
+        # Default platform policies (global rules when no persona override exists)
         platform_policies = {
             "instagram": [ContentRating.SFW, ContentRating.MODERATE],
             "facebook": [ContentRating.SFW],
@@ -84,7 +114,7 @@ class ContentModerationService:
         }
 
         allowed_ratings = platform_policies.get(
-            target_platform.lower(), [ContentRating.SFW]
+            platform_lower, [ContentRating.SFW]
         )
         return content_rating in allowed_ratings
 
@@ -189,7 +219,7 @@ class ContentGenerationService:
 
             # Apply platform-specific adaptations
             platform_adaptations = await self._create_platform_adaptations(
-                content_data, request.content_rating, request.target_platforms or []
+                persona, content_data, request.content_rating, request.target_platforms or []
             )
 
             # Store content metadata in database
@@ -804,19 +834,26 @@ Generate the social media content now:"""
 
     async def _create_platform_adaptations(
         self,
+        persona: PersonaModel,
         content_data: Dict[str, Any],
         content_rating: ContentRating,
         target_platforms: List[str],
     ) -> Dict[str, Any]:
-        """Create platform-specific adaptations for content."""
+        """
+        Create platform-specific adaptations for content.
+        
+        Uses persona's platform_restrictions to override global platform policies.
+        This allows per-persona, per-site NSFW content filtering.
+        """
         adaptations = {}
 
         for platform in target_platforms:
             platform_lower = platform.lower()
 
             # Check if content rating is appropriate for platform
+            # Pass persona's platform_restrictions to enable per-site filtering
             if not self.moderation_service.platform_content_filter(
-                content_rating, platform_lower
+                content_rating, platform_lower, persona.platform_restrictions
             ):
                 adaptations[platform_lower] = {
                     "status": "blocked",
