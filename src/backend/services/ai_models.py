@@ -1205,6 +1205,188 @@ class AIModelManager:
             logger.error(f"Model installation failed: {str(e)}")
             return {"success": False, "error": str(e)}
 
+    async def _generate_reference_image_openai(
+        self,
+        appearance_prompt: str,
+        personality_context: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Generate a high-quality reference image using DALL-E 3.
+
+        This method is specifically designed for creating baseline character
+        reference images for visual consistency. It uses DALL-E 3 for
+        high-quality, single-subject portrait generation.
+
+        Args:
+            appearance_prompt: Detailed appearance description
+            personality_context: Optional personality traits to inform the image
+            **kwargs: Additional generation parameters (quality, size)
+
+        Returns:
+            Dict with image_data, format, width, height, and metadata
+
+        Raises:
+            Exception: If generation fails
+        """
+        try:
+            # Build enhanced prompt for character reference
+            prompt_parts = [
+                "Professional character portrait,",
+                "highly detailed, photorealistic,",
+                appearance_prompt,
+            ]
+
+            if personality_context:
+                prompt_parts.append(f"expressing {personality_context}")
+
+            prompt_parts.append("high quality studio lighting, centered composition")
+            full_prompt = " ".join(prompt_parts)
+
+            logger.info(
+                f"Generating reference image with DALL-E 3: {full_prompt[:100]}..."
+            )
+
+            response = await self.http_client.post(
+                "https://api.openai.com/v1/images/generations",
+                headers={
+                    "Authorization": f"Bearer {self.settings.openai_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "dall-e-3",
+                    "prompt": full_prompt,
+                    "size": kwargs.get(
+                        "size", "1024x1024"
+                    ),  # Default to high resolution
+                    "quality": kwargs.get(
+                        "quality", "hd"
+                    ),  # Use HD quality for reference images
+                    "n": 1,
+                },
+            )
+
+            if response.status_code != 200:
+                raise Exception(f"OpenAI API error: {response.text}")
+
+            result = response.json()
+            image_url = result["data"][0]["url"]
+
+            # Download the generated image
+            image_response = await self.http_client.get(image_url)
+            image_data = image_response.content
+
+            logger.info("Successfully generated reference image with DALL-E 3")
+
+            return {
+                "image_data": image_data,
+                "format": "PNG",
+                "width": 1024,
+                "height": 1024,
+                "model": "dall-e-3",
+                "provider": "openai",
+                "prompt": full_prompt,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to generate reference image with DALL-E: {str(e)}")
+            raise
+
+    async def _generate_reference_image_local(
+        self,
+        appearance_prompt: str,
+        personality_context: Optional[str] = None,
+        reference_image_path: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Generate a reference image using local Stable Diffusion.
+
+        This method uses local MI25/ROCm hardware for cost-effective
+        reference image generation. Supports ControlNet for refining
+        draft images.
+
+        Args:
+            appearance_prompt: Detailed appearance description
+            personality_context: Optional personality traits
+            reference_image_path: Optional draft image for ControlNet refinement
+            **kwargs: Additional generation parameters
+
+        Returns:
+            Dict with image_data, format, width, height, and metadata
+
+        Raises:
+            Exception: If generation fails
+        """
+        try:
+            # Build enhanced prompt for character reference
+            prompt_parts = [
+                "professional character portrait, highly detailed,",
+                appearance_prompt,
+            ]
+
+            if personality_context:
+                prompt_parts.append(f"expressing {personality_context}")
+
+            prompt_parts.append("high quality, centered composition, studio lighting")
+            full_prompt = " ".join(prompt_parts)
+
+            logger.info(f"Generating reference image locally: {full_prompt[:100]}...")
+
+            # Use high-resolution parameters for reference images
+            generation_kwargs = {
+                "width": kwargs.get("width", 1024),
+                "height": kwargs.get("height", 1024),
+                "num_inference_steps": kwargs.get(
+                    "num_inference_steps", 50
+                ),  # Higher quality
+                "guidance_scale": kwargs.get("guidance_scale", 8.0),
+                "negative_prompt": kwargs.get(
+                    "negative_prompt",
+                    "ugly, blurry, low quality, distorted, deformed, bad anatomy",
+                ),
+                "seed": kwargs.get("seed"),
+            }
+
+            # Enable ControlNet if reference image provided
+            if reference_image_path:
+                logger.info(f"Using ControlNet with reference: {reference_image_path}")
+                generation_kwargs["reference_image_path"] = reference_image_path
+                generation_kwargs["use_controlnet"] = True
+
+            # Generate using the diffusers pipeline
+            result = await self._generate_image_diffusers(
+                prompt=full_prompt,
+                model=self._get_best_local_image_model(),
+                **generation_kwargs,
+            )
+
+            logger.info("Successfully generated reference image locally")
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to generate reference image locally: {str(e)}")
+            raise
+
+    def _get_best_local_image_model(self) -> Dict[str, Any]:
+        """Get the best available local image model."""
+        local_models = [
+            m
+            for m in self.available_models.get("image", [])
+            if m.get("provider") == "local" and m.get("loaded")
+        ]
+
+        if not local_models:
+            raise Exception("No local image models available")
+
+        # Prefer SDXL models for best quality
+        for model in local_models:
+            if "xl" in model.get("name", "").lower():
+                return model
+
+        return local_models[0]
+
     async def close(self) -> None:
         """Clean up resources."""
         await self.http_client.aclose()
