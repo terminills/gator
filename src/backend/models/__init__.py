@@ -14,6 +14,11 @@ from .content import (
     GenerationRequest, ContentListResponse, ContentStats,
     ContentType, ContentRating, ModerationStatus
 )
+from .feed import (
+    RSSFeedModel, FeedItemModel,
+    RSSFeedCreate, RSSFeedResponse, RSSFeedUpdate,
+    FeedItemResponse, FeedItemListResponse
+)
 
 __all__ = [
     "PersonaModel",
@@ -44,4 +49,12 @@ __all__ = [
     "ContentType",
     "ContentRating",
     "ModerationStatus",
+    # Feed models
+    "RSSFeedModel",
+    "FeedItemModel",
+    "RSSFeedCreate",
+    "RSSFeedResponse",
+    "RSSFeedUpdate",
+    "FeedItemResponse",
+    "FeedItemListResponse",
 ]

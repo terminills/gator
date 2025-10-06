@@ -18,6 +18,8 @@ from backend.models.user import UserModel
 from backend.models.conversation import ConversationModel
 from backend.models.message import MessageModel
 from backend.models.ppv_offer import PPVOfferModel
+from backend.models.content import ContentModel
+from backend.models.feed import RSSFeedModel, FeedItemModel
 from backend.config.logging import setup_logging, get_logger
 
 # Setup logging
@@ -44,6 +46,9 @@ async def create_tables():
         print("   • conversations - Conversation threads")
         print("   • messages - Individual messages")
         print("   • ppv_offers - Pay-per-view offer management")
+        print("   • content - Generated AI content")
+        print("   • rss_feeds - RSS feed sources")
+        print("   • feed_items - RSS feed items")
         
         # Disconnect
         await database_manager.disconnect()
