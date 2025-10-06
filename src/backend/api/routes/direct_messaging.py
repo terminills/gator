@@ -300,24 +300,101 @@ async def _process_persona_response_queue(
     across all active conversations.
     """
     try:
-        # This is a placeholder for the actual AI response generation
-        # In a real implementation, this would:
-        # 1. Get the next conversation from the queue
-        # 2. Generate an appropriate persona response using the AI model
-        # 3. Optionally include PPV offers based on conversation context
-        # 4. Send the generated response
-        
+        # Get the next conversation from the queue
         conversation = await dm_service.get_next_conversation_for_persona_response()
         if conversation:
             logger.info(f"Processing persona response for conversation {conversation.id} triggered_by={triggering_conversation_id}")
             
-            # TODO: Implement actual AI response generation here
-            # This would involve:
-            # - Loading the persona's characteristics
-            # - Getting conversation context
-            # - Generating appropriate response using LLM
-            # - Determining if PPV offer should be included
-            # - Sending the response via dm_service.send_message()
+            # Load the persona's characteristics
+            from backend.services.persona_service import PersonaService
+            persona_service = PersonaService(dm_service.db)
+            persona = await persona_service.get_persona(conversation.persona_id)
+            
+            if not persona:
+                logger.warning(f"Persona {conversation.persona_id} not found for conversation {conversation.id}")
+                return
+            
+            # Get conversation context (recent messages)
+            messages = await dm_service.get_conversation_messages(
+                conversation_id=conversation.id,
+                limit=10
+            )
+            
+            # Build context for AI generation
+            context_messages = []
+            for msg in messages[-10:]:  # Last 10 messages
+                role = "user" if msg.sender == "user" else "assistant"
+                context_messages.append({
+                    "role": role,
+                    "content": msg.content
+                })
+            
+            # Generate appropriate response using LLM
+            from backend.services.ai_models import AIModelManager
+            ai_manager = AIModelManager()
+            
+            # Create persona-informed prompt
+            system_prompt = f"""You are {persona.name}, an AI influencer.
+Your personality: {persona.personality}
+Your appearance: {persona.appearance}
+Content themes: {', '.join(persona.content_themes)}
+
+Respond naturally as this persona would, maintaining character and style.
+Keep responses engaging, authentic, and conversational."""
+            
+            # Build the full prompt with context
+            full_prompt = f"{system_prompt}\n\nConversation context:\n"
+            for msg in context_messages:
+                full_prompt += f"{msg['role']}: {msg['content']}\n"
+            full_prompt += "\nassistant: "
+            
+            try:
+                response_text = await ai_manager.generate_text(
+                    prompt=full_prompt,
+                    max_tokens=150,
+                    temperature=0.7
+                )
+            except Exception as e:
+                logger.warning(f"AI generation failed, using fallback: {str(e)}")
+                # Fallback to a simple response
+                response_text = f"Thanks for your message! I appreciate you reaching out. What would you like to know more about?"
+            
+            # Determine if PPV offer should be included (10% chance for example)
+            import random
+            include_ppv = random.random() < 0.1 and conversation.ppv_enabled
+            
+            ppv_offer_id = None
+            if include_ppv:
+                # Create a PPV offer if applicable
+                from backend.models.ppv_offer import PPVOfferCreate, PPVOfferType
+                from decimal import Decimal
+                
+                ppv_data = PPVOfferCreate(
+                    message_id=None,  # Will be set after message creation
+                    content_type=PPVOfferType.PHOTO,
+                    preview_text="Exclusive content available",
+                    price=Decimal("5.99"),
+                    is_active=True
+                )
+                try:
+                    ppv_offer = await dm_service.create_ppv_offer(ppv_data)
+                    ppv_offer_id = ppv_offer.id
+                    response_text += f"\n\n💎 I have some exclusive content you might enjoy! Check out my offer above."
+                except Exception as e:
+                    logger.warning(f"Failed to create PPV offer: {str(e)}")
+            
+            # Send the generated response
+            from backend.models.message import MessageCreate, MessageSender, MessageType
+            message_data = MessageCreate(
+                conversation_id=conversation.id,
+                sender=MessageSender.PERSONA,
+                content=response_text,
+                message_type=MessageType.TEXT,
+                ppv_offer_id=ppv_offer_id
+            )
+            
+            await dm_service.send_message(message_data)
+            logger.info(f"Sent persona response for conversation {conversation.id}")
             
         else:
             logger.debug("No conversations need persona response at this time")
