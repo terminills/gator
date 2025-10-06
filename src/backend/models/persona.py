@@ -51,6 +51,11 @@ class PersonaModel(Base):
     allowed_content_ratings = Column(JSON, nullable=False, default=list)  # ["sfw"] or ["sfw", "nsfw"]
     platform_restrictions = Column(JSON, nullable=False, default=dict)  # {"instagram": "sfw_only", "onlyfans": "both"}
     
+    # Visual consistency and appearance locking
+    base_appearance_description = Column(Text, nullable=True)  # Detailed baseline appearance prompt
+    base_image_path = Column(String(500), nullable=True)  # Path to reference image for consistency
+    appearance_locked = Column(Boolean, default=False, index=True)  # Prevents overwrites, enables consistency
+    
     is_active = Column(Boolean, default=True, index=True)
     generation_count = Column(Integer, default=0)
     
@@ -110,6 +115,20 @@ class PersonaCreate(BaseModel):
         default={},
         description="Platform-specific content restrictions"
     )
+    base_appearance_description: Optional[str] = Field(
+        default=None,
+        max_length=5000,
+        description="Detailed baseline appearance description for visual consistency"
+    )
+    base_image_path: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="Path to reference image for visual consistency (e.g., /models/base_images/persona_ref.jpg)"
+    )
+    appearance_locked: bool = Field(
+        default=False,
+        description="When True, locks appearance and enables visual consistency features"
+    )
     
     @field_validator("name")
     @classmethod
@@ -150,6 +169,20 @@ class PersonaUpdate(BaseModel):
     allowed_content_ratings: Optional[List[ContentRating]] = None
     platform_restrictions: Optional[Dict[str, str]] = None
     is_active: Optional[bool] = None
+    base_appearance_description: Optional[str] = Field(
+        None,
+        max_length=5000,
+        description="Detailed baseline appearance description for visual consistency"
+    )
+    base_image_path: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="Path to reference image for visual consistency"
+    )
+    appearance_locked: Optional[bool] = Field(
+        None,
+        description="When True, locks appearance and enables visual consistency features"
+    )
 
 
 class PersonaResponse(BaseModel):
@@ -168,5 +201,8 @@ class PersonaResponse(BaseModel):
     generation_count: int
     created_at: datetime
     updated_at: datetime
+    base_appearance_description: Optional[str] = None
+    base_image_path: Optional[str] = None
+    appearance_locked: bool = False
     
     model_config = {"from_attributes": True}

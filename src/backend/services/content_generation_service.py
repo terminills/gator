@@ -291,8 +291,14 @@ class ContentGenerationService:
     ) -> str:
         """
         Generate AI prompt based on persona characteristics and content rating.
+        Uses base_appearance_description if appearance_locked is True for consistency.
         """
-        base_prompt = f"{persona.appearance}, {persona.personality}"
+        # Use base appearance if locked, otherwise use standard appearance
+        if persona.appearance_locked and persona.base_appearance_description:
+            base_prompt = f"{persona.base_appearance_description}, {persona.personality}"
+            logger.info(f"Using locked base appearance for persona {persona.id}")
+        else:
+            base_prompt = f"{persona.appearance}, {persona.personality}"
 
         # Add content rating modifiers
         rating_modifiers = {
@@ -346,6 +352,7 @@ class ContentGenerationService:
         Generate image using AI model.
 
         Integrated with real AI models including OpenAI DALL-E and Stable Diffusion.
+        Uses base_image_path for visual consistency when appearance_locked is True.
         """
         try:
             from backend.services.ai_models import ai_models
@@ -354,16 +361,27 @@ class ContentGenerationService:
             if not ai_models.models_loaded:
                 await ai_models.initialize_models()
 
-            # Generate image using AI model
-            image_result = await ai_models.generate_image(
-                prompt=request.prompt,
-                size="1024x1024",
-                quality=(
+            # Prepare generation parameters
+            generation_params = {
+                "prompt": request.prompt,
+                "size": "1024x1024",
+                "quality": (
                     request.quality
                     if request.quality in ["standard", "hd"]
                     else "standard"
                 ),
-            )
+            }
+
+            # Add visual consistency parameters if appearance is locked
+            if persona.appearance_locked and persona.base_image_path:
+                generation_params["reference_image_path"] = persona.base_image_path
+                generation_params["use_controlnet"] = True
+                logger.info(
+                    f"Using visual reference for consistency: {persona.base_image_path}"
+                )
+
+            # Generate image using AI model
+            image_result = await ai_models.generate_image(**generation_params)
 
             # Save the generated image
             filename = f"image_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
@@ -581,6 +599,7 @@ class ContentGenerationService:
         Generate text using AI model.
 
         First attempts real AI generation, falls back to smart template-based generation.
+        Uses base_appearance_description for consistency when appearance_locked is True.
         """
         try:
             from backend.services.ai_models import ai_models
@@ -589,10 +608,17 @@ class ContentGenerationService:
             if not ai_models.models_loaded:
                 await ai_models.initialize_models()
 
+            # Use base appearance if locked for consistency
+            appearance_desc = (
+                persona.base_appearance_description
+                if persona.appearance_locked and persona.base_appearance_description
+                else persona.appearance
+            )
+
             # Enhanced prompt with persona context
             enhanced_prompt = f"""You are {persona.name}, an AI influencer with the following characteristics:
             
-Appearance: {persona.appearance}
+Appearance: {appearance_desc}
 Personality: {persona.personality}
 Content Themes: {', '.join(persona.content_themes[:3]) if persona.content_themes else 'general topics'}
 
