@@ -1,0 +1,163 @@
+┌─────────────────────────────────────────────────────────────────────┐
+│                   DALL-E Seed Generation Workflow                     │
+│                         Implementation Complete                        │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 1. DATABASE SCHEMA                                                    │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│  PersonaModel:                                                         │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │ • base_image_status (VARCHAR)     [NEW]                        │  │
+│  │   - pending_upload (default)                                   │  │
+│  │   - draft                                                       │  │
+│  │   - approved                                                    │  │
+│  │   - rejected                                                    │  │
+│  │                                                                 │  │
+│  │ • base_image_path (VARCHAR)       [EXISTING]                   │  │
+│  │ • appearance_locked (BOOLEAN)     [EXISTING]                   │  │
+│  │ • base_appearance_description     [EXISTING]                   │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                        │
+│  Migration: migrate_add_base_image_status.py ✓                        │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 2. API ENDPOINTS                                                      │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│  POST /api/v1/personas/{id}/seed-image/upload                         │
+│  ├─ Upload user-provided image file                                   │
+│  ├─ Validates format (PNG/JPG/WEBP), size (max 10MB)                 │
+│  ├─ Saves to /opt/gator/data/models/base_images/                     │
+│  └─ Sets status → DRAFT                                               │
+│                                                                        │
+│  POST /api/v1/personas/{id}/seed-image/generate-cloud                 │
+│  ├─ Generates image using DALL-E 3 API                                │
+│  ├─ Uses persona's appearance + personality                           │
+│  ├─ HD quality (1024x1024)                                            │
+│  └─ Sets status → DRAFT                                               │
+│                                                                        │
+│  POST /api/v1/personas/{id}/seed-image/generate-local                 │
+│  ├─ Generates using local Stable Diffusion                            │
+│  ├─ Supports ControlNet for refinement                                │
+│  ├─ High-res (1024x1024, 50 steps)                                    │
+│  └─ Sets status → DRAFT                                               │
+│                                                                        │
+│  POST /api/v1/personas/{id}/seed-image/approve                        │
+│  ├─ Approves the baseline image                                       │
+│  ├─ Sets status → APPROVED                                            │
+│  └─ Sets appearance_locked → TRUE                                     │
+│                                                                        │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 3. SERVICE LAYER                                                      │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│  PersonaService:                                                       │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │ • _save_image_to_disk()          Saves image bytes to disk     │  │
+│  │ • approve_baseline()              Approves and locks persona   │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                        │
+│  AIModelManager:                                                       │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │ • _generate_reference_image_openai()    DALL-E 3 generation    │  │
+│  │ • _generate_reference_image_local()     Local SD + ControlNet  │  │
+│  │ • _get_best_local_image_model()         Model selection        │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                        │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 4. WORKFLOW STATES                                                    │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│     ┌──────────────────┐                                              │
+│     │ PENDING_UPLOAD   │  New persona created                         │
+│     └────────┬─────────┘                                              │
+│              │                                                         │
+│              ├─────────────┐                                           │
+│              │             │                                           │
+│              v             v                                           │
+│     ┌────────────┐  ┌─────────────┐                                   │
+│     │   DRAFT    │  │  REJECTED   │  Review & iteration               │
+│     └─────┬──────┘  └──────┬──────┘                                   │
+│           │                │                                           │
+│           └────────┬───────┘                                           │
+│                    │                                                   │
+│                    v                                                   │
+│           ┌────────────────┐                                           │
+│           │   APPROVED     │  Appearance locked                        │
+│           └────────────────┘                                           │
+│                                                                        │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 5. TESTING & VALIDATION                                               │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│  Unit Tests (test_seed_image_workflow.py):                            │
+│  ├─ BaseImageStatus enum values ✓                                     │
+│  ├─ Persona creation with status field ✓                              │
+│  ├─ Approve baseline without image (error) ✓                          │
+│  ├─ Approve baseline with image (success) ✓                           │
+│  ├─ Save image to disk ✓                                              │
+│  ├─ Update persona status ✓                                           │
+│  ├─ AI model manager methods ✓                                        │
+│  └─ Model selection logic ✓                                           │
+│                                                                        │
+│  Integration Tests (test_seed_image_integration.py):                  │
+│  ├─ Complete workflow validation ✓                                    │
+│  ├─ Status transitions ✓                                              │
+│  ├─ Approval workflow ✓                                               │
+│  └─ Error conditions ✓                                                │
+│                                                                        │
+│  API Tests (manual):                                                  │
+│  ├─ POST /seed-image/upload ✓                                         │
+│  ├─ POST /seed-image/approve ✓                                        │
+│  └─ Error handling ✓                                                  │
+│                                                                        │
+│  Results: 12/12 unit tests passing                                    │
+│           Integration tests: ALL PASSING                              │
+│           Server startup: SUCCESSFUL                                  │
+│                                                                        │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ 6. DOCUMENTATION                                                      │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│  SEED_IMAGE_WORKFLOW.md:                                              │
+│  ├─ Complete feature overview                                         │
+│  ├─ API endpoint documentation                                        │
+│  ├─ Workflow examples (upload, cloud, local)                          │
+│  ├─ Configuration guide                                               │
+│  ├─ Error handling reference                                          │
+│  ├─ Testing instructions                                              │
+│  ├─ Migration guide                                                   │
+│  └─ Troubleshooting section                                           │
+│                                                                        │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ FILES MODIFIED                                                        │
+├──────────────────────────────────────────────────────────────────────┤
+│  Modified:                                                            │
+│  • src/backend/models/persona.py                                      │
+│  • src/backend/services/persona_service.py                            │
+│  • src/backend/services/ai_models.py                                  │
+│  • src/backend/api/routes/persona.py                                  │
+│                                                                        │
+│  Created:                                                             │
+│  • migrate_add_base_image_status.py                                   │
+│  • tests/unit/test_seed_image_workflow.py                             │
+│  • test_seed_image_integration.py                                     │
+│  • SEED_IMAGE_WORKFLOW.md                                             │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ IMPLEMENTATION COMPLETE ✓                                             │
+└──────────────────────────────────────────────────────────────────────┘
