@@ -33,7 +33,8 @@ cd src && python -m backend.api.main
 - **Persona Templates**: Pre-built templates for different influencer types (tech, lifestyle, creative, etc.)
 
 ### 🎨 Content Generation Pipeline  
-- **AI-Powered Image Generation**: Integrated Stable Diffusion support for high-quality image creation
+- **Local AI Image Generation**: Privacy-focused image generation using Stable Diffusion (no API costs!)
+- **API-Based Image Generation**: Integrated support for DALL-E 3 and other cloud services
 - **Text Content Generation**: LLM integration for captions, posts, and engagement content
 - **Video Generation Support**: Framework ready for video content creation
 - **Style Consistency**: Maintains visual and tonal consistency across all generated content
@@ -324,6 +325,7 @@ Gator supports multiple database backends:
 - **API Reference**: Complete API documentation with examples
 - **Developer Guide**: In-depth development and customization guide  
 - **Deployment Guide**: Production deployment best practices
+- **[Local Image Generation Guide](LOCAL_IMAGE_GENERATION.md)**: Setup and usage for local AI image generation
 - **Troubleshooting**: Common issues and solutions
 
 ### Community Resources

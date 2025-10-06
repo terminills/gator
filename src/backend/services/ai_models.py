@@ -59,6 +59,9 @@ class AIModelManager:
         # Local model paths
         self.models_dir = Path("./models")
         self.models_dir.mkdir(exist_ok=True)
+        
+        # Cache for loaded diffusion pipelines
+        self._loaded_pipelines = {}
 
         # Model configurations based on recommendations
         self.local_model_configs = {
@@ -98,13 +101,21 @@ class AIModelManager:
                 },
             },
             "image": {
+                "stable-diffusion-v1-5": {
+                    "model_id": "runwayml/stable-diffusion-v1-5",
+                    "size_gb": 4,
+                    "min_gpu_memory_gb": 4,
+                    "min_ram_gb": 8,
+                    "inference_engine": "diffusers",
+                    "description": "Fast and efficient base model for image generation",
+                },
                 "sdxl-1.0": {
                     "model_id": "stabilityai/stable-diffusion-xl-base-1.0",
                     "size_gb": 7,
                     "min_gpu_memory_gb": 8,
                     "min_ram_gb": 16,
-                    "inference_engine": "comfyui",
-                    "description": "Safest, most supported local base",
+                    "inference_engine": "diffusers",
+                    "description": "High quality SDXL model, more VRAM required",
                 },
                 "flux.1-dev": {
                     "model_id": "black-forest-labs/FLUX.1-dev",
@@ -699,13 +710,21 @@ class AIModelManager:
     ) -> Dict[str, Any]:
         """Generate image using ComfyUI workflow."""
         try:
-            # This would integrate with ComfyUI API in production
+            # ComfyUI integration requires ComfyUI installation and API setup
+            # This is a placeholder for future implementation
+            logger.warning(
+                f"ComfyUI integration not yet implemented. "
+                f"Model {model['name']} requires ComfyUI setup. "
+                f"Consider using diffusers-based models instead."
+            )
             return {
                 "image_data": b"",  # Placeholder
                 "format": "PNG",
                 "model": model["name"],
                 "workflow": "comfyui",
-                "note": f"ComfyUI generation: {prompt}",
+                "provider": "local",
+                "status": "not_implemented",
+                "note": f"ComfyUI support planned for future release. Use diffusers models for now.",
             }
         except Exception as e:
             logger.error(f"ComfyUI generation failed: {str(e)}")
@@ -716,13 +735,110 @@ class AIModelManager:
     ) -> Dict[str, Any]:
         """Generate image using Diffusers library."""
         try:
-            # This would integrate with diffusers in production
+            from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
+            
+            model_name = model["name"]
+            model_id = model["model_id"]
+            model_path = self.models_dir / "image" / model_name
+            
+            # Load or get cached pipeline
+            pipeline_key = f"diffusers_{model_name}"
+            if pipeline_key not in self._loaded_pipelines:
+                logger.info(f"Loading diffusion model: {model_name}")
+                
+                # Determine device
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+                
+                # Try to load from local path first, fallback to HuggingFace Hub
+                if model_path.exists():
+                    logger.info(f"Loading model from local path: {model_path}")
+                    pipe = StableDiffusionPipeline.from_pretrained(
+                        str(model_path),
+                        torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+                        safety_checker=None,  # Disable for performance
+                    )
+                else:
+                    logger.info(f"Loading model from HuggingFace Hub: {model_id}")
+                    pipe = StableDiffusionPipeline.from_pretrained(
+                        model_id,
+                        torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+                        safety_checker=None,  # Disable for performance
+                    )
+                    # Save to local path for future use
+                    if not model_path.exists():
+                        model_path.mkdir(parents=True, exist_ok=True)
+                        pipe.save_pretrained(str(model_path))
+                        logger.info(f"Model saved to: {model_path}")
+                
+                # Use DPM-Solver++ for faster inference
+                pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+                pipe = pipe.to(device)
+                
+                # Enable memory optimizations
+                if device == "cuda":
+                    pipe.enable_attention_slicing()
+                    # Try to enable xformers if available
+                    try:
+                        pipe.enable_xformers_memory_efficient_attention()
+                    except Exception:
+                        logger.warning("xformers not available, using default attention")
+                
+                self._loaded_pipelines[pipeline_key] = pipe
+                logger.info(f"Model {model_name} loaded successfully on {device}")
+            
+            pipe = self._loaded_pipelines[pipeline_key]
+            
+            # Get generation parameters
+            num_inference_steps = kwargs.get("num_inference_steps", 25)
+            guidance_scale = kwargs.get("guidance_scale", 7.5)
+            width = kwargs.get("width", 512)
+            height = kwargs.get("height", 512)
+            negative_prompt = kwargs.get("negative_prompt", "ugly, blurry, low quality, distorted")
+            seed = kwargs.get("seed", None)
+            
+            # Set seed for reproducibility if provided
+            generator = None
+            if seed is not None:
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+                generator = torch.Generator(device=device).manual_seed(seed)
+            
+            logger.info(f"Generating image with prompt: {prompt[:100]}...")
+            
+            # Generate image (run in thread pool to avoid blocking)
+            loop = asyncio.get_event_loop()
+            image = await loop.run_in_executor(
+                None,
+                lambda: pipe(
+                    prompt=prompt,
+                    negative_prompt=negative_prompt,
+                    num_inference_steps=num_inference_steps,
+                    guidance_scale=guidance_scale,
+                    width=width,
+                    height=height,
+                    generator=generator,
+                ).images[0]
+            )
+            
+            # Convert PIL Image to bytes
+            img_byte_arr = io.BytesIO()
+            image.save(img_byte_arr, format='PNG')
+            image_data = img_byte_arr.getvalue()
+            
+            logger.info(f"Image generated successfully: {len(image_data)} bytes")
+            
             return {
-                "image_data": b"",  # Placeholder
+                "image_data": image_data,
                 "format": "PNG",
-                "model": model["name"],
+                "width": width,
+                "height": height,
+                "model": model_name,
                 "library": "diffusers",
-                "note": f"Diffusers generation: {prompt}",
+                "provider": "local",
+                "prompt": prompt,
+                "negative_prompt": negative_prompt,
+                "num_inference_steps": num_inference_steps,
+                "guidance_scale": guidance_scale,
+                "seed": seed,
             }
         except Exception as e:
             logger.error(f"Diffusers generation failed: {str(e)}")
