@@ -370,6 +370,69 @@
             color: #ff6b6b;
             font-weight: 600;
         }
+        
+        .search-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 30px;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        .search-input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+        
+        .search-input:focus {
+            border-color: #ff6b6b;
+            background: rgba(255,255,255,0.2);
+            box-shadow: 0 0 20px rgba(255,107,107,0.3);
+        }
+        
+        .search-btn {
+            padding: 15px 30px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 30px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .search-btn:hover {
+            background: rgba(255,107,107,0.8);
+            border-color: #ff6b6b;
+            transform: scale(1.05);
+        }
+        
+        .search-results-info {
+            text-align: center;
+            color: #cccccc;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+        
+        .search-results-info strong {
+            color: #ff6b6b;
+        }
     </style>
 </head>
 <body>
@@ -391,6 +454,12 @@
         <div class="header-content">
             <h1>Discover Amazing AI Creators</h1>
             <p>Explore unique AI personas and their incredible content. Each creator has their own personality, style, and creative vision powered by advanced AI.</p>
+            
+            <!-- Search and Filter Bar -->
+            <div class="search-container">
+                <input type="text" id="searchInput" class="search-input" placeholder="Search creators by name, theme, or style...">
+                <button class="search-btn" onclick="searchPersonas()">🔍 Search</button>
+            </div>
         </div>
     </div>
     
@@ -594,7 +663,12 @@
                 const personas = await response.json();
                 
                 const container = document.getElementById('personas-container');
-                container.innerHTML = renderPersonasGrid(personas);
+                container.innerHTML = `
+                    <div class="search-results-info">
+                        Found <strong>${personas.length}</strong> creators in this category
+                    </div>
+                    ${renderPersonasGrid(personas)}
+                `;
                 
                 // Scroll to all personas section
                 document.querySelector('#personas-container').scrollIntoView({ behavior: 'smooth' });
@@ -604,12 +678,61 @@
             }
         }
         
-        // Load all sections when page loads
+        async function searchPersonas() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            
+            if (!searchTerm) {
+                // If search is empty, reload all personas
+                loadPersonas();
+                return;
+            }
+            
+            try {
+                const response = await fetch('/public/personas?limit=50');
+                const allPersonas = await response.json();
+                
+                // Filter personas by search term (name, bio, themes)
+                const filtered = allPersonas.filter(persona => {
+                    const nameMatch = persona.name.toLowerCase().includes(searchTerm);
+                    const bioMatch = persona.bio.toLowerCase().includes(searchTerm);
+                    const themeMatch = persona.themes.some(theme => 
+                        theme.toLowerCase().includes(searchTerm)
+                    );
+                    const styleMatch = persona.style.toLowerCase().includes(searchTerm);
+                    const categoryMatch = persona.category && persona.category.toLowerCase().includes(searchTerm);
+                    
+                    return nameMatch || bioMatch || themeMatch || styleMatch || categoryMatch;
+                });
+                
+                const container = document.getElementById('personas-container');
+                container.innerHTML = `
+                    <div class="search-results-info">
+                        Found <strong>${filtered.length}</strong> creators matching "<strong>${searchTerm}</strong>"
+                    </div>
+                    ${renderPersonasGrid(filtered)}
+                `;
+                
+                // Scroll to results
+                document.querySelector('#personas-container').scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (error) {
+                console.error('Error searching personas:', error);
+            }
+        }
+        
+        // Allow Enter key to trigger search
         document.addEventListener('DOMContentLoaded', () => {
             loadFeatured();
             loadTrending();
             loadCategories();
             loadPersonas();
+            
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchPersonas();
+                }
+            });
         });
         
         // Add smooth scrolling
