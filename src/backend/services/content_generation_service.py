@@ -698,8 +698,18 @@ Generate the social media content now:"""
     async def _create_enhanced_fallback_text(
         self, persona: PersonaModel, request: GenerationRequest
     ) -> str:
-        """Create enhanced fallback text using persona characteristics and prompt analysis."""
-        # Extract key elements
+        """
+        Create enhanced fallback text using persona characteristics and prompt analysis.
+        
+        Uses base_appearance_description when appearance_locked is True for consistency.
+        """
+        # Extract key elements - use locked appearance if available
+        appearance_desc = (
+            persona.base_appearance_description
+            if persona.appearance_locked and persona.base_appearance_description
+            else persona.appearance
+        )
+        
         personality_traits = persona.personality.split(", ")[:3]
         themes = (
             persona.content_themes[:3]
@@ -729,30 +739,46 @@ Generate the social media content now:"""
         else:
             style = "casual"
 
+        # Extract visual/appearance cues for more personalized templates
+        # This helps maintain consistency with the persona's visual identity
+        appearance_keywords = appearance_desc.lower() if appearance_desc else ""
+        is_visual_locked = persona.appearance_locked and persona.base_appearance_description
+        
+        # Add appearance context hint if locked (for consistency)
+        appearance_context = ""
+        if is_visual_locked:
+            # Extract key appearance features for subtle context
+            if "professional" in appearance_keywords:
+                appearance_context = " (staying true to my professional image)"
+            elif "creative" in appearance_keywords or "artistic" in appearance_keywords:
+                appearance_context = " (expressing my creative side)"
+            elif "casual" in appearance_keywords or "relaxed" in appearance_keywords:
+                appearance_context = " (keeping it authentic and real)"
+
         # Generate content based on style and themes
         if style == "creative":
             templates = [
-                f"🎨 Exploring the intersection of {themes[0]} and creativity today. There's something magical about how innovation sparks when we blend different perspectives. What inspires your creative process? #creativity #{themes[0].replace(' ', '')} #inspiration",
-                f"✨ Just had a breakthrough moment thinking about {themes[0]}. Sometimes the best ideas come when we least expect them. The creative journey is all about embracing those unexpected connections. Share your latest 'aha' moment! 💡",
-                f"🚀 Passionate about {themes[0]} and the endless possibilities it brings. Every challenge is just a canvas waiting for the right creative solution. What problem are you solving creatively today? #innovation #{themes[0].replace(' ', '')}",
+                f"🎨 Exploring the intersection of {themes[0]} and creativity today{appearance_context}. There's something magical about how innovation sparks when we blend different perspectives. What inspires your creative process? #creativity #{themes[0].replace(' ', '')} #inspiration",
+                f"✨ Just had a breakthrough moment thinking about {themes[0]}{appearance_context}. Sometimes the best ideas come when we least expect them. The creative journey is all about embracing those unexpected connections. Share your latest 'aha' moment! 💡",
+                f"🚀 Passionate about {themes[0]} and the endless possibilities it brings{appearance_context}. Every challenge is just a canvas waiting for the right creative solution. What problem are you solving creatively today? #innovation #{themes[0].replace(' ', '')}",
             ]
         elif style == "professional":
             templates = [
-                f"Reflecting on the latest developments in {themes[0]}. The landscape continues to evolve rapidly, and staying ahead requires continuous learning and adaptation. Key insights from today's analysis: strategic thinking remains paramount. Thoughts? #leadership #{themes[0].replace(' ', '')}",
-                f"Professional insight: {themes[0]} is reshaping how we approach business strategy. Organizations that embrace this transformation will gain significant competitive advantages. What trends are you monitoring in your industry? #business #strategy",
-                f"Executive perspective on {themes[0]}: Success in today's market requires both vision and execution. The companies thriving are those that balance innovation with operational excellence. How is your organization adapting?",
+                f"Reflecting on the latest developments in {themes[0]}{appearance_context}. The landscape continues to evolve rapidly, and staying ahead requires continuous learning and adaptation. Key insights from today's analysis: strategic thinking remains paramount. Thoughts? #leadership #{themes[0].replace(' ', '')}",
+                f"Professional insight{appearance_context}: {themes[0]} is reshaping how we approach business strategy. Organizations that embrace this transformation will gain significant competitive advantages. What trends are you monitoring in your industry? #business #strategy",
+                f"Executive perspective on {themes[0]}{appearance_context}: Success in today's market requires both vision and execution. The companies thriving are those that balance innovation with operational excellence. How is your organization adapting?",
             ]
         elif style == "tech":
             templates = [
-                f"🔧 Diving deep into {themes[0]} today. The technical implications are fascinating - we're seeing unprecedented innovation in this space. For developers and tech enthusiasts: the future is being built now. What's on your tech radar? #technology #{themes[0].replace(' ', '')} #innovation",
-                f"💻 Just analyzed the latest {themes[0]} developments. The algorithmic approaches being implemented are genuinely impressive. Technical breakdown: efficiency gains are substantial. Fellow engineers - what are your thoughts on the current implementation patterns?",
-                f"⚡ {themes[0]} technology stack evolution: From proof-of-concept to production-ready solutions, the journey has been remarkable. System architecture considerations continue to be crucial. What technical challenges are you solving? #engineering #tech",
+                f"🔧 Diving deep into {themes[0]} today{appearance_context}. The technical implications are fascinating - we're seeing unprecedented innovation in this space. For developers and tech enthusiasts: the future is being built now. What's on your tech radar? #technology #{themes[0].replace(' ', '')} #innovation",
+                f"💻 Just analyzed the latest {themes[0]} developments{appearance_context}. The algorithmic approaches being implemented are genuinely impressive. Technical breakdown: efficiency gains are substantial. Fellow engineers - what are your thoughts on the current implementation patterns?",
+                f"⚡ {themes[0]} technology stack evolution{appearance_context}: From proof-of-concept to production-ready solutions, the journey has been remarkable. System architecture considerations continue to be crucial. What technical challenges are you solving? #engineering #tech",
             ]
         else:  # casual
             templates = [
-                f"💭 Had some interesting thoughts about {themes[0]} today. It's amazing how much this topic touches our daily lives without us even realizing it. What's your take on this? Would love to hear different perspectives! #{themes[0].replace(' ', '')} #thoughts",
-                f"🌟 Something about {themes[0]} just clicked for me today. Sometimes the simplest insights are the most powerful. Life's full of these little learning moments. What did you discover today? #learning #growth",
-                f"✌️ Quick reflection on {themes[0]} - there's so much depth here that we often overlook. Taking time to really think about these things makes such a difference. Anyone else find themselves going down these thought rabbit holes? 😄",
+                f"💭 Had some interesting thoughts about {themes[0]} today{appearance_context}. It's amazing how much this topic touches our daily lives without us even realizing it. What's your take on this? Would love to hear different perspectives! #{themes[0].replace(' ', '')} #thoughts",
+                f"🌟 Something about {themes[0]} just clicked for me today{appearance_context}. Sometimes the simplest insights are the most powerful. Life's full of these little learning moments. What did you discover today? #learning #growth",
+                f"✌️ Quick reflection on {themes[0]}{appearance_context} - there's so much depth here that we often overlook. Taking time to really think about these things makes such a difference. Anyone else find themselves going down these thought rabbit holes? 😄",
             ]
 
         # Select template and customize based on prompt keywords

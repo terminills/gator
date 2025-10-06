@@ -98,6 +98,31 @@ appearance_desc = (
 )
 ```
 
+#### Fallback Text Templates (`_create_enhanced_fallback_text`)
+The fallback text generation templates have been enhanced to work with appearance locking:
+
+```python
+# Uses base_appearance_description when locked for consistency
+appearance_desc = (
+    persona.base_appearance_description
+    if persona.appearance_locked and persona.base_appearance_description
+    else persona.appearance
+)
+
+# Extracts visual cues from appearance for personalized templates
+appearance_keywords = appearance_desc.lower() if appearance_desc else ""
+is_visual_locked = persona.appearance_locked and persona.base_appearance_description
+
+# Adds subtle appearance context to templates when locked
+if is_visual_locked:
+    if "professional" in appearance_keywords:
+        appearance_context = " (staying true to my professional image)"
+    elif "creative" in appearance_keywords:
+        appearance_context = " (expressing my creative side)"
+```
+
+This ensures that even fallback text generation maintains consistency with the persona's locked visual identity.
+
 ## Usage Examples
 
 ### Creating a Persona with Appearance Locking
