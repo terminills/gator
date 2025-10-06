@@ -71,29 +71,32 @@ class ContentModerationService:
 
     @staticmethod
     def platform_content_filter(
-        content_rating: ContentRating, 
+        content_rating: ContentRating,
         target_platform: str,
-        persona_platform_restrictions: Optional[Dict[str, str]] = None
+        persona_platform_restrictions: Optional[Dict[str, str]] = None,
     ) -> bool:
         """
         Check if content is appropriate for target platform.
-        
+
         Args:
             content_rating: The content rating to check (SFW, MODERATE, NSFW)
             target_platform: The target platform name (e.g., "instagram", "onlyfans")
             persona_platform_restrictions: Optional persona-specific platform restrictions.
                 Format: {"instagram": "sfw_only", "onlyfans": "both", "twitter": "moderate_allowed"}
                 Supported values: "sfw_only", "moderate_allowed", "both" (all ratings)
-        
+
         Returns:
             bool: True if content is allowed, False otherwise
         """
         platform_lower = target_platform.lower()
-        
+
         # Check persona-specific restrictions first (per-site override)
-        if persona_platform_restrictions and platform_lower in persona_platform_restrictions:
+        if (
+            persona_platform_restrictions
+            and platform_lower in persona_platform_restrictions
+        ):
             restriction = persona_platform_restrictions[platform_lower].lower()
-            
+
             if restriction == "sfw_only":
                 return content_rating == ContentRating.SFW
             elif restriction == "moderate_allowed":
@@ -102,7 +105,7 @@ class ContentModerationService:
                 # Allow all content types for this persona on this platform
                 return True
             # If unrecognized restriction, fall through to default policies
-        
+
         # Default platform policies (global rules when no persona override exists)
         platform_policies = {
             "instagram": [ContentRating.SFW, ContentRating.MODERATE],
@@ -113,9 +116,7 @@ class ContentModerationService:
             "discord": [ContentRating.SFW, ContentRating.MODERATE],
         }
 
-        allowed_ratings = platform_policies.get(
-            platform_lower, [ContentRating.SFW]
-        )
+        allowed_ratings = platform_policies.get(platform_lower, [ContentRating.SFW])
         return content_rating in allowed_ratings
 
 
@@ -219,7 +220,10 @@ class ContentGenerationService:
 
             # Apply platform-specific adaptations
             platform_adaptations = await self._create_platform_adaptations(
-                persona, content_data, request.content_rating, request.target_platforms or []
+                persona,
+                content_data,
+                request.content_rating,
+                request.target_platforms or [],
             )
 
             # Store content metadata in database
@@ -325,7 +329,9 @@ class ContentGenerationService:
         """
         # Use base appearance if locked, otherwise use standard appearance
         if persona.appearance_locked and persona.base_appearance_description:
-            base_prompt = f"{persona.base_appearance_description}, {persona.personality}"
+            base_prompt = (
+                f"{persona.base_appearance_description}, {persona.personality}"
+            )
             logger.info(f"Using locked base appearance for persona {persona.id}")
         else:
             base_prompt = f"{persona.appearance}, {persona.personality}"
@@ -730,8 +736,9 @@ Generate the social media content now:"""
     ) -> str:
         """
         Create enhanced fallback text using persona characteristics and prompt analysis.
-        
+
         Uses base_appearance_description when appearance_locked is True for consistency.
+        Leverages style_preferences for sophisticated content styling and tone.
         """
         # Extract key elements - use locked appearance if available
         appearance_desc = (
@@ -739,8 +746,11 @@ Generate the social media content now:"""
             if persona.appearance_locked and persona.base_appearance_description
             else persona.appearance
         )
-        
-        personality_traits = persona.personality.split(", ")[:3]
+
+        # Parse personality traits more comprehensively
+        personality_full = persona.personality.lower()
+        personality_traits = [t.strip() for t in persona.personality.split(",")]
+
         themes = (
             persona.content_themes[:3]
             if persona.content_themes
@@ -750,73 +760,232 @@ Generate the social media content now:"""
             request.prompt.lower().split() if request.prompt else ["content"]
         )
 
-        # Determine content style based on personality
-        if any(
-            trait.lower() in ["creative", "artistic", "innovative"]
-            for trait in personality_traits
-        ):
-            style = "creative"
-        elif any(
-            trait.lower() in ["professional", "business", "corporate"]
-            for trait in personality_traits
-        ):
-            style = "professional"
-        elif any(
-            trait.lower() in ["tech", "technology", "analytical"]
-            for trait in personality_traits
-        ):
-            style = "tech"
-        else:
-            style = "casual"
+        # Extract style preferences for sophisticated content styling
+        style_prefs = persona.style_preferences or {}
+        aesthetic = style_prefs.get("aesthetic", "").lower()
+        voice_style = style_prefs.get("voice_style", "").lower()
+        tone_pref = style_prefs.get("tone", "").lower()
+
+        # Determine content style using multi-attribute scoring
+        # This replaces simple keyword matching with weighted analysis
+        style_scores = {"creative": 0, "professional": 0, "tech": 0, "casual": 0}
+
+        # Score based on personality traits (primary weight)
+        for trait in personality_traits:
+            trait_lower = trait.lower()
+            if any(
+                kw in trait_lower
+                for kw in [
+                    "creative",
+                    "artistic",
+                    "innovative",
+                    "imaginative",
+                    "original",
+                ]
+            ):
+                style_scores["creative"] += 3
+            if any(
+                kw in trait_lower
+                for kw in [
+                    "professional",
+                    "business",
+                    "corporate",
+                    "executive",
+                    "strategic",
+                ]
+            ):
+                style_scores["professional"] += 3
+            if any(
+                kw in trait_lower
+                for kw in ["tech", "technology", "analytical", "data", "engineer"]
+            ):
+                style_scores["tech"] += 3
+            if any(
+                kw in trait_lower
+                for kw in ["casual", "friendly", "approachable", "warm", "relaxed"]
+            ):
+                style_scores["casual"] += 3
+
+        # Score based on style_preferences (secondary weight)
+        if aesthetic in ["professional", "corporate", "executive"]:
+            style_scores["professional"] += 2
+        elif aesthetic in ["creative", "artistic", "vibrant"]:
+            style_scores["creative"] += 2
+        elif aesthetic in ["tech", "modern", "futuristic"]:
+            style_scores["tech"] += 2
+        elif aesthetic in ["casual", "relaxed", "friendly"]:
+            style_scores["casual"] += 2
+
+        if voice_style in ["professional", "formal"]:
+            style_scores["professional"] += 1
+        elif voice_style in ["creative", "expressive"]:
+            style_scores["creative"] += 1
+        elif voice_style in ["technical", "precise"]:
+            style_scores["tech"] += 1
+        elif voice_style in ["casual", "conversational"]:
+            style_scores["casual"] += 1
+
+        # Select style with highest score, default to casual if tied
+        style = (
+            max(style_scores, key=style_scores.get)
+            if max(style_scores.values()) > 0
+            else "casual"
+        )
 
         # Extract visual/appearance cues for more personalized templates
         # This helps maintain consistency with the persona's visual identity
         appearance_keywords = appearance_desc.lower() if appearance_desc else ""
-        is_visual_locked = persona.appearance_locked and persona.base_appearance_description
-        
-        # Add appearance context hint if locked (for consistency)
+        is_visual_locked = (
+            persona.appearance_locked and persona.base_appearance_description
+        )
+
+        # Generate dynamic appearance context based on multiple factors
         appearance_context = ""
         if is_visual_locked:
-            # Extract key appearance features for subtle context
-            if "professional" in appearance_keywords:
+            # Use style preferences and appearance keywords together
+            if "professional" in appearance_keywords or aesthetic == "professional":
                 appearance_context = " (staying true to my professional image)"
-            elif "creative" in appearance_keywords or "artistic" in appearance_keywords:
+            elif (
+                "creative" in appearance_keywords
+                or "artistic" in appearance_keywords
+                or aesthetic == "creative"
+            ):
                 appearance_context = " (expressing my creative side)"
-            elif "casual" in appearance_keywords or "relaxed" in appearance_keywords:
+            elif (
+                "casual" in appearance_keywords
+                or "relaxed" in appearance_keywords
+                or aesthetic == "casual"
+            ):
                 appearance_context = " (keeping it authentic and real)"
+            elif "tech" in appearance_keywords or aesthetic in ["modern", "futuristic"]:
+                appearance_context = " (maintaining my tech-forward presence)"
 
-        # Generate content based on style and themes
+        # Determine voice modifiers based on style_preferences and personality
+        voice_modifiers = []
+        if tone_pref in ["warm", "friendly", "approachable"]:
+            voice_modifiers.append("warm")
+        if tone_pref in ["confident", "assertive", "bold"]:
+            voice_modifiers.append("confident")
+        if "passionate" in personality_full:
+            voice_modifiers.append("passionate")
+        if "analytical" in personality_full or "data" in personality_full:
+            voice_modifiers.append("analytical")
+
+        # Generate content based on style and themes with enhanced variation
+        # Use voice modifiers to add personality nuance to templates
         if style == "creative":
             templates = [
                 f"🎨 Exploring the intersection of {themes[0]} and creativity today{appearance_context}. There's something magical about how innovation sparks when we blend different perspectives. What inspires your creative process? #creativity #{themes[0].replace(' ', '')} #inspiration",
                 f"✨ Just had a breakthrough moment thinking about {themes[0]}{appearance_context}. Sometimes the best ideas come when we least expect them. The creative journey is all about embracing those unexpected connections. Share your latest 'aha' moment! 💡",
                 f"🚀 Passionate about {themes[0]} and the endless possibilities it brings{appearance_context}. Every challenge is just a canvas waiting for the right creative solution. What problem are you solving creatively today? #innovation #{themes[0].replace(' ', '')}",
             ]
+            # Add variation based on voice modifiers
+            if "passionate" in voice_modifiers:
+                templates.append(
+                    f"🌟 Can't stop thinking about the incredible potential in {themes[0]}{appearance_context}! The creative energy around this is absolutely electric. When passion meets purpose, magic happens. What's fueling your creative fire? 🔥 #passion #{themes[0].replace(' ', '')}"
+                )
+            if "warm" in voice_modifiers:
+                templates.append(
+                    f"💫 Hey friends! Been diving deep into {themes[0]} lately{appearance_context}, and I'm so excited to share what I've discovered. The creative community around this is amazing. Would love to hear your thoughts and experiences! ✨ #{themes[0].replace(' ', '')}"
+                )
         elif style == "professional":
             templates = [
                 f"Reflecting on the latest developments in {themes[0]}{appearance_context}. The landscape continues to evolve rapidly, and staying ahead requires continuous learning and adaptation. Key insights from today's analysis: strategic thinking remains paramount. Thoughts? #leadership #{themes[0].replace(' ', '')}",
                 f"Professional insight{appearance_context}: {themes[0]} is reshaping how we approach business strategy. Organizations that embrace this transformation will gain significant competitive advantages. What trends are you monitoring in your industry? #business #strategy",
-                f"Executive perspective on {themes[0]}{appearance_context}: Success in today's market requires both vision and execution. The companies thriving are those that balance innovation with operational excellence. How is your organization adapting?",
+                f"Executive perspective on {themes[0]}{appearance_context}: Success in today's market requires both vision and execution. The companies thriving are those that balance innovation with operational excellence. How is your organization adapting? #leadership #{themes[0].replace(' ', '')}",
             ]
+            # Add variation based on voice modifiers
+            if "confident" in voice_modifiers:
+                templates.append(
+                    f"Leadership insight on {themes[0]}{appearance_context}: The data is clear - organizations that invest in this area see measurable ROI. Strategic execution is non-negotiable. What's your organization's approach? #leadership #strategy #{themes[0].replace(' ', '')}"
+                )
+            if "analytical" in voice_modifiers:
+                templates.append(
+                    f"Analysis: {themes[0]} trends reveal three critical factors{appearance_context}: 1) Market dynamics are shifting, 2) Consumer expectations are evolving, 3) Technology enables new capabilities. The intersection of these creates opportunity. Your thoughts? #{themes[0].replace(' ', '')}"
+                )
         elif style == "tech":
             templates = [
                 f"🔧 Diving deep into {themes[0]} today{appearance_context}. The technical implications are fascinating - we're seeing unprecedented innovation in this space. For developers and tech enthusiasts: the future is being built now. What's on your tech radar? #technology #{themes[0].replace(' ', '')} #innovation",
                 f"💻 Just analyzed the latest {themes[0]} developments{appearance_context}. The algorithmic approaches being implemented are genuinely impressive. Technical breakdown: efficiency gains are substantial. Fellow engineers - what are your thoughts on the current implementation patterns?",
                 f"⚡ {themes[0]} technology stack evolution{appearance_context}: From proof-of-concept to production-ready solutions, the journey has been remarkable. System architecture considerations continue to be crucial. What technical challenges are you solving? #engineering #tech",
             ]
+            # Add variation based on voice modifiers
+            if "analytical" in voice_modifiers:
+                templates.append(
+                    f"🔍 Technical analysis of {themes[0]}{appearance_context}: Performance metrics show 3x improvement over baseline. Key optimization: algorithmic efficiency at scale. Open-source contributors: what patterns are you seeing? #tech #{themes[0].replace(' ', '')} #engineering"
+                )
+            if "passionate" in voice_modifiers:
+                templates.append(
+                    f"⚙️ Absolutely loving the innovation happening in {themes[0]} right now{appearance_context}! The technical solutions being developed are game-changing. This is what drives me as a technologist - solving hard problems at scale. Who else is excited about this? 🚀 #{themes[0].replace(' ', '')}"
+                )
         else:  # casual
             templates = [
                 f"💭 Had some interesting thoughts about {themes[0]} today{appearance_context}. It's amazing how much this topic touches our daily lives without us even realizing it. What's your take on this? Would love to hear different perspectives! #{themes[0].replace(' ', '')} #thoughts",
                 f"🌟 Something about {themes[0]} just clicked for me today{appearance_context}. Sometimes the simplest insights are the most powerful. Life's full of these little learning moments. What did you discover today? #learning #growth",
                 f"✌️ Quick reflection on {themes[0]}{appearance_context} - there's so much depth here that we often overlook. Taking time to really think about these things makes such a difference. Anyone else find themselves going down these thought rabbit holes? 😄",
             ]
+            # Add variation based on voice modifiers
+            if "warm" in voice_modifiers:
+                templates.append(
+                    f"☕ Good morning friends! Sitting here thinking about {themes[0]}{appearance_context} and how it connects to our everyday experiences. Love having these conversations with you all. What's on your mind today? #{themes[0].replace(' ', '')} #community"
+                )
+            if "passionate" in voice_modifiers:
+                templates.append(
+                    f"🔥 Can we talk about {themes[0]} for a sec{appearance_context}? This stuff really matters and I'm genuinely excited to dive deeper. The more I learn, the more fascinated I become. Who else is on this journey with me? #{themes[0].replace(' ', '')}"
+                )
 
-        # Select template and customize based on prompt keywords
+        # Select template with sophisticated logic considering multiple factors
         import random
 
-        selected_template = random.choice(templates)
+        # Weight template selection based on prompt keywords and persona attributes
+        template_weights = [1.0] * len(templates)  # Start with equal weights
 
-        # If prompt contains specific keywords, try to incorporate them
+        # Boost certain templates based on prompt keywords
+        for i, template in enumerate(templates):
+            template_lower = template.lower()
+
+            # If prompt mentions analysis/research, prefer analytical templates
+            if any(
+                kw in prompt_keywords
+                for kw in ["analysis", "study", "research", "data"]
+            ):
+                if any(
+                    word in template_lower
+                    for word in ["analysis", "breakdown", "metrics", "data"]
+                ):
+                    template_weights[i] *= 2.0
+
+            # If prompt mentions future/trends, prefer forward-looking templates
+            if any(
+                kw in prompt_keywords for kw in ["future", "trends", "upcoming", "next"]
+            ):
+                if any(
+                    word in template_lower
+                    for word in ["future", "evolution", "innovation", "potential"]
+                ):
+                    template_weights[i] *= 2.0
+
+            # If prompt mentions community/social, prefer engagement templates
+            if any(
+                kw in prompt_keywords
+                for kw in ["community", "social", "together", "share"]
+            ):
+                if any(
+                    word in template_lower
+                    for word in [
+                        "thoughts",
+                        "friends",
+                        "community",
+                        "share",
+                        "conversation",
+                    ]
+                ):
+                    template_weights[i] *= 1.5
+
+        # Use weighted random selection for more contextual results
+        selected_template = random.choices(templates, weights=template_weights, k=1)[0]
+
+        # Apply dynamic customization based on prompt keywords
         if any(
             keyword in ["trends", "future", "upcoming"] for keyword in prompt_keywords
         ):
@@ -829,6 +998,16 @@ Generate the social media content now:"""
             selected_template = selected_template.replace(
                 "thoughts", "analysis"
             ).replace("thinking", "researching")
+        elif any(
+            keyword in ["community", "together", "social"]
+            for keyword in prompt_keywords
+        ):
+            # Add community engagement elements
+            if not any(
+                word in selected_template.lower()
+                for word in ["share", "thoughts", "perspective"]
+            ):
+                selected_template += " 🤝"
 
         return selected_template
 
@@ -841,7 +1020,7 @@ Generate the social media content now:"""
     ) -> Dict[str, Any]:
         """
         Create platform-specific adaptations for content.
-        
+
         Uses persona's platform_restrictions to override global platform policies.
         This allows per-persona, per-site NSFW content filtering.
         """
