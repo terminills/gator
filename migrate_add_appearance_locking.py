@@ -40,19 +40,21 @@ async def migrate_database():
         
         # Add columns using raw SQL
         async with database_manager.engine.begin() as conn:
+            from sqlalchemy import text
+            
             # Check if columns already exist
             if is_sqlite:
                 result = await conn.execute(
-                    "PRAGMA table_info(personas)"
+                    text("PRAGMA table_info(personas)")
                 )
                 columns = [row[1] for row in result.fetchall()]
             else:
                 result = await conn.execute(
-                    """
+                    text("""
                     SELECT column_name 
                     FROM information_schema.columns 
                     WHERE table_name='personas'
-                    """
+                    """)
                 )
                 columns = [row[0] for row in result.fetchall()]
             
@@ -60,7 +62,7 @@ async def migrate_database():
             if "base_appearance_description" not in columns:
                 print("   Adding base_appearance_description column...")
                 await conn.execute(
-                    "ALTER TABLE personas ADD COLUMN base_appearance_description TEXT"
+                    text("ALTER TABLE personas ADD COLUMN base_appearance_description TEXT")
                 )
                 print("   ✅ Added base_appearance_description")
             else:
@@ -70,7 +72,7 @@ async def migrate_database():
             if "base_image_path" not in columns:
                 print("   Adding base_image_path column...")
                 await conn.execute(
-                    "ALTER TABLE personas ADD COLUMN base_image_path VARCHAR(500)"
+                    text("ALTER TABLE personas ADD COLUMN base_image_path VARCHAR(500)")
                 )
                 print("   ✅ Added base_image_path")
             else:
@@ -81,18 +83,18 @@ async def migrate_database():
                 print("   Adding appearance_locked column...")
                 if is_sqlite:
                     await conn.execute(
-                        "ALTER TABLE personas ADD COLUMN appearance_locked BOOLEAN DEFAULT 0"
+                        text("ALTER TABLE personas ADD COLUMN appearance_locked BOOLEAN DEFAULT 0")
                     )
                 else:
                     await conn.execute(
-                        "ALTER TABLE personas ADD COLUMN appearance_locked BOOLEAN DEFAULT FALSE"
+                        text("ALTER TABLE personas ADD COLUMN appearance_locked BOOLEAN DEFAULT FALSE")
                     )
                 print("   ✅ Added appearance_locked")
                 
                 # Create index for appearance_locked
                 print("   Creating index on appearance_locked...")
                 await conn.execute(
-                    "CREATE INDEX ix_personas_appearance_locked ON personas (appearance_locked)"
+                    text("CREATE INDEX ix_personas_appearance_locked ON personas (appearance_locked)")
                 )
                 print("   ✅ Created index")
             else:
