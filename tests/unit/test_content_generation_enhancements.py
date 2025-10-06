@@ -56,6 +56,83 @@ class TestContentModerationService:
         assert ContentModerationService.platform_content_filter(ContentRating.SFW, "onlyfans")
         assert ContentModerationService.platform_content_filter(ContentRating.NSFW, "onlyfans")
         assert ContentModerationService.platform_content_filter(ContentRating.MODERATE, "onlyfans")
+    
+    def test_platform_content_filter_with_persona_restrictions_sfw_only(self):
+        """Test per-persona platform restrictions - SFW only override."""
+        # Persona restricts Instagram to SFW only (more restrictive than default)
+        restrictions = {"instagram": "sfw_only"}
+        
+        # SFW should be allowed
+        assert ContentModerationService.platform_content_filter(
+            ContentRating.SFW, "instagram", restrictions
+        )
+        
+        # MODERATE should be blocked (normally allowed on Instagram)
+        assert not ContentModerationService.platform_content_filter(
+            ContentRating.MODERATE, "instagram", restrictions
+        )
+        
+        # NSFW should be blocked
+        assert not ContentModerationService.platform_content_filter(
+            ContentRating.NSFW, "instagram", restrictions
+        )
+    
+    def test_platform_content_filter_with_persona_restrictions_moderate_allowed(self):
+        """Test per-persona platform restrictions - moderate allowed."""
+        # Persona allows moderate content on Facebook (more permissive than default)
+        restrictions = {"facebook": "moderate_allowed"}
+        
+        # SFW should be allowed
+        assert ContentModerationService.platform_content_filter(
+            ContentRating.SFW, "facebook", restrictions
+        )
+        
+        # MODERATE should be allowed (normally blocked on Facebook)
+        assert ContentModerationService.platform_content_filter(
+            ContentRating.MODERATE, "facebook", restrictions
+        )
+        
+        # NSFW should still be blocked
+        assert not ContentModerationService.platform_content_filter(
+            ContentRating.NSFW, "facebook", restrictions
+        )
+    
+    def test_platform_content_filter_with_persona_restrictions_all_content(self):
+        """Test per-persona platform restrictions - all content types allowed."""
+        # Persona allows all content types on Instagram (NSFW override)
+        restrictions = {"instagram": "both"}
+        
+        # All content types should be allowed
+        assert ContentModerationService.platform_content_filter(
+            ContentRating.SFW, "instagram", restrictions
+        )
+        assert ContentModerationService.platform_content_filter(
+            ContentRating.MODERATE, "instagram", restrictions
+        )
+        assert ContentModerationService.platform_content_filter(
+            ContentRating.NSFW, "instagram", restrictions
+        )
+        
+        # Test with "all" as alternative keyword
+        restrictions_all = {"instagram": "all"}
+        assert ContentModerationService.platform_content_filter(
+            ContentRating.NSFW, "instagram", restrictions_all
+        )
+    
+    def test_platform_content_filter_persona_restrictions_fallback(self):
+        """Test that unspecified platforms fall back to global policies."""
+        # Persona has restrictions only for Instagram
+        restrictions = {"instagram": "sfw_only"}
+        
+        # OnlyFans should use global policy (allows NSFW)
+        assert ContentModerationService.platform_content_filter(
+            ContentRating.NSFW, "onlyfans", restrictions
+        )
+        
+        # Facebook should use global policy (blocks NSFW)
+        assert not ContentModerationService.platform_content_filter(
+            ContentRating.NSFW, "facebook", restrictions
+        )
 
 
 class TestEnhancedContentGeneration:
@@ -78,6 +155,7 @@ class TestEnhancedContentGeneration:
         }
         persona.default_content_rating = "sfw"
         persona.allowed_content_ratings = ["sfw", "nsfw"]
+        persona.platform_restrictions = {}  # Default to no restrictions
         persona.generation_count = 0
         return persona
     
@@ -186,13 +264,16 @@ class TestEnhancedContentGeneration:
         assert not await content_service._validate_content_rating(mock_persona, ContentRating.NSFW)
     
     @pytest.mark.asyncio
-    async def test_platform_adaptations(self, content_service):
+    async def test_platform_adaptations(self, content_service, mock_persona):
         """Test platform-specific content adaptations."""
         content_data = {"width": 1920, "height": 1080}
         target_platforms = ["instagram", "facebook", "onlyfans"]
         
+        # Mock persona with no specific platform restrictions
+        mock_persona.platform_restrictions = {}
+        
         adaptations = await content_service._create_platform_adaptations(
-            content_data, ContentRating.SFW, target_platforms
+            mock_persona, content_data, ContentRating.SFW, target_platforms
         )
         
         assert "instagram" in adaptations
@@ -204,13 +285,16 @@ class TestEnhancedContentGeneration:
         assert adaptations["instagram"]["modified_for_platform"] is True
     
     @pytest.mark.asyncio
-    async def test_nsfw_platform_blocking(self, content_service):
+    async def test_nsfw_platform_blocking(self, content_service, mock_persona):
         """Test NSFW content blocking on restrictive platforms."""
         content_data = {}
         target_platforms = ["instagram", "onlyfans"]
         
+        # Mock persona with no specific platform restrictions (uses global policies)
+        mock_persona.platform_restrictions = {}
+        
         adaptations = await content_service._create_platform_adaptations(
-            content_data, ContentRating.NSFW, target_platforms
+            mock_persona, content_data, ContentRating.NSFW, target_platforms
         )
         
         # Instagram should block NSFW content
@@ -219,6 +303,75 @@ class TestEnhancedContentGeneration:
         
         # OnlyFans should allow NSFW content
         assert adaptations["onlyfans"]["status"] == "approved"
+    
+    @pytest.mark.asyncio
+    async def test_nsfw_allowed_with_persona_override(self, content_service, mock_persona):
+        """Test NSFW content allowed on Instagram with persona override."""
+        content_data = {}
+        target_platforms = ["instagram", "onlyfans"]
+        
+        # Persona allows NSFW on Instagram via platform_restrictions
+        mock_persona.platform_restrictions = {"instagram": "both"}
+        
+        adaptations = await content_service._create_platform_adaptations(
+            mock_persona, content_data, ContentRating.NSFW, target_platforms
+        )
+        
+        # Instagram should now allow NSFW content due to persona override
+        assert adaptations["instagram"]["status"] == "approved"
+        
+        # OnlyFans should still allow NSFW content
+        assert adaptations["onlyfans"]["status"] == "approved"
+    
+    @pytest.mark.asyncio
+    async def test_mixed_platform_restrictions(self, content_service, mock_persona):
+        """Test mixed platform restrictions for different content ratings."""
+        content_data = {}
+        
+        # Persona configuration:
+        # - Instagram: allows all (NSFW override)
+        # - Facebook: allows moderate (more permissive)
+        # - Twitter: only SFW (more restrictive)
+        mock_persona.platform_restrictions = {
+            "instagram": "both",
+            "facebook": "moderate_allowed",
+            "twitter": "sfw_only"
+        }
+        
+        # Test NSFW content
+        target_platforms = ["instagram", "facebook", "twitter", "onlyfans"]
+        adaptations = await content_service._create_platform_adaptations(
+            mock_persona, content_data, ContentRating.NSFW, target_platforms
+        )
+        
+        # Instagram: allowed (persona override)
+        assert adaptations["instagram"]["status"] == "approved"
+        
+        # Facebook: blocked (moderate_allowed doesn't include NSFW)
+        assert adaptations["facebook"]["status"] == "blocked"
+        
+        # Twitter: blocked (sfw_only)
+        assert adaptations["twitter"]["status"] == "blocked"
+        
+        # OnlyFans: allowed (global policy)
+        assert adaptations["onlyfans"]["status"] == "approved"
+        
+        # Test MODERATE content
+        adaptations_moderate = await content_service._create_platform_adaptations(
+            mock_persona, content_data, ContentRating.MODERATE, target_platforms
+        )
+        
+        # Instagram: allowed (both)
+        assert adaptations_moderate["instagram"]["status"] == "approved"
+        
+        # Facebook: allowed (moderate_allowed)
+        assert adaptations_moderate["facebook"]["status"] == "approved"
+        
+        # Twitter: blocked (sfw_only)
+        assert adaptations_moderate["twitter"]["status"] == "blocked"
+        
+        # OnlyFans: allowed (global policy)
+        assert adaptations_moderate["onlyfans"]["status"] == "approved"
 
 
 class TestPersonaContentRatingFields:
@@ -254,3 +407,91 @@ class TestPersonaContentRatingFields:
                 quality="invalid_quality"
             )
         assert "Quality must be one of" in str(exc_info.value)
+
+
+class TestPlatformRestrictionsValidation:
+    """Test platform restrictions validation in PersonaCreate and PersonaUpdate models."""
+    
+    def test_valid_platform_restrictions(self):
+        """Test that valid platform restrictions are accepted."""
+        from backend.models.persona import PersonaCreate
+        
+        # All valid restriction values
+        valid_restrictions = {
+            "instagram": "sfw_only",
+            "facebook": "moderate_allowed",
+            "twitter": "both",
+            "onlyfans": "all"
+        }
+        
+        persona_data = PersonaCreate(
+            name="Test Persona",
+            appearance="Test appearance description for the persona",
+            personality="Test personality traits and characteristics",
+            platform_restrictions=valid_restrictions
+        )
+        
+        assert persona_data.platform_restrictions == valid_restrictions
+    
+    def test_invalid_platform_restriction_value(self):
+        """Test that invalid restriction values are rejected."""
+        from backend.models.persona import PersonaCreate
+        import pydantic_core
+        
+        invalid_restrictions = {
+            "instagram": "invalid_value"
+        }
+        
+        with pytest.raises(pydantic_core.ValidationError) as exc_info:
+            PersonaCreate(
+                name="Test Persona",
+                appearance="Test appearance description for the persona",
+                personality="Test personality traits and characteristics",
+                platform_restrictions=invalid_restrictions
+            )
+        
+        error_message = str(exc_info.value)
+        assert "Invalid restriction" in error_message
+        assert "invalid_value" in error_message
+    
+    def test_empty_platform_restrictions(self):
+        """Test that empty platform restrictions are valid."""
+        from backend.models.persona import PersonaCreate
+        
+        persona_data = PersonaCreate(
+            name="Test Persona",
+            appearance="Test appearance description for the persona",
+            personality="Test personality traits and characteristics",
+            platform_restrictions={}
+        )
+        
+        assert persona_data.platform_restrictions == {}
+    
+    def test_persona_update_valid_restrictions(self):
+        """Test that PersonaUpdate accepts valid platform restrictions."""
+        from backend.models.persona import PersonaUpdate
+        
+        update_data = PersonaUpdate(
+            platform_restrictions={
+                "instagram": "both",
+                "facebook": "moderate_allowed"
+            }
+        )
+        
+        assert update_data.platform_restrictions is not None
+        assert "instagram" in update_data.platform_restrictions
+    
+    def test_persona_update_invalid_restrictions(self):
+        """Test that PersonaUpdate rejects invalid platform restrictions."""
+        from backend.models.persona import PersonaUpdate
+        import pydantic_core
+        
+        with pytest.raises(pydantic_core.ValidationError) as exc_info:
+            PersonaUpdate(
+                platform_restrictions={
+                    "instagram": "wrong_value"
+                }
+            )
+        
+        error_message = str(exc_info.value)
+        assert "Invalid restriction" in error_message

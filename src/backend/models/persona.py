@@ -21,6 +21,7 @@ from backend.database.connection import Base
 class ContentRating(str, Enum):
     """Content rating enumeration for persona settings."""
     SFW = "sfw"
+    MODERATE = "moderate"
     NSFW = "nsfw"
 
 
@@ -155,6 +156,21 @@ class PersonaCreate(BaseModel):
                 raise ValueError(f"Inappropriate content theme: {theme}")
         
         return v
+    
+    @field_validator("platform_restrictions")
+    @classmethod
+    def validate_platform_restrictions(cls, v: Dict[str, str]) -> Dict[str, str]:
+        """Validate platform restrictions values."""
+        valid_restrictions = ["sfw_only", "moderate_allowed", "both", "all"]
+        
+        for platform, restriction in v.items():
+            if restriction.lower() not in valid_restrictions:
+                raise ValueError(
+                    f"Invalid restriction '{restriction}' for platform '{platform}'. "
+                    f"Must be one of: {', '.join(valid_restrictions)}"
+                )
+        
+        return v
 
 
 class PersonaUpdate(BaseModel):
@@ -183,6 +199,24 @@ class PersonaUpdate(BaseModel):
         None,
         description="When True, locks appearance and enables visual consistency features"
     )
+    
+    @field_validator("platform_restrictions")
+    @classmethod
+    def validate_platform_restrictions(cls, v: Optional[Dict[str, str]]) -> Optional[Dict[str, str]]:
+        """Validate platform restrictions values."""
+        if v is None:
+            return v
+            
+        valid_restrictions = ["sfw_only", "moderate_allowed", "both", "all"]
+        
+        for platform, restriction in v.items():
+            if restriction.lower() not in valid_restrictions:
+                raise ValueError(
+                    f"Invalid restriction '{restriction}' for platform '{platform}'. "
+                    f"Must be one of: {', '.join(valid_restrictions)}"
+                )
+        
+        return v
 
 
 class PersonaResponse(BaseModel):
