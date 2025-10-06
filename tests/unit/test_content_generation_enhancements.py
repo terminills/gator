@@ -407,3 +407,91 @@ class TestPersonaContentRatingFields:
                 quality="invalid_quality"
             )
         assert "Quality must be one of" in str(exc_info.value)
+
+
+class TestPlatformRestrictionsValidation:
+    """Test platform restrictions validation in PersonaCreate and PersonaUpdate models."""
+    
+    def test_valid_platform_restrictions(self):
+        """Test that valid platform restrictions are accepted."""
+        from backend.models.persona import PersonaCreate
+        
+        # All valid restriction values
+        valid_restrictions = {
+            "instagram": "sfw_only",
+            "facebook": "moderate_allowed",
+            "twitter": "both",
+            "onlyfans": "all"
+        }
+        
+        persona_data = PersonaCreate(
+            name="Test Persona",
+            appearance="Test appearance description for the persona",
+            personality="Test personality traits and characteristics",
+            platform_restrictions=valid_restrictions
+        )
+        
+        assert persona_data.platform_restrictions == valid_restrictions
+    
+    def test_invalid_platform_restriction_value(self):
+        """Test that invalid restriction values are rejected."""
+        from backend.models.persona import PersonaCreate
+        import pydantic_core
+        
+        invalid_restrictions = {
+            "instagram": "invalid_value"
+        }
+        
+        with pytest.raises(pydantic_core.ValidationError) as exc_info:
+            PersonaCreate(
+                name="Test Persona",
+                appearance="Test appearance description for the persona",
+                personality="Test personality traits and characteristics",
+                platform_restrictions=invalid_restrictions
+            )
+        
+        error_message = str(exc_info.value)
+        assert "Invalid restriction" in error_message
+        assert "invalid_value" in error_message
+    
+    def test_empty_platform_restrictions(self):
+        """Test that empty platform restrictions are valid."""
+        from backend.models.persona import PersonaCreate
+        
+        persona_data = PersonaCreate(
+            name="Test Persona",
+            appearance="Test appearance description for the persona",
+            personality="Test personality traits and characteristics",
+            platform_restrictions={}
+        )
+        
+        assert persona_data.platform_restrictions == {}
+    
+    def test_persona_update_valid_restrictions(self):
+        """Test that PersonaUpdate accepts valid platform restrictions."""
+        from backend.models.persona import PersonaUpdate
+        
+        update_data = PersonaUpdate(
+            platform_restrictions={
+                "instagram": "both",
+                "facebook": "moderate_allowed"
+            }
+        )
+        
+        assert update_data.platform_restrictions is not None
+        assert "instagram" in update_data.platform_restrictions
+    
+    def test_persona_update_invalid_restrictions(self):
+        """Test that PersonaUpdate rejects invalid platform restrictions."""
+        from backend.models.persona import PersonaUpdate
+        import pydantic_core
+        
+        with pytest.raises(pydantic_core.ValidationError) as exc_info:
+            PersonaUpdate(
+                platform_restrictions={
+                    "instagram": "wrong_value"
+                }
+            )
+        
+        error_message = str(exc_info.value)
+        assert "Invalid restriction" in error_message
