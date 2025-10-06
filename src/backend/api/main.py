@@ -23,8 +23,15 @@ from backend.database.connection import get_db_session
 from backend.config.settings import get_settings
 from backend.config.logging import setup_logging
 from backend.api.routes import (
-    public, dns, persona, users, direct_messaging, gator_agent,
-    analytics, content, setup
+    public,
+    dns,
+    persona,
+    users,
+    direct_messaging,
+    gator_agent,
+    analytics,
+    content,
+    setup,
     # , creator, feeds, social  # Still commented out until other models are implemented
 )
 
@@ -39,20 +46,21 @@ settings = get_settings()
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     Application lifespan management.
-    
+
     Handles startup and shutdown tasks including database connections,
     AI model loading, and resource cleanup.
     """
     # Startup
     print("Starting up Gator AI Platform...")
-    
+
     # Initialize database connection
     from backend.database.connection import database_manager
+
     await database_manager.connect()
     print("Database connection established.")
-    
+
     yield
-    
+
     # Shutdown
     print("Shutting down Gator AI Platform...")
     # Disconnect from database
@@ -63,7 +71,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 def create_app() -> FastAPI:
     """
     Create and configure FastAPI application instance.
-    
+
     Returns:
         FastAPI: Configured application instance
     """
@@ -76,13 +84,13 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json" if settings.debug else None,
         lifespan=lifespan,
     )
-    
+
     # Security middleware
     app.add_middleware(
         TrustedHostMiddleware,
         allowed_hosts=settings.allowed_hosts,
     )
-    
+
     # CORS middleware
     app.add_middleware(
         CORSMiddleware,
@@ -91,13 +99,15 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
-    
+
     # Mount static files (frontend directory is at repo root level)
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    project_root = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    )
     frontend_path = os.path.join(project_root, "frontend", "public")
     if os.path.exists(frontend_path):
         app.mount("/static", StaticFiles(directory=frontend_path), name="static")
-    
+
     # Include API routers
     app.include_router(public.router)
     app.include_router(dns.router, prefix="/api/v1")
@@ -111,63 +121,70 @@ def create_app() -> FastAPI:
     # app.include_router(creator.router)  # Commented out until models are implemented
     # app.include_router(feeds.router)    # Commented out until models are implemented
     # app.include_router(social.router)   # Commented out until models are implemented
-    
-    @app.get("/", tags=["system"])
+
+    @app.get("/", tags=["public"])
     async def root(request: Request):
-        """Root endpoint - serve admin dashboard or API info."""
+        """Root endpoint - serve public gallery (end user landing page) or API info."""
         # For API requests or test environments, return JSON
         accept_header = request.headers.get("accept", "")
         user_agent = request.headers.get("user-agent", "")
-        
+
         # Return JSON for API clients (including test clients)
-        if ("application/json" in accept_header or 
-            "testclient" in user_agent.lower() or
-            "httpx" in user_agent.lower()):
+        if (
+            "application/json" in accept_header
+            or "testclient" in user_agent.lower()
+            or "httpx" in user_agent.lower()
+        ):
             return {
                 "message": "Gator AI Influencer Platform",
-                "version": "0.1.0", 
-                "status": "operational"
+                "version": "0.1.0",
+                "status": "operational",
             }
-        
-        # For browser requests, serve the HTML file
-        index_path = os.path.join(frontend_path, "index.html")
-        if os.path.exists(index_path):
-            return FileResponse(index_path)
+
+        # For browser requests, serve the public gallery as the landing page
+        gallery_path = os.path.join(frontend_path, "gallery.html")
+        if os.path.exists(gallery_path):
+            return FileResponse(gallery_path)
         return {
             "message": "Gator AI Influencer Platform",
-            "version": "0.1.0", 
-            "status": "operational"
+            "version": "0.1.0",
+            "status": "operational",
         }
-    
+
     @app.get("/admin", tags=["system"])
     async def admin_dashboard():
-        """Serve admin dashboard."""
+        """Serve admin/creator dashboard."""
+        # Serve the creator dashboard (previously at root)
+        dashboard_path = os.path.join(frontend_path, "index.html")
+        if os.path.exists(dashboard_path):
+            return FileResponse(dashboard_path)
+        # Fallback to admin.html if index.html doesn't exist
         admin_path = os.path.join(project_root, "admin.html")
         if os.path.exists(admin_path):
             return FileResponse(admin_path)
         return {"error": "Admin dashboard not found"}
-    
+
     @app.get("/gallery", tags=["public"])
     async def public_gallery():
-        """Serve public gallery page."""
+        """Serve public gallery page (same as root for backward compatibility)."""
         gallery_path = os.path.join(frontend_path, "gallery.html")
         if os.path.exists(gallery_path):
             return FileResponse(gallery_path)
         return {"error": "Gallery page not found"}
-    
+
     @app.get("/gallery/persona/{persona_id}", tags=["public"])
     async def persona_detail(persona_id: str):
         """Serve persona detail page."""
-        persona_path = os.path.join(frontend_path, "persona.html") 
+        persona_path = os.path.join(frontend_path, "persona.html")
         if os.path.exists(persona_path):
             return FileResponse(persona_path)
         return {"error": "Persona page not found"}
-    
+
     @app.get("/health", tags=["system"])
     async def health_check(db: AsyncSession = Depends(get_db_session)):
         """Health check endpoint for monitoring."""
         from datetime import datetime, timezone
-        
+
         # Basic database connectivity check
         database_status = "unknown"
         try:
@@ -179,21 +196,20 @@ def create_app() -> FastAPI:
                 database_status = "unhealthy"
         except Exception:
             database_status = "unhealthy"
-        
+
         return {
             "status": "healthy",
             "database": database_status,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-    
+
     @app.exception_handler(404)
     async def not_found_handler(request: Request, exc) -> Response:
         """Custom 404 handler."""
         return JSONResponse(
-            status_code=404,
-            content={"detail": f"Path {request.url.path} not found"}
+            status_code=404, content={"detail": f"Path {request.url.path} not found"}
         )
-    
+
     return app
 
 
