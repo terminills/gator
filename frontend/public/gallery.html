@@ -313,6 +313,63 @@
             font-size: 0.8rem;
             font-weight: 500;
         }
+        
+        .section {
+            margin: 60px 0;
+        }
+        
+        .section-title {
+            font-size: 2rem;
+            margin-bottom: 30px;
+            color: #ffffff;
+            text-align: center;
+        }
+        
+        .categories-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .category-card {
+            background: linear-gradient(135deg, rgba(255,107,107,0.1), rgba(132,94,194,0.1));
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .category-card:hover {
+            transform: translateY(-5px);
+            border-color: #ff6b6b;
+            box-shadow: 0 10px 30px rgba(255,107,107,0.3);
+        }
+        
+        .category-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        
+        .category-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        
+        .category-description {
+            color: #cccccc;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+        
+        .category-count {
+            color: #ff6b6b;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -338,12 +395,49 @@
     </div>
     
     <div class="container">
-        <div id="personas-container">
-            <div class="loading">
-                <div class="spinner"></div>
-                Loading amazing creators...
+        <!-- Featured Section -->
+        <section id="featured" class="section">
+            <h2 class="section-title">✨ Featured Creators</h2>
+            <div id="featured-container">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading featured creators...
+                </div>
             </div>
-        </div>
+        </section>
+        
+        <!-- Trending Section -->
+        <section id="trending" class="section">
+            <h2 class="section-title">🔥 Trending Now</h2>
+            <div id="trending-container">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading trending creators...
+                </div>
+            </div>
+        </section>
+        
+        <!-- Categories Section -->
+        <section id="categories" class="section">
+            <h2 class="section-title">📂 Browse by Category</h2>
+            <div id="categories-container">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading categories...
+                </div>
+            </div>
+        </section>
+        
+        <!-- All Personas Section -->
+        <section class="section">
+            <h2 class="section-title">🌟 All Creators</h2>
+            <div id="personas-container">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading creators...
+                </div>
+            </div>
+        </section>
     </div>
     
     <div class="footer">
@@ -376,30 +470,7 @@
                     return;
                 }
                 
-                const personasHTML = `
-                    <div class="personas-grid">
-                        ${personas.map(persona => `
-                            <div class="persona-card" onclick="viewPersona('${persona.id}')">
-                                <div class="persona-avatar">${getPersonaIcon(persona.style)}</div>
-                                <div class="persona-info">
-                                    <h3 class="persona-name">${persona.name}</h3>
-                                    <p class="persona-bio">${persona.bio}</p>
-                                    <div class="persona-themes">
-                                        ${persona.themes.slice(0, 3).map(theme => 
-                                            `<span class="theme-tag">${theme}</span>`
-                                        ).join('')}
-                                    </div>
-                                    <div class="persona-stats">
-                                        <span class="content-count">${persona.content_count} creations</span>
-                                        <button class="view-btn">View Profile</button>
-                                    </div>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-                
-                container.innerHTML = personasHTML;
+                container.innerHTML = renderPersonasGrid(personas);
                 
             } catch (error) {
                 console.error('Error loading personas:', error);
@@ -410,6 +481,93 @@
                     </div>
                 `;
             }
+        }
+        
+        async function loadFeatured() {
+            try {
+                const response = await fetch('/public/personas?featured=true');
+                const personas = await response.json();
+                
+                const container = document.getElementById('featured-container');
+                container.innerHTML = renderPersonasGrid(personas);
+                
+            } catch (error) {
+                console.error('Error loading featured:', error);
+            }
+        }
+        
+        async function loadTrending() {
+            try {
+                const response = await fetch('/public/personas?trending=true');
+                const personas = await response.json();
+                
+                const container = document.getElementById('trending-container');
+                container.innerHTML = renderPersonasGrid(personas);
+                
+            } catch (error) {
+                console.error('Error loading trending:', error);
+            }
+        }
+        
+        async function loadCategories() {
+            try {
+                const response = await fetch('/public/categories');
+                const categories = await response.json();
+                
+                const container = document.getElementById('categories-container');
+                
+                const categoriesHTML = `
+                    <div class="categories-grid">
+                        ${categories.map(category => `
+                            <div class="category-card" onclick="filterByCategory('${category.id}')">
+                                <div class="category-icon">${category.icon}</div>
+                                <h3 class="category-name">${category.name}</h3>
+                                <p class="category-description">${category.description}</p>
+                                <p class="category-count">${category.persona_count} creators</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                container.innerHTML = categoriesHTML;
+                
+            } catch (error) {
+                console.error('Error loading categories:', error);
+            }
+        }
+        
+        function renderPersonasGrid(personas) {
+            if (personas.length === 0) {
+                return `
+                    <div class="empty-state">
+                        <h2>🎭 No Creators Found</h2>
+                        <p>No creators match your criteria. Try different filters.</p>
+                    </div>
+                `;
+            }
+            
+            return `
+                <div class="personas-grid">
+                    ${personas.map(persona => `
+                        <div class="persona-card" onclick="viewPersona('${persona.id}')">
+                            <div class="persona-avatar">${getPersonaIcon(persona.style)}</div>
+                            <div class="persona-info">
+                                <h3 class="persona-name">${persona.name}</h3>
+                                <p class="persona-bio">${persona.bio}</p>
+                                <div class="persona-themes">
+                                    ${persona.themes.slice(0, 3).map(theme => 
+                                        `<span class="theme-tag">${theme}</span>`
+                                    ).join('')}
+                                </div>
+                                <div class="persona-stats">
+                                    <span class="content-count">${persona.content_count} creations</span>
+                                    <button class="view-btn">View Profile</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
         }
         
         function getPersonaIcon(style) {
@@ -430,8 +588,29 @@
             window.location.href = `/gallery/persona/${personaId}`;
         }
         
-        // Load personas when page loads
-        document.addEventListener('DOMContentLoaded', loadPersonas);
+        async function filterByCategory(categoryId) {
+            try {
+                const response = await fetch(`/public/personas?category=${categoryId}`);
+                const personas = await response.json();
+                
+                const container = document.getElementById('personas-container');
+                container.innerHTML = renderPersonasGrid(personas);
+                
+                // Scroll to all personas section
+                document.querySelector('#personas-container').scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (error) {
+                console.error('Error filtering by category:', error);
+            }
+        }
+        
+        // Load all sections when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFeatured();
+            loadTrending();
+            loadCategories();
+            loadPersonas();
+        });
         
         // Add smooth scrolling
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
