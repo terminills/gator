@@ -148,37 +148,37 @@
             <div class="card">
                 <h3>🎭 Persona Management</h3>
                 <p>Create and manage AI personas with unique personalities, appearances, and content themes.</p>
-                <a href="/docs#/personas" class="btn" onclick="openAPI('personas')">Manage Personas</a>
+                <a href="/docs#/personas" class="btn">Manage Personas</a>
             </div>
             
             <div class="card">
                 <h3>🎨 Content Generation</h3>
                 <p>Generate high-quality images, videos, and text content using advanced AI models.</p>
-                <a href="/docs#/content" class="btn" onclick="openAPI('content')">Generate Content</a>
+                <a href="/docs#/content" class="btn">Generate Content</a>
             </div>
             
             <div class="card">
                 <h3>📡 RSS Feed Monitoring</h3>
                 <p>Ingest and analyze RSS feeds to stay current with trending topics and generate relevant content.</p>
-                <a href="/docs#/rss-feeds" class="btn" onclick="openAPI('feeds')">Manage Feeds</a>
+                <a href="/docs#/rss-feeds" class="btn">Manage Feeds</a>
             </div>
             
             <div class="card">
                 <h3>📱 Social Media Integration</h3>
                 <p>Publish content across multiple social media platforms with automated optimization.</p>
-                <a href="/docs#/social-media" class="btn" onclick="openAPI('social')">Social Media</a>
+                <a href="/docs#/social-media" class="btn">Social Media</a>
             </div>
             
             <div class="card">
                 <h3>👥 Public Gallery</h3>
                 <p>Showcase your AI-generated content in a public gallery for audience engagement.</p>
-                <a href="/gallery" class="btn" onclick="openGallery()">View Gallery</a>
+                <a href="/gallery" class="btn">View Gallery</a>
             </div>
             
             <div class="card">
                 <h3>📊 Creator Dashboard</h3>
                 <p>Monitor performance, analytics, and get optimization suggestions for your AI personas.</p>
-                <a href="/docs#/creator-panel" class="btn" onclick="openAPI('creator')">Creator Panel</a>
+                <a href="/docs#/creator-panel" class="btn">Creator Panel</a>
             </div>
         </div>
         
@@ -203,16 +203,6 @@
     </div>
 
     <script>
-        function openAPI(section) {
-            const baseUrl = window.location.origin;
-            window.open(`${baseUrl}/docs`, '_blank');
-        }
-        
-        function openGallery() {
-            const baseUrl = window.location.origin;
-            window.open(`${baseUrl}/gallery`, '_blank');
-        }
-        
         // Check system health
         async function checkHealth() {
             try {
