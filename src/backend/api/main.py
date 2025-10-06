@@ -166,6 +166,14 @@ def create_app() -> FastAPI:
             return FileResponse(dashboard_path)
         return {"error": "Admin dashboard not found"}
 
+    @app.get("/ai-models-setup", tags=["system"])
+    async def ai_models_setup():
+        """Serve AI models setup page."""
+        setup_path = os.path.join(project_root, "ai_models_setup.html")
+        if os.path.exists(setup_path):
+            return FileResponse(setup_path)
+        return {"error": "AI models setup page not found"}
+
     @app.get("/gallery", tags=["public"])
     async def public_gallery():
         """Serve public gallery page (same as root for backward compatibility)."""

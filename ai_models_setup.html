@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Model Setup - Gator Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .system-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .info-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 1.1rem;
+            color: #333;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .status-badge.available {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-badge.unavailable {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-badge.installed {
+            background: #cce5ff;
+            color: #004085;
+        }
+        
+        .models-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .model-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s;
+        }
+        
+        .model-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        
+        .model-category {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        
+        .model-category.text {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        
+        .model-category.image {
+            background: #f3e5f5;
+            color: #6a1b9a;
+        }
+        
+        .model-category.voice {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        
+        .model-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .model-description {
+            color: #666;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+        
+        .model-details {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-block {
+            display: block;
+            width: 100%;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .requirements {
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        
+        .requirement-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 5px 0;
+        }
+        
+        .requirement-icon {
+            font-size: 1rem;
+        }
+        
+        .actions {
+            margin-top: 30px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Model Setup</h1>
+            <p>Install and configure AI models for content generation and messaging</p>
+        </div>
+        
+        <div class="card">
+            <h2>📊 System Information</h2>
+            <div id="system-info" class="system-info">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading system information...
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>💾 Installed Models</h2>
+            <div id="installed-models">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading installed models...
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>🚀 Available Models for Installation</h2>
+            <div id="available-models">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading available models...
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>⚙️ Quick Actions</h2>
+            <div class="actions">
+                <button class="btn btn-primary" onclick="analyzeSystem()">
+                    🔍 Analyze System Capabilities
+                </button>
+                <button class="btn btn-secondary" onclick="openSetupScript()">
+                    🛠️ Run Setup Script
+                </button>
+                <a href="/admin" class="btn btn-secondary">
+                    👈 Back to Admin Panel
+                </a>
+            </div>
+            
+            <div id="analysis-output" style="margin-top: 20px; display: none;">
+                <h3>System Analysis Results:</h3>
+                <pre id="analysis-text"></pre>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = '';
+        
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/setup/ai-models/status`);
+                const data = await response.json();
+                
+                const systemInfoDiv = document.getElementById('system-info');
+                
+                const gpuStatus = data.system.gpu_available ? 
+                    `<span class="status-badge available">✓ GPU Available</span>` : 
+                    `<span class="status-badge unavailable">✗ No GPU</span>`;
+                
+                systemInfoDiv.innerHTML = `
+                    <div class="info-item">
+                        <div class="info-label">GPU Status</div>
+                        <div class="info-value">${gpuStatus}</div>
+                        ${data.system.gpu_name ? `<div style="margin-top: 5px; font-size: 0.9rem; color: #666;">${data.system.gpu_name}</div>` : ''}
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Python Version</div>
+                        <div class="info-value">${data.system.python_version.split(' ')[0]}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Platform</div>
+                        <div class="info-value">${data.system.platform}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Models Directory</div>
+                        <div class="info-value">${data.models_directory || 'Not created yet'}</div>
+                    </div>
+                `;
+                
+                // Load installed models
+                loadInstalledModels(data.installed_models);
+                
+                // Load available models
+                loadAvailableModels(data.available_models, data.system);
+                
+            } catch (error) {
+                console.error('Failed to load system info:', error);
+                document.getElementById('system-info').innerHTML = 
+                    '<div class="alert alert-warning">Failed to load system information. Please try again.</div>';
+            }
+        }
+        
+        function loadInstalledModels(models) {
+            const installedDiv = document.getElementById('installed-models');
+            
+            if (models.length === 0) {
+                installedDiv.innerHTML = `
+                    <div class="alert alert-info">
+                        No models installed yet. Install models using the available models section below or run the setup script.
+                    </div>
+                `;
+                return;
+            }
+            
+            installedDiv.innerHTML = `
+                <div class="models-grid">
+                    ${models.map(model => `
+                        <div class="model-card">
+                            <span class="model-category ${model.category}">${model.category}</span>
+                            <div class="model-name">${model.name}</div>
+                            <div class="model-details">📁 ${model.path}</div>
+                            <span class="status-badge installed">Installed</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+        
+        function loadAvailableModels(models, systemInfo) {
+            const availableDiv = document.getElementById('available-models');
+            
+            availableDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <strong>Note:</strong> Model installation requires significant disk space and may take several hours depending on your internet connection. 
+                    Local models require GPU for optimal performance.
+                </div>
+                <div class="models-grid">
+                    ${models.map(model => {
+                        const canInstall = !model.requires_gpu || systemInfo.gpu_available;
+                        const requiresApiKey = model.requires_api_key ? `<div class="requirement-item"><span class="requirement-icon">🔑</span> Requires ${model.requires_api_key}</div>` : '';
+                        const gpuReq = model.requires_gpu ? `<div class="requirement-item"><span class="requirement-icon">${systemInfo.gpu_available ? '✅' : '❌'}</span> Requires GPU</div>` : '';
+                        
+                        return `
+                            <div class="model-card">
+                                <span class="model-category ${model.category}">${model.category}</span>
+                                <div class="model-name">${model.name}</div>
+                                <div class="model-description">${model.description}</div>
+                                <div class="model-details">💾 Size: ${model.size}</div>
+                                <div class="requirements">
+                                    ${gpuReq}
+                                    ${requiresApiKey}
+                                </div>
+                                ${!canInstall ? '<div class="alert alert-warning" style="margin-top: 10px; padding: 8px; font-size: 0.85rem;">⚠️ GPU required for this model</div>' : ''}
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="alert alert-info" style="margin-top: 20px;">
+                    <strong>💡 Installation Methods:</strong><br>
+                    1. <strong>Command Line:</strong> Run <code>python setup_ai_models.py --analyze</code> to see compatible models<br>
+                    2. <strong>API Configuration:</strong> Add API keys in the <a href="/admin">Admin Panel</a> under System Configuration<br>
+                    3. <strong>Manual Installation:</strong> Follow the setup script instructions for downloading models
+                </div>
+            `;
+        }
+        
+        async function analyzeSystem() {
+            const outputDiv = document.getElementById('analysis-output');
+            const textDiv = document.getElementById('analysis-text');
+            
+            outputDiv.style.display = 'block';
+            textDiv.textContent = 'Analyzing system capabilities...\n\n';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/setup/ai-models/analyze`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    textDiv.textContent = data.output;
+                } else {
+                    textDiv.textContent = `Error: ${data.error}\n\nOutput:\n${data.output}`;
+                }
+            } catch (error) {
+                textDiv.textContent = `Failed to analyze system: ${error.message}`;
+            }
+        }
+        
+        function openSetupScript() {
+            alert('To run the setup script:\n\n1. Open a terminal\n2. Navigate to the Gator directory\n3. Run: python setup_ai_models.py --analyze\n4. Follow the prompts to install models\n\nFor more options, run: python setup_ai_models.py --help');
+        }
+        
+        // Load data on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSystemInfo();
+        });
+    </script>
+</body>
+</html>

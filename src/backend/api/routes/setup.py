@@ -411,3 +411,152 @@ async def get_configuration_template() -> Dict[str, Any]:
     }
 
     return template
+
+
+@router.get("/ai-models/status")
+async def get_ai_models_status() -> Dict[str, Any]:
+    """
+    Get AI model installation status and system capabilities.
+    
+    Returns information about installed models, available models,
+    and system hardware capabilities.
+    """
+    try:
+        import sys
+        import subprocess
+        from pathlib import Path
+        
+        # Get system info
+        system_info = {
+            "python_version": sys.version,
+            "platform": sys.platform,
+        }
+        
+        # Check for GPU
+        try:
+            import torch
+            system_info["gpu_available"] = torch.cuda.is_available()
+            if torch.cuda.is_available():
+                system_info["gpu_count"] = torch.cuda.device_count()
+                system_info["gpu_name"] = torch.cuda.get_device_name(0)
+        except ImportError:
+            system_info["gpu_available"] = False
+            system_info["torch_installed"] = False
+        
+        # Check models directory
+        models_dir = Path("./models")
+        models_exist = models_dir.exists()
+        
+        installed_models = []
+        if models_exist:
+            # Check for installed models
+            for category in ["text", "image", "voice"]:
+                category_path = models_dir / category
+                if category_path.exists():
+                    for model_path in category_path.iterdir():
+                        if model_path.is_dir():
+                            installed_models.append({
+                                "name": model_path.name,
+                                "category": category,
+                                "path": str(model_path),
+                            })
+        
+        # Available models for installation
+        available_models = [
+            {
+                "name": "Stable Diffusion XL",
+                "category": "image",
+                "description": "High-quality image generation",
+                "size": "6.9 GB",
+                "requires_gpu": True,
+            },
+            {
+                "name": "Llama 3.1 8B",
+                "category": "text",
+                "description": "Fast text generation model",
+                "size": "16 GB",
+                "requires_gpu": True,
+            },
+            {
+                "name": "GPT-4 (API)",
+                "category": "text",
+                "description": "OpenAI GPT-4 via API",
+                "size": "N/A",
+                "requires_gpu": False,
+                "requires_api_key": "OPENAI_API_KEY",
+            },
+            {
+                "name": "DALL-E 3 (API)",
+                "category": "image",
+                "description": "OpenAI DALL-E 3 via API",
+                "size": "N/A",
+                "requires_gpu": False,
+                "requires_api_key": "OPENAI_API_KEY",
+            },
+        ]
+        
+        return {
+            "system": system_info,
+            "models_directory": str(models_dir.absolute()) if models_exist else None,
+            "installed_models": installed_models,
+            "available_models": available_models,
+            "setup_script_available": Path("setup_ai_models.py").exists(),
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get AI model status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get AI model status: {str(e)}",
+        )
+
+
+@router.post("/ai-models/analyze")
+async def analyze_system_for_models() -> Dict[str, Any]:
+    """
+    Analyze system capabilities and recommend compatible AI models.
+    
+    Runs the setup_ai_models.py script with --analyze flag to determine
+    which models can be installed on the current system.
+    """
+    try:
+        import subprocess
+        import sys
+        import os
+        from pathlib import Path
+        # Get project root (setup script is in project root, not src)
+        project_root = Path(__file__).parents[3]
+        setup_script = project_root / "setup_ai_models.py"
+        
+        # Run the setup script with analyze flag
+        result = subprocess.run(
+            [sys.executable, setup_script, "--analyze"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        
+        if result.returncode == 0:
+            return {
+                "success": True,
+                "output": result.stdout,
+                "recommendations": "Check output for detailed analysis",
+            }
+        else:
+            return {
+                "success": False,
+                "error": result.stderr,
+                "output": result.stdout,
+            }
+            
+    except subprocess.TimeoutExpired:
+        raise HTTPException(
+            status_code=status.HTTP_408_REQUEST_TIMEOUT,
+            detail="Analysis timed out after 30 seconds",
+        )
+    except Exception as e:
+        logger.error(f"Failed to analyze system: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to analyze system: {str(e)}",
+        )
