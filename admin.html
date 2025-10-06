@@ -1399,7 +1399,8 @@
             contentDiv.innerHTML = '<div class="loading"></div>Loading content...';
             
             try {
-                const data = await apiRequest('/api/v1/content/?skip=0&limit=50');
+                const response = await apiRequest('/api/v1/content/?skip=0&limit=50');
+                const data = response.content || response; // Handle both response formats
                 
                 if (!data || data.length === 0) {
                     contentDiv.innerHTML = '<p>No content generated yet. Generate your first content to get started!</p>';
