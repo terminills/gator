@@ -523,12 +523,10 @@ async def analyze_system_for_models() -> Dict[str, Any]:
         import subprocess
         import sys
         import os
-        
+        from pathlib import Path
         # Get project root (setup script is in project root, not src)
-        project_root = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        )
-        setup_script = os.path.join(project_root, "setup_ai_models.py")
+        project_root = Path(__file__).parents[3]
+        setup_script = project_root / "setup_ai_models.py"
         
         # Run the setup script with analyze flag
         result = subprocess.run(
