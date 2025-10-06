@@ -32,7 +32,9 @@ from backend.api.routes import (
     analytics,
     content,
     setup,
-    # , creator, feeds, social  # Still commented out until other models are implemented
+    creator,
+    feeds,
+    social,
 )
 
 # Configure logging
@@ -117,10 +119,10 @@ def create_app() -> FastAPI:
     app.include_router(direct_messaging.router)
     app.include_router(gator_agent.router, prefix="/api/v1")
     app.include_router(analytics.router)
-    app.include_router(content.router)  # Now enabled with content models
-    # app.include_router(creator.router)  # Commented out until models are implemented
-    # app.include_router(feeds.router)    # Commented out until models are implemented
-    # app.include_router(social.router)   # Commented out until models are implemented
+    app.include_router(content.router)
+    app.include_router(creator.router, prefix="/api/v1")
+    app.include_router(feeds.router)
+    app.include_router(social.router)
 
     @app.get("/", tags=["public"])
     async def root(request: Request):

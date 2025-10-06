@@ -18,6 +18,8 @@ from backend.models.user import UserModel
 from backend.models.conversation import ConversationModel
 from backend.models.message import MessageModel
 from backend.models.ppv_offer import PPVOfferModel
+from backend.models.content import ContentModel
+from backend.models.feed import RSSFeedModel, FeedItemModel
 from backend.config.logging import setup_logging, get_logger
 
 # Setup logging
@@ -28,28 +30,31 @@ logger = get_logger(__name__)
 async def create_tables():
     """Create all database tables."""
     print("🗄️  Setting up Gator database...")
-    
+
     try:
         # Connect to database
         await database_manager.connect()
-        
+
         # Create all tables
         async with database_manager.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-        
+
         print("✅ Database tables created successfully!")
         print("   Tables:")
         print("   • personas - AI persona configurations")
-        print("   • users - User accounts and authentication") 
+        print("   • users - User accounts and authentication")
         print("   • conversations - Conversation threads")
         print("   • messages - Individual messages")
         print("   • ppv_offers - Pay-per-view offer management")
-        
+        print("   • content - Generated AI content")
+        print("   • rss_feeds - RSS feed sources")
+        print("   • feed_items - RSS feed items")
+
         # Disconnect
         await database_manager.disconnect()
-        
+
         return True
-        
+
     except Exception as e:
         logger.error("Database setup failed", error=str(e))
         print(f"❌ Database setup failed: {e}")
