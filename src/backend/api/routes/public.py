@@ -19,6 +19,9 @@ router = APIRouter(
 @router.get("/personas", response_model=List[Dict[str, Any]])
 async def list_public_personas(
     limit: int = Query(default=10, ge=1, le=50, description="Maximum personas to return"),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    featured: Optional[bool] = Query(None, description="Filter featured personas only"),
+    trending: Optional[bool] = Query(None, description="Filter trending personas only"),
 ):
     """
     List publicly available AI personas.
@@ -28,11 +31,14 @@ async def list_public_personas(
     
     Args:
         limit: Maximum number of personas to return
+        category: Filter by category (technology, art, lifestyle, fashion, etc.)
+        featured: Show only featured personas
+        trending: Show only trending personas
     
     Returns:
         List of public persona information
     """
-    # Mock data for demonstration - in real app this would query database
+    # Extended mock data for demonstration - in real app this would query database
     mock_personas = [
         {
             "id": "persona-1",
@@ -40,7 +46,11 @@ async def list_public_personas(
             "bio": "A futuristic AI persona passionate about technology, innovation, and digital art. Creates stunning tech-inspired content with a sleek modern aesthetic.",
             "themes": ["technology", "digital art", "innovation", "futurism", "cyberpunk"],
             "content_count": 42,
-            "style": "futuristic"
+            "style": "futuristic",
+            "category": "technology",
+            "featured": True,
+            "trending": True,
+            "trending_score": 95
         },
         {
             "id": "persona-2", 
@@ -48,7 +58,11 @@ async def list_public_personas(
             "bio": "An artistic AI with a love for vibrant colors, abstract compositions, and creative storytelling. Specializes in whimsical and imaginative content.",
             "themes": ["art", "creativity", "abstract", "colors", "storytelling"],
             "content_count": 38,
-            "style": "artistic"
+            "style": "artistic",
+            "category": "art",
+            "featured": True,
+            "trending": False,
+            "trending_score": 78
         },
         {
             "id": "persona-3",
@@ -56,11 +70,67 @@ async def list_public_personas(
             "bio": "Nostalgic AI creator focused on retro aesthetics, vintage photography, and timeless elegance. Brings classic beauty into the modern world.",
             "themes": ["vintage", "retro", "photography", "elegance", "nostalgia"],
             "content_count": 25,
-            "style": "vintage"
+            "style": "vintage",
+            "category": "lifestyle",
+            "featured": False,
+            "trending": True,
+            "trending_score": 82
+        },
+        {
+            "id": "persona-4",
+            "name": "Zara Fashion",
+            "bio": "Style maven AI specializing in cutting-edge fashion trends, runway analysis, and sustainable style choices. Inspiring fashion-forward thinking.",
+            "themes": ["fashion", "style", "trends", "sustainability", "runway"],
+            "content_count": 56,
+            "style": "realistic",
+            "category": "fashion",
+            "featured": True,
+            "trending": True,
+            "trending_score": 91
+        },
+        {
+            "id": "persona-5",
+            "name": "Chef Marcus",
+            "bio": "Culinary AI artist creating mouthwatering recipes, cooking techniques, and food photography. Making gourmet cooking accessible to everyone.",
+            "themes": ["cooking", "recipes", "food", "culinary arts", "gastronomy"],
+            "content_count": 67,
+            "style": "realistic",
+            "category": "lifestyle",
+            "featured": False,
+            "trending": False,
+            "trending_score": 65
+        },
+        {
+            "id": "persona-6",
+            "name": "Kai Fitness",
+            "bio": "Fitness and wellness AI coach focusing on workout routines, nutrition tips, and mental health. Empowering healthy lifestyle transformations.",
+            "themes": ["fitness", "wellness", "health", "workout", "nutrition"],
+            "content_count": 89,
+            "style": "realistic",
+            "category": "lifestyle",
+            "featured": False,
+            "trending": True,
+            "trending_score": 88
         }
     ]
     
-    return mock_personas[:limit]
+    # Apply filters
+    filtered_personas = mock_personas
+    
+    if category:
+        filtered_personas = [p for p in filtered_personas if p.get("category") == category]
+    
+    if featured is not None:
+        filtered_personas = [p for p in filtered_personas if p.get("featured") == featured]
+    
+    if trending is not None:
+        filtered_personas = [p for p in filtered_personas if p.get("trending") == trending]
+    
+    # Sort by trending score if trending filter is applied
+    if trending:
+        filtered_personas = sorted(filtered_personas, key=lambda x: x.get("trending_score", 0), reverse=True)
+    
+    return filtered_personas[:limit]
 
 
 @router.get("/personas/{persona_id}", response_model=Dict[str, Any])
@@ -188,3 +258,45 @@ async def get_persona_gallery(
     end = offset + limit
     
     return mock_content[start:end]
+
+
+@router.get("/categories", response_model=List[Dict[str, Any]])
+async def list_categories():
+    """
+    Get available persona categories with counts.
+    
+    Returns:
+        List of categories with persona counts
+    """
+    categories = [
+        {
+            "id": "technology",
+            "name": "Technology",
+            "description": "AI personas focused on tech, innovation, and digital trends",
+            "icon": "🚀",
+            "persona_count": 1
+        },
+        {
+            "id": "art",
+            "name": "Art & Creativity",
+            "description": "Creative AI personas specializing in visual arts and design",
+            "icon": "🎨",
+            "persona_count": 1
+        },
+        {
+            "id": "lifestyle",
+            "name": "Lifestyle",
+            "description": "Personas covering wellness, cooking, travel, and daily living",
+            "icon": "✨",
+            "persona_count": 3
+        },
+        {
+            "id": "fashion",
+            "name": "Fashion & Style",
+            "description": "Fashion-forward AI personas with style expertise",
+            "icon": "👗",
+            "persona_count": 1
+        }
+    ]
+    
+    return categories
