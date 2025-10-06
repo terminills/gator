@@ -563,7 +563,12 @@
                 <li class="tab-link active" data-tab="dashboard">Dashboard</li>
                 <li class="tab-link" data-tab="personas">Personas</li>
                 <li class="tab-link" data-tab="content">Content</li>
-                <li class="tab-link" data-tab="dns">DNS Management</li>
+                <li class="tab-link" data-tab="feeds">RSS Feeds</li>
+                <li class="tab-link" data-tab="social">Social Media</li>
+                <li class="tab-link" data-tab="messaging">Messaging</li>
+                <li class="tab-link" data-tab="users">Users</li>
+                <li class="tab-link" data-tab="analytics">Analytics</li>
+                <li class="tab-link" data-tab="dns">DNS</li>
                 <li class="tab-link" data-tab="settings">Settings</li>
                 <li class="tab-link" data-tab="gator-help">🐊 Ask Gator</li>
             </ul>
@@ -626,6 +631,71 @@
                     </div>
                     <button class="btn" onclick="showTab('dns')">Manage DNS</button>
                 </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">📡</div>
+                        <div>
+                            <div class="card-title">RSS Feeds</div>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        Monitor RSS feeds for trending topics and content inspiration
+                    </div>
+                    <button class="btn" onclick="showTab('feeds')">Manage Feeds</button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">📱</div>
+                        <div>
+                            <div class="card-title">Social Media</div>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        Publish content to social media platforms and track engagement
+                    </div>
+                    <button class="btn" onclick="showTab('social')">Social Media</button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">💬</div>
+                        <div>
+                            <div class="card-title">Direct Messaging</div>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        Manage persona conversations and PPV content offers
+                    </div>
+                    <button class="btn" onclick="showTab('messaging')">View Messages</button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">👥</div>
+                        <div>
+                            <div class="card-title">Users</div>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        Manage user accounts and engagement tracking
+                    </div>
+                    <button class="btn" onclick="showTab('users')">Manage Users</button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">📈</div>
+                        <div>
+                            <div class="card-title">Creator Analytics</div>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        View performance metrics and optimization suggestions
+                    </div>
+                    <button class="btn" onclick="showTab('analytics')">View Analytics</button>
+                </div>
             </div>
         </div>
         
@@ -658,6 +728,166 @@
                 <button class="btn" onclick="generateContent()">Generate New Content</button>
                 <button class="btn btn-secondary" onclick="loadContent()">Refresh Content</button>
                 <div id="content-list" class="mt-3"></div>
+            </div>
+        </div>
+        
+        <!-- RSS Feeds Tab -->
+        <div class="tab-content" id="feeds">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📡</div>
+                    <div class="card-title">RSS Feed Management</div>
+                </div>
+                <div class="card-description">
+                    Monitor RSS feeds for trending topics and generate content based on current trends.
+                </div>
+                <button class="btn" onclick="addRSSFeed()">Add New Feed</button>
+                <button class="btn btn-secondary" onclick="loadRSSFeeds()">Refresh Feeds</button>
+                <button class="btn btn-secondary" onclick="fetchAllFeeds()">Fetch All</button>
+                <div id="feeds-list" class="mt-3"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🔥</div>
+                    <div class="card-title">Trending Topics</div>
+                </div>
+                <div class="card-description">
+                    Current trending topics across all monitored feeds.
+                </div>
+                <button class="btn" onclick="loadTrendingTopics()">Load Trending</button>
+                <div id="trending-list" class="mt-3"></div>
+            </div>
+        </div>
+        
+        <!-- Social Media Tab -->
+        <div class="tab-content" id="social">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📱</div>
+                    <div class="card-title">Social Media Accounts</div>
+                </div>
+                <div class="card-description">
+                    Connect and manage social media accounts for content publishing.
+                </div>
+                <button class="btn" onclick="addSocialAccount()">Add Account</button>
+                <button class="btn btn-secondary" onclick="loadSocialAccounts()">Refresh</button>
+                <div id="social-accounts-list" class="mt-3"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📤</div>
+                    <div class="card-title">Publish Content</div>
+                </div>
+                <div class="card-description">
+                    Publish or schedule content across social media platforms.
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Select Content</label>
+                    <select class="form-control" id="social-content-select">
+                        <option>Select content to publish...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Select Platforms</label>
+                    <select class="form-control" id="social-platform-select" multiple>
+                        <option value="facebook">Facebook</option>
+                        <option value="instagram">Instagram</option>
+                        <option value="twitter">Twitter</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="publishToSocial()">Publish Now</button>
+                <button class="btn btn-secondary" onclick="scheduleToSocial()">Schedule</button>
+            </div>
+        </div>
+        
+        <!-- Direct Messaging Tab -->
+        <div class="tab-content" id="messaging">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">💬</div>
+                    <div class="card-title">Conversation Queue</div>
+                </div>
+                <div class="card-description">
+                    Manage pending conversations in the round-robin queue.
+                </div>
+                <button class="btn" onclick="getNextConversation()">Get Next</button>
+                <button class="btn btn-secondary" onclick="viewQueueStatus()">Queue Status</button>
+                <div id="conversation-queue" class="mt-3"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">💰</div>
+                    <div class="card-title">PPV Offers</div>
+                </div>
+                <div class="card-description">
+                    Create and manage pay-per-view content offers.
+                </div>
+                <button class="btn" onclick="createPPVOffer()">Create Offer</button>
+                <button class="btn btn-secondary" onclick="loadPPVOffers()">View Offers</button>
+                <div id="ppv-offers-list" class="mt-3"></div>
+            </div>
+        </div>
+        
+        <!-- Users Tab -->
+        <div class="tab-content" id="users">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">👥</div>
+                    <div class="card-title">User Management</div>
+                </div>
+                <div class="card-description">
+                    View and manage user accounts and engagement metrics.
+                </div>
+                <button class="btn" onclick="createUser()">Create User</button>
+                <button class="btn btn-secondary" onclick="loadUsers()">Refresh List</button>
+                <div id="users-list" class="mt-3"></div>
+            </div>
+        </div>
+        
+        <!-- Analytics Tab -->
+        <div class="tab-content" id="analytics">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">📊</div>
+                        <div class="card-title">Platform Metrics</div>
+                    </div>
+                    <div class="card-description">
+                        Overall platform performance and usage metrics.
+                    </div>
+                    <button class="btn" onclick="loadPlatformMetrics()">Load Metrics</button>
+                    <div id="platform-metrics" class="mt-3"></div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">📈</div>
+                        <div class="card-title">Creator Dashboard</div>
+                    </div>
+                    <div class="card-description">
+                        Performance stats and optimization suggestions.
+                    </div>
+                    <button class="btn" onclick="loadCreatorDashboard()">Load Dashboard</button>
+                    <div id="creator-dashboard" class="mt-3"></div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">🎯</div>
+                        <div class="card-title">Persona Analytics</div>
+                    </div>
+                    <div class="card-description">
+                        Individual persona performance analysis.
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Select Persona</label>
+                        <select class="form-control" id="analytics-persona-select">
+                            <option>Select a persona...</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="loadPersonaAnalytics()">Load Analytics</button>
+                    <div id="persona-analytics" class="mt-3"></div>
+                </div>
             </div>
         </div>
         
@@ -1927,6 +2157,247 @@
             
             // Reload status to restore placeholders
             loadSetupStatus();
+        }
+        
+        // RSS Feeds Functions
+        async function loadRSSFeeds() {
+            const feedsList = document.getElementById('feeds-list');
+            feedsList.innerHTML = '<div class="loading"></div>Loading RSS feeds...';
+            
+            try {
+                const response = await apiRequest('/api/v1/feeds/');
+                feedsList.innerHTML = '<h3>RSS Feeds</h3>';
+                if (response.length === 0) {
+                    feedsList.innerHTML += '<p>No RSS feeds configured yet.</p>';
+                } else {
+                    response.forEach(feed => {
+                        feedsList.innerHTML += `
+                            <div class="dns-record">
+                                <div class="record-info">
+                                    <div class="record-name">${feed.name || feed.url}</div>
+                                    <div class="record-details">URL: ${feed.url}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (error) {
+                feedsList.innerHTML = `<div class="alert alert-error">Error loading feeds: ${error.message}</div>`;
+            }
+        }
+        
+        async function addRSSFeed() {
+            const url = prompt('Enter RSS feed URL:');
+            if (!url) return;
+            
+            const name = prompt('Enter feed name (optional):');
+            
+            try {
+                await apiRequest('/api/v1/feeds/', {
+                    method: 'POST',
+                    body: JSON.stringify({ url, name: name || url })
+                });
+                showAlert('RSS feed added successfully!');
+                loadRSSFeeds();
+            } catch (error) {
+                showAlert(`Error adding feed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function fetchAllFeeds() {
+            try {
+                const response = await apiRequest('/api/v1/feeds/fetch', { method: 'POST' });
+                showAlert(`Fetched ${response.items_count || 0} new items from feeds!`);
+                loadRSSFeeds();
+            } catch (error) {
+                showAlert(`Error fetching feeds: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadTrendingTopics() {
+            const trendingList = document.getElementById('trending-list');
+            trendingList.innerHTML = '<div class="loading"></div>Loading trending topics...';
+            
+            try {
+                const response = await apiRequest('/api/v1/feeds/trending');
+                trendingList.innerHTML = '<h3>Trending Topics</h3>';
+                if (response.length === 0) {
+                    trendingList.innerHTML += '<p>No trending topics found.</p>';
+                } else {
+                    response.forEach(topic => {
+                        trendingList.innerHTML += `
+                            <div class="dns-record">
+                                <div class="record-info">
+                                    <div class="record-name">${topic.title || topic.topic}</div>
+                                    <div class="record-details">Mentions: ${topic.count || 0}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (error) {
+                trendingList.innerHTML = `<div class="alert alert-error">Error loading trending topics: ${error.message}</div>`;
+            }
+        }
+        
+        // Social Media Functions
+        async function loadSocialAccounts() {
+            const accountsList = document.getElementById('social-accounts-list');
+            accountsList.innerHTML = '<div class="loading"></div>Loading social media accounts...';
+            
+            try {
+                const response = await apiRequest('/api/v1/social/platforms');
+                accountsList.innerHTML = '<h3>Connected Accounts</h3>';
+                accountsList.innerHTML += '<p>Feature available - use API endpoints to manage accounts.</p>';
+            } catch (error) {
+                accountsList.innerHTML = `<div class="alert alert-error">Error loading accounts: ${error.message}</div>`;
+            }
+        }
+        
+        async function addSocialAccount() {
+            showAlert('Use the Settings tab to configure social media API credentials first.', 'error');
+        }
+        
+        async function publishToSocial() {
+            showAlert('Publishing to social media - feature available via API endpoints.', 'error');
+        }
+        
+        async function scheduleToSocial() {
+            showAlert('Scheduling to social media - feature available via API endpoints.', 'error');
+        }
+        
+        // Direct Messaging Functions
+        async function getNextConversation() {
+            const queueDiv = document.getElementById('conversation-queue');
+            queueDiv.innerHTML = '<div class="loading"></div>Getting next conversation...';
+            
+            try {
+                const response = await apiRequest('/api/v1/dm/queue/next');
+                if (!response || !response.id) {
+                    queueDiv.innerHTML = '<p>No pending conversations in queue.</p>';
+                } else {
+                    queueDiv.innerHTML = `
+                        <h3>Next Conversation</h3>
+                        <div class="dns-record">
+                            <div class="record-info">
+                                <div class="record-name">Conversation ID: ${response.id}</div>
+                                <div class="record-details">Status: ${response.status}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                queueDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function viewQueueStatus() {
+            const queueDiv = document.getElementById('conversation-queue');
+            queueDiv.innerHTML = '<div class="loading"></div>Loading queue status...';
+            
+            try {
+                const response = await apiRequest('/api/v1/dm/queue/status');
+                queueDiv.innerHTML = `
+                    <h3>Queue Status</h3>
+                    <p>Pending conversations: ${response.pending || 0}</p>
+                `;
+            } catch (error) {
+                queueDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function createPPVOffer() {
+            showAlert('PPV Offer creation - use API endpoints to create offers.', 'error');
+        }
+        
+        async function loadPPVOffers() {
+            const offersList = document.getElementById('ppv-offers-list');
+            offersList.innerHTML = '<p>PPV offers management - use API endpoints to view and manage offers.</p>';
+        }
+        
+        // Users Functions
+        async function loadUsers() {
+            const usersList = document.getElementById('users-list');
+            usersList.innerHTML = '<div class="loading"></div>Loading users...';
+            
+            try {
+                const response = await apiRequest('/api/v1/users/');
+                usersList.innerHTML = '<h3>Users</h3>';
+                if (response.length === 0) {
+                    usersList.innerHTML += '<p>No users found.</p>';
+                } else {
+                    response.forEach(user => {
+                        usersList.innerHTML += `
+                            <div class="dns-record">
+                                <div class="record-info">
+                                    <div class="record-name">${user.username || user.email}</div>
+                                    <div class="record-details">ID: ${user.id}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (error) {
+                usersList.innerHTML = `<div class="alert alert-error">Error loading users: ${error.message}</div>`;
+            }
+        }
+        
+        async function createUser() {
+            showAlert('User creation - use API endpoints to create users.', 'error');
+        }
+        
+        // Analytics Functions
+        async function loadPlatformMetrics() {
+            const metricsDiv = document.getElementById('platform-metrics');
+            metricsDiv.innerHTML = '<div class="loading"></div>Loading metrics...';
+            
+            try {
+                const response = await apiRequest('/api/v1/analytics/metrics');
+                metricsDiv.innerHTML = `
+                    <h3>Platform Metrics</h3>
+                    <pre>${JSON.stringify(response, null, 2)}</pre>
+                `;
+            } catch (error) {
+                metricsDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function loadCreatorDashboard() {
+            const dashboardDiv = document.getElementById('creator-dashboard');
+            dashboardDiv.innerHTML = '<div class="loading"></div>Loading dashboard...';
+            
+            try {
+                const response = await apiRequest('/api/v1/creator/dashboard');
+                dashboardDiv.innerHTML = `
+                    <h3>Creator Dashboard</h3>
+                    <pre>${JSON.stringify(response, null, 2)}</pre>
+                `;
+            } catch (error) {
+                dashboardDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function loadPersonaAnalytics() {
+            const personaSelect = document.getElementById('analytics-persona-select');
+            const personaId = personaSelect.value;
+            
+            if (!personaId || personaId === 'Select a persona...') {
+                showAlert('Please select a persona first.', 'error');
+                return;
+            }
+            
+            const analyticsDiv = document.getElementById('persona-analytics');
+            analyticsDiv.innerHTML = '<div class="loading"></div>Loading persona analytics...';
+            
+            try {
+                const response = await apiRequest(`/api/v1/creator/personas/analytics/${personaId}`);
+                analyticsDiv.innerHTML = `
+                    <h3>Persona Analytics</h3>
+                    <pre>${JSON.stringify(response, null, 2)}</pre>
+                `;
+            } catch (error) {
+                analyticsDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
         }
     </script>
 </body>

@@ -156,14 +156,14 @@ def create_app() -> FastAPI:
     @app.get("/admin", tags=["system"])
     async def admin_dashboard():
         """Serve admin/creator dashboard."""
-        # Serve the creator dashboard (previously at root)
-        dashboard_path = os.path.join(frontend_path, "index.html")
-        if os.path.exists(dashboard_path):
-            return FileResponse(dashboard_path)
-        # Fallback to admin.html if index.html doesn't exist
+        # Serve the admin dashboard
         admin_path = os.path.join(project_root, "admin.html")
         if os.path.exists(admin_path):
             return FileResponse(admin_path)
+        # Fallback to frontend index.html if admin.html doesn't exist
+        dashboard_path = os.path.join(frontend_path, "index.html")
+        if os.path.exists(dashboard_path):
+            return FileResponse(dashboard_path)
         return {"error": "Admin dashboard not found"}
 
     @app.get("/gallery", tags=["public"])
