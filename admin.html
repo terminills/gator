@@ -553,6 +553,207 @@
             padding: 20px;
             text-align: center;
         }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s;
+        }
+        
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 20px;
+            padding: 0;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s;
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .modal-close {
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            border-radius: 50%;
+            transition: background 0.3s;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .modal-body {
+            padding: 30px;
+        }
+        
+        .modal-footer {
+            padding: 20px 30px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideIn {
+            from { 
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to { 
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .form-section {
+            margin-bottom: 30px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .form-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .form-section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .form-row.full-width {
+            grid-template-columns: 1fr;
+        }
+        
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .chip-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .chip {
+            background: #667eea;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .chip-remove {
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .platform-restriction-item {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        
+        .platform-restriction-item input,
+        .platform-restriction-item select {
+            flex: 1;
+        }
+        
+        .platform-restriction-item button {
+            flex-shrink: 0;
+        }
+        
+        .image-preview-container {
+            margin-top: 15px;
+        }
+        
+        .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 8px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .image-preview.show {
+            display: block;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+        
+        .help-text {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
@@ -1674,9 +1875,258 @@
             }
         }
         
+        // Persona editing state
+        let currentEditingPersonaId = null;
+        let currentPersonaData = null;
+        
         async function editPersona(personaId) {
-            showAlert('Edit persona feature coming soon! Persona ID: ' + personaId);
+            try {
+                // Fetch the persona data
+                const persona = await apiRequest(`/api/v1/personas/${personaId}`);
+                currentEditingPersonaId = personaId;
+                currentPersonaData = persona;
+                
+                // Populate the form
+                document.getElementById('edit-name').value = persona.name || '';
+                document.getElementById('edit-appearance').value = persona.appearance || '';
+                document.getElementById('edit-personality').value = persona.personality || '';
+                document.getElementById('edit-is-active').checked = persona.is_active !== false;
+                
+                // Content themes
+                const themesContainer = document.getElementById('edit-themes-container');
+                themesContainer.innerHTML = '';
+                (persona.content_themes || []).forEach(theme => {
+                    addThemeChip(theme);
+                });
+                
+                // Style preferences
+                const stylePrefs = persona.style_preferences || {};
+                document.getElementById('edit-style-tone').value = stylePrefs.tone || 'friendly';
+                document.getElementById('edit-style-format').value = stylePrefs.format || 'casual';
+                
+                // Content ratings
+                document.getElementById('edit-default-rating').value = persona.default_content_rating || 'sfw';
+                const allowedRatings = persona.allowed_content_ratings || ['sfw'];
+                document.getElementById('edit-rating-sfw').checked = allowedRatings.includes('sfw');
+                document.getElementById('edit-rating-moderate').checked = allowedRatings.includes('moderate');
+                document.getElementById('edit-rating-nsfw').checked = allowedRatings.includes('nsfw');
+                
+                // Platform restrictions
+                loadPlatformRestrictions(persona.platform_restrictions || {});
+                
+                // Base image fields
+                document.getElementById('edit-base-appearance').value = persona.base_appearance_description || '';
+                document.getElementById('edit-base-image-path').value = persona.base_image_path || '';
+                document.getElementById('edit-base-image-status').value = persona.base_image_status || 'pending_upload';
+                document.getElementById('edit-appearance-locked').checked = persona.appearance_locked || false;
+                
+                // Show the modal
+                document.getElementById('editPersonaModal').classList.add('active');
+                
+            } catch (error) {
+                showAlert(`Failed to load persona: ${error.message}`, 'error');
+            }
         }
+        
+        function closeEditPersonaModal() {
+            document.getElementById('editPersonaModal').classList.remove('active');
+            currentEditingPersonaId = null;
+            currentPersonaData = null;
+        }
+        
+        function addTheme() {
+            const input = document.getElementById('edit-theme-input');
+            const theme = input.value.trim();
+            
+            if (!theme) {
+                showAlert('Please enter a theme', 'error');
+                return;
+            }
+            
+            const container = document.getElementById('edit-themes-container');
+            const existingThemes = container.querySelectorAll('.chip');
+            
+            if (existingThemes.length >= 10) {
+                showAlert('Maximum 10 themes allowed', 'error');
+                return;
+            }
+            
+            // Check for duplicates
+            const themeTexts = Array.from(existingThemes).map(chip => 
+                chip.querySelector('.chip-text').textContent
+            );
+            if (themeTexts.includes(theme)) {
+                showAlert('Theme already added', 'error');
+                return;
+            }
+            
+            addThemeChip(theme);
+            input.value = '';
+        }
+        
+        function addThemeChip(theme) {
+            const container = document.getElementById('edit-themes-container');
+            const chip = document.createElement('div');
+            chip.className = 'chip';
+            chip.innerHTML = `
+                <span class="chip-text">${theme}</span>
+                <span class="chip-remove" onclick="removeThemeChip(this)">×</span>
+            `;
+            container.appendChild(chip);
+        }
+        
+        function removeThemeChip(element) {
+            element.parentElement.remove();
+        }
+        
+        function loadPlatformRestrictions(restrictions) {
+            const container = document.getElementById('edit-platform-restrictions-container');
+            container.innerHTML = '';
+            
+            // Add existing restrictions
+            for (const [platform, restriction] of Object.entries(restrictions)) {
+                addPlatformRestrictionRow(platform, restriction);
+            }
+            
+            // Add one empty row if there are no restrictions
+            if (Object.keys(restrictions).length === 0) {
+                addPlatformRestrictionRow('', 'sfw_only');
+            }
+        }
+        
+        function addPlatformRestriction() {
+            addPlatformRestrictionRow('', 'sfw_only');
+        }
+        
+        function addPlatformRestrictionRow(platform = '', restriction = 'sfw_only') {
+            const container = document.getElementById('edit-platform-restrictions-container');
+            const row = document.createElement('div');
+            row.className = 'platform-restriction-item';
+            row.innerHTML = `
+                <input type="text" class="form-control platform-name" placeholder="Platform (e.g., instagram)" value="${platform}">
+                <select class="form-control platform-restriction">
+                    <option value="sfw_only" ${restriction === 'sfw_only' ? 'selected' : ''}>SFW Only</option>
+                    <option value="moderate_allowed" ${restriction === 'moderate_allowed' ? 'selected' : ''}>Moderate Allowed</option>
+                    <option value="both" ${restriction === 'both' ? 'selected' : ''}>Both (SFW & NSFW)</option>
+                    <option value="all" ${restriction === 'all' ? 'selected' : ''}>All</option>
+                </select>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="removePlatformRestrictionRow(this)">Remove</button>
+            `;
+            container.appendChild(row);
+        }
+        
+        function removePlatformRestrictionRow(button) {
+            button.parentElement.remove();
+        }
+        
+        async function savePersonaEdits() {
+            try {
+                // Validate required fields
+                const name = document.getElementById('edit-name').value.trim();
+                const appearance = document.getElementById('edit-appearance').value.trim();
+                const personality = document.getElementById('edit-personality').value.trim();
+                
+                if (!name || name.length < 2) {
+                    showAlert('Name must be at least 2 characters', 'error');
+                    return;
+                }
+                
+                if (!appearance || appearance.length < 10) {
+                    showAlert('Appearance must be at least 10 characters', 'error');
+                    return;
+                }
+                
+                if (!personality || personality.length < 10) {
+                    showAlert('Personality must be at least 10 characters', 'error');
+                    return;
+                }
+                
+                // Gather themes
+                const themeChips = document.querySelectorAll('#edit-themes-container .chip-text');
+                const content_themes = Array.from(themeChips).map(chip => chip.textContent);
+                
+                // Gather style preferences
+                const style_preferences = {
+                    tone: document.getElementById('edit-style-tone').value,
+                    format: document.getElementById('edit-style-format').value
+                };
+                
+                // Gather allowed ratings
+                const allowed_content_ratings = [];
+                if (document.getElementById('edit-rating-sfw').checked) allowed_content_ratings.push('sfw');
+                if (document.getElementById('edit-rating-moderate').checked) allowed_content_ratings.push('moderate');
+                if (document.getElementById('edit-rating-nsfw').checked) allowed_content_ratings.push('nsfw');
+                
+                if (allowed_content_ratings.length === 0) {
+                    showAlert('At least one content rating must be allowed', 'error');
+                    return;
+                }
+                
+                // Gather platform restrictions
+                const platform_restrictions = {};
+                const restrictionRows = document.querySelectorAll('.platform-restriction-item');
+                restrictionRows.forEach(row => {
+                    const platformName = row.querySelector('.platform-name').value.trim();
+                    const restriction = row.querySelector('.platform-restriction').value;
+                    if (platformName) {
+                        platform_restrictions[platformName] = restriction;
+                    }
+                });
+                
+                // Build update payload
+                const updateData = {
+                    name,
+                    appearance,
+                    personality,
+                    content_themes,
+                    style_preferences,
+                    default_content_rating: document.getElementById('edit-default-rating').value,
+                    allowed_content_ratings,
+                    platform_restrictions,
+                    is_active: document.getElementById('edit-is-active').checked,
+                    base_appearance_description: document.getElementById('edit-base-appearance').value.trim() || null,
+                    base_image_path: document.getElementById('edit-base-image-path').value.trim() || null,
+                    base_image_status: document.getElementById('edit-base-image-status').value,
+                    appearance_locked: document.getElementById('edit-appearance-locked').checked
+                };
+                
+                // Send update request
+                const result = await apiRequest(`/api/v1/personas/${currentEditingPersonaId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(updateData)
+                });
+                
+                showAlert(`Persona "${name}" updated successfully!`);
+                closeEditPersonaModal();
+                loadPersonas(); // Reload the list
+                
+            } catch (error) {
+                showAlert(`Failed to update persona: ${error.message}`, 'error');
+            }
+        }
+        
+        // Allow Enter key to add themes
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeInput = document.getElementById('edit-theme-input');
+            if (themeInput) {
+                themeInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addTheme();
+                    }
+                });
+            }
+            
+            // Close modal when clicking outside
+            const modal = document.getElementById('editPersonaModal');
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        closeEditPersonaModal();
+                    }
+                });
+            }
+        });
         
         async function deletePersona(personaId, personaName) {
             if (!confirm(`Are you sure you want to delete "${personaName}"?`)) {
@@ -2740,5 +3190,180 @@
             };
         });
     </script>
+    
+    <!-- Edit Persona Modal -->
+    <div id="editPersonaModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">✏️ Edit Persona</div>
+                <button class="modal-close" onclick="closeEditPersonaModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editPersonaForm">
+                    <!-- Basic Information -->
+                    <div class="form-section">
+                        <div class="form-section-title">📋 Basic Information</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Persona Name *</label>
+                                <input type="text" class="form-control" id="edit-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Status</label>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="edit-is-active">
+                                    <label for="edit-is-active">Active</label>
+                                </div>
+                                <div class="help-text">Active personas can generate content</div>
+                            </div>
+                        </div>
+                        <div class="form-row full-width">
+                            <div class="form-group">
+                                <label class="form-label">Appearance Description *</label>
+                                <textarea class="form-control" id="edit-appearance" required></textarea>
+                                <div class="help-text">Physical appearance for image generation (min 10 characters)</div>
+                            </div>
+                        </div>
+                        <div class="form-row full-width">
+                            <div class="form-group">
+                                <label class="form-label">Personality Description *</label>
+                                <textarea class="form-control" id="edit-personality" required></textarea>
+                                <div class="help-text">Personality traits and characteristics (min 10 characters)</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Content Themes -->
+                    <div class="form-section">
+                        <div class="form-section-title">🎯 Content Themes</div>
+                        <div class="form-group">
+                            <label class="form-label">Add Theme</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" class="form-control" id="edit-theme-input" placeholder="e.g., technology, fitness, fashion">
+                                <button type="button" class="btn btn-secondary" onclick="addTheme()">Add</button>
+                            </div>
+                            <div class="help-text">Maximum 10 themes. Press Enter or click Add.</div>
+                        </div>
+                        <div class="chip-container" id="edit-themes-container"></div>
+                    </div>
+                    
+                    <!-- Style Preferences -->
+                    <div class="form-section">
+                        <div class="form-section-title">🎨 Style Preferences</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Tone</label>
+                                <select class="form-control" id="edit-style-tone">
+                                    <option value="friendly">Friendly</option>
+                                    <option value="professional">Professional</option>
+                                    <option value="casual">Casual</option>
+                                    <option value="formal">Formal</option>
+                                    <option value="humorous">Humorous</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Format</label>
+                                <select class="form-control" id="edit-style-format">
+                                    <option value="casual">Casual</option>
+                                    <option value="structured">Structured</option>
+                                    <option value="storytelling">Storytelling</option>
+                                    <option value="educational">Educational</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Content Rating & Filtering -->
+                    <div class="form-section">
+                        <div class="form-section-title">🔞 Content Rating & Filtering</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Default Content Rating</label>
+                                <select class="form-control" id="edit-default-rating">
+                                    <option value="sfw">SFW (Safe for Work)</option>
+                                    <option value="moderate">Moderate</option>
+                                    <option value="nsfw">NSFW (Not Safe for Work)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Allowed Ratings</label>
+                                <div style="margin-top: 10px;">
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="edit-rating-sfw" value="sfw">
+                                        <label for="edit-rating-sfw">SFW</label>
+                                    </div>
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="edit-rating-moderate" value="moderate">
+                                        <label for="edit-rating-moderate">Moderate</label>
+                                    </div>
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="edit-rating-nsfw" value="nsfw">
+                                        <label for="edit-rating-nsfw">NSFW</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Platform Restrictions -->
+                    <div class="form-section">
+                        <div class="form-section-title">🌐 Per-Platform Content Restrictions</div>
+                        <div class="form-group">
+                            <label class="form-label">Platform-Specific Rules</label>
+                            <div class="help-text">Configure different content ratings for different platforms</div>
+                            <div id="edit-platform-restrictions-container" style="margin-top: 15px;">
+                                <!-- Platform restrictions will be added here dynamically -->
+                            </div>
+                            <button type="button" class="btn btn-secondary" style="margin-top: 10px;" onclick="addPlatformRestriction()">+ Add Platform Rule</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Base Seed Image -->
+                    <div class="form-section">
+                        <div class="form-section-title">🖼️ Base Seed Image</div>
+                        <div class="form-row full-width">
+                            <div class="form-group">
+                                <label class="form-label">Baseline Appearance Description</label>
+                                <textarea class="form-control" id="edit-base-appearance" style="min-height: 80px;"></textarea>
+                                <div class="help-text">Detailed baseline appearance for visual consistency (max 5000 characters)</div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Base Image Path</label>
+                                <input type="text" class="form-control" id="edit-base-image-path" placeholder="/models/base_images/persona_ref.jpg">
+                                <div class="help-text">Path to reference image for consistency</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Image Status</label>
+                                <select class="form-control" id="edit-base-image-status">
+                                    <option value="pending_upload">Pending Upload</option>
+                                    <option value="draft">Draft</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="rejected">Rejected</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="edit-appearance-locked">
+                                    <label for="edit-appearance-locked">Lock Appearance</label>
+                                </div>
+                                <div class="help-text">When locked, prevents appearance changes and enables consistency features</div>
+                            </div>
+                        </div>
+                        <div class="image-preview-container">
+                            <img id="edit-image-preview" class="image-preview" alt="Preview">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeEditPersonaModal()">Cancel</button>
+                <button type="button" class="btn" onclick="savePersonaEdits()">Save Changes</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
