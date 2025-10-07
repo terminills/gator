@@ -177,3 +177,23 @@ class TestAnalyticsAPI:
         assert data["api"] == "healthy"
         assert data["database"] == "healthy"
         assert "timestamp" in data
+
+
+class TestSystemEndpoints:
+    """Test system endpoints."""
+    
+    def test_ai_models_setup_page(self, test_client):
+        """Test AI models setup page endpoint."""
+        response = test_client.get("/ai-models-setup")
+        
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/html")
+        assert b"AI Model Setup" in response.content
+        assert b"Gator Platform" in response.content
+    
+    def test_admin_dashboard_page(self, test_client):
+        """Test admin dashboard page endpoint."""
+        response = test_client.get("/admin")
+        
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/html")
