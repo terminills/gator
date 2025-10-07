@@ -495,12 +495,17 @@ async def get_ai_models_status() -> Dict[str, Any]:
             },
         ]
         
+        # Check if setup script exists in project root
+        # Path calculation: __file__ -> routes/ -> api/ -> backend/ -> src/ -> project_root
+        project_root = Path(__file__).parents[4]
+        setup_script = project_root / "setup_ai_models.py"
+        
         return {
             "system": system_info,
             "models_directory": str(models_dir.absolute()) if models_exist else None,
             "installed_models": installed_models,
             "available_models": available_models,
-            "setup_script_available": Path("setup_ai_models.py").exists(),
+            "setup_script_available": setup_script.exists(),
         }
         
     except Exception as e:
@@ -525,7 +530,8 @@ async def analyze_system_for_models() -> Dict[str, Any]:
         import os
         from pathlib import Path
         # Get project root (setup script is in project root, not src)
-        project_root = Path(__file__).parents[3]
+        # Path calculation: __file__ -> routes/ -> api/ -> backend/ -> src/ -> project_root
+        project_root = Path(__file__).parents[4]
         setup_script = project_root / "setup_ai_models.py"
         
         # Run the setup script with analyze flag
