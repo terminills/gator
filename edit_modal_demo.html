@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persona Edit Modal Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+        
+        .demo-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .demo-header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        
+        .demo-header p {
+            opacity: 0.9;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+        }
+        
+        .features {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .features h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .features ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .features li {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .features li:before {
+            content: "✅ ";
+            color: #28a745;
+        }
+        
+        /* Modal Styles - Copied from admin.html */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s;
+        }
+        
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 20px;
+            padding: 0;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s;
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .modal-close {
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            border-radius: 50%;
+            transition: background 0.3s;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .modal-body {
+            padding: 30px;
+        }
+        
+        .modal-footer {
+            padding: 20px 30px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideIn {
+            from { 
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to { 
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .form-section {
+            margin-bottom: 30px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .form-section:last-child {
+            border-bottom: none;
+        }
+        
+        .form-section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102,126,234,0.2);
+        }
+        
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .chip-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .chip {
+            background: #667eea;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .help-text {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .btn-secondary {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .btn-secondary:hover {
+            background: #dee2e6;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-header">
+        <h1>🎭 Persona Edit Feature - Demo</h1>
+        <p>Comprehensive persona editing with all features: appearance, themes, content ratings, platform restrictions, and base seed images</p>
+    </div>
+    
+    <div class="features">
+        <h2>✨ Features Implemented</h2>
+        <ul>
+            <li>Full persona editing with comprehensive modal UI</li>
+            <li>Basic information (name, appearance, personality, active status)</li>
+            <li>Content themes with dynamic chip-based editing (max 10)</li>
+            <li>Style preferences (tone and format dropdowns)</li>
+            <li>Content rating system (SFW, Moderate, NSFW)</li>
+            <li>Per-platform content restrictions (Instagram, Twitter, Reddit, etc.)</li>
+            <li>Base seed image management (path, status, appearance locking)</li>
+            <li>Image approval workflow (pending, draft, approved, rejected)</li>
+            <li>Real-time validation and error handling</li>
+            <li>Smooth animations and modern UI</li>
+        </ul>
+    </div>
+    
+    <div style="text-align: center; padding: 40px;">
+        <button class="btn" onclick="openEditModal()">👁️ Preview Edit Modal</button>
+    </div>
+    
+    <!-- Edit Persona Modal -->
+    <div id="editPersonaModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">✏️ Edit Persona</div>
+                <button class="modal-close" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <!-- Basic Information -->
+                    <div class="form-section">
+                        <div class="form-section-title">📋 Basic Information</div>
+                        <div class="form-group">
+                            <label class="form-label">Persona Name *</label>
+                            <input type="text" class="form-control" value="Tech Sarah - Updated" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Appearance Description *</label>
+                            <textarea class="form-control" required>Young woman with blonde hair and blue eyes, professional attire, confident smile</textarea>
+                            <div class="help-text">Physical appearance for image generation (min 10 characters)</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Personality Description *</label>
+                            <textarea class="form-control" required>Friendly, outgoing, tech-savvy, professional demeanor with approachable energy</textarea>
+                            <div class="help-text">Personality traits and characteristics (min 10 characters)</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Content Themes -->
+                    <div class="form-section">
+                        <div class="form-section-title">🎯 Content Themes</div>
+                        <div class="chip-container">
+                            <div class="chip">technology</div>
+                            <div class="chip">AI</div>
+                            <div class="chip">machine learning</div>
+                            <div class="chip">startups</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Style Preferences -->
+                    <div class="form-section">
+                        <div class="form-section-title">🎨 Style Preferences</div>
+                        <div class="form-group">
+                            <label class="form-label">Tone</label>
+                            <select class="form-control">
+                                <option>Friendly</option>
+                                <option selected>Professional</option>
+                                <option>Casual</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Content Rating & Filtering -->
+                    <div class="form-section">
+                        <div class="form-section-title">🔞 Content Rating & Filtering</div>
+                        <div class="form-group">
+                            <label class="form-label">Default Content Rating</label>
+                            <select class="form-control">
+                                <option>SFW (Safe for Work)</option>
+                                <option selected>Moderate</option>
+                                <option>NSFW (Not Safe for Work)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Platform Restrictions -->
+                    <div class="form-section">
+                        <div class="form-section-title">🌐 Per-Platform Content Restrictions</div>
+                        <div class="form-group">
+                            <label class="form-label">Instagram: SFW Only</label>
+                            <label class="form-label">Twitter: Moderate Allowed</label>
+                            <label class="form-label">Reddit: Both (SFW & NSFW)</label>
+                            <div class="help-text">Configure different content ratings for different platforms</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Base Seed Image -->
+                    <div class="form-section">
+                        <div class="form-section-title">🖼️ Base Seed Image</div>
+                        <div class="form-group">
+                            <label class="form-label">Base Image Path</label>
+                            <input type="text" class="form-control" value="/models/base_images/tech_sarah.jpg">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Image Status: Draft</label>
+                            <div class="help-text">Workflow: Pending Upload → Draft → Approved</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                <button type="button" class="btn" onclick="alert('✅ Persona updated successfully!')">Save Changes</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function openEditModal() {
+            document.getElementById('editPersonaModal').classList.add('active');
+        }
+        
+        function closeEditModal() {
+            document.getElementById('editPersonaModal').classList.remove('active');
+        }
+        
+        // Close modal when clicking outside
+        document.getElementById('editPersonaModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeEditModal();
+            }
+        });
+    </script>
+</body>
+</html>
