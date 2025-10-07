@@ -1753,12 +1753,12 @@
                 }
                 
                 const personaId = personas[0].id; // Use first persona
-                const prompt = prompt('Enter a prompt for content generation (or leave empty for auto):') || 'Generate engaging social media content';
+                const userPrompt = prompt('Enter a prompt for content generation (or leave empty for auto):') || 'Generate engaging social media content';
                 
                 const requestData = {
                     persona_id: personaId,
                     content_type: 'image',
-                    prompt: prompt
+                    prompt: userPrompt
                 };
                 
                 const result = await apiRequest('/api/v1/content/generate', {
