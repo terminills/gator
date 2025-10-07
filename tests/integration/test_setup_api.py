@@ -160,3 +160,62 @@ class TestSetupAPI:
         calculated_root = routes_setup.parents[4]
         assert calculated_root == project_root, \
             f"Path calculation should lead to {project_root}, got {calculated_root}"
+    
+    def test_ai_models_recommendations(self, test_client):
+        """Test getting structured model recommendations."""
+        response = test_client.get("/api/v1/setup/ai-models/recommendations")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Verify response structure
+        assert "success" in data
+        assert "system_info" in data
+        assert "recommendations" in data
+        
+        # Verify system info
+        sys_info = data["system_info"]
+        assert "platform" in sys_info
+        assert "gpu_type" in sys_info
+        assert "ram_gb" in sys_info
+        
+        # Verify recommendations structure
+        recs = data["recommendations"]
+        assert "installable" in recs
+        assert "requires_upgrade" in recs
+        assert "api_only" in recs
+        
+        # All should be lists
+        assert isinstance(recs["installable"], list)
+        assert isinstance(recs["requires_upgrade"], list)
+        assert isinstance(recs["api_only"], list)
+    
+    def test_ai_models_enable(self, test_client):
+        """Test enabling/disabling AI models."""
+        # Test enabling a model
+        request = {
+            "model_name": "test-model",
+            "enabled": True
+        }
+        
+        response = test_client.post("/api/v1/setup/ai-models/enable", json=request)
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Verify response structure
+        assert "success" in data
+        assert "message" in data
+        assert "model_name" in data
+        assert "enabled" in data
+        
+        assert data["model_name"] == "test-model"
+        assert data["enabled"] is True
+        
+        # Test disabling the same model
+        request["enabled"] = False
+        response = test_client.post("/api/v1/setup/ai-models/enable", json=request)
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["enabled"] is False

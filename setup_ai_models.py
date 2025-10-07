@@ -20,25 +20,35 @@ try:
     import torch
     TORCH_AVAILABLE = True
 except ImportError:
-    print("Installing required packages...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "torch", "requests"])
-    try:
-        import torch
-        TORCH_AVAILABLE = True
-    except ImportError:
-        print("Warning: torch not available, using CPU-only mode")
-        TORCH_AVAILABLE = False
-        # Create a mock torch module
-        class MockTorch:
-            class cuda:
-                @staticmethod
-                def is_available():
-                    return False
-                @staticmethod
-                def device_count():
-                    return 0
-        torch = MockTorch()
+    # Skip installation if torch is not available - use mock mode
+    TORCH_AVAILABLE = False
+    print("Warning: torch not available, using CPU-only mode")
+    
+    # Create a mock torch module
+    class MockTorch:
+        class cuda:
+            @staticmethod
+            def is_available():
+                return False
+            @staticmethod
+            def device_count():
+                return 0
+            @staticmethod
+            def get_device_properties(i):
+                class Props:
+                    total_memory = 0
+                return Props()
+            @staticmethod
+            def get_device_name(i):
+                return "No GPU"
+    torch = MockTorch()
+
+# Try to import requests (usually available)
+try:
     import requests
+except ImportError:
+    print("Warning: requests module not available")
+    requests = None
 
 
 class ModelSetupManager:
@@ -740,7 +750,72 @@ async def main():
     
     if args.install:
         print(f"\n📦 Installing models: {args.install}")
-        # This would implement actual model installation
+        
+        # Get model recommendations to validate requested models
+        recommendations = manager.analyze_system_requirements()
+        installable_names = [m["name"] for m in recommendations["installable"]]
+        
+        # Validate that requested models are installable
+        models_to_install = args.install if args.install else []
+        invalid_models = [m for m in models_to_install if m not in installable_names]
+        
+        if invalid_models:
+            print(f"\n⚠️  Warning: The following models cannot be installed on this system:")
+            for model_name in invalid_models:
+                print(f"   • {model_name}")
+                # Check if it's in requires_upgrade
+                upgrade_model = next((m for m in recommendations["requires_upgrade"] if m["name"] == model_name), None)
+                if upgrade_model:
+                    print(f"     Reason: {', '.join(upgrade_model['requirements_check'])}")
+            
+            models_to_install = [m for m in models_to_install if m in installable_names]
+            
+            if not models_to_install:
+                print("\n❌ No valid models to install. Exiting.")
+                return
+        
+        if models_to_install:
+            print(f"\n✅ Installing {len(models_to_install)} model(s): {', '.join(models_to_install)}")
+            
+            # Group models by category
+            text_models = []
+            image_models = []
+            voice_models = []
+            
+            for model_name in models_to_install:
+                model_info = next((m for m in recommendations["installable"] if m["name"] == model_name), None)
+                if model_info:
+                    if model_info["category"] == "text":
+                        text_models.append(model_name)
+                    elif model_info["category"] == "image":
+                        image_models.append(model_name)
+                    elif model_info["category"] == "voice":
+                        voice_models.append(model_name)
+            
+            # Install dependencies first
+            print("\n📦 Installing dependencies...")
+            manager.install_dependencies()
+            
+            # Install models by category
+            if text_models:
+                print(f"\n📝 Installing text models: {', '.join(text_models)}")
+                manager.install_text_models(text_models)
+            
+            if image_models:
+                print(f"\n🎨 Installing image models: {', '.join(image_models)}")
+                manager.install_image_models(image_models)
+            
+            if voice_models:
+                print(f"\n🎤 Installing voice models: {', '.join(voice_models)}")
+                # Voice model installation would go here
+                print(f"   Voice model installation not yet implemented for: {', '.join(voice_models)}")
+            
+            # Update configuration
+            manager.create_model_config()
+            
+            print(f"\n✅ Installation complete!")
+            print(f"   Models directory: {manager.models_dir.absolute()}")
+            print(f"   Configuration file: {manager.models_dir.absolute() / 'model_config.json'}")
         
     if not any([args.analyze, args.install, args.setup_engines]):
         # Default behavior - show system info and recommendations
