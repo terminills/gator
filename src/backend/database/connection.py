@@ -73,6 +73,15 @@ class DatabaseManager:
             async with self.engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
         
+        # Run automatic migrations to ensure schema is up to date
+        try:
+            from backend.database.migrations import run_migrations
+            migration_results = await run_migrations(self.engine)
+            if migration_results["columns_added"]:
+                logger.info(f"Database migrations applied: {migration_results['columns_added']}")
+        except Exception as e:
+            logger.warning(f"Migration check failed (non-critical): {e}")
+        
         logger.info(f"Database connected database_url={database_url}")
     
     async def disconnect(self) -> None:
