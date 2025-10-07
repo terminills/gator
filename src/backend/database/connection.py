@@ -29,52 +29,64 @@ Base = declarative_base()
 class DatabaseManager:
     """
     Database connection and session management.
-    
+
     Provides async database operations with proper connection pooling
     and session lifecycle management.
     """
-    
+
     def __init__(self):
         self.engine: Optional[AsyncEngine] = None
         self.session_factory: Optional[async_sessionmaker[AsyncSession]] = None
         self._settings = get_settings()
-    
+
     async def connect(self) -> None:
         """
         Initialize database connection and session factory.
-        
+
         Creates the async engine and session factory based on the
         configured database URL.
         """
         if self.engine is not None:
             logger.warning("Database already connected")
             return
-        
+
         # Convert sync SQLite URL to async for development
         database_url = self._settings.database_url
         if database_url.startswith("sqlite:"):
             database_url = database_url.replace("sqlite:", "sqlite+aiosqlite:", 1)
-        
+
         self.engine = create_async_engine(
             database_url,
             echo=self._settings.debug,
             future=True,
             pool_pre_ping=True,
         )
-        
+
         self.session_factory = async_sessionmaker(
             bind=self.engine,
             class_=AsyncSession,
             expire_on_commit=False,
         )
-        
+
         # Create tables if they don't exist (for development)
         if self._settings.debug and "sqlite" in database_url:
             async with self.engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
-        
+
+        # Run automatic migrations to ensure schema is up to date
+        try:
+            from backend.database.migrations import run_migrations
+
+            migration_results = await run_migrations(self.engine)
+            if migration_results["columns_added"]:
+                logger.info(
+                    f"Database migrations applied: {migration_results['columns_added']}"
+                )
+        except Exception as e:
+            logger.warning(f"Migration check failed (non-critical): {e}")
+
         logger.info(f"Database connected database_url={database_url}")
-    
+
     async def disconnect(self) -> None:
         """Close database connection."""
         if self.engine:
@@ -82,18 +94,18 @@ class DatabaseManager:
             self.engine = None
             self.session_factory = None
             logger.info("Database disconnected")
-    
+
     @asynccontextmanager
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
         """
         Get async database session with automatic cleanup.
-        
+
         Yields:
             AsyncSession: Database session
         """
         if not self.session_factory:
             raise RuntimeError("Database not connected")
-        
+
         async with self.session_factory() as session:
             try:
                 yield session
@@ -102,17 +114,17 @@ class DatabaseManager:
                 raise
             finally:
                 await session.close()
-    
+
     async def health_check(self) -> str:
         """
         Check database connectivity.
-        
+
         Returns:
             str: Health status ("healthy" or "unhealthy")
         """
         if not self.engine:
             return "unhealthy"
-        
+
         try:
             async with self.engine.begin() as conn:
                 result = await conn.execute(text("SELECT 1"))
@@ -131,9 +143,9 @@ database_manager = DatabaseManager()
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency injection function for FastAPI routes.
-    
+
     Provides async database session for request handlers.
-    
+
     Yields:
         AsyncSession: Database session
     """
