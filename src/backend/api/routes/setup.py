@@ -566,3 +566,165 @@ async def analyze_system_for_models() -> Dict[str, Any]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to analyze system: {str(e)}",
         )
+
+
+@router.get("/ai-models/recommendations")
+async def get_model_recommendations() -> Dict[str, Any]:
+    """
+    Get structured model recommendations based on system capabilities.
+    
+    Returns a structured response with installable, upgradeable, and API-only models.
+    """
+    try:
+        import sys
+        from pathlib import Path
+        
+        # Import ModelSetupManager from setup script
+        project_root = Path(__file__).parents[4]
+        sys.path.insert(0, str(project_root))
+        
+        try:
+            from setup_ai_models import ModelSetupManager
+            
+            manager = ModelSetupManager()
+            sys_info = manager.get_system_info()
+            recommendations = manager.analyze_system_requirements()
+            
+            return {
+                "success": True,
+                "system_info": sys_info,
+                "recommendations": recommendations,
+            }
+        finally:
+            # Clean up sys.path
+            if str(project_root) in sys.path:
+                sys.path.remove(str(project_root))
+            
+    except Exception as e:
+        logger.error(f"Failed to get model recommendations: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get model recommendations: {str(e)}",
+        )
+
+
+class ModelInstallRequest(BaseModel):
+    """Request to install AI models."""
+    model_names: list[str] = Field(..., description="List of model names to install")
+    model_type: str = Field("text", description="Model type (text, image, voice)")
+
+
+@router.post("/ai-models/install")
+async def install_models(request: ModelInstallRequest) -> Dict[str, Any]:
+    """
+    Install specified AI models.
+    
+    Initiates the installation of one or more models. This is a long-running
+    operation that downloads and configures models.
+    """
+    try:
+        import subprocess
+        import sys
+        from pathlib import Path
+        
+        project_root = Path(__file__).parents[4]
+        setup_script = project_root / "setup_ai_models.py"
+        
+        # Build command with model names
+        cmd = [sys.executable, str(setup_script), "--install"] + request.model_names
+        
+        logger.info(f"Starting model installation: {request.model_names}")
+        
+        # Run installation in background (non-blocking for async operation)
+        # For now, we run it synchronously with a longer timeout
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 minutes for model downloads
+        )
+        
+        if result.returncode == 0:
+            return {
+                "success": True,
+                "message": f"Successfully started installation of {len(request.model_names)} model(s)",
+                "models": request.model_names,
+                "output": result.stdout,
+            }
+        else:
+            return {
+                "success": False,
+                "message": "Installation failed or partially completed",
+                "models": request.model_names,
+                "output": result.stdout,
+                "error": result.stderr,
+            }
+            
+    except subprocess.TimeoutExpired:
+        raise HTTPException(
+            status_code=status.HTTP_408_REQUEST_TIMEOUT,
+            detail="Model installation timed out (>5 minutes). Check logs for status.",
+        )
+    except Exception as e:
+        logger.error(f"Failed to install models: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to install models: {str(e)}",
+        )
+
+
+class ModelEnableRequest(BaseModel):
+    """Request to enable/disable an AI model."""
+    model_name: str = Field(..., description="Model name")
+    enabled: bool = Field(..., description="Whether to enable or disable the model")
+
+
+@router.post("/ai-models/enable")
+async def enable_model(request: ModelEnableRequest) -> Dict[str, Any]:
+    """
+    Enable or disable an installed AI model.
+    
+    Updates the model configuration to mark it as enabled or disabled for use.
+    """
+    try:
+        from pathlib import Path
+        import json
+        
+        models_dir = Path("./models")
+        config_path = models_dir / "model_config.json"
+        
+        # Load or create configuration
+        if config_path.exists():
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+        else:
+            config = {"enabled_models": {}}
+        
+        # Ensure enabled_models section exists
+        if "enabled_models" not in config:
+            config["enabled_models"] = {}
+        
+        # Update model status
+        config["enabled_models"][request.model_name] = request.enabled
+        
+        # Save configuration
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+        
+        status_text = "enabled" if request.enabled else "disabled"
+        logger.info(f"Model {request.model_name} {status_text}")
+        
+        return {
+            "success": True,
+            "message": f"Model {request.model_name} {status_text} successfully",
+            "model_name": request.model_name,
+            "enabled": request.enabled,
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to enable/disable model: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to enable/disable model: {str(e)}",
+        )

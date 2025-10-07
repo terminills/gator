@@ -358,6 +358,8 @@
     
     <script>
         const API_BASE = '';
+        let currentRecommendations = null;
+        let enabledModels = {};
         
         async function loadSystemInfo() {
             try {
@@ -393,13 +395,101 @@
                 // Load installed models
                 loadInstalledModels(data.installed_models);
                 
-                // Load available models
-                loadAvailableModels(data.available_models, data.system);
+                // Load model recommendations with install buttons
+                await loadModelRecommendations();
                 
             } catch (error) {
                 console.error('Failed to load system info:', error);
                 document.getElementById('system-info').innerHTML = 
                     '<div class="alert alert-warning">Failed to load system information. Please try again.</div>';
+            }
+        }
+        
+        async function loadModelRecommendations() {
+            const availableDiv = document.getElementById('available-models');
+            
+            try {
+                availableDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Loading model recommendations...</div>';
+                
+                const response = await fetch(`${API_BASE}/api/v1/setup/ai-models/recommendations`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error('Failed to get recommendations');
+                }
+                
+                currentRecommendations = data.recommendations;
+                const systemInfo = data.system_info;
+                
+                // Display installable models with install buttons
+                let html = `
+                    <div class="alert alert-info">
+                        <strong>Note:</strong> Model installation requires significant disk space and may take several hours depending on your internet connection. 
+                        Local models require GPU for optimal performance.
+                    </div>
+                `;
+                
+                if (currentRecommendations.installable && currentRecommendations.installable.length > 0) {
+                    html += `
+                        <h3 style="color: #155724; margin-top: 20px; margin-bottom: 15px;">✅ Compatible Models (Can Install)</h3>
+                        <div class="models-grid">
+                            ${currentRecommendations.installable.map(model => `
+                                <div class="model-card">
+                                    <span class="model-category ${model.category}">${model.category}</span>
+                                    <div class="model-name">${model.name}</div>
+                                    <div class="model-description">${model.description}</div>
+                                    <div class="model-details">
+                                        💾 Size: ${model.size_gb}GB<br>
+                                        🧠 RAM: ${model.min_ram_gb}GB<br>
+                                        🎮 GPU: ${model.min_gpu_memory_gb}GB
+                                    </div>
+                                    <button class="btn btn-success btn-block" onclick="installModel('${model.name}', '${model.category}')" id="install-${model.name}">
+                                        📥 Install Model
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+                
+                if (currentRecommendations.requires_upgrade && currentRecommendations.requires_upgrade.length > 0) {
+                    html += `
+                        <h3 style="color: #856404; margin-top: 30px; margin-bottom: 15px;">⚠️ Models Requiring Hardware Upgrade</h3>
+                        <div class="models-grid">
+                            ${currentRecommendations.requires_upgrade.map(model => `
+                                <div class="model-card" style="opacity: 0.7;">
+                                    <span class="model-category ${model.category}">${model.category}</span>
+                                    <div class="model-name">${model.name}</div>
+                                    <div class="model-description">${model.description}</div>
+                                    <div class="model-details">
+                                        💾 Size: ${model.size_gb}GB<br>
+                                        🧠 RAM: ${model.min_ram_gb}GB<br>
+                                        🎮 GPU: ${model.min_gpu_memory_gb}GB
+                                    </div>
+                                    <div class="alert alert-warning" style="margin-top: 10px; padding: 8px; font-size: 0.85rem;">
+                                        ${model.requirements_check.join('<br>')}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+                
+                html += `
+                    <div class="alert alert-info" style="margin-top: 20px;">
+                        <strong>💡 Installation Tips:</strong><br>
+                        • Click "Install Model" button to download and configure compatible models<br>
+                        • Installation progress will be shown in real-time<br>
+                        • You can enable/disable installed models from the "Installed Models" section<br>
+                        • For API-based models (GPT-4, DALL-E), add API keys in the <a href="/admin">Admin Panel</a>
+                    </div>
+                `;
+                
+                availableDiv.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Failed to load recommendations:', error);
+                availableDiv.innerHTML = '<div class="alert alert-warning">Failed to load model recommendations. Please try again.</div>';
             }
         }
         
@@ -409,7 +499,7 @@
             if (models.length === 0) {
                 installedDiv.innerHTML = `
                     <div class="alert alert-info">
-                        No models installed yet. Install models using the available models section below or run the setup script.
+                        No models installed yet. Install models using the "Available Models" section below.
                     </div>
                 `;
                 return;
@@ -423,48 +513,107 @@
                             <div class="model-name">${model.name}</div>
                             <div class="model-details">📁 ${model.path}</div>
                             <span class="status-badge installed">Installed</span>
+                            <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px;">
+                                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                    <input type="checkbox" id="enable-${model.name}" onchange="toggleModel('${model.name}', this.checked)" checked>
+                                    <span style="font-size: 0.9rem;">Enabled</span>
+                                </label>
+                            </div>
                         </div>
                     `).join('')}
                 </div>
             `;
         }
         
-        function loadAvailableModels(models, systemInfo) {
-            const availableDiv = document.getElementById('available-models');
+        async function installModel(modelName, category) {
+            const btn = document.getElementById(`install-${modelName}`);
+            if (!btn) return;
             
-            availableDiv.innerHTML = `
-                <div class="alert alert-info">
-                    <strong>Note:</strong> Model installation requires significant disk space and may take several hours depending on your internet connection. 
-                    Local models require GPU for optimal performance.
-                </div>
-                <div class="models-grid">
-                    ${models.map(model => {
-                        const canInstall = !model.requires_gpu || systemInfo.gpu_available;
-                        const requiresApiKey = model.requires_api_key ? `<div class="requirement-item"><span class="requirement-icon">🔑</span> Requires ${model.requires_api_key}</div>` : '';
-                        const gpuReq = model.requires_gpu ? `<div class="requirement-item"><span class="requirement-icon">${systemInfo.gpu_available ? '✅' : '❌'}</span> Requires GPU</div>` : '';
-                        
-                        return `
-                            <div class="model-card">
-                                <span class="model-category ${model.category}">${model.category}</span>
-                                <div class="model-name">${model.name}</div>
-                                <div class="model-description">${model.description}</div>
-                                <div class="model-details">💾 Size: ${model.size}</div>
-                                <div class="requirements">
-                                    ${gpuReq}
-                                    ${requiresApiKey}
-                                </div>
-                                ${!canInstall ? '<div class="alert alert-warning" style="margin-top: 10px; padding: 8px; font-size: 0.85rem;">⚠️ GPU required for this model</div>' : ''}
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-                <div class="alert alert-info" style="margin-top: 20px;">
-                    <strong>💡 Installation Methods:</strong><br>
-                    1. <strong>Command Line:</strong> Run <code>python setup_ai_models.py --analyze</code> to see compatible models<br>
-                    2. <strong>API Configuration:</strong> Add API keys in the <a href="/admin">Admin Panel</a> under System Configuration<br>
-                    3. <strong>Manual Installation:</strong> Follow the setup script instructions for downloading models
-                </div>
-            `;
+            // Disable button and show progress
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Installing...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/setup/ai-models/install`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model_names: [modelName],
+                        model_type: category
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    btn.innerHTML = '✅ Installed!';
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-secondary');
+                    
+                    // Show success message
+                    alert(`✅ Model "${modelName}" installed successfully!\n\nYou can now use this model in your AI generation workflows.`);
+                    
+                    // Reload the page to refresh installed models
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = '❌ Failed - Retry';
+                    alert(`Failed to install model: ${data.error || data.message}`);
+                }
+            } catch (error) {
+                btn.disabled = false;
+                btn.innerHTML = '❌ Failed - Retry';
+                alert(`Error installing model: ${error.message}`);
+            }
+        }
+        
+        async function toggleModel(modelName, enabled) {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/setup/ai-models/enable`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model_name: modelName,
+                        enabled: enabled
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const status = enabled ? 'enabled' : 'disabled';
+                    console.log(`Model ${modelName} ${status}`);
+                    
+                    // Show brief notification
+                    const notification = document.createElement('div');
+                    notification.className = 'alert alert-success';
+                    notification.style.position = 'fixed';
+                    notification.style.top = '20px';
+                    notification.style.right = '20px';
+                    notification.style.zIndex = '9999';
+                    notification.style.maxWidth = '400px';
+                    notification.textContent = `✅ Model ${modelName} ${status} successfully`;
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => {
+                        notification.remove();
+                    }, 3000);
+                } else {
+                    // Revert checkbox on failure
+                    document.getElementById(`enable-${modelName}`).checked = !enabled;
+                    alert(`Failed to ${enabled ? 'enable' : 'disable'} model: ${data.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                // Revert checkbox on failure
+                document.getElementById(`enable-${modelName}`).checked = !enabled;
+                alert(`Error toggling model: ${error.message}`);
+            }
         }
         
         async function analyzeSystem() {
