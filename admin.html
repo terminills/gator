@@ -570,6 +570,7 @@
                 <li class="tab-link" data-tab="analytics">Analytics</li>
                 <li class="tab-link" data-tab="dns">DNS</li>
                 <li class="tab-link" data-tab="settings">Settings</li>
+                <li class="tab-link" data-tab="database">Database</li>
                 <li class="tab-link" data-tab="gator-help">🐊 Ask Gator</li>
             </ul>
         </div>
@@ -1180,6 +1181,72 @@
                         </select>
                     </div>
                     <button class="btn" onclick="saveSystemSettings()">Save Settings</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Database Management Tab -->
+        <div class="tab-content" id="database">
+            <h2 style="margin-bottom: 1.5rem;">Database Management</h2>
+            
+            <!-- Database Info Card -->
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">💾</div>
+                    <div class="card-title">Database Information</div>
+                </div>
+                <div class="card-description">
+                    Current database status and configuration
+                </div>
+                <div id="database-info-content">
+                    <p style="color: #666;">Loading database information...</p>
+                </div>
+            </div>
+            
+            <!-- Schema Sync Card -->
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🔄</div>
+                    <div class="card-title">Schema Synchronization</div>
+                </div>
+                <div class="card-description">
+                    Keep your database schema in sync with the current codebase
+                </div>
+                <div id="schema-status-content">
+                    <p style="color: #666;">Loading schema status...</p>
+                </div>
+                <div style="margin-top: 20px;">
+                    <button class="btn" onclick="checkSchemaStatus()" style="margin-right: 10px;">
+                        🔍 Check Schema Status
+                    </button>
+                    <button class="btn" onclick="syncDatabaseSchema()">
+                        ⚡ Sync Schema Now
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Database Backup Card -->
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">💿</div>
+                    <div class="card-title">Database Backup</div>
+                </div>
+                <div class="card-description">
+                    Create and manage database backups
+                </div>
+                <div style="margin-top: 20px; margin-bottom: 20px;">
+                    <button class="btn" onclick="createDatabaseBackup()">
+                        📦 Create Backup Now
+                    </button>
+                </div>
+                <div id="backup-status" style="margin-bottom: 20px;">
+                    <!-- Backup creation status will appear here -->
+                </div>
+                <div>
+                    <h3 style="margin-bottom: 10px; color: #333;">Available Backups</h3>
+                    <div id="backups-list">
+                        <p style="color: #666;">Loading backups...</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2410,6 +2477,268 @@
                 analyticsDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
             }
         }
+        
+        // Database Management Functions
+        async function loadDatabaseInfo() {
+            try {
+                const response = await apiRequest('/api/v1/admin/database/info');
+                const contentDiv = document.getElementById('database-info-content');
+                
+                if (response.success) {
+                    contentDiv.innerHTML = `
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                                <div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">Database Type</div>
+                                <div style="font-size: 1.2rem;">${response.database_type}</div>
+                            </div>
+                            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                                <div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">Status</div>
+                                <div style="font-size: 1.2rem;">✅ ${response.connection_status}</div>
+                            </div>
+                            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                                <div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">Tables</div>
+                                <div style="font-size: 1.2rem;">${response.table_count} tables</div>
+                            </div>
+                            ${response.size_mb ? `
+                            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                                <div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">Database Size</div>
+                                <div style="font-size: 1.2rem;">${response.size_mb} MB</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <details>
+                                <summary style="cursor: pointer; font-weight: 600; color: #333;">
+                                    📋 View Tables (${response.table_count})
+                                </summary>
+                                <ul style="margin-top: 10px; padding-left: 20px;">
+                                    ${response.tables.map(table => `<li>${table}</li>`).join('')}
+                                </ul>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    contentDiv.innerHTML = `<div class="alert alert-error">Error: ${response.message || 'Failed to load database info'}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('database-info-content').innerHTML = 
+                    `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function checkSchemaStatus() {
+            const contentDiv = document.getElementById('schema-status-content');
+            contentDiv.innerHTML = '<div class="loading"></div>Checking schema status...';
+            
+            try {
+                const response = await apiRequest('/api/v1/admin/database/schema/status');
+                
+                if (response.success) {
+                    const statusIcon = response.in_sync ? '✅' : '⚠️';
+                    const statusColor = response.in_sync ? '#28a745' : '#ffc107';
+                    
+                    let html = `
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px; margin-top: 15px;">
+                            <div style="font-size: 1.2rem; font-weight: 600; color: ${statusColor}; margin-bottom: 10px;">
+                                ${statusIcon} ${response.message}
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 10px;">
+                                <div>
+                                    <span style="font-weight: 600;">Database Tables:</span> ${response.total_tables_in_db}
+                                </div>
+                                <div>
+                                    <span style="font-weight: 600;">Model Tables:</span> ${response.total_tables_in_models}
+                                </div>
+                            </div>
+                    `;
+                    
+                    if (response.missing_tables && response.missing_tables.length > 0) {
+                        html += `
+                            <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 5px;">
+                                <strong style="color: #856404;">Missing Tables (${response.missing_tables.length}):</strong>
+                                <ul style="margin: 5px 0 0 20px; color: #856404;">
+                                    ${response.missing_tables.map(table => `<li>${table}</li>`).join('')}
+                                </ul>
+                                <p style="margin-top: 10px; color: #856404;">
+                                    Click "Sync Schema Now" to create these tables.
+                                </p>
+                            </div>
+                        `;
+                    }
+                    
+                    if (response.extra_tables && response.extra_tables.length > 0) {
+                        html += `
+                            <div style="margin-top: 15px; padding: 10px; background: #d1ecf1; border-radius: 5px;">
+                                <strong style="color: #0c5460;">Extra Tables (${response.extra_tables.length}):</strong>
+                                <ul style="margin: 5px 0 0 20px; color: #0c5460;">
+                                    ${response.extra_tables.map(table => `<li>${table}</li>`).join('')}
+                                </ul>
+                                <p style="margin-top: 10px; color: #0c5460;">
+                                    These tables exist in the database but not in models.
+                                </p>
+                            </div>
+                        `;
+                    }
+                    
+                    html += '</div>';
+                    contentDiv.innerHTML = html;
+                } else {
+                    contentDiv.innerHTML = `<div class="alert alert-error">Error: ${response.message || 'Failed to check schema'}</div>`;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function syncDatabaseSchema() {
+            if (!confirm('Are you sure you want to sync the database schema? This will create any missing tables.')) {
+                return;
+            }
+            
+            const contentDiv = document.getElementById('schema-status-content');
+            contentDiv.innerHTML = '<div class="loading"></div>Synchronizing schema...';
+            
+            try {
+                const response = await apiRequest('/api/v1/admin/database/schema/sync', {
+                    method: 'POST'
+                });
+                
+                if (response.success) {
+                    const icon = response.changes_made ? '✅' : 'ℹ️';
+                    let message = `${icon} ${response.message}`;
+                    
+                    if (response.tables_created && response.tables_created.length > 0) {
+                        message += `<br><br><strong>Created Tables:</strong><ul style="margin: 5px 0 0 20px;">
+                            ${response.tables_created.map(table => `<li>${table}</li>`).join('')}
+                        </ul>`;
+                    }
+                    
+                    contentDiv.innerHTML = `<div class="alert alert-success">${message}</div>`;
+                    showAlert(response.message, 'success');
+                    
+                    // Reload status after sync
+                    setTimeout(() => checkSchemaStatus(), 2000);
+                } else {
+                    contentDiv.innerHTML = `<div class="alert alert-error">Error: ${response.message || 'Schema sync failed'}</div>`;
+                    showAlert(response.message || 'Schema sync failed', 'error');
+                }
+            } catch (error) {
+                contentDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+                showAlert(`Schema sync failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function createDatabaseBackup() {
+            const statusDiv = document.getElementById('backup-status');
+            statusDiv.innerHTML = '<div class="loading"></div>Creating backup...';
+            
+            try {
+                const response = await apiRequest('/api/v1/admin/database/backup', {
+                    method: 'POST'
+                });
+                
+                if (response.success) {
+                    const backup = response.backup;
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            ✅ Backup created successfully!
+                            <div style="margin-top: 10px; padding: 10px; background: #fff; border-radius: 5px;">
+                                <div><strong>Filename:</strong> ${backup.filename}</div>
+                                <div><strong>Size:</strong> ${backup.size_mb} MB</div>
+                                <div><strong>Type:</strong> ${backup.type}</div>
+                                <div style="margin-top: 10px;">
+                                    <a href="/api/v1/admin/database/backups/${backup.filename}" 
+                                       download="${backup.filename}" 
+                                       class="btn" 
+                                       style="display: inline-block; text-decoration: none;">
+                                        📥 Download Backup
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    showAlert('Backup created successfully!', 'success');
+                    
+                    // Reload backups list
+                    setTimeout(() => loadBackupsList(), 1000);
+                } else {
+                    statusDiv.innerHTML = `<div class="alert alert-error">Error: ${response.message || 'Backup creation failed'}</div>`;
+                    showAlert(response.message || 'Backup creation failed', 'error');
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+                showAlert(`Backup failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadBackupsList() {
+            const listDiv = document.getElementById('backups-list');
+            
+            try {
+                const response = await apiRequest('/api/v1/admin/database/backups');
+                
+                if (response.success && response.backups && response.backups.length > 0) {
+                    listDiv.innerHTML = `
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                                        <th style="padding: 10px; text-align: left;">Filename</th>
+                                        <th style="padding: 10px; text-align: left;">Size</th>
+                                        <th style="padding: 10px; text-align: left;">Created</th>
+                                        <th style="padding: 10px; text-align: left;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${response.backups.map(backup => `
+                                        <tr style="border-bottom: 1px solid #dee2e6;">
+                                            <td style="padding: 10px;">${backup.filename}</td>
+                                            <td style="padding: 10px;">${backup.size_mb} MB</td>
+                                            <td style="padding: 10px;">${new Date(backup.created).toLocaleString()}</td>
+                                            <td style="padding: 10px;">
+                                                <a href="/api/v1/admin/database/backups/${backup.filename}" 
+                                                   download="${backup.filename}" 
+                                                   class="btn btn-sm" 
+                                                   style="display: inline-block; padding: 5px 10px; font-size: 0.9rem; text-decoration: none;">
+                                                    📥 Download
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        <p style="margin-top: 10px; color: #666; font-size: 0.9rem;">
+                            Total: ${response.count} backup(s) | Directory: ${response.backup_directory}
+                        </p>
+                    `;
+                } else {
+                    listDiv.innerHTML = '<p style="color: #666;">No backups found. Create your first backup above.</p>';
+                }
+            } catch (error) {
+                listDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        // Load database tab data when the tab is activated
+        document.addEventListener('DOMContentLoaded', () => {
+            // Existing tab initialization code...
+            
+            // Add event listener for database tab
+            const originalShowTab = window.showTab;
+            window.showTab = function(tabName) {
+                if (originalShowTab) {
+                    originalShowTab(tabName);
+                }
+                
+                // Load database info when database tab is shown
+                if (tabName === 'database') {
+                    loadDatabaseInfo();
+                    checkSchemaStatus();
+                    loadBackupsList();
+                }
+            };
+        });
     </script>
 </body>
 </html>

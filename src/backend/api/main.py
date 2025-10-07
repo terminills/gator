@@ -35,6 +35,7 @@ from backend.api.routes import (
     creator,
     feeds,
     social,
+    database_admin,
 )
 
 # Configure logging
@@ -114,6 +115,7 @@ def create_app() -> FastAPI:
     app.include_router(public.router)
     app.include_router(dns.router, prefix="/api/v1")
     app.include_router(setup.router, prefix="/api/v1")
+    app.include_router(database_admin.router, prefix="/api/v1")
     app.include_router(persona.router)
     app.include_router(users.router)
     app.include_router(direct_messaging.router)
