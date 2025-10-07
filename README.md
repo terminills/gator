@@ -71,6 +71,7 @@ cd src && python -m backend.api.main
 - **API Management**: Configure external services and API keys
 - **User Management**: Multi-user support with role-based access control
 - **Domain Management**: Built-in GoDaddy DNS integration for automated domain setup
+- **Database Management**: One-click database backups and schema synchronization
 
 ### 🏗️ Technical Architecture
 - **FastAPI Backend**: High-performance async Python backend with comprehensive API
