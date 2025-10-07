@@ -20,25 +20,35 @@ try:
     import torch
     TORCH_AVAILABLE = True
 except ImportError:
-    print("Installing required packages...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "torch", "requests"])
-    try:
-        import torch
-        TORCH_AVAILABLE = True
-    except ImportError:
-        print("Warning: torch not available, using CPU-only mode")
-        TORCH_AVAILABLE = False
-        # Create a mock torch module
-        class MockTorch:
-            class cuda:
-                @staticmethod
-                def is_available():
-                    return False
-                @staticmethod
-                def device_count():
-                    return 0
-        torch = MockTorch()
+    # Skip installation if torch is not available - use mock mode
+    TORCH_AVAILABLE = False
+    print("Warning: torch not available, using CPU-only mode")
+    
+    # Create a mock torch module
+    class MockTorch:
+        class cuda:
+            @staticmethod
+            def is_available():
+                return False
+            @staticmethod
+            def device_count():
+                return 0
+            @staticmethod
+            def get_device_properties(i):
+                class Props:
+                    total_memory = 0
+                return Props()
+            @staticmethod
+            def get_device_name(i):
+                return "No GPU"
+    torch = MockTorch()
+
+# Try to import requests (usually available)
+try:
     import requests
+except ImportError:
+    print("Warning: requests module not available")
+    requests = None
 
 
 class ModelSetupManager:
