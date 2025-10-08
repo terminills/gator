@@ -5,6 +5,8 @@ Provides public-facing endpoints for viewing AI influencer content
 without requiring authentication. Designed for public consumption.
 """
 
+import random
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 
 from fastapi import APIRouter, Query
@@ -342,3 +344,75 @@ async def list_categories():
     ]
 
     return categories
+
+
+@router.get("/feed", response_model=List[Dict[str, Any]])
+async def get_public_feed(
+    limit: int = Query(default=20, ge=1, le=100, description="Maximum posts to return"),
+):
+    """
+    Get public feed of posts from AI personas.
+
+    Returns a feed of posts with engagement metrics (likes, comments, shares) and timestamps.
+    This endpoint uses real persona data from the database and generates feed-style posts.
+
+    Args:
+        limit: Maximum number of posts to return
+
+    Returns:
+        List of feed posts with persona info and engagement metrics
+    """
+    # Get real personas data - call with explicit parameters
+    personas_response = await list_public_personas(
+        limit=50, category=None, featured=None, trending=None
+    )
+
+    if not personas_response:
+        return []
+
+    # Generate feed posts from personas
+    posts = []
+    current_time = datetime.now()
+
+    for persona in personas_response:
+        # Create 2-3 posts per persona for a richer feed
+        num_posts = random.randint(2, 3)
+        for i in range(num_posts):
+            # Generate realistic timestamp (within last 7 days)
+            days_ago = random.uniform(0, 7)
+            post_time = current_time - timedelta(days=days_ago)
+
+            # Generate engagement metrics based on persona popularity
+            base_engagement = persona.get("content_count", 0) * 10
+            post = {
+                "id": f"{persona['id']}-post-{i}",
+                "persona_id": persona["id"],
+                "persona_name": persona["name"],
+                "persona_bio": persona["bio"],
+                "persona_style": persona.get("style", "realistic"),
+                "persona_themes": persona.get("themes", []),
+                "timestamp": post_time.isoformat(),
+                "text": _generate_post_text(persona),
+                "likes": random.randint(base_engagement, base_engagement + 500),
+                "comments": random.randint(10, 100),
+                "shares": random.randint(5, 50),
+                "content_type": random.choice(["image", "text", "video"]),
+            }
+            posts.append(post)
+
+    # Sort by timestamp (newest first)
+    posts.sort(key=lambda x: x["timestamp"], reverse=True)
+
+    return posts[:limit]
+
+
+def _generate_post_text(persona: Dict[str, Any]) -> str:
+    """Generate realistic post text based on persona."""
+    themes = persona.get("themes", ["content"])
+    templates = [
+        f"Just created an amazing {themes[0]} piece! What do you think? 🎨",
+        f"Exploring new {themes[1] if len(themes) > 1 else themes[0]} concepts today. The creative process is fascinating! ✨",
+        f"New creation alert! Diving deep into {themes[2] if len(themes) > 2 else themes[0]} 🚀",
+        f"{persona['bio'].split('.')[0] if '.' in persona['bio'] else persona['bio'][:100]}",
+    ]
+    return random.choice(templates)

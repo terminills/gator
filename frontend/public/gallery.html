@@ -656,49 +656,31 @@
         // Load feed posts
         async function loadFeed() {
             try {
-                const response = await fetch('/public/personas');
-                const personas = await response.json();
+                const response = await fetch('/public/feed?limit=20');
+                const posts = await response.json();
                 
                 const feedContainer = document.getElementById('feed-container');
                 
-                if (personas.length === 0) {
+                if (posts.length === 0) {
                     feedContainer.innerHTML = '<div class="loading">No posts yet. Start following creators!</div>';
                     return;
                 }
                 
-                // Generate mock posts from personas
-                const posts = [];
-                personas.forEach(persona => {
-                    // Create multiple posts per persona
-                    for (let i = 0; i < 2; i++) {
-                        posts.push({
-                            persona: persona,
-                            timestamp: Date.now() - Math.random() * 86400000 * 7, // Random time in last week
-                            likes: Math.floor(Math.random() * 500),
-                            comments: Math.floor(Math.random() * 50),
-                            shares: Math.floor(Math.random() * 30)
-                        });
-                    }
-                });
-                
-                // Sort by timestamp
-                posts.sort((a, b) => b.timestamp - a.timestamp);
-                
                 const feedHTML = posts.map(post => `
                     <div class="post">
                         <div class="post-container">
-                            <div class="post-avatar" style="background: linear-gradient(135deg, ${getGradient(post.persona.style)});">
-                                ${getPersonaIcon(post.persona.style)}
+                            <div class="post-avatar" style="background: linear-gradient(135deg, ${getGradient(post.persona_style)});">
+                                ${getPersonaIcon(post.persona_style)}
                             </div>
                             <div class="post-content">
                                 <div class="post-header">
-                                    <span class="post-name">${post.persona.name}</span>
-                                    <span class="post-username">@${post.persona.name.toLowerCase().replace(' ', '_')}</span>
-                                    <span class="post-time">· ${getTimeAgo(post.timestamp)}</span>
+                                    <span class="post-name">${post.persona_name}</span>
+                                    <span class="post-username">@${post.persona_name.toLowerCase().replace(' ', '_')}</span>
+                                    <span class="post-time">· ${getTimeAgo(new Date(post.timestamp).getTime())}</span>
                                 </div>
-                                <div class="post-text">${generatePostText(post.persona)}</div>
+                                <div class="post-text">${post.text}</div>
                                 <div class="post-media">
-                                    <div class="post-media-placeholder">${getPersonaIcon(post.persona.style)}</div>
+                                    <div class="post-media-placeholder">${getPersonaIcon(post.persona_style)}</div>
                                 </div>
                                 <div class="post-stats">
                                     <button class="post-stat" title="Reply">
