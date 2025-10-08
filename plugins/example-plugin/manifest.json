@@ -1,0 +1,40 @@
+{
+  "name": "Example Content Filter Plugin",
+  "slug": "example-content-filter",
+  "version": "1.0.0",
+  "author": "Gator Team",
+  "author_email": "team@gator.ai",
+  "description": "Example plugin that demonstrates content filtering and transformation",
+  "plugin_type": "content_generator",
+  "homepage": "https://github.com/terminills/gator",
+  "repository": "https://github.com/terminills/gator",
+  "license": "MIT",
+  "tags": ["example", "content", "filter", "demo"],
+  "permissions": [
+    "content:read",
+    "content:write"
+  ],
+  "dependencies": {
+    "python": ">=3.9"
+  },
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true
+      },
+      "filter_keywords": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": []
+      },
+      "replacement_text": {
+        "type": "string",
+        "default": "[filtered]"
+      }
+    }
+  }
+}
