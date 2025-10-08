@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gator-config
+  labels:
+    app: gator
+data:
+  environment: "production"
+  log-level: "INFO"
+  
+  # AI Model Configuration
+  ai-model-path: "/app/models"
+  
+  # Content Generation
+  content-dir: "/app/generated_content"
+  
+  # Feature Flags
+  enable-local-models: "false"
+  enable-video-generation: "false"
+  enable-voice-synthesis: "true"
+  
+  # Performance Settings
+  max-workers: "4"
+  batch-size: "8"
+  
+  # CORS Settings
+  cors-origins: "*"
+  
+  # Rate Limiting
+  rate-limit-per-minute: "60"
+  rate-limit-per-hour: "1000"

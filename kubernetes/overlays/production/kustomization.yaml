@@ -1,0 +1,91 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: gator-prod
+
+resources:
+- ../../base/deployment.yaml
+- ../../base/service.yaml
+- ../../base/configmap.yaml
+- ../../base/secrets.yaml
+- ../../base/pvc.yaml
+- ../../base/postgres.yaml
+- ../../base/redis.yaml
+- ../../base/ingress.yaml
+
+patches:
+- target:
+    kind: Deployment
+    name: gator-api
+  patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 5
+    - op: replace
+      path: /spec/template/spec/containers/0/image
+      value: "gator/api:v1.0.0"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: "4Gi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: "2000m"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: "8Gi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "4000m"
+
+- target:
+    kind: HorizontalPodAutoscaler
+    name: gator-api-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 5
+    - op: replace
+      path: /spec/maxReplicas
+      value: 20
+
+- target:
+    kind: ConfigMap
+    name: gator-config
+  patch: |-
+    - op: replace
+      path: /data/environment
+      value: "production"
+    - op: replace
+      path: /data/log-level
+      value: "WARNING"
+    - op: replace
+      path: /data/max-workers
+      value: "8"
+
+- target:
+    kind: Ingress
+    name: gator-ingress
+  patch: |-
+    - op: replace
+      path: /spec/tls/0/hosts/0
+      value: "api.gator.example.com"
+    - op: replace
+      path: /spec/rules/0/host
+      value: "api.gator.example.com"
+
+- target:
+    kind: StatefulSet
+    name: postgres
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: "4Gi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: "1000m"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: "8Gi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "2000m"
