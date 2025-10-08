@@ -459,7 +459,7 @@ class ContentGenerationService:
                 "file_size": file_path.stat().st_size,
                 "width": 1024,
                 "height": 1024,
-                "format": "PLACEHOLDER",
+                "format": "TXT",  # Text file format for error placeholder
                 "content_rating": request.content_rating.value,
                 "error": str(e),
                 "fallback": True,
@@ -470,90 +470,95 @@ class ContentGenerationService:
     ) -> Dict[str, Any]:
         """
         Generate video using AI model with advanced features.
-        
+
         This implementation supports:
         - Frame-by-frame generation for longer videos
         - Audio synchronization with voice synthesis
         - Video editing and transitions
         - Scene composition and storyboarding
-        
+
         Q2-Q3 2025 advanced video features implementation.
         """
         try:
             from backend.services.ai_models import ai_models
             from backend.services.video_processing_service import (
                 VideoQuality,
-                TransitionType
+                TransitionType,
             )
-            
+
             # Ensure AI models are initialized
             if not ai_models.models_loaded:
                 await ai_models.initialize_models()
-            
+
             # Get video generation parameters
             quality = request.quality or "high"
             video_quality = VideoQuality(quality)
-            
+
             # Check if this is a multi-scene video (storyboard)
             if request.style_override and "scenes" in request.style_override:
                 # Storyboard generation
                 scenes = request.style_override["scenes"]
                 logger.info(f"Generating storyboard with {len(scenes)} scenes")
-                
+
                 video_result = await ai_models.create_video_storyboard(
-                    scenes=scenes,
-                    quality=quality
+                    scenes=scenes, quality=quality
                 )
-                
+
             elif request.style_override and "prompts" in request.style_override:
                 # Multi-frame generation
                 prompts = request.style_override["prompts"]
                 transition = request.style_override.get("transition", "crossfade")
-                duration_per_frame = request.style_override.get("duration_per_frame", 3.0)
-                
+                duration_per_frame = request.style_override.get(
+                    "duration_per_frame", 3.0
+                )
+
                 logger.info(f"Generating multi-frame video with {len(prompts)} frames")
-                
+
                 video_result = await ai_models.generate_video(
                     prompt=prompts,
                     video_type="multi_frame",
                     quality=quality,
                     transition=transition,
-                    duration_per_frame=duration_per_frame
+                    duration_per_frame=duration_per_frame,
                 )
-                
+
             else:
                 # Single frame video generation
                 logger.info(f"Generating single-frame video: {request.prompt[:50]}...")
-                
+
                 video_result = await ai_models.generate_video(
                     prompt=request.prompt,
                     video_type="single_frame",
                     quality=quality,
-                    duration_per_frame=request.style_override.get("duration", 4.0) if request.style_override else 4.0
+                    duration_per_frame=(
+                        request.style_override.get("duration", 4.0)
+                        if request.style_override
+                        else 4.0
+                    ),
                 )
-            
+
             # If audio sync is requested, add audio track
             if request.style_override and "audio_path" in request.style_override:
                 audio_path = request.style_override["audio_path"]
                 logger.info(f"Synchronizing audio: {audio_path}")
-                
+
                 video_result = await ai_models.synchronize_audio_to_video(
-                    video_path=video_result["file_path"],
-                    audio_path=audio_path
+                    video_path=video_result["file_path"], audio_path=audio_path
                 )
-            
+
             # Save the video file to content directory
             filename = f"video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
             file_path = self.content_dir / "videos" / filename
-            
+
             # Move/copy generated video to content directory
             import shutil
+
             if Path(video_result["file_path"]).exists():
                 shutil.copy2(video_result["file_path"], file_path)
             else:
                 # Create placeholder if generation failed
                 file_path.write_text("# Video generation placeholder")
-            
+
             return {
                 "file_path": str(file_path),
                 "file_size": file_path.stat().st_size,
@@ -566,20 +571,20 @@ class ContentGenerationService:
                 "has_audio": video_result.get("has_audio", False),
                 "num_scenes": video_result.get("num_scenes", 1),
                 "transition_type": video_result.get("transition_type"),
-                "model": video_result.get("model", "frame-by-frame-generator")
+                "model": video_result.get("model", "frame-by-frame-generator"),
             }
-            
+
         except Exception as e:
             # Fallback to placeholder if AI generation fails
             logger.warning(f"AI video generation failed, using placeholder: {str(e)}")
             await asyncio.sleep(0.2)  # Simulate processing time
-            
+
             filename = f"video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
             file_path = self.content_dir / "videos" / filename
-            
+
             # Create placeholder video file
             file_path.write_text("# Placeholder for generated video content")
-            
+
             return {
                 "file_path": str(file_path),
                 "file_size": file_path.stat().st_size,
@@ -588,7 +593,7 @@ class ContentGenerationService:
                 "format": "MP4",
                 "content_rating": request.content_rating.value,
                 "error": str(e),
-                "fallback": True
+                "fallback": True,
             }
 
     async def _generate_audio(
@@ -698,7 +703,7 @@ class ContentGenerationService:
                 "file_path": str(file_path),
                 "file_size": file_path.stat().st_size,
                 "duration": len(request.prompt.split()) * 0.6,  # Rough estimate
-                "format": "PLACEHOLDER",
+                "format": "TXT",  # Text file format for error placeholder
                 "sample_rate": "44.1kHz",
                 "voice_characteristics": voice_characteristics,
                 "content_rating": request.content_rating.value,
