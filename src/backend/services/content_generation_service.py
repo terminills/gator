@@ -738,7 +738,7 @@ Generate the social media content now:"""
     ) -> str:
         """
         Create enhanced fallback text using persona characteristics and prompt analysis.
-        
+
         Delegates to TemplateService for sophisticated template-based generation.
         Uses base_appearance_description when appearance_locked is True for consistency.
         Leverages style_preferences for sophisticated content styling and tone.
@@ -746,7 +746,7 @@ Generate the social media content now:"""
         return self.template_service.generate_fallback_text(
             persona=persona,
             prompt=request.prompt,
-            content_rating=request.content_rating.value
+            content_rating=request.content_rating.value,
         )
 
     async def _create_platform_adaptations(
@@ -850,3 +850,36 @@ Generate the social media content now:"""
         if persona:
             persona.generation_count += 1
             await self.db.commit()
+
+    async def delete_content(self, content_id: UUID) -> bool:
+        """
+        Soft delete content by ID.
+
+        Args:
+            content_id: Content identifier to delete
+
+        Returns:
+            bool: True if content was deleted, False if not found
+        """
+        try:
+            stmt = select(ContentModel).where(ContentModel.id == content_id)
+            result = await self.db.execute(stmt)
+            content = result.scalar_one_or_none()
+
+            if not content:
+                return False
+
+            # Soft delete - mark as deleted instead of removing from database
+            content.is_deleted = True
+            content.deleted_at = datetime.now()
+
+            await self.db.commit()
+            logger.info(f"Content soft deleted content_id={content_id}")
+            return True
+
+        except Exception as e:
+            logger.error(
+                f"Error deleting content error={str(e)} content_id={content_id}"
+            )
+            await self.db.rollback()
+            return False

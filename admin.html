@@ -2229,7 +2229,118 @@
         }
         
         async function viewContent(contentId) {
-            showAlert('View content feature coming soon! Content ID: ' + contentId);
+            try {
+                // Fetch content details
+                const content = await apiRequest(`/api/v1/content/${contentId}`);
+                
+                // Populate modal with content details
+                document.getElementById('view-content-type').textContent = content.content_type.toUpperCase();
+                document.getElementById('view-content-rating').textContent = content.content_rating.toUpperCase();
+                document.getElementById('view-content-title').textContent = content.title || 'Untitled';
+                document.getElementById('view-content-description').textContent = content.description || 'No description';
+                document.getElementById('view-content-created').textContent = new Date(content.created_at).toLocaleString();
+                document.getElementById('view-content-status').textContent = content.moderation_status.toUpperCase();
+                
+                // Show quality score if available
+                const qualityElement = document.getElementById('view-content-quality');
+                if (content.quality_score) {
+                    qualityElement.textContent = `${content.quality_score}/100`;
+                } else {
+                    qualityElement.textContent = 'N/A';
+                }
+                
+                // Handle content preview based on type
+                const previewContainer = document.getElementById('view-content-preview');
+                previewContainer.innerHTML = '';
+                
+                if (content.content_type === 'image') {
+                    // For images, try to show the actual image or placeholder
+                    if (content.file_path && !content.file_path.endsWith('.txt')) {
+                        const img = document.createElement('img');
+                        img.src = content.file_path;
+                        img.alt = content.title;
+                        img.style.maxWidth = '100%';
+                        img.style.borderRadius = '8px';
+                        img.onerror = function() {
+                            // If image fails to load, show placeholder
+                            previewContainer.innerHTML = `
+                                <div style="padding: 40px; text-align: center; background: #f5f5f5; border-radius: 8px;">
+                                    <span style="font-size: 48px;">🖼️</span>
+                                    <p style="margin-top: 12px; color: #666;">Image preview not available</p>
+                                    <small style="color: #999;">${content.file_path || 'No file path'}</small>
+                                </div>
+                            `;
+                        };
+                        previewContainer.appendChild(img);
+                    } else {
+                        previewContainer.innerHTML = `
+                            <div style="padding: 40px; text-align: center; background: #f5f5f5; border-radius: 8px;">
+                                <span style="font-size: 48px;">🖼️</span>
+                                <p style="margin-top: 12px; color: #666;">Image placeholder</p>
+                            </div>
+                        `;
+                    }
+                } else if (content.content_type === 'text') {
+                    // For text content, show the text or a preview
+                    const textContent = content.generation_params?.full_text || 
+                                      content.generation_params?.text_preview || 
+                                      'Text content not available';
+                    previewContainer.innerHTML = `
+                        <div style="padding: 20px; background: #f9f9f9; border-radius: 8px; white-space: pre-wrap; font-family: 'Georgia', serif; line-height: 1.6;">
+                            ${textContent}
+                        </div>
+                    `;
+                } else if (content.content_type === 'video') {
+                    previewContainer.innerHTML = `
+                        <div style="padding: 40px; text-align: center; background: #f5f5f5; border-radius: 8px;">
+                            <span style="font-size: 48px;">🎬</span>
+                            <p style="margin-top: 12px; color: #666;">Video content</p>
+                            <small style="color: #999;">Duration: ${content.generation_params?.duration || 'N/A'}s</small>
+                        </div>
+                    `;
+                } else if (content.content_type === 'audio' || content.content_type === 'voice') {
+                    previewContainer.innerHTML = `
+                        <div style="padding: 40px; text-align: center; background: #f5f5f5; border-radius: 8px;">
+                            <span style="font-size: 48px;">🎵</span>
+                            <p style="margin-top: 12px; color: #666;">${content.content_type === 'voice' ? 'Voice' : 'Audio'} content</p>
+                            <small style="color: #999;">Duration: ${content.generation_params?.duration || 'N/A'}s</small>
+                        </div>
+                    `;
+                } else {
+                    previewContainer.innerHTML = `
+                        <div style="padding: 40px; text-align: center; background: #f5f5f5; border-radius: 8px;">
+                            <span style="font-size: 48px;">📄</span>
+                            <p style="margin-top: 12px; color: #666;">Content preview not available</p>
+                        </div>
+                    `;
+                }
+                
+                // Show generation parameters
+                const paramsElement = document.getElementById('view-content-params');
+                if (content.generation_params && Object.keys(content.generation_params).length > 0) {
+                    paramsElement.innerHTML = `<pre style="background: #f5f5f5; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem;">${JSON.stringify(content.generation_params, null, 2)}</pre>`;
+                } else {
+                    paramsElement.innerHTML = '<p style="color: #999;">No generation parameters available</p>';
+                }
+                
+                // Show platform adaptations
+                const adaptationsElement = document.getElementById('view-content-adaptations');
+                if (content.platform_adaptations && Object.keys(content.platform_adaptations).length > 0) {
+                    adaptationsElement.innerHTML = `<pre style="background: #f5f5f5; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem;">${JSON.stringify(content.platform_adaptations, null, 2)}</pre>`;
+                } else {
+                    adaptationsElement.innerHTML = '<p style="color: #999;">No platform adaptations</p>';
+                }
+                
+                // Show the modal
+                document.getElementById('viewContentModal').classList.add('active');
+                
+            } catch (error) {
+                showAlert(`Failed to load content details: ${error.message}`, 'error');
+            }
+        }
+        
+        function closeViewContentModal() {
+            document.getElementById('viewContentModal').classList.remove('active');
         }
         
         async function deleteContent(contentId) {
@@ -3362,6 +3473,67 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeEditPersonaModal()">Cancel</button>
                 <button type="button" class="btn" onclick="savePersonaEdits()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- View Content Modal -->
+    <div id="viewContentModal" class="modal">
+        <div class="modal-content" style="max-width: 1000px;">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span style="font-size: 1.5rem;">👁️ View Content</span>
+                    <div style="display: flex; gap: 10px; margin-top: 8px;">
+                        <span id="view-content-type" class="content-type" style="font-size: 0.75rem;"></span>
+                        <span id="view-content-rating" class="content-rating" style="font-size: 0.75rem;"></span>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeViewContentModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-section">
+                    <div class="form-section-title">📋 Content Details</div>
+                    <div class="form-group">
+                        <label class="form-label">Title</label>
+                        <div id="view-content-title" style="padding: 8px; background: #f5f5f5; border-radius: 6px; font-weight: 500;"></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <div id="view-content-description" style="padding: 8px; background: #f5f5f5; border-radius: 6px;"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Created</label>
+                            <div id="view-content-created" style="padding: 8px; background: #f5f5f5; border-radius: 6px;"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <div id="view-content-status" style="padding: 8px; background: #f5f5f5; border-radius: 6px; text-transform: uppercase; font-weight: 500;"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Quality Score</label>
+                            <div id="view-content-quality" style="padding: 8px; background: #f5f5f5; border-radius: 6px; font-weight: 500;"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <div class="form-section-title">🎨 Content Preview</div>
+                    <div id="view-content-preview" style="min-height: 200px;"></div>
+                </div>
+                
+                <div class="form-section">
+                    <div class="form-section-title">⚙️ Generation Parameters</div>
+                    <div id="view-content-params"></div>
+                </div>
+                
+                <div class="form-section" style="border-bottom: none;">
+                    <div class="form-section-title">📱 Platform Adaptations</div>
+                    <div id="view-content-adaptations"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeViewContentModal()">Close</button>
             </div>
         </div>
     </div>
