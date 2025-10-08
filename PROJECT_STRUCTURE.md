@@ -286,12 +286,12 @@ httpx==0.24.1
 celery==5.2.7
 pillow==10.0.0
 opencv-python==4.8.0.74
-transformers==4.35.0
-torch==2.2.0
-torchvision==0.17.0
-diffusers==0.25.0
-accelerate==0.21.0
-huggingface_hub==0.20.0
+transformers==4.41.0
+torch==2.3.1
+torchvision==0.18.1
+diffusers==0.28.0
+accelerate==0.29.0
+huggingface_hub==0.23.0
 ```
 
 ### Development Requirements
