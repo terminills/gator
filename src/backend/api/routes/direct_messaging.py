@@ -279,7 +279,9 @@ async def create_ppv_offer(
 async def get_ppv_offers(
     persona_id: Optional[uuid.UUID] = Query(None, description="Filter by persona ID"),
     user_id: Optional[uuid.UUID] = Query(None, description="Filter by user ID"),
-    status_filter: Optional[str] = Query(None, alias="status", description="Filter by offer status"),
+    status_filter: Optional[str] = Query(
+        None, alias="status", description="Filter by offer status"
+    ),
     skip: int = Query(0, ge=0, description="Number of offers to skip"),
     limit: int = Query(50, ge=1, le=100, description="Number of offers to return"),
     dm_service: DirectMessagingService = Depends(get_dm_service),
@@ -287,7 +289,7 @@ async def get_ppv_offers(
     """Get PPV offers with optional filtering."""
     try:
         from backend.models.ppv_offer import PPVOfferStatus
-        
+
         status_enum = None
         if status_filter:
             try:
@@ -295,9 +297,9 @@ async def get_ppv_offers(
             except ValueError:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid status: {status_filter}"
+                    detail=f"Invalid status: {status_filter}",
                 )
-        
+
         offers = await dm_service.get_ppv_offers(
             persona_id=persona_id,
             user_id=user_id,
