@@ -523,6 +523,7 @@
                     versionsHTML += '</tr></thead><tbody>';
                     
                     const packages = Object.keys(data.required_versions);
+                    let hasMissingOrOutdated = false;
                     packages.forEach(pkg => {
                         const installed = data.installed_versions[pkg] || 'Not installed';
                         const required = data.required_versions[pkg];
@@ -532,11 +533,13 @@
                         if (installed === 'Not installed') {
                             status = '✗';
                             statusColor = '#dc3545';
+                            hasMissingOrOutdated = true;
                         } else if (pkg === 'torch' || pkg === 'torchvision') {
                             // For exact version requirements
                             if (!installed.includes(required.replace('==', ''))) {
                                 status = '⚠️';
                                 statusColor = '#ffc107';
+                                hasMissingOrOutdated = true;
                             }
                         }
                         
@@ -548,7 +551,23 @@
                         versionsHTML += '</tr>';
                     });
                     
-                    versionsHTML += '</tbody></table></div></div>';
+                    versionsHTML += '</tbody></table>';
+                    
+                    // Add Fix Dependencies button if there are issues
+                    if (hasMissingOrOutdated) {
+                        versionsHTML += `
+                            <div style="margin-top: 15px;">
+                                <button class="btn btn-primary" onclick="fixDependencies()" id="fix-deps-btn">
+                                    🔧 Fix Dependencies
+                                </button>
+                                <p style="margin-top: 10px; font-size: 0.9rem; color: #666;">
+                                    This will install/update missing or outdated ML packages. Installation may take several minutes.
+                                </p>
+                            </div>
+                        `;
+                    }
+                    
+                    versionsHTML += '</div></div>';
                 }
                 
                 systemInfoDiv.innerHTML = `
@@ -917,6 +936,115 @@
         
         function openSetupScript() {
             alert('To run the setup script:\n\n1. Open a terminal\n2. Navigate to the Gator directory\n3. Run: python setup_ai_models.py --analyze\n4. Follow the prompts to install models\n\nFor more options, run: python setup_ai_models.py --help');
+        }
+        
+        async function fixDependencies() {
+            const btn = document.getElementById('fix-deps-btn');
+            if (!btn) return;
+            
+            // Confirm with user
+            if (!confirm('This will install/update missing or outdated ML packages. The process may take 5-10 minutes.\n\nDo you want to continue?')) {
+                return;
+            }
+            
+            // Disable button and show progress
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Installing Dependencies...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/setup/ai-models/fix-dependencies`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                const data = await response.json();
+                
+                // Always show installation logs for transparency
+                showDependencyInstallLog(data);
+                
+                if (data.success) {
+                    // Reload the page after user closes the modal
+                    setTimeout(() => {
+                        if (!document.getElementById('installLogModal').style.display || 
+                            document.getElementById('installLogModal').style.display === 'none') {
+                            location.reload();
+                        }
+                    }, 5000);
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = '🔧 Fix Dependencies - Retry';
+                }
+            } catch (error) {
+                btn.disabled = false;
+                btn.innerHTML = '🔧 Fix Dependencies - Retry';
+                
+                // Show error in log modal
+                showDependencyInstallLog({
+                    success: false,
+                    message: `Error: ${error.message}`,
+                    stdout: '',
+                    stderr: error.stack || error.message
+                });
+            }
+        }
+        
+        function showDependencyInstallLog(data) {
+            const modal = document.getElementById('installLogModal');
+            const content = document.getElementById('installLogContent');
+            
+            const statusIcon = data.success ? '✅' : '❌';
+            const statusText = data.success ? 'Success' : 'Failed';
+            const statusClass = data.success ? 'alert-success' : 'alert-warning';
+            
+            let logHTML = `
+                <div class="alert ${statusClass}">
+                    <strong>${statusIcon} Dependency Installation ${statusText}</strong><br>
+                    ${data.message}
+                </div>
+            `;
+            
+            // Show stdout (installation progress)
+            if (data.stdout && data.stdout.trim()) {
+                logHTML += `
+                    <div class="log-section">
+                        <h3>📝 Installation Output</h3>
+                        <div class="log-container success-log">${escapeHtml(data.stdout)}</div>
+                    </div>
+                `;
+            } else {
+                logHTML += `
+                    <div class="log-section">
+                        <h3>📝 Installation Output</h3>
+                        <div class="log-container empty">No installation output available</div>
+                    </div>
+                `;
+            }
+            
+            // Show stderr (errors and warnings)
+            if (data.stderr && data.stderr.trim()) {
+                logHTML += `
+                    <div class="log-section">
+                        <h3>⚠️ Warnings and Errors</h3>
+                        <div class="log-container error-log">${escapeHtml(data.stderr)}</div>
+                    </div>
+                `;
+            }
+            
+            // Show return code if available
+            if (data.return_code !== undefined) {
+                logHTML += `
+                    <div class="log-section">
+                        <p style="color: #666; font-size: 0.9rem; margin-top: 15px;">
+                            Exit code: ${data.return_code}
+                        </p>
+                    </div>
+                `;
+            }
+            
+            content.innerHTML = logHTML;
+            modal.style.display = 'block';
         }
         
         // Load data on page load

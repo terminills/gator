@@ -790,3 +790,66 @@ async def enable_model(request: ModelEnableRequest) -> Dict[str, Any]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to enable/disable model: {str(e)}",
         )
+
+
+@router.post("/ai-models/fix-dependencies")
+async def fix_dependencies() -> Dict[str, Any]:
+    """
+    Install or update missing/outdated ML dependencies.
+    
+    Runs pip install to fix missing or outdated packages required for AI models.
+    This includes torch, torchvision, diffusers, transformers, and other ML packages.
+    """
+    try:
+        import subprocess
+        import sys
+        from pathlib import Path
+        
+        logger.info("Starting dependency fix installation")
+        
+        # Get project root to access pyproject.toml
+        project_root = Path(__file__).parents[4]
+        
+        # Install/upgrade all dependencies from pyproject.toml
+        cmd = [sys.executable, "-m", "pip", "install", "-e", str(project_root)]
+        
+        # Run installation
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=600,  # 10 minutes for full dependency installation
+        )
+        
+        # Always return both stdout and stderr for transparency
+        response = {
+            "success": result.returncode == 0,
+            "message": (
+                "Dependencies installed/updated successfully"
+                if result.returncode == 0
+                else "Dependency installation failed or partially completed"
+            ),
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "return_code": result.returncode,
+        }
+        
+        # Log the installation result
+        if result.returncode == 0:
+            logger.info("Dependency fix completed successfully")
+        else:
+            logger.warning(f"Dependency fix failed with code {result.returncode}")
+        
+        return response
+            
+    except subprocess.TimeoutExpired:
+        raise HTTPException(
+            status_code=status.HTTP_408_REQUEST_TIMEOUT,
+            detail="Dependency installation timed out (>10 minutes). Check logs for status.",
+        )
+    except Exception as e:
+        logger.error(f"Failed to fix dependencies: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fix dependencies: {str(e)}",
+        )
