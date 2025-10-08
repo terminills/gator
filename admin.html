@@ -2167,6 +2167,16 @@
                 
                 let contentHtml = '<div class="content-grid">';
                 data.forEach(content => {
+                    // Show appropriate text based on content type
+                    let displayText = '';
+                    if (content.text_content) {
+                        displayText = content.text_content.substring(0, 100) + '...';
+                    } else if (content.content_type === 'image' || content.content_type === 'video') {
+                        displayText = `${content.content_type.charAt(0).toUpperCase() + content.content_type.slice(1)} content`;
+                    } else {
+                        displayText = 'View for details';
+                    }
+                    
                     contentHtml += `
                         <div class="content-card">
                             <div class="content-header">
@@ -2174,7 +2184,7 @@
                                 <span class="content-rating">${content.content_rating}</span>
                             </div>
                             ${content.image_url ? `<img src="${content.image_url}" alt="Generated content">` : ''}
-                            <p class="content-text">${(content.text_content || 'No text').substring(0, 100)}...</p>
+                            <p class="content-text">${displayText}</p>
                             <div class="content-actions">
                                 <button class="btn btn-sm" onclick="viewContent('${content.id}')">View</button>
                                 <button class="btn btn-sm btn-secondary" onclick="deleteContent('${content.id}')">Delete</button>
@@ -2276,7 +2286,7 @@
                         previewContainer.innerHTML = `
                             <div style="padding: 40px; text-align: center; background: #f5f5f5; border-radius: 8px;">
                                 <span style="font-size: 48px;">🖼️</span>
-                                <p style="margin-top: 12px; color: #666;">Image placeholder</p>
+                                <p style="margin-top: 12px; color: #666;">No image file available</p>
                             </div>
                         `;
                     }
@@ -2946,12 +2956,50 @@
         }
         
         async function createPPVOffer() {
-            showAlert('PPV Offer creation - use API endpoints to create offers.', 'error');
+            // For now, show a message that this requires a conversation context
+            showAlert('PPV Offers are created in the context of a conversation. Use the API endpoint /api/v1/dm/ppv-offers with conversation details.', 'error');
         }
         
         async function loadPPVOffers() {
             const offersList = document.getElementById('ppv-offers-list');
-            offersList.innerHTML = '<p>PPV offers management - use API endpoints to view and manage offers.</p>';
+            offersList.innerHTML = '<div class="loading"></div>Loading PPV offers...';
+            
+            try {
+                const response = await apiRequest('/api/v1/dm/ppv-offers?limit=50');
+                
+                if (!response || response.length === 0) {
+                    offersList.innerHTML = '<p>No PPV offers found. Offers will appear here once created in conversations.</p>';
+                    return;
+                }
+                
+                let offersHtml = '<div style="margin-top: 15px;"><h3>PPV Offers</h3>';
+                response.forEach(offer => {
+                    const statusColor = offer.status === 'accepted' ? '#4caf50' : 
+                                      offer.status === 'pending' ? '#ff9800' : '#999';
+                    offersHtml += `
+                        <div style="padding: 15px; margin-bottom: 10px; border: 1px solid #e0e0e0; border-radius: 8px; background: #f9f9f9;">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <div style="flex: 1;">
+                                    <h4 style="margin: 0 0 5px 0; color: #333;">${offer.title}</h4>
+                                    <p style="margin: 0 0 8px 0; color: #666; font-size: 0.9rem;">${offer.description}</p>
+                                    <div style="display: flex; gap: 15px; font-size: 0.85rem; color: #888;">
+                                        <span><strong>Type:</strong> ${offer.offer_type}</span>
+                                        <span><strong>Price:</strong> $${offer.price} ${offer.currency}</span>
+                                        <span><strong>Status:</strong> <span style="color: ${statusColor}; font-weight: 600;">${offer.status}</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                            ${offer.preview_url ? `<img src="${offer.preview_url}" style="max-width: 200px; margin-top: 10px; border-radius: 6px;" alt="Preview">` : ''}
+                        </div>
+                    `;
+                });
+                offersHtml += '</div>';
+                offersList.innerHTML = offersHtml;
+                
+            } catch (error) {
+                offersList.innerHTML = `<p class="error">Failed to load PPV offers: ${error.message}</p>`;
+                showAlert(`Failed to load PPV offers: ${error.message}`, 'error');
+            }
         }
         
         // Users Functions
