@@ -1,0 +1,64 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: gator-staging
+
+resources:
+- ../../base/deployment.yaml
+- ../../base/service.yaml
+- ../../base/configmap.yaml
+- ../../base/secrets.yaml
+- ../../base/pvc.yaml
+- ../../base/postgres.yaml
+- ../../base/redis.yaml
+- ../../base/ingress.yaml
+
+patches:
+- target:
+    kind: Deployment
+    name: gator-api
+  patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 2
+    - op: replace
+      path: /spec/template/spec/containers/0/image
+      value: "gator/api:staging"
+
+- target:
+    kind: ConfigMap
+    name: gator-config
+  patch: |-
+    - op: replace
+      path: /data/environment
+      value: "staging"
+    - op: replace
+      path: /data/log-level
+      value: "INFO"
+
+- target:
+    kind: Ingress
+    name: gator-ingress
+  patch: |-
+    - op: replace
+      path: /spec/tls/0/hosts/0
+      value: "staging.gator.example.com"
+    - op: replace
+      path: /spec/rules/0/host
+      value: "staging.gator.example.com"
+
+- target:
+    kind: PersistentVolumeClaim
+    name: gator-content-pvc
+  patch: |-
+    - op: replace
+      path: /spec/resources/requests/storage
+      value: "50Gi"
+
+- target:
+    kind: PersistentVolumeClaim
+    name: gator-models-pvc
+  patch: |-
+    - op: replace
+      path: /spec/resources/requests/storage
+      value: "250Gi"
