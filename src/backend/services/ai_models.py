@@ -1644,6 +1644,7 @@ class AIModelManager:
         Generate video using frame-by-frame generation with transitions.
 
         This is the Q2-Q3 2025 advanced feature implementation.
+        Uses AI image generation for each frame.
         """
         try:
             from backend.services.video_processing_service import (
@@ -1665,10 +1666,20 @@ class AIModelManager:
             quality_str = kwargs.pop("quality", "high")
             transition_str = kwargs.pop("transition", "crossfade")
             duration_per_frame = kwargs.pop("duration_per_frame", 3.0)
+            use_ai_generation = kwargs.pop("use_ai_generation", True)
 
             # Convert to enums
             quality = VideoQuality(quality_str)
             transition = TransitionType(transition_str)
+
+            # Pass AI model manager to video service for frame generation
+            if use_ai_generation:
+                kwargs["ai_model_manager"] = self
+                kwargs["use_ai_generation"] = True
+                logger.info("Using AI image generation for video frames")
+            else:
+                kwargs["use_ai_generation"] = False
+                logger.info("Using placeholder frames for video")
 
             # Generate video
             result = await video_service.generate_frame_by_frame_video(
