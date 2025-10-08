@@ -488,17 +488,68 @@ class AIModelManager:
     async def _initialize_video_models(self) -> None:
         """Initialize video generation models."""
         try:
-            # Video generation is still emerging - for now we'll have placeholders
-            # In the future, this might include RunwayML, Pika, or other video AI services
-
+            # Add Stable Video Diffusion configuration (local model)
             self.available_models["video"].append(
                 {
-                    "name": "placeholder-video",
-                    "type": "text-to-video",
+                    "name": "stable-video-diffusion",
+                    "type": "image-to-video",
+                    "model_id": "stabilityai/stable-video-diffusion-img2vid-xt",
+                    "provider": "local",
                     "loaded": False,
-                    "note": "Video generation models not yet integrated",
+                    "can_load": True,
+                    "min_vram_gb": 24,
+                    "description": "Stable Video Diffusion - Image to Video generation",
+                    "features": ["image2video", "frame_interpolation"],
+                    "max_duration": 4.0,  # seconds
+                    "resolution": "576x1024",
+                    "timeline": "Q1-Q2 2025"
                 }
             )
+            
+            # Add advanced frame-by-frame video generation (using video processing service)
+            self.available_models["video"].append(
+                {
+                    "name": "frame-by-frame-generator",
+                    "type": "multi-frame-video",
+                    "provider": "local",
+                    "loaded": True,  # Always available through video processing service
+                    "can_load": True,
+                    "description": "Frame-by-frame video generation with transitions",
+                    "features": [
+                        "multi_scene",
+                        "transitions",
+                        "audio_sync",
+                        "storyboarding"
+                    ],
+                    "supported_transitions": [
+                        "fade", "crossfade", "wipe", "slide", "zoom", "dissolve"
+                    ],
+                    "timeline": "Q2-Q3 2025"
+                }
+            )
+            
+            # Add Runway ML configuration (cloud API)
+            self.available_models["video"].append(
+                {
+                    "name": "runway-gen2",
+                    "type": "text-to-video",
+                    "provider": "runway",
+                    "loaded": bool(os.environ.get("RUNWAY_API_KEY")),
+                    "can_load": bool(os.environ.get("RUNWAY_API_KEY")),
+                    "description": "Runway Gen-2 - Cloud-based video generation",
+                    "features": [
+                        "text2video",
+                        "image2video",
+                        "4k_output",
+                        "custom_training"
+                    ],
+                    "max_duration": 18.0,  # seconds
+                    "api_required": True,
+                    "timeline": "Q1 2025"
+                }
+            )
+
+            logger.info(f"Initialized {len(self.available_models['video'])} video models")
 
         except Exception as e:
             logger.error(f"Failed to initialize video models: {str(e)}")
@@ -1521,6 +1572,246 @@ class AIModelManager:
                 return model
 
         return local_models[0]
+
+    async def generate_video(
+        self,
+        prompt: str,
+        video_type: str = "single_frame",
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Generate video using best available model.
+        
+        Args:
+            prompt: Text prompt or list of prompts for video generation
+            video_type: Type of video generation (single_frame, multi_frame, storyboard)
+            **kwargs: Additional generation parameters
+            
+        Returns:
+            Dict with video metadata and file path
+        """
+        try:
+            # Find best available video model
+            available_models = [
+                m for m in self.available_models["video"]
+                if m.get("loaded", False)
+            ]
+            
+            if not available_models:
+                logger.warning("No video models available, using frame-by-frame generator")
+                # Frame-by-frame is always available
+                available_models = [
+                    m for m in self.available_models["video"]
+                    if m.get("name") == "frame-by-frame-generator"
+                ]
+            
+            if not available_models:
+                raise ValueError("No video generation models available")
+            
+            model = available_models[0]
+            model_name = model.get("name")
+            
+            # Route to appropriate video generation method
+            if model_name == "frame-by-frame-generator":
+                return await self._generate_video_frame_by_frame(prompt, **kwargs)
+            elif model_name == "stable-video-diffusion":
+                return await self._generate_video_svd(prompt, **kwargs)
+            elif model_name == "runway-gen2":
+                return await self._generate_video_runway(prompt, **kwargs)
+            else:
+                raise ValueError(f"Unsupported video model: {model_name}")
+                
+        except Exception as e:
+            logger.error(f"Video generation failed: {str(e)}")
+            raise
+
+    async def _generate_video_frame_by_frame(
+        self,
+        prompt: Union[str, List[str]],
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Generate video using frame-by-frame generation with transitions.
+        
+        This is the Q2-Q3 2025 advanced feature implementation.
+        """
+        try:
+            from backend.services.video_processing_service import (
+                VideoProcessingService,
+                VideoQuality,
+                TransitionType
+            )
+            
+            # Initialize video processing service
+            video_service = VideoProcessingService()
+            
+            # Handle single or multiple prompts
+            if isinstance(prompt, str):
+                prompts = [prompt]
+            else:
+                prompts = prompt
+            
+            # Get parameters
+            quality = VideoQuality(kwargs.get("quality", "high"))
+            transition = TransitionType(kwargs.get("transition", "crossfade"))
+            duration_per_frame = kwargs.get("duration_per_frame", 3.0)
+            
+            # Generate video
+            result = await video_service.generate_frame_by_frame_video(
+                prompts=prompts,
+                duration_per_frame=duration_per_frame,
+                quality=quality,
+                transition=transition,
+                **kwargs
+            )
+            
+            logger.info(f"Frame-by-frame video generated: {result['file_path']}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Frame-by-frame video generation failed: {str(e)}")
+            raise
+
+    async def _generate_video_svd(
+        self,
+        prompt: str,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Generate video using Stable Video Diffusion.
+        
+        This would integrate with the actual SVD model in production.
+        Requires 24GB+ VRAM and model download.
+        """
+        try:
+            logger.info("Stable Video Diffusion integration (placeholder)")
+            
+            # In production, this would:
+            # 1. Load the SVD model from HuggingFace
+            # 2. Generate initial image from prompt
+            # 3. Use SVD to create video from image
+            # 4. Export video file
+            
+            # For now, return placeholder
+            return {
+                "file_path": "/tmp/svd_placeholder.mp4",
+                "duration": 4.0,
+                "resolution": "576x1024",
+                "format": "MP4",
+                "model": "stable-video-diffusion",
+                "status": "placeholder",
+                "note": "SVD requires model download and 24GB+ VRAM"
+            }
+            
+        except Exception as e:
+            logger.error(f"SVD video generation failed: {str(e)}")
+            raise
+
+    async def _generate_video_runway(
+        self,
+        prompt: str,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Generate video using Runway Gen-2 API.
+        
+        Requires RUNWAY_API_KEY environment variable.
+        """
+        try:
+            api_key = os.environ.get("RUNWAY_API_KEY")
+            if not api_key:
+                raise ValueError("RUNWAY_API_KEY not configured")
+            
+            logger.info("Runway Gen-2 API integration (placeholder)")
+            
+            # In production, this would:
+            # 1. Call Runway API with prompt
+            # 2. Poll for completion
+            # 3. Download generated video
+            # 4. Return video metadata
+            
+            # For now, return placeholder
+            return {
+                "file_path": "/tmp/runway_placeholder.mp4",
+                "duration": 4.0,
+                "resolution": "1920x1080",
+                "format": "MP4",
+                "model": "runway-gen2",
+                "status": "placeholder",
+                "note": "Runway Gen-2 requires API key and active subscription"
+            }
+            
+        except Exception as e:
+            logger.error(f"Runway video generation failed: {str(e)}")
+            raise
+
+    async def synchronize_audio_to_video(
+        self,
+        video_path: str,
+        audio_path: str,
+        output_path: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Synchronize audio with video.
+        
+        This is a Q2-Q3 2025 feature for audio-visual content.
+        """
+        try:
+            from backend.services.video_processing_service import VideoProcessingService
+            from pathlib import Path
+            
+            video_service = VideoProcessingService()
+            
+            result = await video_service.synchronize_audio_with_video(
+                video_path=Path(video_path),
+                audio_path=Path(audio_path),
+                output_path=Path(output_path) if output_path else None
+            )
+            
+            logger.info(f"Audio synchronized with video: {result['file_path']}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Audio synchronization failed: {str(e)}")
+            raise
+
+    async def create_video_storyboard(
+        self,
+        scenes: List[Dict[str, Any]],
+        quality: str = "high"
+    ) -> Dict[str, Any]:
+        """
+        Create a storyboarded video from scene descriptions.
+        
+        This is a Q2-Q3 2025 feature for complex video composition.
+        
+        Args:
+            scenes: List of scene dicts with 'prompt', 'duration', 'transition'
+            quality: Video quality preset
+            
+        Returns:
+            Dict with storyboard video metadata
+        """
+        try:
+            from backend.services.video_processing_service import (
+                VideoProcessingService,
+                VideoQuality
+            )
+            
+            video_service = VideoProcessingService()
+            video_quality = VideoQuality(quality)
+            
+            result = await video_service.create_storyboard(
+                scenes=scenes,
+                quality=video_quality
+            )
+            
+            logger.info(f"Storyboard created: {result['file_path']}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Storyboard creation failed: {str(e)}")
+            raise
 
     async def close(self) -> None:
         """Clean up resources."""
