@@ -37,6 +37,8 @@ from backend.api.routes import (
     social,
     database_admin,
     sentiment,
+    interactive,
+    segments,
 )
 from backend.api.websocket import websocket_endpoint
 
@@ -128,6 +130,8 @@ def create_app() -> FastAPI:
     app.include_router(feeds.router)
     app.include_router(social.router)
     app.include_router(sentiment.router, prefix="/api/v1")
+    app.include_router(interactive.router)
+    app.include_router(segments.router)
     
     # WebSocket endpoint for real-time communication
     @app.websocket("/ws/{user_id}")
