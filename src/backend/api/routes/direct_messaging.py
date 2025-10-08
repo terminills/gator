@@ -12,7 +12,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Background
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.connection import get_db_session
-from backend.models.conversation import ConversationCreate, ConversationResponse, ConversationStatus
+from backend.models.conversation import (
+    ConversationCreate,
+    ConversationResponse,
+    ConversationStatus,
+)
 from backend.models.message import MessageCreate, MessageResponse
 from backend.models.ppv_offer import PPVOfferCreate, PPVOfferResponse
 from backend.services.direct_messaging_service import DirectMessagingService
@@ -27,21 +31,28 @@ router = APIRouter(
 )
 
 
-def get_dm_service(db: AsyncSession = Depends(get_db_session)) -> DirectMessagingService:
+def get_dm_service(
+    db: AsyncSession = Depends(get_db_session),
+) -> DirectMessagingService:
     """Dependency injection for DirectMessagingService."""
     return DirectMessagingService(db)
 
 
 # ==================== Conversation Endpoints ====================
 
-@router.post("/conversations", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/conversations",
+    response_model=ConversationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_conversation(
     conversation_data: ConversationCreate,
     dm_service: DirectMessagingService = Depends(get_dm_service),
 ):
     """
     Create a new conversation between a user and persona.
-    
+
     Initializes a direct messaging conversation that will be managed by the
     round-robin queue system for persona responses.
     """
@@ -51,15 +62,12 @@ async def create_conversation(
         return conversation
     except ValueError as e:
         logger.warning(f"Conversation creation failed: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to create conversation: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -74,7 +82,7 @@ async def get_conversation(
         if not conversation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Conversation {conversation_id} not found"
+                detail=f"Conversation {conversation_id} not found",
             )
         return conversation
     except HTTPException:
@@ -83,38 +91,42 @@ async def get_conversation(
         logger.error(f"Failed to get conversation {conversation_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
 @router.get("/users/{user_id}/conversations", response_model=List[ConversationResponse])
 async def get_user_conversations(
     user_id: uuid.UUID,
-    status_filter: Optional[ConversationStatus] = Query(None, alias="status", description="Filter by conversation status"),
+    status_filter: Optional[ConversationStatus] = Query(
+        None, alias="status", description="Filter by conversation status"
+    ),
     skip: int = Query(0, ge=0, description="Number of conversations to skip"),
-    limit: int = Query(20, ge=1, le=100, description="Number of conversations to return"),
+    limit: int = Query(
+        20, ge=1, le=100, description="Number of conversations to return"
+    ),
     dm_service: DirectMessagingService = Depends(get_dm_service),
 ):
     """Get conversations for a specific user with optional filtering."""
     try:
         conversations = await dm_service.get_user_conversations(
-            user_id=user_id,
-            status=status_filter,
-            skip=skip,
-            limit=limit
+            user_id=user_id, status=status_filter, skip=skip, limit=limit
         )
         return conversations
     except Exception as e:
         logger.error(f"Failed to get user conversations {user_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
 # ==================== Message Endpoints ====================
 
-@router.post("/messages", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/messages", response_model=MessageResponse, status_code=status.HTTP_201_CREATED
+)
 async def send_message(
     message_data: MessageCreate,
     background_tasks: BackgroundTasks,
@@ -122,38 +134,37 @@ async def send_message(
 ):
     """
     Send a message in a conversation.
-    
+
     Automatically triggers the round-robin queue processing for persona responses
     when a user sends a message.
     """
     try:
         message = await dm_service.send_message(message_data)
-        
+
         # If this was a user message, trigger persona response processing in background
         if message.sender == "user":
             background_tasks.add_task(
-                _process_persona_response_queue,
-                dm_service,
-                message.conversation_id
+                _process_persona_response_queue, dm_service, message.conversation_id
             )
-        
-        logger.info(f"Message sent via API message_id={message.id} sender={message.sender}")
+
+        logger.info(
+            f"Message sent via API message_id={message.id} sender={message.sender}"
+        )
         return message
     except ValueError as e:
         logger.warning(f"Message sending failed: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to send message: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
-@router.get("/conversations/{conversation_id}/messages", response_model=List[MessageResponse])
+@router.get(
+    "/conversations/{conversation_id}/messages", response_model=List[MessageResponse]
+)
 async def get_conversation_messages(
     conversation_id: uuid.UUID,
     skip: int = Query(0, ge=0, description="Number of messages to skip"),
@@ -167,42 +178,46 @@ async def get_conversation_messages(
             conversation_id=conversation_id,
             skip=skip,
             limit=limit,
-            include_deleted=include_deleted
+            include_deleted=include_deleted,
         )
         return messages
     except Exception as e:
         logger.error(f"Failed to get conversation messages {conversation_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
 # ==================== Queue Management Endpoints ====================
 
+
 @router.get("/queue/next", response_model=Optional[ConversationResponse])
 async def get_next_conversation_for_response(
-    persona_id: Optional[uuid.UUID] = Query(None, description="Specific persona ID, or None for any"),
-    max_hours: int = Query(24, ge=1, le=168, description="Max hours since last persona response"),
+    persona_id: Optional[uuid.UUID] = Query(
+        None, description="Specific persona ID, or None for any"
+    ),
+    max_hours: int = Query(
+        24, ge=1, le=168, description="Max hours since last persona response"
+    ),
     dm_service: DirectMessagingService = Depends(get_dm_service),
 ):
     """
     Get the next conversation needing a persona response from the round-robin queue.
-    
+
     This endpoint is used by the AI system to determine which conversation
     should receive the next automated persona response.
     """
     try:
         conversation = await dm_service.get_next_conversation_for_persona_response(
-            persona_id=persona_id,
-            max_hours_since_last_response=max_hours
+            persona_id=persona_id, max_hours_since_last_response=max_hours
         )
         return conversation
     except Exception as e:
         logger.error(f"Failed to get next conversation for response: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -212,7 +227,7 @@ async def get_queue_status(
 ):
     """
     Get current queue status and statistics.
-    
+
     Returns information about active conversations, pending responses,
     and overall queue health.
     """
@@ -223,38 +238,40 @@ async def get_queue_status(
         logger.error(f"Failed to get queue status: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
 # ==================== PPV Offer Endpoints ====================
 
-@router.post("/ppv-offers", response_model=PPVOfferResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/ppv-offers", response_model=PPVOfferResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_ppv_offer(
     offer_data: PPVOfferCreate,
     dm_service: DirectMessagingService = Depends(get_dm_service),
 ):
     """
     Create a new PPV (Pay-Per-View) offer for a user.
-    
+
     PPV offers are upselling opportunities where personas can offer
     premium content for a fee during conversations.
     """
     try:
         offer = await dm_service.create_ppv_offer(offer_data)
-        logger.info(f"PPV offer created via API {offer.id} offer_type={offer.offer_type}")
+        logger.info(
+            f"PPV offer created via API {offer.id} offer_type={offer.offer_type}"
+        )
         return offer
     except ValueError as e:
         logger.warning(f"PPV offer creation failed: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to create PPV offer: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -265,7 +282,7 @@ async def accept_ppv_offer(
 ):
     """
     Accept a PPV offer.
-    
+
     This would typically integrate with a payment processor.
     For now, it simulates accepting the offer and updating the status.
     """
@@ -275,27 +292,24 @@ async def accept_ppv_offer(
         return offer
     except ValueError as e:
         logger.warning(f"PPV offer acceptance failed: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to accept PPV offer {offer_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
 # ==================== Background Tasks ====================
 
+
 async def _process_persona_response_queue(
-    dm_service: DirectMessagingService,
-    triggering_conversation_id: uuid.UUID
+    dm_service: DirectMessagingService, triggering_conversation_id: uuid.UUID
 ) -> None:
     """
     Background task to process persona responses using the round-robin queue.
-    
+
     This is called after a user sends a message to ensure timely persona responses
     across all active conversations.
     """
@@ -303,36 +317,38 @@ async def _process_persona_response_queue(
         # Get the next conversation from the queue
         conversation = await dm_service.get_next_conversation_for_persona_response()
         if conversation:
-            logger.info(f"Processing persona response for conversation {conversation.id} triggered_by={triggering_conversation_id}")
-            
+            logger.info(
+                f"Processing persona response for conversation {conversation.id} triggered_by={triggering_conversation_id}"
+            )
+
             # Load the persona's characteristics
             from backend.services.persona_service import PersonaService
+
             persona_service = PersonaService(dm_service.db)
             persona = await persona_service.get_persona(conversation.persona_id)
-            
+
             if not persona:
-                logger.warning(f"Persona {conversation.persona_id} not found for conversation {conversation.id}")
+                logger.warning(
+                    f"Persona {conversation.persona_id} not found for conversation {conversation.id}"
+                )
                 return
-            
+
             # Get conversation context (recent messages)
             messages = await dm_service.get_conversation_messages(
-                conversation_id=conversation.id,
-                limit=10
+                conversation_id=conversation.id, limit=10
             )
-            
+
             # Build context for AI generation
             context_messages = []
             for msg in messages[-10:]:  # Last 10 messages
                 role = "user" if msg.sender == "user" else "assistant"
-                context_messages.append({
-                    "role": role,
-                    "content": msg.content
-                })
-            
+                context_messages.append({"role": role, "content": msg.content})
+
             # Generate appropriate response using LLM
             from backend.services.ai_models import AIModelManager
+
             ai_manager = AIModelManager()
-            
+
             # Create persona-informed prompt
             system_prompt = f"""You are {persona.name}, an AI influencer.
 Your personality: {persona.personality}
@@ -341,40 +357,39 @@ Content themes: {', '.join(persona.content_themes)}
 
 Respond naturally as this persona would, maintaining character and style.
 Keep responses engaging, authentic, and conversational."""
-            
+
             # Build the full prompt with context
             full_prompt = f"{system_prompt}\n\nConversation context:\n"
             for msg in context_messages:
                 full_prompt += f"{msg['role']}: {msg['content']}\n"
             full_prompt += "\nassistant: "
-            
+
             try:
                 response_text = await ai_manager.generate_text(
-                    prompt=full_prompt,
-                    max_tokens=150,
-                    temperature=0.7
+                    prompt=full_prompt, max_tokens=150, temperature=0.7
                 )
             except Exception as e:
                 logger.warning(f"AI generation failed, using fallback: {str(e)}")
                 # Fallback to a simple response
                 response_text = f"Thanks for your message! I appreciate you reaching out. What would you like to know more about?"
-            
+
             # Determine if PPV offer should be included (10% chance for example)
             import random
+
             include_ppv = random.random() < 0.1 and conversation.ppv_enabled
-            
+
             ppv_offer_id = None
             if include_ppv:
                 # Create a PPV offer if applicable
                 from backend.models.ppv_offer import PPVOfferCreate, PPVOfferType
                 from decimal import Decimal
-                
+
                 ppv_data = PPVOfferCreate(
                     message_id=None,  # Will be set after message creation
                     content_type=PPVOfferType.PHOTO,
                     preview_text="Exclusive content available",
                     price=Decimal("5.99"),
-                    is_active=True
+                    is_active=True,
                 )
                 try:
                     ppv_offer = await dm_service.create_ppv_offer(ppv_data)
@@ -382,22 +397,25 @@ Keep responses engaging, authentic, and conversational."""
                     response_text += f"\n\n💎 I have some exclusive content you might enjoy! Check out my offer above."
                 except Exception as e:
                     logger.warning(f"Failed to create PPV offer: {str(e)}")
-            
+
             # Send the generated response
             from backend.models.message import MessageCreate, MessageSender, MessageType
+
             message_data = MessageCreate(
                 conversation_id=conversation.id,
                 sender=MessageSender.PERSONA,
                 content=response_text,
                 message_type=MessageType.TEXT,
-                ppv_offer_id=ppv_offer_id
+                ppv_offer_id=ppv_offer_id,
             )
-            
+
             await dm_service.send_message(message_data)
             logger.info(f"Sent persona response for conversation {conversation.id}")
-            
+
         else:
             logger.debug("No conversations need persona response at this time")
-            
+
     except Exception as e:
-        logger.error(f"Error processing persona response queue triggering_conversation_id={triggering_conversation_id}: {str(e)}")
+        logger.error(
+            f"Error processing persona response queue triggering_conversation_id={triggering_conversation_id}: {str(e)}"
+        )

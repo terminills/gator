@@ -35,7 +35,7 @@ async def create_user(
 ):
     """
     Create a new user account.
-    
+
     Registers a new user who can interact with AI personas through
     direct messaging and receive PPV offers.
     """
@@ -45,15 +45,12 @@ async def create_user(
         return user
     except ValueError as e:
         logger.warning(f"User creation failed: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to create user: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -68,7 +65,7 @@ async def get_user(
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User {user_id} not found"
+                detail=f"User {user_id} not found",
             )
         return user
     except HTTPException:
@@ -77,7 +74,7 @@ async def get_user(
         logger.error(f"Failed to get user {user_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -92,7 +89,7 @@ async def get_user_by_username(
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User with username '{username}' not found"
+                detail=f"User with username '{username}' not found",
             )
         return user
     except HTTPException:
@@ -101,7 +98,7 @@ async def get_user_by_username(
         logger.error(f"Failed to get user by username {username}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -117,7 +114,7 @@ async def update_user(
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User {user_id} not found"
+                detail=f"User {user_id} not found",
             )
         logger.info(f"User updated via API {user_id}")
         return user
@@ -127,7 +124,7 @@ async def update_user(
         logger.error(f"Failed to update user {user_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -142,7 +139,7 @@ async def update_user_activity(
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User {user_id} not found"
+                detail=f"User {user_id} not found",
             )
         return {"message": "Activity updated"}
     except HTTPException:
@@ -151,7 +148,7 @@ async def update_user_activity(
         logger.error(f"Failed to update user activity {user_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -165,14 +162,12 @@ async def list_users(
     """List users with pagination."""
     try:
         users = await user_service.list_users(
-            skip=skip,
-            limit=limit,
-            active_only=active_only
+            skip=skip, limit=limit, active_only=active_only
         )
         return users
     except Exception as e:
         logger.error(f"Failed to list users: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )

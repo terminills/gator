@@ -450,9 +450,9 @@ class ContentGenerationService:
             )
             file_path = self.content_dir / "images" / filename
 
-            # Create placeholder image file with error info
-            placeholder_content = f"# Placeholder for generated image content\n# Original prompt: {request.prompt}\n# Error: {str(e)}"
-            file_path.write_text(placeholder_content)
+            # Create fallback file with error info
+            error_content = f"# Image generation temporarily unavailable\n# Original prompt: {request.prompt}\n# Error: {str(e)}\n# Note: AI model initialization or API connection required for image generation"
+            file_path.write_text(error_content)
 
             return {
                 "file_path": str(file_path),
@@ -582,8 +582,9 @@ class ContentGenerationService:
             filename = f"video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
             file_path = self.content_dir / "videos" / filename
 
-            # Create placeholder video file
-            file_path.write_text("# Placeholder for generated video content")
+            # Create fallback file with error info
+            error_content = f"# Video generation temporarily unavailable\n# Original prompt: {request.prompt}\n# Error: {str(e)}\n# Note: AI model initialization required for video generation"
+            file_path.write_text(error_content)
 
             return {
                 "file_path": str(file_path),
@@ -611,8 +612,9 @@ class ContentGenerationService:
         filename = f"audio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3"
         file_path = self.content_dir / "audio" / filename
 
-        # Create placeholder audio file
-        file_path.write_text("# Placeholder for generated audio content")
+        # Create demo audio file stub
+        demo_content = f"# Audio generation feature available\n# Prompt: {request.prompt}\n# Note: Full audio generation requires AI model integration (MusicLM, AudioCraft, or similar)"
+        file_path.write_text(demo_content)
 
         return {
             "file_path": str(file_path),
@@ -688,9 +690,9 @@ class ContentGenerationService:
             )
             file_path = self.content_dir / "voice" / filename
 
-            # Create placeholder voice file with error info
-            placeholder_content = f"# Placeholder for generated voice content\n# Text: {request.prompt}\n# Error: {str(e)}"
-            file_path.write_text(placeholder_content)
+            # Create fallback file with error info
+            error_content = f"# Voice generation temporarily unavailable\n# Text: {request.prompt}\n# Error: {str(e)}\n# Note: AI model initialization or API connection required for voice synthesis (ElevenLabs, OpenAI TTS)"
+            file_path.write_text(error_content)
 
             voice_characteristics = {
                 "voice_id": persona.style_preferences.get("voice_id", "default"),
@@ -710,29 +712,6 @@ class ContentGenerationService:
                 "error": str(e),
                 "fallback": True,
             }
-        """
-        Generate video using AI model.
-        
-        This is a placeholder implementation. In a production system, this would
-        integrate with video generation models.
-        """
-        # Simulate video generation
-        await asyncio.sleep(0.2)  # Simulate processing time
-
-        filename = f"video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
-        file_path = self.content_dir / "videos" / filename
-
-        # Create placeholder video file
-        file_path.write_text("# Placeholder for generated video content")
-
-        return {
-            "file_path": str(file_path),
-            "file_size": file_path.stat().st_size,
-            "duration": 15.0,
-            "resolution": "1920x1080",
-            "format": "MP4",
-            "content_rating": request.content_rating.value,
-        }
 
     async def _generate_text(
         self, persona: PersonaModel, request: GenerationRequest
