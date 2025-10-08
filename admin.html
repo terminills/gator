@@ -2892,14 +2892,39 @@
         // Social Media Functions
         async function loadSocialAccounts() {
             const accountsList = document.getElementById('social-accounts-list');
-            accountsList.innerHTML = '<div class="loading"></div>Loading social media accounts...';
+            accountsList.innerHTML = '<div class="loading"></div>Loading social media platforms...';
             
             try {
                 const response = await apiRequest('/api/v1/social/platforms');
-                accountsList.innerHTML = '<h3>Connected Accounts</h3>';
-                accountsList.innerHTML += '<p>Feature available - use API endpoints to manage accounts.</p>';
+                
+                if (!response || !response.supported_platforms) {
+                    accountsList.innerHTML = '<p>No platform information available.</p>';
+                    return;
+                }
+                
+                const platforms = response.supported_platforms;
+                let platformsHtml = '<div style="margin-top: 15px;"><h3>Supported Social Media Platforms</h3>';
+                platformsHtml += `<p style="color: #666; margin-bottom: 15px;">Configure these platforms in Settings to enable publishing. Total: ${response.total_platforms}</p>`;
+                
+                Object.keys(platforms).forEach(key => {
+                    const platform = platforms[key];
+                    const contentTypes = platform.supported_content.join(', ');
+                    platformsHtml += `
+                        <div style="padding: 15px; margin-bottom: 10px; border: 1px solid #e0e0e0; border-radius: 8px; background: #f9f9f9;">
+                            <h4 style="margin: 0 0 8px 0; color: #667eea;">${platform.name}</h4>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 0.9rem;">
+                                <div><strong>Content Types:</strong> ${contentTypes}</div>
+                                <div><strong>Max Caption:</strong> ${platform.max_caption_length} chars</div>
+                                <div><strong>Scheduling:</strong> ${platform.supports_scheduling ? '✅ Supported' : '❌ Not supported'}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                platformsHtml += '</div>';
+                accountsList.innerHTML = platformsHtml;
+                
             } catch (error) {
-                accountsList.innerHTML = `<div class="alert alert-error">Error loading accounts: ${error.message}</div>`;
+                accountsList.innerHTML = `<div class="alert alert-error">Error loading platforms: ${error.message}</div>`;
             }
         }
         
