@@ -200,15 +200,17 @@ class VideoProcessingService:
         """
         settings = self.quality_settings[quality]
         width, height = settings["resolution"]
-        
+
         # Check if AI generation should be used
         use_ai = kwargs.get("use_ai_generation", True)
         ai_manager = kwargs.get("ai_model_manager")
-        
+
         if use_ai and ai_manager:
             try:
-                logger.info(f"Generating frame {frame_index + 1} with AI: {prompt[:50]}...")
-                
+                logger.info(
+                    f"Generating frame {frame_index + 1} with AI: {prompt[:50]}..."
+                )
+
                 # Generate image using AI
                 result = await ai_manager.generate_image(
                     prompt=prompt,
@@ -217,12 +219,12 @@ class VideoProcessingService:
                     num_inference_steps=kwargs.get("num_inference_steps", 20),
                     guidance_scale=kwargs.get("guidance_scale", 7.5),
                 )
-                
+
                 if result and result.get("image_data"):
                     # Convert image data to numpy array
                     import io
                     from PIL import Image
-                    
+
                     image = Image.open(io.BytesIO(result["image_data"]))
                     # Convert to RGB if needed
                     if image.mode != "RGB":
@@ -233,18 +235,24 @@ class VideoProcessingService:
                     # Convert to numpy array (OpenCV format: BGR)
                     frame = np.array(image)
                     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                    
-                    logger.info(f"Frame {frame_index + 1} generated successfully with AI")
+
+                    logger.info(
+                        f"Frame {frame_index + 1} generated successfully with AI"
+                    )
                     return frame
                 else:
-                    logger.warning(f"AI generation returned empty result, using placeholder")
-                    
+                    logger.warning(
+                        f"AI generation returned empty result, using placeholder"
+                    )
+
             except Exception as e:
-                logger.warning(f"AI frame generation failed: {str(e)}, using placeholder")
-        
+                logger.warning(
+                    f"AI frame generation failed: {str(e)}, using placeholder"
+                )
+
         # Fallback to placeholder frame
         logger.debug(f"Generating placeholder frame {frame_index + 1}")
-        
+
         # Create placeholder frame (solid color with text)
         frame = np.zeros((height, width, 3), dtype=np.uint8)
 
