@@ -414,6 +414,36 @@ class DirectMessagingService:
             logger.error(f"Failed to create PPV offer: {str(e)}")
             raise
 
+    async def get_ppv_offers(
+        self,
+        persona_id: Optional[uuid.UUID] = None,
+        user_id: Optional[uuid.UUID] = None,
+        status: Optional[PPVOfferStatus] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> List[PPVOfferResponse]:
+        """Get PPV offers with optional filtering."""
+        try:
+            stmt = select(PPVOfferModel).order_by(PPVOfferModel.created_at.desc())
+
+            if persona_id:
+                stmt = stmt.where(PPVOfferModel.persona_id == persona_id)
+            if user_id:
+                stmt = stmt.where(PPVOfferModel.user_id == user_id)
+            if status:
+                stmt = stmt.where(PPVOfferModel.status == status)
+
+            stmt = stmt.offset(skip).limit(limit)
+
+            result = await self.db.execute(stmt)
+            db_offers = result.scalars().all()
+
+            return [PPVOfferResponse.model_validate(offer) for offer in db_offers]
+
+        except Exception as e:
+            logger.error(f"Failed to get PPV offers: {str(e)}")
+            raise
+
     async def accept_ppv_offer(self, offer_id: uuid.UUID) -> PPVOfferResponse:
         """Accept a PPV offer (simulate payment processing)."""
         try:

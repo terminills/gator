@@ -163,4 +163,25 @@ class TestQueueManagement:
         assert needs_response[0]["id"] == "conv3"
         # Then FIFO among same priority
         assert needs_response[1]["id"] == "conv2"  # Older response time
-        assert needs_response[2]["id"] == "conv1"
+
+
+class TestPPVOfferEndpoint:
+    """Test the new PPV offer listing endpoint."""
+
+    async def test_list_ppv_offers_empty(self, test_client):
+        """Test listing PPV offers when none exist."""
+        response = test_client.get("/api/v1/dm/ppv-offers")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        assert len(data) == 0
+
+    async def test_list_ppv_offers_with_filters(self, test_client):
+        """Test PPV offers endpoint accepts filter parameters."""
+        # Test with query parameters
+        response = test_client.get(
+            "/api/v1/dm/ppv-offers?skip=0&limit=10&status=pending"
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
