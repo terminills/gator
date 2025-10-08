@@ -296,6 +296,139 @@
             font-size: 0.9rem;
             line-height: 1.4;
         }
+        
+        /* Modal styles for installation logs */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.6);
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 0;
+            border: 1px solid #888;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 900px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .modal-header {
+            padding: 20px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            color: white;
+            border: none;
+            padding: 0;
+        }
+        
+        .close {
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            line-height: 1;
+            transition: transform 0.2s;
+        }
+        
+        .close:hover,
+        .close:focus {
+            transform: scale(1.2);
+        }
+        
+        .modal-body {
+            padding: 30px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        
+        .log-section {
+            margin-bottom: 20px;
+        }
+        
+        .log-section h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .log-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .log-container.success-log {
+            border-left: 4px solid #28a745;
+        }
+        
+        .log-container.error-log {
+            border-left: 4px solid #dc3545;
+        }
+        
+        .log-container.empty {
+            color: #888;
+            font-style: italic;
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .modal-footer {
+            padding: 15px 30px;
+            background: #f8f9fa;
+            border-radius: 0 0 12px 12px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
@@ -547,27 +680,119 @@
                 
                 const data = await response.json();
                 
+                // Always show installation logs for transparency
+                showInstallationLog(modelName, data);
+                
                 if (data.success) {
                     btn.innerHTML = '✅ Installed!';
                     btn.classList.remove('btn-success');
                     btn.classList.add('btn-secondary');
                     
-                    // Show success message
-                    alert(`✅ Model "${modelName}" installed successfully!\n\nYou can now use this model in your AI generation workflows.`);
-                    
-                    // Reload the page to refresh installed models
+                    // Reload the page after user closes the log modal
+                    // (or after 5 seconds if they don't close it)
                     setTimeout(() => {
-                        location.reload();
-                    }, 2000);
+                        if (!document.getElementById('installLogModal').style.display || 
+                            document.getElementById('installLogModal').style.display === 'none') {
+                            location.reload();
+                        }
+                    }, 5000);
                 } else {
                     btn.disabled = false;
                     btn.innerHTML = '❌ Failed - Retry';
-                    alert(`Failed to install model: ${data.error || data.message}`);
                 }
             } catch (error) {
                 btn.disabled = false;
                 btn.innerHTML = '❌ Failed - Retry';
-                alert(`Error installing model: ${error.message}`);
+                
+                // Show error in log modal
+                showInstallationLog(modelName, {
+                    success: false,
+                    message: `Error: ${error.message}`,
+                    stdout: '',
+                    stderr: error.stack || error.message
+                });
+            }
+        }
+        
+        function showInstallationLog(modelName, data) {
+            const modal = document.getElementById('installLogModal');
+            const content = document.getElementById('installLogContent');
+            
+            const statusIcon = data.success ? '✅' : '❌';
+            const statusText = data.success ? 'Success' : 'Failed';
+            const statusClass = data.success ? 'alert-success' : 'alert-warning';
+            
+            let logHTML = `
+                <div class="alert ${statusClass}">
+                    <strong>${statusIcon} Installation ${statusText}</strong><br>
+                    ${data.message}
+                </div>
+            `;
+            
+            // Show stdout (installation progress)
+            if (data.stdout && data.stdout.trim()) {
+                logHTML += `
+                    <div class="log-section">
+                        <h3>📝 Installation Output</h3>
+                        <div class="log-container success-log">${escapeHtml(data.stdout)}</div>
+                    </div>
+                `;
+            } else {
+                logHTML += `
+                    <div class="log-section">
+                        <h3>📝 Installation Output</h3>
+                        <div class="log-container empty">No installation output available</div>
+                    </div>
+                `;
+            }
+            
+            // Show stderr (errors and warnings)
+            if (data.stderr && data.stderr.trim()) {
+                logHTML += `
+                    <div class="log-section">
+                        <h3>⚠️ Warnings and Errors</h3>
+                        <div class="log-container error-log">${escapeHtml(data.stderr)}</div>
+                    </div>
+                `;
+            }
+            
+            // Show return code if available
+            if (data.return_code !== undefined) {
+                logHTML += `
+                    <div class="log-section">
+                        <p style="color: #666; font-size: 0.9rem; margin-top: 15px;">
+                            Exit code: ${data.return_code}
+                        </p>
+                    </div>
+                `;
+            }
+            
+            content.innerHTML = logHTML;
+            modal.style.display = 'block';
+        }
+        
+        function closeLogModal() {
+            const modal = document.getElementById('installLogModal');
+            modal.style.display = 'none';
+            
+            // Reload page after closing modal if installation was successful
+            const successAlert = document.querySelector('#installLogContent .alert-success');
+            if (successAlert) {
+                location.reload();
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('installLogModal');
+            if (event.target === modal) {
+                closeLogModal();
             }
         }
         
@@ -648,5 +873,23 @@
             loadSystemInfo();
         });
     </script>
+    
+    <!-- Installation Log Modal -->
+    <div id="installLogModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📋 Installation Log</h2>
+                <button class="close" onclick="closeLogModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="installLogContent">
+                    <!-- Log content will be inserted here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeLogModal()">Close</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

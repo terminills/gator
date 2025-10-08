@@ -644,21 +644,30 @@ async def install_models(request: ModelInstallRequest) -> Dict[str, Any]:
             timeout=300,  # 5 minutes for model downloads
         )
         
+        # Always return both stdout and stderr for transparency
+        # Even successful installations may have warnings or partial failures
+        response = {
+            "success": result.returncode == 0,
+            "message": (
+                f"Installation completed for {len(request.model_names)} model(s)"
+                if result.returncode == 0
+                else "Installation failed or partially completed"
+            ),
+            "models": request.model_names,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "return_code": result.returncode,
+        }
+        
+        # Log the installation result
         if result.returncode == 0:
-            return {
-                "success": True,
-                "message": f"Successfully started installation of {len(request.model_names)} model(s)",
-                "models": request.model_names,
-                "output": result.stdout,
-            }
+            logger.info(f"Model installation completed: {request.model_names}")
         else:
-            return {
-                "success": False,
-                "message": "Installation failed or partially completed",
-                "models": request.model_names,
-                "output": result.stdout,
-                "error": result.stderr,
-            }
+            logger.warning(
+                f"Model installation failed with code {result.returncode}: {request.model_names}"
+            )
+        
+        return response
             
     except subprocess.TimeoutExpired:
         raise HTTPException(
