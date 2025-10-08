@@ -22,11 +22,56 @@ from sqlalchemy import (
     Float,
     ARRAY,
 )
+from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
 from backend.database.connection import Base
+
+
+class PersonaFeedModel(Base):
+    """
+    Association table for many-to-many relationship between Personas and RSS Feeds.
+
+    Allows personas to be assigned specific RSS feeds and topics for content inspiration.
+    """
+
+    __tablename__ = "persona_feeds"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+
+    # Foreign keys
+    persona_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("personas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    feed_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("rss_feeds.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Assignment metadata
+    topics = Column(
+        JSON, nullable=True, default=list
+    )  # Specific topics to filter from this feed
+    priority = Column(
+        Integer, default=50, nullable=False
+    )  # Priority for content suggestions (0-100)
+    is_active = Column(Boolean, default=True, index=True)
+
+    # Timestamps
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+    # Relationships
+    persona = relationship("PersonaModel", backref="persona_feeds")
+    feed = relationship("RSSFeedModel", backref="persona_feeds")
 
 
 class RSSFeedModel(Base):
@@ -189,3 +234,40 @@ class FeedItemListResponse(BaseModel):
     total: int
     page: int = 1
     page_size: int = 50
+
+
+class PersonaFeedAssignment(BaseModel):
+    """API model for assigning feeds to personas."""
+
+    feed_id: uuid.UUID
+    topics: Optional[List[str]] = Field(
+        default=[], description="Specific topics to filter"
+    )
+    priority: int = Field(default=50, ge=0, le=100, description="Priority (0-100)")
+
+
+class PersonaFeedResponse(BaseModel):
+    """API model for persona-feed assignment responses."""
+
+    id: uuid.UUID
+    persona_id: uuid.UUID
+    feed_id: uuid.UUID
+    topics: List[str]
+    priority: int
+    is_active: bool
+    created_at: datetime
+
+    # Include feed details for convenience
+    feed_name: Optional[str] = None
+    feed_url: Optional[str] = None
+    feed_categories: Optional[List[str]] = None
+
+    model_config = {"from_attributes": True}
+
+
+class FeedsByTopicResponse(BaseModel):
+    """Response for feeds grouped by topic."""
+
+    topic: str
+    feeds: List[RSSFeedResponse]
+    total_items: int = 0
