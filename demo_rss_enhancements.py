@@ -80,9 +80,7 @@ async def main():
             # 4. Demonstrate feed assignment API
             print("\n4️⃣  RSS Feed to Persona Assignment (Conceptual)...")
             print("   To assign a feed to a persona:")
-            print(
-                "   POST /api/v1/feeds/personas/{persona_id}/feeds"
-            )
+            print("   POST /api/v1/feeds/personas/{persona_id}/feeds")
             print("   Body: {")
             print('     "feed_id": "uuid-of-feed",')
             print('     "topics": ["ai", "machine learning"],')
