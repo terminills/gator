@@ -1651,10 +1651,14 @@ class AIModelManager:
             else:
                 prompts = prompt
             
-            # Get parameters
-            quality = VideoQuality(kwargs.get("quality", "high"))
-            transition = TransitionType(kwargs.get("transition", "crossfade"))
-            duration_per_frame = kwargs.get("duration_per_frame", 3.0)
+            # Get parameters from kwargs
+            quality_str = kwargs.pop("quality", "high")
+            transition_str = kwargs.pop("transition", "crossfade")
+            duration_per_frame = kwargs.pop("duration_per_frame", 3.0)
+            
+            # Convert to enums
+            quality = VideoQuality(quality_str)
+            transition = TransitionType(transition_str)
             
             # Generate video
             result = await video_service.generate_frame_by_frame_video(

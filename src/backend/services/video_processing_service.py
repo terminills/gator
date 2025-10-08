@@ -322,7 +322,10 @@ class VideoProcessingService:
             elif transition == TransitionType.DISSOLVE:
                 # Similar to crossfade but with slight blur
                 crossfade = cv2.addWeighted(frame1, 1 - alpha, frame2, alpha, 0)
-                kernel_size = 3 + int(alpha * 4) * 2 - 1  # Odd number
+                # Ensure kernel_size is always positive and odd
+                kernel_size = max(3, 3 + int(alpha * 4) * 2)
+                if kernel_size % 2 == 0:
+                    kernel_size += 1
                 blended = cv2.GaussianBlur(crossfade, (kernel_size, kernel_size), 0)
             
             elif transition == TransitionType.WIPE:
