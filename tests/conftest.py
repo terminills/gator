@@ -132,4 +132,3 @@ async def test_content(db_session, test_persona):
     await db_session.commit()
     await db_session.refresh(content)
     return content
-

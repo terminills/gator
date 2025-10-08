@@ -483,31 +483,81 @@ class TwitterClient(PlatformClientBase):
 
 
 class TikTokClient(PlatformClientBase):
-    """TikTok API client (placeholder)."""
+    """
+    TikTok API client (placeholder implementation).
+    
+    TikTok API integration requires business verification and API approval.
+    
+    Prerequisites:
+    - TikTok for Business account
+    - API access approval from TikTok
+    - OAuth 2.0 credentials
+    
+    Implementation Steps:
+    1. Apply for TikTok API access: https://developers.tiktok.com/
+    2. Obtain OAuth 2.0 credentials
+    3. Implement video upload endpoint
+    4. Add content validation (video format, duration, file size)
+    5. Implement engagement metrics retrieval
+    
+    Supported Content Types: video (MP4, MOV)
+    Max Video Size: 287.6 MB
+    Max Video Duration: 60 minutes
+    
+    References:
+    - TikTok API Documentation: https://developers.tiktok.com/doc/content-posting-api-get-started
+    """
 
     async def validate_credentials(self, account: SocialAccount) -> bool:
-        """Validate TikTok credentials."""
-        # TikTok API is more restricted and requires special approval
-        logger.warning("TikTok API integration not yet implemented")
+        """
+        Validate TikTok credentials.
+        
+        Note: TikTok API requires business verification and special approval.
+        This is a placeholder that returns False until API access is granted.
+        """
+        logger.warning(
+            "TikTok API integration requires business verification. "
+            "Apply for access at https://developers.tiktok.com/"
+        )
         return False
 
     async def publish_content(
         self, account: SocialAccount, content_data: Dict[str, Any]
     ) -> PostResponse:
-        """Publish content to TikTok."""
+        """
+        Publish content to TikTok.
+        
+        Note: This is a placeholder implementation. Once TikTok API access is granted:
+        1. Validate content (video format, duration, file size)
+        2. Upload video to TikTok using Content Posting API
+        3. Set video metadata (caption, privacy, allow comments, etc.)
+        4. Return post ID and status
+        """
         return PostResponse(
             platform=PlatformType.TIKTOK,
             post_id=None,
             status=PostStatus.FAILED,
             published_at=None,
             platform_url=None,
-            error_message="TikTok API integration not yet implemented",
+            error_message=(
+                "TikTok API integration requires business verification. "
+                "Apply for access at https://developers.tiktok.com/"
+            ),
         )
 
     async def get_engagement_metrics(
         self, account: SocialAccount, post_id: str
     ) -> Dict[str, int]:
-        """Get TikTok metrics."""
+        """
+        Get TikTok engagement metrics.
+        
+        Note: Placeholder implementation. Once API access is granted, will return:
+        - views: Total video views
+        - likes: Total likes
+        - comments: Total comments
+        - shares: Total shares
+        - play_duration: Average watch time
+        """
         return {}
 
 

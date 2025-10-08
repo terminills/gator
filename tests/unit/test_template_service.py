@@ -109,7 +109,9 @@ def locked_appearance_persona():
         "voice_style": "confident",
         "tone": "warm",
     }
-    persona.base_appearance_description = "Professional woman in her 30s, corporate attire, confident demeanor"
+    persona.base_appearance_description = (
+        "Professional woman in her 30s, corporate attire, confident demeanor"
+    )
     persona.appearance_locked = True
     return persona
 
@@ -231,9 +233,7 @@ class TestTemplateService:
         # Just verify it's generating valid content
         assert len(result) > 50  # Should be substantial content
 
-    def test_determine_content_style_creative(
-        self, template_service, creative_persona
-    ):
+    def test_determine_content_style_creative(self, template_service, creative_persona):
         """Test style determination for creative persona."""
         personality_traits = creative_persona.personality.split(",")
         style = template_service._determine_content_style(
@@ -282,7 +282,10 @@ class TestTemplateService:
         assert isinstance(context, str)
         # Context might be empty if no matching keywords, but should be string
         # For professional persona, should have professional context
-        if "professional" in locked_appearance_persona.base_appearance_description.lower():
+        if (
+            "professional"
+            in locked_appearance_persona.base_appearance_description.lower()
+        ):
             assert "professional" in context.lower() or context == ""
 
     def test_determine_voice_modifiers_passionate(
@@ -299,14 +302,13 @@ class TestTemplateService:
     def test_determine_voice_modifiers_analytical(self, template_service, tech_persona):
         """Test voice modifier determination for analytical persona."""
         modifiers = template_service._determine_voice_modifiers(
-            tech_persona.style_preferences.get("tone", ""), tech_persona.personality.lower()
+            tech_persona.style_preferences.get("tone", ""),
+            tech_persona.personality.lower(),
         )
 
         assert "analytical" in modifiers
 
-    def test_generate_templates_returns_list(
-        self, template_service, creative_persona
-    ):
+    def test_generate_templates_returns_list(self, template_service, creative_persona):
         """Test that template generation returns a list of templates."""
         templates = template_service._generate_templates_for_style(
             "creative",
@@ -321,7 +323,11 @@ class TestTemplateService:
 
     def test_select_weighted_template_returns_string(self, template_service):
         """Test that template selection returns a string."""
-        templates = ["Template 1 about analysis", "Template 2 about future", "Template 3"]
+        templates = [
+            "Template 1 about analysis",
+            "Template 2 about future",
+            "Template 3",
+        ]
         keywords = ["analysis", "research"]
 
         selected = template_service._select_weighted_template(templates, keywords)

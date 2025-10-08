@@ -114,7 +114,9 @@ class TestGatorPlugin:
             async def shutdown(self) -> None:
                 self.shutdown_called = True
 
-            async def on_content_generated(self, content: Dict[str, Any]) -> Dict[str, Any]:
+            async def on_content_generated(
+                self, content: Dict[str, Any]
+            ) -> Dict[str, Any]:
                 self.content_generated_called = True
                 content["processed"] = True
                 return content
@@ -226,7 +228,7 @@ class TestGatorPlugin:
                 pass
 
         plugin = TestPlugin({"key": "value"})
-        
+
         # Should return True when no schema is defined
         assert plugin.validate_config({"any": "config"}) is True
 
@@ -386,7 +388,9 @@ class TestPluginIntegration:
             async def shutdown(self) -> None:
                 self.shutdown_called = True
 
-            async def on_content_generated(self, content: Dict[str, Any]) -> Dict[str, Any]:
+            async def on_content_generated(
+                self, content: Dict[str, Any]
+            ) -> Dict[str, Any]:
                 content["test_processed"] = True
                 return content
 

@@ -1699,19 +1699,48 @@ class AIModelManager:
 
     async def _generate_video_svd(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """
-        Generate video using Stable Video Diffusion.
+        Generate video using Stable Video Diffusion (SVD).
 
-        This would integrate with the actual SVD model in production.
-        Requires 24GB+ VRAM and model download.
+        This is a placeholder implementation. SVD requires significant resources.
+
+        Prerequisites:
+        - 24GB+ VRAM (GPU required)
+        - Stable Video Diffusion model from HuggingFace
+        - diffusers library with SVD support
+
+        Implementation Steps:
+        1. Download SVD model: stabilityai/stable-video-diffusion-img2vid-xt
+        2. Ensure sufficient GPU memory (24GB+ VRAM)
+        3. Generate initial image from text prompt using Stable Diffusion
+        4. Use SVD to animate the image into video
+        5. Export to MP4 format
+
+        Supported Output:
+        - Resolution: 576x1024 (portrait) or 1024x576 (landscape)
+        - Duration: 2-4 seconds (14-25 frames)
+        - Format: MP4
+
+        References:
+        - HuggingFace Model: https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt
+        - Documentation: https://huggingface.co/docs/diffusers/api/pipelines/stable_video_diffusion
         """
         try:
-            logger.info("Stable Video Diffusion integration (placeholder)")
+            logger.info(
+                "Stable Video Diffusion requires 24GB+ VRAM and model download. "
+                "Returning placeholder."
+            )
 
             # In production, this would:
             # 1. Load the SVD model from HuggingFace
-            # 2. Generate initial image from prompt
-            # 3. Use SVD to create video from image
-            # 4. Export video file
+            # 2. Generate initial image from prompt using Stable Diffusion
+            # 3. Use SVD pipeline to create video from image
+            # 4. Export video file to storage
+            # Example:
+            # from diffusers import StableVideoDiffusionPipeline
+            # pipe = StableVideoDiffusionPipeline.from_pretrained(
+            #     "stabilityai/stable-video-diffusion-img2vid-xt"
+            # )
+            # video_frames = pipe(image, num_frames=25).frames
 
             # For now, return placeholder
             return {
@@ -1721,7 +1750,7 @@ class AIModelManager:
                 "format": "MP4",
                 "model": "stable-video-diffusion",
                 "status": "placeholder",
-                "note": "SVD requires model download and 24GB+ VRAM",
+                "note": "SVD requires model download and 24GB+ VRAM. See implementation guide above.",
             }
 
         except Exception as e:
