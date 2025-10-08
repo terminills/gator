@@ -485,25 +485,25 @@ class TwitterClient(PlatformClientBase):
 class TikTokClient(PlatformClientBase):
     """
     TikTok API client (placeholder implementation).
-    
+
     TikTok API integration requires business verification and API approval.
-    
+
     Prerequisites:
     - TikTok for Business account
     - API access approval from TikTok
     - OAuth 2.0 credentials
-    
+
     Implementation Steps:
     1. Apply for TikTok API access: https://developers.tiktok.com/
     2. Obtain OAuth 2.0 credentials
     3. Implement video upload endpoint
     4. Add content validation (video format, duration, file size)
     5. Implement engagement metrics retrieval
-    
+
     Supported Content Types: video (MP4, MOV)
     Max Video Size: 287.6 MB
     Max Video Duration: 60 minutes
-    
+
     References:
     - TikTok API Documentation: https://developers.tiktok.com/doc/content-posting-api-get-started
     """
@@ -511,7 +511,7 @@ class TikTokClient(PlatformClientBase):
     async def validate_credentials(self, account: SocialAccount) -> bool:
         """
         Validate TikTok credentials.
-        
+
         Note: TikTok API requires business verification and special approval.
         This is a placeholder that returns False until API access is granted.
         """
@@ -526,7 +526,7 @@ class TikTokClient(PlatformClientBase):
     ) -> PostResponse:
         """
         Publish content to TikTok.
-        
+
         Note: This is a placeholder implementation. Once TikTok API access is granted:
         1. Validate content (video format, duration, file size)
         2. Upload video to TikTok using Content Posting API
@@ -550,7 +550,7 @@ class TikTokClient(PlatformClientBase):
     ) -> Dict[str, int]:
         """
         Get TikTok engagement metrics.
-        
+
         Note: Placeholder implementation. Once API access is granted, will return:
         - views: Total video views
         - likes: Total likes
