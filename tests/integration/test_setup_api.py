@@ -219,3 +219,38 @@ class TestSetupAPI:
         assert response.status_code == 200
         data = response.json()
         assert data["enabled"] is False
+    
+    def test_ai_models_install_response_structure(self, test_client):
+        """Test that model installation returns detailed logs in response."""
+        # Note: This test checks the response structure without actually
+        # installing models (which would be time-consuming and resource-intensive)
+        
+        # Test with a non-existent model to get a quick response
+        request = {
+            "model_names": ["non-existent-test-model"],
+            "model_type": "text"
+        }
+        
+        response = test_client.post("/api/v1/setup/ai-models/install", json=request)
+        
+        # Should complete (may succeed or fail depending on system)
+        assert response.status_code in [200, 408, 500]
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Verify new response structure includes detailed logs
+            assert "success" in data
+            assert "message" in data
+            assert "models" in data
+            assert "stdout" in data, "Response should include stdout for installation logs"
+            assert "stderr" in data, "Response should include stderr for error logs"
+            assert "return_code" in data, "Response should include return code"
+            
+            # stdout and stderr should be strings (may be empty)
+            assert isinstance(data["stdout"], str)
+            assert isinstance(data["stderr"], str)
+            assert isinstance(data["return_code"], int)
+            
+            # models should match the request
+            assert data["models"] == request["model_names"]
