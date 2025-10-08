@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import uvicorn
-from fastapi import FastAPI, Request, Response, Depends
+from fastapi import FastAPI, Request, Response, Depends, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -37,6 +37,7 @@ from backend.api.routes import (
     social,
     database_admin,
 )
+from backend.api.websocket import websocket_endpoint
 
 # Configure logging
 setup_logging()
@@ -125,6 +126,12 @@ def create_app() -> FastAPI:
     app.include_router(creator.router, prefix="/api/v1")
     app.include_router(feeds.router)
     app.include_router(social.router)
+    
+    # WebSocket endpoint for real-time communication
+    @app.websocket("/ws/{user_id}")
+    async def websocket_route(websocket: WebSocket, user_id: str):
+        """WebSocket endpoint for real-time messaging."""
+        await websocket_endpoint(websocket, user_id)
 
     @app.get("/", tags=["public"])
     async def root(request: Request):
