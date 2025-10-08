@@ -417,7 +417,7 @@ async def get_configuration_template() -> Dict[str, Any]:
 async def get_ai_models_status() -> Dict[str, Any]:
     """
     Get AI model installation status and system capabilities.
-    
+
     Returns information about installed models, available models,
     system hardware capabilities, and required dependency versions.
     """
@@ -425,16 +425,17 @@ async def get_ai_models_status() -> Dict[str, Any]:
         import sys
         import subprocess
         from pathlib import Path
-        
+
         # Get system info
         system_info = {
             "python_version": sys.version,
             "platform": sys.platform,
         }
-        
+
         # Check for GPU
         try:
             import torch
+
             system_info["gpu_available"] = torch.cuda.is_available()
             system_info["torch_version"] = torch.__version__
             if torch.cuda.is_available():
@@ -444,22 +445,29 @@ async def get_ai_models_status() -> Dict[str, Any]:
             system_info["gpu_available"] = False
             system_info["torch_installed"] = False
             system_info["torch_version"] = "Not installed"
-        
+
         # Get installed package versions for ML dependencies
         installed_versions = {}
-        ml_packages = ["torch", "torchvision", "diffusers", "transformers", "accelerate", "huggingface_hub"]
+        ml_packages = [
+            "torch",
+            "torchvision",
+            "diffusers",
+            "transformers",
+            "accelerate",
+            "huggingface_hub",
+        ]
         for package in ml_packages:
             try:
                 mod = __import__(package)
                 installed_versions[package] = getattr(mod, "__version__", "Unknown")
             except ImportError:
                 installed_versions[package] = "Not installed"
-        
+
         # Get required versions from pyproject.toml
         # Path calculation: __file__ -> routes/ -> api/ -> backend/ -> src/ -> project_root
         project_root = Path(__file__).parents[4]
         pyproject_path = project_root / "pyproject.toml"
-        
+
         required_versions = {
             "torch": "2.3.1+rocm5.7 (for AMD GPUs with MI-25)",
             "torchvision": "0.18.1+rocm5.7",
@@ -469,34 +477,40 @@ async def get_ai_models_status() -> Dict[str, Any]:
             "huggingface_hub": ">=0.23.0",
             "numpy": ">=1.24.0,<2.0",
         }
-        
+
         # Try to parse actual requirements from pyproject.toml if it exists
         if pyproject_path.exists():
             try:
                 import re
+
                 content = pyproject_path.read_text()
-                
+
                 # Extract version constraints from dependencies section
-                for package in ["diffusers", "transformers", "accelerate", "huggingface_hub"]:
+                for package in [
+                    "diffusers",
+                    "transformers",
+                    "accelerate",
+                    "huggingface_hub",
+                ]:
                     pattern = rf'"{package}>=([^"]+)"'
                     match = re.search(pattern, content)
                     if match:
                         required_versions[package] = f">={match.group(1)}"
-                
+
                 # Extract ROCm-specific versions from optional dependencies
                 for package in ["torch", "torchvision"]:
                     pattern = rf'"{package}==([^"]+)"'
                     match = re.search(pattern, content)
                     if match:
                         required_versions[package] = match.group(1)
-                        
+
             except Exception as e:
                 logger.warning(f"Could not parse pyproject.toml: {e}")
-        
+
         # Check models directory
         models_dir = Path("./models")
         models_exist = models_dir.exists()
-        
+
         installed_models = []
         if models_exist:
             # Check for installed models
@@ -505,12 +519,14 @@ async def get_ai_models_status() -> Dict[str, Any]:
                 if category_path.exists():
                     for model_path in category_path.iterdir():
                         if model_path.is_dir():
-                            installed_models.append({
-                                "name": model_path.name,
-                                "category": category,
-                                "path": str(model_path),
-                            })
-        
+                            installed_models.append(
+                                {
+                                    "name": model_path.name,
+                                    "category": category,
+                                    "path": str(model_path),
+                                }
+                            )
+
         # Available models for installation
         available_models = [
             {
@@ -544,12 +560,12 @@ async def get_ai_models_status() -> Dict[str, Any]:
                 "requires_api_key": "OPENAI_API_KEY",
             },
         ]
-        
+
         # Check if setup script exists in project root
         # Path calculation: __file__ -> routes/ -> api/ -> backend/ -> src/ -> project_root
         project_root = Path(__file__).parents[4]
         setup_script = project_root / "setup_ai_models.py"
-        
+
         return {
             "system": system_info,
             "installed_versions": installed_versions,
@@ -560,7 +576,7 @@ async def get_ai_models_status() -> Dict[str, Any]:
             "available_models": available_models,
             "setup_script_available": setup_script.exists(),
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to get AI model status: {e}")
         raise HTTPException(
@@ -573,7 +589,7 @@ async def get_ai_models_status() -> Dict[str, Any]:
 async def analyze_system_for_models() -> Dict[str, Any]:
     """
     Analyze system capabilities and recommend compatible AI models.
-    
+
     Runs the setup_ai_models.py script with --analyze flag to determine
     which models can be installed on the current system.
     """
@@ -582,11 +598,12 @@ async def analyze_system_for_models() -> Dict[str, Any]:
         import sys
         import os
         from pathlib import Path
+
         # Get project root (setup script is in project root, not src)
         # Path calculation: __file__ -> routes/ -> api/ -> backend/ -> src/ -> project_root
         project_root = Path(__file__).parents[4]
         setup_script = project_root / "setup_ai_models.py"
-        
+
         # Run the setup script with analyze flag
         result = subprocess.run(
             [sys.executable, setup_script, "--analyze"],
@@ -594,7 +611,7 @@ async def analyze_system_for_models() -> Dict[str, Any]:
             text=True,
             timeout=30,
         )
-        
+
         if result.returncode == 0:
             return {
                 "success": True,
@@ -607,7 +624,7 @@ async def analyze_system_for_models() -> Dict[str, Any]:
                 "error": result.stderr,
                 "output": result.stdout,
             }
-            
+
     except subprocess.TimeoutExpired:
         raise HTTPException(
             status_code=status.HTTP_408_REQUEST_TIMEOUT,
@@ -625,24 +642,24 @@ async def analyze_system_for_models() -> Dict[str, Any]:
 async def get_model_recommendations() -> Dict[str, Any]:
     """
     Get structured model recommendations based on system capabilities.
-    
+
     Returns a structured response with installable, upgradeable, and API-only models.
     """
     try:
         import sys
         from pathlib import Path
-        
+
         # Import ModelSetupManager from setup script
         project_root = Path(__file__).parents[4]
         sys.path.insert(0, str(project_root))
-        
+
         try:
             from setup_ai_models import ModelSetupManager
-            
+
             manager = ModelSetupManager()
             sys_info = manager.get_system_info()
             recommendations = manager.analyze_system_requirements()
-            
+
             return {
                 "success": True,
                 "system_info": sys_info,
@@ -652,7 +669,7 @@ async def get_model_recommendations() -> Dict[str, Any]:
             # Clean up sys.path
             if str(project_root) in sys.path:
                 sys.path.remove(str(project_root))
-            
+
     except Exception as e:
         logger.error(f"Failed to get model recommendations: {e}")
         raise HTTPException(
@@ -663,6 +680,7 @@ async def get_model_recommendations() -> Dict[str, Any]:
 
 class ModelInstallRequest(BaseModel):
     """Request to install AI models."""
+
     model_names: list[str] = Field(..., description="List of model names to install")
     model_type: str = Field("text", description="Model type (text, image, voice)")
 
@@ -671,7 +689,7 @@ class ModelInstallRequest(BaseModel):
 async def install_models(request: ModelInstallRequest) -> Dict[str, Any]:
     """
     Install specified AI models.
-    
+
     Initiates the installation of one or more models. This is a long-running
     operation that downloads and configures models.
     """
@@ -679,15 +697,15 @@ async def install_models(request: ModelInstallRequest) -> Dict[str, Any]:
         import subprocess
         import sys
         from pathlib import Path
-        
+
         project_root = Path(__file__).parents[4]
         setup_script = project_root / "setup_ai_models.py"
-        
+
         # Build command with model names
         cmd = [sys.executable, str(setup_script), "--install"] + request.model_names
-        
+
         logger.info(f"Starting model installation: {request.model_names}")
-        
+
         # Run installation in background (non-blocking for async operation)
         # For now, we run it synchronously with a longer timeout
         result = subprocess.run(
@@ -696,7 +714,7 @@ async def install_models(request: ModelInstallRequest) -> Dict[str, Any]:
             text=True,
             timeout=300,  # 5 minutes for model downloads
         )
-        
+
         # Always return both stdout and stderr for transparency
         # Even successful installations may have warnings or partial failures
         response = {
@@ -711,7 +729,7 @@ async def install_models(request: ModelInstallRequest) -> Dict[str, Any]:
             "stderr": result.stderr,
             "return_code": result.returncode,
         }
-        
+
         # Log the installation result
         if result.returncode == 0:
             logger.info(f"Model installation completed: {request.model_names}")
@@ -719,9 +737,9 @@ async def install_models(request: ModelInstallRequest) -> Dict[str, Any]:
             logger.warning(
                 f"Model installation failed with code {result.returncode}: {request.model_names}"
             )
-        
+
         return response
-            
+
     except subprocess.TimeoutExpired:
         raise HTTPException(
             status_code=status.HTTP_408_REQUEST_TIMEOUT,
@@ -737,6 +755,7 @@ async def install_models(request: ModelInstallRequest) -> Dict[str, Any]:
 
 class ModelEnableRequest(BaseModel):
     """Request to enable/disable an AI model."""
+
     model_name: str = Field(..., description="Model name")
     enabled: bool = Field(..., description="Whether to enable or disable the model")
 
@@ -745,45 +764,45 @@ class ModelEnableRequest(BaseModel):
 async def enable_model(request: ModelEnableRequest) -> Dict[str, Any]:
     """
     Enable or disable an installed AI model.
-    
+
     Updates the model configuration to mark it as enabled or disabled for use.
     """
     try:
         from pathlib import Path
         import json
-        
+
         models_dir = Path("./models")
         config_path = models_dir / "model_config.json"
-        
+
         # Load or create configuration
         if config_path.exists():
-            with open(config_path, 'r') as f:
+            with open(config_path, "r") as f:
                 config = json.load(f)
         else:
             config = {"enabled_models": {}}
-        
+
         # Ensure enabled_models section exists
         if "enabled_models" not in config:
             config["enabled_models"] = {}
-        
+
         # Update model status
         config["enabled_models"][request.model_name] = request.enabled
-        
+
         # Save configuration
         config_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             json.dump(config, f, indent=2)
-        
+
         status_text = "enabled" if request.enabled else "disabled"
         logger.info(f"Model {request.model_name} {status_text}")
-        
+
         return {
             "success": True,
             "message": f"Model {request.model_name} {status_text} successfully",
             "model_name": request.model_name,
             "enabled": request.enabled,
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to enable/disable model: {e}")
         raise HTTPException(
@@ -796,7 +815,7 @@ async def enable_model(request: ModelEnableRequest) -> Dict[str, Any]:
 async def fix_dependencies() -> Dict[str, Any]:
     """
     Install or update missing/outdated ML dependencies.
-    
+
     Runs pip install to fix missing or outdated packages required for AI models.
     This includes torch, torchvision, diffusers, transformers, and other ML packages.
     """
@@ -804,15 +823,15 @@ async def fix_dependencies() -> Dict[str, Any]:
         import subprocess
         import sys
         from pathlib import Path
-        
+
         logger.info("Starting dependency fix installation")
-        
+
         # Get project root to access pyproject.toml
         project_root = Path(__file__).parents[4]
-        
+
         # Install/upgrade all dependencies from pyproject.toml
         cmd = [sys.executable, "-m", "pip", "install", "-e", str(project_root)]
-        
+
         # Run installation
         result = subprocess.run(
             cmd,
@@ -820,7 +839,7 @@ async def fix_dependencies() -> Dict[str, Any]:
             text=True,
             timeout=600,  # 10 minutes for full dependency installation
         )
-        
+
         # Always return both stdout and stderr for transparency
         response = {
             "success": result.returncode == 0,
@@ -833,15 +852,15 @@ async def fix_dependencies() -> Dict[str, Any]:
             "stderr": result.stderr,
             "return_code": result.returncode,
         }
-        
+
         # Log the installation result
         if result.returncode == 0:
             logger.info("Dependency fix completed successfully")
         else:
             logger.warning(f"Dependency fix failed with code {result.returncode}")
-        
+
         return response
-            
+
     except subprocess.TimeoutExpired:
         raise HTTPException(
             status_code=status.HTTP_408_REQUEST_TIMEOUT,
