@@ -817,54 +817,119 @@ async def fix_dependencies() -> Dict[str, Any]:
     Install or update missing/outdated ML dependencies.
 
     Runs pip install to fix missing or outdated packages required for AI models.
-    This includes torch, torchvision, diffusers, transformers, and other ML packages.
+    This excludes torch and torchvision to preserve ROCm-specific installations,
+    and installs/upgrades diffusers, transformers, accelerate, huggingface_hub,
+    numpy, and other dependencies.
     """
     try:
         import subprocess
         import sys
         from pathlib import Path
+        import re
 
-        logger.info("Starting dependency fix installation")
+        logger.info(
+            "Starting dependency fix installation (excluding torch/torchvision)"
+        )
 
         # Get project root to access pyproject.toml
         project_root = Path(__file__).parents[4]
+        pyproject_path = project_root / "pyproject.toml"
 
-        # Install/upgrade all dependencies from pyproject.toml
-        cmd = [sys.executable, "-m", "pip", "install", "-e", str(project_root)]
+        # Read pyproject.toml to get dependency list
+        if not pyproject_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="pyproject.toml not found",
+            )
 
-        # Run installation
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=600,  # 10 minutes for full dependency installation
+        content = pyproject_path.read_text()
+
+        # Extract dependencies from pyproject.toml, excluding torch and torchvision
+        # Match pattern: "package>=version" or "package[extra]>=version"
+        dependency_pattern = r'"([^"]+)"'
+        dependencies_section = False
+        packages_to_install = []
+
+        for line in content.split("\n"):
+            line = line.strip()
+            if line == "dependencies = [":
+                dependencies_section = True
+                continue
+            elif dependencies_section and line == "]":
+                break
+            elif dependencies_section and line.startswith('"'):
+                match = re.search(dependency_pattern, line)
+                if match:
+                    dep = match.group(1)
+                    # Skip torch and torchvision to preserve ROCm installations
+                    if not dep.startswith("torch==") and not dep.startswith(
+                        "torchvision=="
+                    ):
+                        packages_to_install.append(dep)
+
+        logger.info(
+            f"Installing {len(packages_to_install)} packages (excluding torch/torchvision)"
         )
 
-        # Always return both stdout and stderr for transparency
+        # Install packages one by one to avoid dependency conflicts
+        all_stdout = []
+        all_stderr = []
+        failed_packages = []
+
+        for package in packages_to_install:
+            logger.info(f"Installing/upgrading: {package}")
+            cmd = [sys.executable, "-m", "pip", "install", "--upgrade", package]
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minutes per package
+            )
+
+            all_stdout.append(f"=== Installing {package} ===\n{result.stdout}")
+            all_stderr.append(result.stderr)
+
+            if result.returncode != 0:
+                failed_packages.append(package)
+                logger.warning(f"Failed to install {package}: {result.stderr}")
+            else:
+                logger.info(f"Successfully installed/upgraded {package}")
+
+        # Determine overall success
+        success = len(failed_packages) == 0
+
+        # Build response
         response = {
-            "success": result.returncode == 0,
+            "success": success,
             "message": (
-                "Dependencies installed/updated successfully"
-                if result.returncode == 0
-                else "Dependency installation failed or partially completed"
+                f"Successfully installed/upgraded all {len(packages_to_install)} packages (torch/torchvision preserved)"
+                if success
+                else f"Installed {len(packages_to_install) - len(failed_packages)}/{len(packages_to_install)} packages. Failed: {', '.join(failed_packages)}"
             ),
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "return_code": result.returncode,
+            "stdout": "\n".join(all_stdout),
+            "stderr": "\n".join(all_stderr),
+            "packages_installed": len(packages_to_install) - len(failed_packages),
+            "packages_failed": len(failed_packages),
+            "failed_packages": failed_packages,
         }
 
         # Log the installation result
-        if result.returncode == 0:
-            logger.info("Dependency fix completed successfully")
+        if success:
+            logger.info(
+                "Dependency fix completed successfully (torch/torchvision preserved)"
+            )
         else:
-            logger.warning(f"Dependency fix failed with code {result.returncode}")
+            logger.warning(
+                f"Dependency fix partially completed. Failed packages: {failed_packages}"
+            )
 
         return response
 
     except subprocess.TimeoutExpired:
         raise HTTPException(
             status_code=status.HTTP_408_REQUEST_TIMEOUT,
-            detail="Dependency installation timed out (>10 minutes). Check logs for status.",
+            detail="Dependency installation timed out. Check logs for status.",
         )
     except Exception as e:
         logger.error(f"Failed to fix dependencies: {e}")
