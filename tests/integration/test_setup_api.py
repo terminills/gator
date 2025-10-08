@@ -108,10 +108,56 @@ class TestSetupAPI:
         assert "python_version" in system
         assert "platform" in system
         assert "gpu_available" in system
+        assert "torch_version" in system
         
         # The setup script should be available in the repository
         assert data["setup_script_available"] is True, \
             "setup_ai_models.py should be found in repository root"
+    
+    def test_ai_models_status_version_info(self, test_client):
+        """Test that AI models status includes version information for PyTorch 2.3.1 compatibility."""
+        response = test_client.get("/api/v1/setup/ai-models/status")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Verify new version information fields
+        assert "installed_versions" in data, "Response should include installed_versions"
+        assert "required_versions" in data, "Response should include required_versions"
+        assert "compatibility_note" in data, "Response should include compatibility_note"
+        
+        # Verify installed versions structure
+        installed = data["installed_versions"]
+        assert isinstance(installed, dict)
+        expected_packages = ["torch", "torchvision", "diffusers", "transformers", "accelerate", "huggingface_hub"]
+        for package in expected_packages:
+            assert package in installed, f"{package} should be in installed_versions"
+        
+        # Verify required versions structure
+        required = data["required_versions"]
+        assert isinstance(required, dict)
+        
+        # Verify PyTorch 2.3.1 requirements for MI-25 GPU
+        assert "torch" in required
+        assert "2.3.1" in required["torch"], "Required torch version should be 2.3.1 for MI-25 GPU"
+        assert "rocm5.7" in required["torch"], "Required torch version should include ROCm 5.7"
+        
+        # Verify other ML dependencies
+        assert "diffusers" in required
+        assert ">=0.28.0" in required["diffusers"], "diffusers should require >=0.28.0 for PyTorch 2.3.1"
+        
+        assert "transformers" in required
+        assert ">=4.41.0" in required["transformers"], "transformers should require >=4.41.0 for PyTorch 2.3.1"
+        
+        assert "accelerate" in required
+        assert ">=0.29.0" in required["accelerate"], "accelerate should require >=0.29.0 for PyTorch 2.3.1"
+        
+        assert "huggingface_hub" in required
+        assert ">=0.23.0" in required["huggingface_hub"], "huggingface_hub should require >=0.23.0"
+        
+        # Verify compatibility note mentions MI-25
+        assert "MI-25" in data["compatibility_note"], "Compatibility note should mention MI-25 GPU"
+        assert "2.3.1" in data["compatibility_note"], "Compatibility note should mention PyTorch 2.3.1"
     
     def test_ai_models_analyze(self, test_client):
         """Test analyzing system for AI models."""

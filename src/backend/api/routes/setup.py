@@ -419,7 +419,7 @@ async def get_ai_models_status() -> Dict[str, Any]:
     Get AI model installation status and system capabilities.
     
     Returns information about installed models, available models,
-    and system hardware capabilities.
+    system hardware capabilities, and required dependency versions.
     """
     try:
         import sys
@@ -436,12 +436,62 @@ async def get_ai_models_status() -> Dict[str, Any]:
         try:
             import torch
             system_info["gpu_available"] = torch.cuda.is_available()
+            system_info["torch_version"] = torch.__version__
             if torch.cuda.is_available():
                 system_info["gpu_count"] = torch.cuda.device_count()
                 system_info["gpu_name"] = torch.cuda.get_device_name(0)
         except ImportError:
             system_info["gpu_available"] = False
             system_info["torch_installed"] = False
+            system_info["torch_version"] = "Not installed"
+        
+        # Get installed package versions for ML dependencies
+        installed_versions = {}
+        ml_packages = ["torch", "torchvision", "diffusers", "transformers", "accelerate", "huggingface_hub"]
+        for package in ml_packages:
+            try:
+                mod = __import__(package)
+                installed_versions[package] = getattr(mod, "__version__", "Unknown")
+            except ImportError:
+                installed_versions[package] = "Not installed"
+        
+        # Get required versions from pyproject.toml
+        # Path calculation: __file__ -> routes/ -> api/ -> backend/ -> src/ -> project_root
+        project_root = Path(__file__).parents[4]
+        pyproject_path = project_root / "pyproject.toml"
+        
+        required_versions = {
+            "torch": "2.3.1+rocm5.7 (for AMD GPUs with MI-25)",
+            "torchvision": "0.18.1+rocm5.7",
+            "diffusers": ">=0.28.0",
+            "transformers": ">=4.41.0",
+            "accelerate": ">=0.29.0",
+            "huggingface_hub": ">=0.23.0",
+            "numpy": ">=1.24.0,<2.0",
+        }
+        
+        # Try to parse actual requirements from pyproject.toml if it exists
+        if pyproject_path.exists():
+            try:
+                import re
+                content = pyproject_path.read_text()
+                
+                # Extract version constraints from dependencies section
+                for package in ["diffusers", "transformers", "accelerate", "huggingface_hub"]:
+                    pattern = rf'"{package}>=([^"]+)"'
+                    match = re.search(pattern, content)
+                    if match:
+                        required_versions[package] = f">={match.group(1)}"
+                
+                # Extract ROCm-specific versions from optional dependencies
+                for package in ["torch", "torchvision"]:
+                    pattern = rf'"{package}==([^"]+)"'
+                    match = re.search(pattern, content)
+                    if match:
+                        required_versions[package] = match.group(1)
+                        
+            except Exception as e:
+                logger.warning(f"Could not parse pyproject.toml: {e}")
         
         # Check models directory
         models_dir = Path("./models")
@@ -502,6 +552,9 @@ async def get_ai_models_status() -> Dict[str, Any]:
         
         return {
             "system": system_info,
+            "installed_versions": installed_versions,
+            "required_versions": required_versions,
+            "compatibility_note": "PyTorch 2.3.1 is the latest version compatible with AMD MI-25 GPUs (ROCm 5.7)",
             "models_directory": str(models_dir.absolute()) if models_exist else None,
             "installed_models": installed_models,
             "available_models": available_models,
