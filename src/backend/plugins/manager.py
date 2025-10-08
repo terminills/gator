@@ -199,9 +199,7 @@ class PluginManager:
                     break
 
             if plugin_class is None:
-                raise PluginLoadError(
-                    f"No GatorPlugin subclass found in: {plugin_id}"
-                )
+                raise PluginLoadError(f"No GatorPlugin subclass found in: {plugin_id}")
 
             # Instantiate plugin
             plugin_config = config or {}
@@ -329,9 +327,7 @@ class PluginManager:
         results = []
         plugin_ids = self.hooks[hook_name].copy()
 
-        logger.debug(
-            f"Executing hook '{hook_name}' across {len(plugin_ids)} plugins"
-        )
+        logger.debug(f"Executing hook '{hook_name}' across {len(plugin_ids)} plugins")
 
         for plugin_id in plugin_ids:
             try:

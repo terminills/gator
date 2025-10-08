@@ -215,6 +215,64 @@ class TestGatorPlugin:
         assert "My Plugin" in repr(plugin)
         assert "2.0.0" in repr(plugin)
 
+    def test_plugin_config_validation_no_schema(self):
+        """Test config validation when no schema is defined."""
+
+        class TestPlugin(GatorPlugin):
+            async def initialize(self) -> None:
+                pass
+
+            async def shutdown(self) -> None:
+                pass
+
+        plugin = TestPlugin({"key": "value"})
+        
+        # Should return True when no schema is defined
+        assert plugin.validate_config({"any": "config"}) is True
+
+    def test_plugin_config_validation_with_schema(self):
+        """Test config validation with JSON schema."""
+        from jsonschema import ValidationError as JSONSchemaValidationError
+
+        class TestPlugin(GatorPlugin):
+            async def initialize(self) -> None:
+                pass
+
+            async def shutdown(self) -> None:
+                pass
+
+        # Define a plugin with a schema
+        plugin = TestPlugin({"api_key": "test123"})
+        plugin.metadata = PluginMetadata(
+            name="Schema Test Plugin",
+            version="1.0.0",
+            author="Test",
+            description="Test",
+            plugin_type=PluginType.CONTENT_GENERATOR,
+            config_schema={
+                "type": "object",
+                "properties": {
+                    "api_key": {"type": "string"},
+                    "max_retries": {"type": "integer", "minimum": 0},
+                },
+                "required": ["api_key"],
+            },
+        )
+
+        # Valid config should pass
+        valid_config = {"api_key": "test123", "max_retries": 3}
+        assert plugin.validate_config(valid_config) is True
+
+        # Invalid config should raise ValidationError
+        invalid_config = {"api_key": "test", "max_retries": "not_an_int"}
+        with pytest.raises(JSONSchemaValidationError):
+            plugin.validate_config(invalid_config)
+
+        # Missing required field should raise ValidationError
+        missing_field_config = {"max_retries": 5}
+        with pytest.raises(JSONSchemaValidationError):
+            plugin.validate_config(missing_field_config)
+
 
 class TestPluginManager:
     """Test suite for PluginManager."""

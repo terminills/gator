@@ -74,7 +74,9 @@ async def list_marketplace_plugins(
         # Order by featured, rating, downloads
         query = (
             query.order_by(
-                desc(PluginModel.featured), desc(PluginModel.rating), desc(PluginModel.downloads)
+                desc(PluginModel.featured),
+                desc(PluginModel.rating),
+                desc(PluginModel.downloads),
             )
             .offset(skip)
             .limit(limit)
@@ -146,8 +148,12 @@ async def list_installed_plugins(
         if enabled is not None:
             query = query.where(PluginInstallation.enabled == enabled)
 
-        # TODO: Add user/tenant filtering when auth is implemented
-        # query = query.where(PluginInstallation.tenant_id == current_tenant_id)
+        # NOTE: User/tenant filtering requires authentication system
+        # Once authentication is implemented, add:
+        # from backend.api.dependencies import get_current_user
+        # user = Depends(get_current_user)
+        # query = query.where(PluginInstallation.user_id == user.id)
+        # For multi-tenancy: query = query.where(PluginInstallation.tenant_id == user.tenant_id)
 
         result = await db.execute(query)
         installations = result.scalars().all()
@@ -159,7 +165,9 @@ async def list_installed_plugins(
         raise HTTPException(status_code=500, detail="Failed to fetch installed plugins")
 
 
-@router.post("/plugins/install", response_model=PluginInstallationSchema, status_code=201)
+@router.post(
+    "/plugins/install", response_model=PluginInstallationSchema, status_code=201
+)
 async def install_plugin(
     request: PluginInstallRequest,
     db: AsyncSession = Depends(get_db_session),
@@ -182,7 +190,9 @@ async def install_plugin(
         plugin = result.scalar_one_or_none()
 
         if not plugin:
-            raise HTTPException(status_code=404, detail="Plugin not found in marketplace")
+            raise HTTPException(
+                status_code=404, detail="Plugin not found in marketplace"
+            )
 
         # Check if already installed
         existing = await db.execute(
@@ -222,7 +232,9 @@ async def install_plugin(
         raise HTTPException(status_code=500, detail="Failed to install plugin")
 
 
-@router.put("/plugins/installed/{installation_id}", response_model=PluginInstallationSchema)
+@router.put(
+    "/plugins/installed/{installation_id}", response_model=PluginInstallationSchema
+)
 async def update_plugin_installation(
     installation_id: str,
     request: PluginUpdateRequest,
@@ -304,7 +316,10 @@ async def uninstall_plugin(
         raise HTTPException(status_code=500, detail="Failed to uninstall plugin")
 
 
-@router.get("/plugins/marketplace/{plugin_slug}/reviews", response_model=List[PluginReviewSchema])
+@router.get(
+    "/plugins/marketplace/{plugin_slug}/reviews",
+    response_model=List[PluginReviewSchema],
+)
 async def list_plugin_reviews(
     plugin_slug: str,
     skip: int = Query(0, ge=0),
@@ -352,7 +367,11 @@ async def list_plugin_reviews(
         raise HTTPException(status_code=500, detail="Failed to fetch reviews")
 
 
-@router.post("/plugins/marketplace/{plugin_slug}/reviews", response_model=PluginReviewSchema, status_code=201)
+@router.post(
+    "/plugins/marketplace/{plugin_slug}/reviews",
+    response_model=PluginReviewSchema,
+    status_code=201,
+)
 async def create_plugin_review(
     plugin_slug: str,
     request: PluginReviewRequest,
@@ -379,7 +398,12 @@ async def create_plugin_review(
         if not plugin:
             raise HTTPException(status_code=404, detail="Plugin not found")
 
-        # TODO: Get current user ID from auth
+        # NOTE: User ID extraction requires authentication system
+        # Once authentication is implemented, add:
+        # from backend.api.dependencies import get_current_user
+        # current_user = Depends(get_current_user)
+        # user_id = current_user.id
+        # For now, using placeholder user_id for demo purposes
         user_id = "demo-user"
 
         # Check if user already reviewed
@@ -392,7 +416,9 @@ async def create_plugin_review(
             )
         )
         if existing.scalar_one_or_none():
-            raise HTTPException(status_code=409, detail="You have already reviewed this plugin")
+            raise HTTPException(
+                status_code=409, detail="You have already reviewed this plugin"
+            )
 
         # Create review
         review = PluginReview(

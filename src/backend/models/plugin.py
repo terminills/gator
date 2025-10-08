@@ -83,7 +83,9 @@ class PluginModel(Base):
     deprecated_message = Column(Text)
 
     # Timestamps
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
     updated_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -130,7 +132,9 @@ class PluginInstallation(Base):
     usage_count = Column(Integer, default=0)
 
     # Timestamps
-    installed_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    installed_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
     updated_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -167,7 +171,9 @@ class PluginReview(Base):
     reported = Column(Boolean, default=False)
 
     # Timestamps
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
     updated_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -176,6 +182,7 @@ class PluginReview(Base):
 
 
 # Pydantic schemas for API
+
 
 class PluginSchema(BaseModel):
     """Schema for plugin in API responses."""

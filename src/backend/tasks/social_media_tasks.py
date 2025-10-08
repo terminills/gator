@@ -33,7 +33,7 @@ class AsyncTask(Task):
     def __call__(self, *args, **kwargs):
         """
         Execute task with async support.
-        
+
         This method creates a new event loop and runs the task's run method,
         which should be an async function when using this base class.
         """
@@ -53,7 +53,7 @@ class AsyncTask(Task):
     async def run_async(self, *args, **kwargs):
         """
         Override this method for async task implementation in subclasses.
-        
+
         This is a fallback method for tasks that don't define their own
         async run method and need to implement custom async logic.
         """

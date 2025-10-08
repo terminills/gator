@@ -9,6 +9,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from enum import Enum
 from pydantic import BaseModel, Field
+import jsonschema
+from jsonschema import ValidationError as JSONSchemaValidationError
 
 
 class PluginType(str, Enum):
@@ -339,7 +341,7 @@ class GatorPlugin(ABC):
 
     def validate_config(self, config: Dict[str, Any]) -> bool:
         """
-        Validate plugin configuration.
+        Validate plugin configuration against JSON schema.
 
         Override this to add custom validation logic.
 
@@ -348,11 +350,21 @@ class GatorPlugin(ABC):
 
         Returns:
             True if valid, False otherwise
+
+        Raises:
+            JSONSchemaValidationError: If configuration is invalid
         """
         # Basic validation - check required fields
         if self.metadata and self.metadata.config_schema:
-            # TODO: Implement JSON schema validation
-            return True
+            try:
+                # Validate configuration against JSON schema
+                jsonschema.validate(instance=config, schema=self.metadata.config_schema)
+                return True
+            except JSONSchemaValidationError as e:
+                # Log validation error and re-raise for caller to handle
+                raise JSONSchemaValidationError(
+                    f"Plugin configuration validation failed: {e.message}"
+                )
         return True
 
     def __str__(self) -> str:
