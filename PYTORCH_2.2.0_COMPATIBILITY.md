@@ -34,15 +34,17 @@ torch==2.2.0+rocm5.7 torchvision==0.17.0+rocm5.7
 **After:**
 ```python
 "transformers>=4.35.0"
-"diffusers>=0.21.0"
+"diffusers>=0.25.0"
 "accelerate>=0.21.0"
+"huggingface_hub>=0.20.0"
 "numpy>=1.24.0,<2.0"
 ```
 
 **Rationale:** These updated versions are recommended for full compatibility with PyTorch 2.2.0:
 - **transformers>=4.35.0**: Full PyTorch 2.x support with optimizations
-- **diffusers>=0.21.0**: PyTorch 2.2.0 compatibility and performance improvements
+- **diffusers>=0.25.0**: Uses modern huggingface_hub API (fixes cached_download deprecation)
 - **accelerate>=0.21.0**: PyTorch 2.2.0 compatibility and enhanced device handling
+- **huggingface_hub>=0.20.0**: Provides new API (cached_download removed, hf_hub_download added)
 - **numpy>=1.24.0,<2.0**: PyTorch 2.2.0 requires numpy < 2.0 (constrained to prevent conflicts)
 
 ### 3. Updated setup_ai_models.py PyTorch Requirements
@@ -102,8 +104,9 @@ After the changes, all PyTorch version references are now correct and consistent
 | Dependency | Old Version | New Version | Status |
 |------------|-------------|-------------|--------|
 | transformers | >=4.30.2 | >=4.35.0 | ✅ Updated |
-| diffusers | >=0.18.2 | >=0.21.0 | ✅ Updated |
+| diffusers | >=0.18.2 | >=0.25.0 | ✅ Updated (fixes cached_download issue) |
 | accelerate | >=0.20.3 | >=0.21.0 | ✅ Updated |
+| huggingface_hub | (implicit) | >=0.20.0 | ✅ Added (explicit requirement) |
 | numpy | >=1.24.0 | >=1.24.0,<2.0 | ✅ Updated |
 | pillow | >=10.0.0 | >=10.0.0 | ✅ Compatible |
 
