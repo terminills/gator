@@ -61,7 +61,7 @@ async def generate_content(
 
             request = GenerationRequest(
                 content_type=ContentType.IMAGE,
-                prompt="AI generated content placeholder",
+                prompt="Create engaging social media content showcasing the persona's unique style and personality",
                 persona_id=None,  # Will use default persona or create one
             )
 
