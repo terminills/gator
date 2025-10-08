@@ -31,17 +31,35 @@ class AsyncTask(Task):
     """Base task class that supports async operations."""
 
     def __call__(self, *args, **kwargs):
-        """Execute task with async support."""
+        """
+        Execute task with async support.
+        
+        This method creates a new event loop and runs the task's run method,
+        which should be an async function when using this base class.
+        """
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            return loop.run_until_complete(self.run_async(*args, **kwargs))
+            # Check if the task's run method is async
+            if asyncio.iscoroutinefunction(self.run):
+                # If run is async, execute it directly
+                return loop.run_until_complete(self.run(*args, **kwargs))
+            else:
+                # Otherwise, try to call run_async (for subclasses that override it)
+                return loop.run_until_complete(self.run_async(*args, **kwargs))
         finally:
             loop.close()
 
     async def run_async(self, *args, **kwargs):
-        """Override this method for async task implementation."""
-        raise NotImplementedError()
+        """
+        Override this method for async task implementation in subclasses.
+        
+        This is a fallback method for tasks that don't define their own
+        async run method and need to implement custom async logic.
+        """
+        # Default implementation: no-op
+        # Subclasses should override this if they need custom async logic
+        return None
 
 
 @app.task(
