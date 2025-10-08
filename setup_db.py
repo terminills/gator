@@ -20,6 +20,8 @@ from backend.models.message import MessageModel
 from backend.models.ppv_offer import PPVOfferModel
 from backend.models.content import ContentModel
 from backend.models.feed import RSSFeedModel, FeedItemModel
+from backend.models.interactive_content import InteractiveContentModel, InteractiveContentResponse
+from backend.models.audience_segment import AudienceSegmentModel, PersonalizedContentModel, SegmentMemberModel
 from backend.config.logging import setup_logging, get_logger
 
 # Setup logging
@@ -49,6 +51,11 @@ async def create_tables():
         print("   • content - Generated AI content")
         print("   • rss_feeds - RSS feed sources")
         print("   • feed_items - RSS feed items")
+        print("   • interactive_content - Interactive content (polls, stories, Q&A)")
+        print("   • interactive_content_responses - Responses to interactive content")
+        print("   • audience_segments - Audience segmentation")
+        print("   • personalized_content - Personalized content mapping")
+        print("   • segment_members - Segment membership tracking")
 
         # Disconnect
         await database_manager.disconnect()
