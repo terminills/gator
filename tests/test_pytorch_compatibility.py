@@ -138,10 +138,12 @@ def test_ml_dependencies_compatibility():
     # Check for updated versions compatible with PyTorch 2.2.0
     assert 'transformers>=4.35.0' in content, \
         "transformers must be >=4.35.0 for PyTorch 2.2.0 compatibility"
-    assert 'diffusers>=0.21.0' in content, \
-        "diffusers must be >=0.21.0 for PyTorch 2.2.0 compatibility"
+    assert 'diffusers>=0.25.0' in content, \
+        "diffusers must be >=0.25.0 for huggingface_hub compatibility (cached_download removed)"
     assert 'accelerate>=0.21.0' in content, \
         "accelerate must be >=0.21.0 for PyTorch 2.2.0 compatibility"
+    assert 'huggingface_hub>=0.20.0' in content, \
+        "huggingface_hub must be >=0.20.0 (cached_download removed in this version)"
     
     # Check setup_ai_models.py as well
     setup_path = Path('setup_ai_models.py')
@@ -149,10 +151,12 @@ def test_ml_dependencies_compatibility():
     
     assert 'transformers>=4.35.0' in setup_content, \
         "setup_ai_models.py must specify transformers>=4.35.0"
-    assert 'diffusers>=0.21.0' in setup_content, \
-        "setup_ai_models.py must specify diffusers>=0.21.0"
+    assert 'diffusers>=0.25.0' in setup_content, \
+        "setup_ai_models.py must specify diffusers>=0.25.0"
     assert 'accelerate>=0.21.0' in setup_content, \
         "setup_ai_models.py must specify accelerate>=0.21.0"
+    assert 'huggingface_hub>=0.20.0' in setup_content, \
+        "setup_ai_models.py must specify huggingface_hub>=0.20.0"
     
     print("✓ ML dependencies are compatible with PyTorch 2.2.0")
 
