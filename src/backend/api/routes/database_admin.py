@@ -59,13 +59,13 @@ async def sync_schema(
         Dict with sync results including tables created
     """
     result = await service.sync_schema()
-    
+
     if not result["success"]:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=result.get("message", "Schema sync failed"),
         )
-    
+
     return result
 
 
@@ -83,13 +83,13 @@ async def create_backup(
         Dict with backup information (filename, path, size)
     """
     result = await service.create_backup()
-    
+
     if not result["success"]:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=result.get("message", "Backup creation failed"),
         )
-    
+
     return result
 
 
@@ -126,15 +126,15 @@ async def download_backup(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid filename",
         )
-    
+
     backup_path = service.backup_dir / filename
-    
+
     if not backup_path.exists() or not backup_path.is_file():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Backup file not found",
         )
-    
+
     return FileResponse(
         path=backup_path,
         filename=filename,

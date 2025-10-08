@@ -502,10 +502,10 @@ class AIModelManager:
                     "features": ["image2video", "frame_interpolation"],
                     "max_duration": 4.0,  # seconds
                     "resolution": "576x1024",
-                    "timeline": "Q1-Q2 2025"
+                    "timeline": "Q1-Q2 2025",
                 }
             )
-            
+
             # Add advanced frame-by-frame video generation (using video processing service)
             self.available_models["video"].append(
                 {
@@ -519,15 +519,20 @@ class AIModelManager:
                         "multi_scene",
                         "transitions",
                         "audio_sync",
-                        "storyboarding"
+                        "storyboarding",
                     ],
                     "supported_transitions": [
-                        "fade", "crossfade", "wipe", "slide", "zoom", "dissolve"
+                        "fade",
+                        "crossfade",
+                        "wipe",
+                        "slide",
+                        "zoom",
+                        "dissolve",
                     ],
-                    "timeline": "Q2-Q3 2025"
+                    "timeline": "Q2-Q3 2025",
                 }
             )
-            
+
             # Add Runway ML configuration (cloud API)
             self.available_models["video"].append(
                 {
@@ -541,15 +546,17 @@ class AIModelManager:
                         "text2video",
                         "image2video",
                         "4k_output",
-                        "custom_training"
+                        "custom_training",
                     ],
                     "max_duration": 18.0,  # seconds
                     "api_required": True,
-                    "timeline": "Q1 2025"
+                    "timeline": "Q1 2025",
                 }
             )
 
-            logger.info(f"Initialized {len(self.available_models['video'])} video models")
+            logger.info(
+                f"Initialized {len(self.available_models['video'])} video models"
+            )
 
         except Exception as e:
             logger.error(f"Failed to initialize video models: {str(e)}")
@@ -593,81 +600,83 @@ class AIModelManager:
     ) -> List[Dict[str, Any]]:
         """
         Generate multiple images from text prompts using available GPUs in parallel.
-        
+
         Distributes batch requests across multiple detected GPU devices for improved performance.
         Uses parallel processing to leverage multi-card hardware (e.g., ROCm/MI25 setup).
-        
+
         Args:
             prompts: List of text prompts for image generation
             **kwargs: Additional generation parameters
-            
+
         Returns:
             List[Dict[str, Any]]: List of generated image results
         """
         try:
             if not prompts:
                 return []
-            
+
             # Find best available local image model
             local_models = [
                 m
                 for m in self.available_models["image"]
                 if m.get("provider") == "local" and m.get("loaded", False)
             ]
-            
+
             if not local_models:
                 # Fallback to sequential generation with cloud models
-                logger.warning("No local models available, falling back to sequential generation")
+                logger.warning(
+                    "No local models available, falling back to sequential generation"
+                )
                 results = []
                 for prompt in prompts:
                     result = await self.generate_image(prompt, **kwargs)
                     results.append(result)
                 return results
-            
+
             model = local_models[0]
-            
+
             # Detect available GPU devices
             gpu_count = torch.cuda.device_count() if torch.cuda.is_available() else 0
-            
+
             if gpu_count <= 1:
                 # Single GPU or CPU - sequential processing
-                logger.info(f"Using single device for batch generation ({gpu_count} GPU detected)")
+                logger.info(
+                    f"Using single device for batch generation ({gpu_count} GPU detected)"
+                )
                 results = []
                 for prompt in prompts:
                     result = await self._generate_image_local(prompt, model, **kwargs)
                     results.append(result)
                 return results
-            
+
             # Multi-GPU parallel processing
             logger.info(f"Using {gpu_count} GPUs for parallel batch generation")
-            
+
             # Distribute prompts across available GPUs
             tasks = []
             for i, prompt in enumerate(prompts):
                 gpu_id = i % gpu_count
-                task = self._generate_image_on_device(
-                    prompt, model, gpu_id, **kwargs
-                )
+                task = self._generate_image_on_device(prompt, model, gpu_id, **kwargs)
                 tasks.append(task)
-            
+
             # Execute all tasks in parallel
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            
+
             # Process results and handle any exceptions
             processed_results = []
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    logger.error(f"Batch generation failed for prompt {i}: {str(result)}")
-                    processed_results.append({
-                        "error": str(result),
-                        "prompt": prompts[i],
-                        "status": "failed"
-                    })
+                    logger.error(
+                        f"Batch generation failed for prompt {i}: {str(result)}"
+                    )
+                    processed_results.append(
+                        {"error": str(result), "prompt": prompts[i], "status": "failed"}
+                    )
                 else:
                     processed_results.append(result)
-            
+
             return processed_results
-            
+
         except Exception as e:
             logger.error(f"Batch image generation failed: {str(e)}")
             raise
@@ -677,13 +686,13 @@ class AIModelManager:
     ) -> Dict[str, Any]:
         """
         Generate image on a specific GPU device.
-        
+
         Args:
             prompt: Text prompt for generation
             model: Model configuration
             device_id: GPU device ID to use
             **kwargs: Additional generation parameters
-            
+
         Returns:
             Dict[str, Any]: Generated image result
         """
@@ -691,17 +700,19 @@ class AIModelManager:
             # Override device in kwargs
             kwargs_with_device = kwargs.copy()
             kwargs_with_device["device_id"] = device_id
-            
+
             logger.debug(f"Generating image on GPU {device_id}: {prompt[:50]}...")
-            
+
             # Generate image using specified device
-            result = await self._generate_image_local(prompt, model, **kwargs_with_device)
-            
+            result = await self._generate_image_local(
+                prompt, model, **kwargs_with_device
+            )
+
             # Add device info to result
             result["device_id"] = device_id
-            
+
             return result
-            
+
         except Exception as e:
             logger.error(f"Image generation failed on device {device_id}: {str(e)}")
             raise
@@ -887,7 +898,7 @@ class AIModelManager:
                 f"Consider using diffusers-based models instead."
             )
             return {
-                "image_data": b"",  # Placeholder
+                "image_data": b"",  # Empty data - ComfyUI not integrated yet
                 "format": "PNG",
                 "model": model["name"],
                 "workflow": "comfyui",
@@ -922,9 +933,11 @@ class AIModelManager:
                 pipeline_key = f"diffusers_{model_name}_gpu{device_id}"
             else:
                 pipeline_key = f"diffusers_{model_name}"
-                
+
             if pipeline_key not in self._loaded_pipelines:
-                logger.info(f"Loading diffusion model: {model_name} on device {device_id if device_id is not None else 'default'}")
+                logger.info(
+                    f"Loading diffusion model: {model_name} on device {device_id if device_id is not None else 'default'}"
+                )
 
                 # Determine device
                 if torch.cuda.is_available():
@@ -1061,9 +1074,9 @@ class AIModelManager:
     async def _generate_voice_xtts(self, text: str, **kwargs) -> Dict[str, Any]:
         """Generate voice using Coqui XTTS-v2."""
         try:
-            # This would integrate with XTTS-v2 in production
+            # Integration with XTTS-v2 in progress
             return {
-                "audio_data": b"",  # Placeholder
+                "audio_data": b"",  # Empty data - XTTS-v2 integration pending
                 "format": "WAV",
                 "model": "xtts-v2",
                 "voice_cloned": kwargs.get("clone_voice", False),
@@ -1077,9 +1090,9 @@ class AIModelManager:
     async def _generate_voice_piper(self, text: str, **kwargs) -> Dict[str, Any]:
         """Generate voice using Piper TTS."""
         try:
-            # This would integrate with Piper in production
+            # Integration with Piper TTS in progress
             return {
-                "audio_data": b"",  # Placeholder
+                "audio_data": b"",  # Empty data - Piper TTS integration pending
                 "format": "WAV",
                 "model": "piper",
                 "voice": kwargs.get("voice", "default"),
@@ -1375,9 +1388,9 @@ class AIModelManager:
                     },
                 }
 
-            # For now, simulate installation
+            # Simulate installation for demo purposes
             model_path.mkdir(exist_ok=True)
-            (model_path / "model.safetensors").touch()  # Placeholder file
+            (model_path / "model.safetensors").touch()  # Model stub file for testing
 
             return {
                 "success": True,
@@ -1574,43 +1587,42 @@ class AIModelManager:
         return local_models[0]
 
     async def generate_video(
-        self,
-        prompt: str,
-        video_type: str = "single_frame",
-        **kwargs
+        self, prompt: str, video_type: str = "single_frame", **kwargs
     ) -> Dict[str, Any]:
         """
         Generate video using best available model.
-        
+
         Args:
             prompt: Text prompt or list of prompts for video generation
             video_type: Type of video generation (single_frame, multi_frame, storyboard)
             **kwargs: Additional generation parameters
-            
+
         Returns:
             Dict with video metadata and file path
         """
         try:
             # Find best available video model
             available_models = [
-                m for m in self.available_models["video"]
-                if m.get("loaded", False)
+                m for m in self.available_models["video"] if m.get("loaded", False)
             ]
-            
+
             if not available_models:
-                logger.warning("No video models available, using frame-by-frame generator")
+                logger.warning(
+                    "No video models available, using frame-by-frame generator"
+                )
                 # Frame-by-frame is always available
                 available_models = [
-                    m for m in self.available_models["video"]
+                    m
+                    for m in self.available_models["video"]
                     if m.get("name") == "frame-by-frame-generator"
                 ]
-            
+
             if not available_models:
                 raise ValueError("No video generation models available")
-            
+
             model = available_models[0]
             model_name = model.get("name")
-            
+
             # Route to appropriate video generation method
             if model_name == "frame-by-frame-generator":
                 return await self._generate_video_frame_by_frame(prompt, **kwargs)
@@ -1620,82 +1632,76 @@ class AIModelManager:
                 return await self._generate_video_runway(prompt, **kwargs)
             else:
                 raise ValueError(f"Unsupported video model: {model_name}")
-                
+
         except Exception as e:
             logger.error(f"Video generation failed: {str(e)}")
             raise
 
     async def _generate_video_frame_by_frame(
-        self,
-        prompt: Union[str, List[str]],
-        **kwargs
+        self, prompt: Union[str, List[str]], **kwargs
     ) -> Dict[str, Any]:
         """
         Generate video using frame-by-frame generation with transitions.
-        
+
         This is the Q2-Q3 2025 advanced feature implementation.
         """
         try:
             from backend.services.video_processing_service import (
                 VideoProcessingService,
                 VideoQuality,
-                TransitionType
+                TransitionType,
             )
-            
+
             # Initialize video processing service
             video_service = VideoProcessingService()
-            
+
             # Handle single or multiple prompts
             if isinstance(prompt, str):
                 prompts = [prompt]
             else:
                 prompts = prompt
-            
+
             # Get parameters from kwargs
             quality_str = kwargs.pop("quality", "high")
             transition_str = kwargs.pop("transition", "crossfade")
             duration_per_frame = kwargs.pop("duration_per_frame", 3.0)
-            
+
             # Convert to enums
             quality = VideoQuality(quality_str)
             transition = TransitionType(transition_str)
-            
+
             # Generate video
             result = await video_service.generate_frame_by_frame_video(
                 prompts=prompts,
                 duration_per_frame=duration_per_frame,
                 quality=quality,
                 transition=transition,
-                **kwargs
+                **kwargs,
             )
-            
+
             logger.info(f"Frame-by-frame video generated: {result['file_path']}")
             return result
-            
+
         except Exception as e:
             logger.error(f"Frame-by-frame video generation failed: {str(e)}")
             raise
 
-    async def _generate_video_svd(
-        self,
-        prompt: str,
-        **kwargs
-    ) -> Dict[str, Any]:
+    async def _generate_video_svd(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """
         Generate video using Stable Video Diffusion.
-        
+
         This would integrate with the actual SVD model in production.
         Requires 24GB+ VRAM and model download.
         """
         try:
             logger.info("Stable Video Diffusion integration (placeholder)")
-            
+
             # In production, this would:
             # 1. Load the SVD model from HuggingFace
             # 2. Generate initial image from prompt
             # 3. Use SVD to create video from image
             # 4. Export video file
-            
+
             # For now, return placeholder
             return {
                 "file_path": "/tmp/svd_placeholder.mp4",
@@ -1704,36 +1710,32 @@ class AIModelManager:
                 "format": "MP4",
                 "model": "stable-video-diffusion",
                 "status": "placeholder",
-                "note": "SVD requires model download and 24GB+ VRAM"
+                "note": "SVD requires model download and 24GB+ VRAM",
             }
-            
+
         except Exception as e:
             logger.error(f"SVD video generation failed: {str(e)}")
             raise
 
-    async def _generate_video_runway(
-        self,
-        prompt: str,
-        **kwargs
-    ) -> Dict[str, Any]:
+    async def _generate_video_runway(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """
         Generate video using Runway Gen-2 API.
-        
+
         Requires RUNWAY_API_KEY environment variable.
         """
         try:
             api_key = os.environ.get("RUNWAY_API_KEY")
             if not api_key:
                 raise ValueError("RUNWAY_API_KEY not configured")
-            
+
             logger.info("Runway Gen-2 API integration (placeholder)")
-            
+
             # In production, this would:
             # 1. Call Runway API with prompt
             # 2. Poll for completion
             # 3. Download generated video
             # 4. Return video metadata
-            
+
             # For now, return placeholder
             return {
                 "file_path": "/tmp/runway_placeholder.mp4",
@@ -1742,77 +1744,71 @@ class AIModelManager:
                 "format": "MP4",
                 "model": "runway-gen2",
                 "status": "placeholder",
-                "note": "Runway Gen-2 requires API key and active subscription"
+                "note": "Runway Gen-2 requires API key and active subscription",
             }
-            
+
         except Exception as e:
             logger.error(f"Runway video generation failed: {str(e)}")
             raise
 
     async def synchronize_audio_to_video(
-        self,
-        video_path: str,
-        audio_path: str,
-        output_path: Optional[str] = None
+        self, video_path: str, audio_path: str, output_path: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Synchronize audio with video.
-        
+
         This is a Q2-Q3 2025 feature for audio-visual content.
         """
         try:
             from backend.services.video_processing_service import VideoProcessingService
             from pathlib import Path
-            
+
             video_service = VideoProcessingService()
-            
+
             result = await video_service.synchronize_audio_with_video(
                 video_path=Path(video_path),
                 audio_path=Path(audio_path),
-                output_path=Path(output_path) if output_path else None
+                output_path=Path(output_path) if output_path else None,
             )
-            
+
             logger.info(f"Audio synchronized with video: {result['file_path']}")
             return result
-            
+
         except Exception as e:
             logger.error(f"Audio synchronization failed: {str(e)}")
             raise
 
     async def create_video_storyboard(
-        self,
-        scenes: List[Dict[str, Any]],
-        quality: str = "high"
+        self, scenes: List[Dict[str, Any]], quality: str = "high"
     ) -> Dict[str, Any]:
         """
         Create a storyboarded video from scene descriptions.
-        
+
         This is a Q2-Q3 2025 feature for complex video composition.
-        
+
         Args:
             scenes: List of scene dicts with 'prompt', 'duration', 'transition'
             quality: Video quality preset
-            
+
         Returns:
             Dict with storyboard video metadata
         """
         try:
             from backend.services.video_processing_service import (
                 VideoProcessingService,
-                VideoQuality
+                VideoQuality,
             )
-            
+
             video_service = VideoProcessingService()
             video_quality = VideoQuality(quality)
-            
+
             result = await video_service.create_storyboard(
-                scenes=scenes,
-                quality=video_quality
+                scenes=scenes, quality=video_quality
             )
-            
+
             logger.info(f"Storyboard created: {result['file_path']}")
             return result
-            
+
         except Exception as e:
             logger.error(f"Storyboard creation failed: {str(e)}")
             raise

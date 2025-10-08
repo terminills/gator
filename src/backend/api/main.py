@@ -132,7 +132,7 @@ def create_app() -> FastAPI:
     app.include_router(sentiment.router, prefix="/api/v1")
     app.include_router(interactive.router)
     app.include_router(segments.router)
-    
+
     # WebSocket endpoint for real-time communication
     @app.websocket("/ws/{user_id}")
     async def websocket_route(websocket: WebSocket, user_id: str):

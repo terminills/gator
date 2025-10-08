@@ -17,32 +17,29 @@ logger = get_logger(__name__)
 class TemplateService:
     """
     Service for sophisticated template-based content generation.
-    
+
     Provides enhanced fallback text generation using persona characteristics,
     style preferences, and prompt analysis with multi-dimensional scoring.
     """
-    
+
     def __init__(self):
         """Initialize the template service."""
         pass
-    
+
     def generate_fallback_text(
-        self, 
-        persona: PersonaModel, 
-        prompt: str = None,
-        content_rating: str = "sfw"
+        self, persona: PersonaModel, prompt: str = None, content_rating: str = "sfw"
     ) -> str:
         """
         Create enhanced fallback text using persona characteristics and prompt analysis.
-        
+
         Uses base_appearance_description when appearance_locked is True for consistency.
         Leverages style_preferences for sophisticated content styling and tone.
-        
+
         Args:
             persona: PersonaModel with all persona characteristics
             prompt: Optional prompt for context-aware generation
             content_rating: Content rating for the generated text
-            
+
         Returns:
             str: Generated fallback text with persona-appropriate styling
         """
@@ -62,9 +59,7 @@ class TemplateService:
             if persona.content_themes
             else ["lifestyle", "thoughts"]
         )
-        prompt_keywords = (
-            prompt.lower().split() if prompt else ["content"]
-        )
+        prompt_keywords = prompt.lower().split() if prompt else ["content"]
 
         # Extract style preferences for sophisticated content styling
         style_prefs = persona.style_preferences or {}
@@ -83,9 +78,7 @@ class TemplateService:
         )
 
         # Determine voice modifiers
-        voice_modifiers = self._determine_voice_modifiers(
-            tone_pref, personality_full
-        )
+        voice_modifiers = self._determine_voice_modifiers(tone_pref, personality_full)
 
         # Generate templates based on style
         templates = self._generate_templates_for_style(
@@ -93,9 +86,7 @@ class TemplateService:
         )
 
         # Select template with sophisticated logic
-        selected_template = self._select_weighted_template(
-            templates, prompt_keywords
-        )
+        selected_template = self._select_weighted_template(templates, prompt_keywords)
 
         # Apply dynamic customization
         customized_template = self._customize_template(
@@ -103,23 +94,20 @@ class TemplateService:
         )
 
         return customized_template
-    
+
     def _determine_content_style(
-        self,
-        personality_traits: List[str],
-        aesthetic: str,
-        voice_style: str
+        self, personality_traits: List[str], aesthetic: str, voice_style: str
     ) -> str:
         """
         Determine content style using multi-attribute scoring.
-        
+
         This replaces simple keyword matching with weighted analysis.
-        
+
         Args:
             personality_traits: List of personality trait strings
             aesthetic: Aesthetic preference from style_preferences
             voice_style: Voice style from style_preferences
-            
+
         Returns:
             str: Determined style ("creative", "professional", "tech", or "casual")
         """
@@ -186,23 +174,20 @@ class TemplateService:
             if max(style_scores.values()) > 0
             else "casual"
         )
-        
+
         return style
-    
+
     def _generate_appearance_context(
-        self,
-        persona: PersonaModel,
-        appearance_desc: str,
-        aesthetic: str
+        self, persona: PersonaModel, appearance_desc: str, aesthetic: str
     ) -> str:
         """
         Generate dynamic appearance context based on multiple factors.
-        
+
         Args:
             persona: PersonaModel instance
             appearance_desc: Appearance description text
             aesthetic: Aesthetic preference
-            
+
         Returns:
             str: Appearance context string to append to templates
         """
@@ -230,21 +215,19 @@ class TemplateService:
                 appearance_context = " (keeping it authentic and real)"
             elif "tech" in appearance_keywords or aesthetic in ["modern", "futuristic"]:
                 appearance_context = " (maintaining my tech-forward presence)"
-        
+
         return appearance_context
-    
+
     def _determine_voice_modifiers(
-        self,
-        tone_pref: str,
-        personality_full: str
+        self, tone_pref: str, personality_full: str
     ) -> List[str]:
         """
         Determine voice modifiers based on style_preferences and personality.
-        
+
         Args:
             tone_pref: Tone preference from style_preferences
             personality_full: Full personality text
-            
+
         Returns:
             List[str]: List of voice modifiers
         """
@@ -257,30 +240,30 @@ class TemplateService:
             voice_modifiers.append("passionate")
         if "analytical" in personality_full or "data" in personality_full:
             voice_modifiers.append("analytical")
-        
+
         return voice_modifiers
-    
+
     def _generate_templates_for_style(
         self,
         style: str,
         themes: List[str],
         appearance_context: str,
-        voice_modifiers: List[str]
+        voice_modifiers: List[str],
     ) -> List[str]:
         """
         Generate content templates based on style and themes with enhanced variation.
-        
+
         Args:
             style: Content style ("creative", "professional", "tech", or "casual")
             themes: List of content themes
             appearance_context: Appearance context string
             voice_modifiers: List of voice modifiers
-            
+
         Returns:
             List[str]: List of template strings
         """
         templates = []
-        
+
         if style == "creative":
             templates = [
                 f"🎨 Exploring the intersection of {themes[0]} and creativity today{appearance_context}. There's something magical about how innovation sparks when we blend different perspectives. What inspires your creative process? #creativity #{themes[0].replace(' ', '')} #inspiration",
@@ -341,21 +324,19 @@ class TemplateService:
                 templates.append(
                     f"🔥 Can we talk about {themes[0]} for a sec{appearance_context}? This stuff really matters and I'm genuinely excited to dive deeper. The more I learn, the more fascinated I become. Who else is on this journey with me? #{themes[0].replace(' ', '')}"
                 )
-        
+
         return templates
-    
+
     def _select_weighted_template(
-        self,
-        templates: List[str],
-        prompt_keywords: List[str]
+        self, templates: List[str], prompt_keywords: List[str]
     ) -> str:
         """
         Select template with sophisticated logic considering multiple factors.
-        
+
         Args:
             templates: List of template strings
             prompt_keywords: Keywords from the prompt
-            
+
         Returns:
             str: Selected template
         """
@@ -406,39 +387,35 @@ class TemplateService:
 
         # Use weighted random selection for more contextual results
         selected_template = random.choices(templates, weights=template_weights, k=1)[0]
-        
+
         return selected_template
-    
-    def _customize_template(
-        self,
-        template: str,
-        prompt_keywords: List[str]
-    ) -> str:
+
+    def _customize_template(self, template: str, prompt_keywords: List[str]) -> str:
         """
         Apply dynamic customization based on prompt keywords.
-        
+
         Args:
             template: Template string to customize
             prompt_keywords: Keywords from the prompt
-            
+
         Returns:
             str: Customized template
         """
         customized = template
-        
+
         # Apply dynamic customization based on prompt keywords
         if any(
             keyword in ["trends", "future", "upcoming"] for keyword in prompt_keywords
         ):
-            customized = customized.replace(
-                "today", "for the future"
-            ).replace("Today's", "Upcoming")
+            customized = customized.replace("today", "for the future").replace(
+                "Today's", "Upcoming"
+            )
         elif any(
             keyword in ["analysis", "study", "research"] for keyword in prompt_keywords
         ):
-            customized = customized.replace(
-                "thoughts", "analysis"
-            ).replace("thinking", "researching")
+            customized = customized.replace("thoughts", "analysis").replace(
+                "thinking", "researching"
+            )
         elif any(
             keyword in ["community", "together", "social"]
             for keyword in prompt_keywords
@@ -449,5 +426,5 @@ class TemplateService:
                 for word in ["share", "thoughts", "perspective"]
             ):
                 customized += " 🤝"
-        
+
         return customized

@@ -15,18 +15,18 @@ def setup_logging() -> None:
     # Simple console logging for now
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[logging.StreamHandler(sys.stdout)]
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)],
     )
 
 
 def get_logger(name: str) -> logging.Logger:
     """
     Get a logger instance.
-    
+
     Args:
         name: Logger name (usually __name__)
-        
+
     Returns:
         Logger instance
     """
