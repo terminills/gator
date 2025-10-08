@@ -470,12 +470,12 @@ class ModelSetupManager:
     def install_dependencies(self) -> None:
         """Install required Python packages for AI models."""
         required_packages = [
-            "torch>=2.2.0",
-            "torchvision>=0.17.0", 
-            "transformers>=4.35.0",
-            "diffusers>=0.25.0",
-            "accelerate>=0.21.0",
-            "huggingface_hub>=0.20.0",
+            "torch>=2.3.0",
+            "torchvision>=0.18.0", 
+            "transformers>=4.41.0",
+            "diffusers>=0.28.0",
+            "accelerate>=0.29.0",
+            "huggingface_hub>=0.23.0",
             "pillow>=10.0.0",
             "requests>=2.31.0",
             "httpx>=0.24.0",
