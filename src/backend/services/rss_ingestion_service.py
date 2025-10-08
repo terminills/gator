@@ -176,7 +176,9 @@ class RSSIngestionService:
             topic_counts = {}
             for item in items:
                 # Extract keywords from title and categories
-                keywords = self._extract_keywords(item.title, item.categories)
+                keywords = self._extract_keywords_from_title_and_categories(
+                    item.title, item.categories
+                )
                 for keyword in keywords:
                     if keyword not in topic_counts:
                         topic_counts[keyword] = {
@@ -808,7 +810,9 @@ class RSSIngestionService:
 
         return min(100, base_score)
 
-    def _extract_keywords(self, title: str, categories: List[str]) -> List[str]:
+    def _extract_keywords_from_title_and_categories(
+        self, title: str, categories: List[str]
+    ) -> List[str]:
         """Extract keywords from title and categories."""
         keywords = []
 
