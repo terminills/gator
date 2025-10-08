@@ -162,6 +162,72 @@ The test suite (`tests/test_pytorch_compatibility.py`) validates:
 - Version consistency across all files
 - ML dependency compatibility with PyTorch 2.3.1
 
+## Verification Methods
+
+### Method 1: Check Versions via Web UI (Recommended)
+The easiest way to verify your installation is through the AI Models Setup page:
+
+1. Start the Gator API server:
+   ```bash
+   cd src && python -m backend.api.main
+   ```
+
+2. Open your browser and navigate to:
+   ```
+   http://localhost:8000/ai-models-setup
+   ```
+
+3. The page will display:
+   - Current installed versions of all ML packages
+   - Required versions for PyTorch 2.3.1 compatibility (MI-25 GPU)
+   - Color-coded status indicators (✓ compatible, ⚠️ version mismatch, ✗ not installed)
+   - Compatibility note for AMD MI-25 GPUs with ROCm 5.7
+
+### Method 2: Command-Line Verification
+Run the included test suite to validate PyTorch and ML dependency versions:
+
+```bash
+python tests/test_pytorch_compatibility.py
+```
+
+**Expected output:**
+```
+Running PyTorch 2.3.1 compatibility tests...
+
+✓ pyproject.toml specifies PyTorch 2.3.1+rocm5.7
+✓ server-setup.sh installs PyTorch 2.3.1+rocm5.7
+✓ setup_ai_models.py requires torch>=2.3.0
+✓ PyTorch version references are consistent across files
+✓ PyTorch 2.3.1+rocm5.7 aligns with ROCm 5.7.1
+✓ No conflicting PyTorch versions found
+✓ ML dependencies are compatible with PyTorch 2.3.1
+✓ numpy version is constrained to <2.0 for PyTorch 2.3.1 compatibility
+
+============================================================
+✅ All 8 tests passed!
+PyTorch 2.3.1 compatibility confirmed for ROCm 5.7.1
+```
+
+### Method 3: Check Installed Versions Manually
+You can also check package versions directly:
+
+```bash
+python -c "import torch; print(f'PyTorch: {torch.__version__}')"
+python -c "import diffusers; print(f'diffusers: {diffusers.__version__}')"
+python -c "import transformers; print(f'transformers: {transformers.__version__}')"
+python -c "import accelerate; print(f'accelerate: {accelerate.__version__}')"
+python -c "import huggingface_hub; print(f'huggingface_hub: {huggingface_hub.__version__}')"
+```
+
+**Expected output:**
+```
+PyTorch: 2.3.1+rocm5.7
+diffusers: 0.28.0 or higher
+transformers: 4.41.0 or higher
+accelerate: 0.29.0 or higher
+huggingface_hub: 0.23.0 or higher
+```
+
 ## References
 - [PyTorch ROCm Installation](https://pytorch.org/get-started/locally/)
 - [PyTorch ROCm 5.7 Packages](https://download.pytorch.org/whl/rocm5.7/)
