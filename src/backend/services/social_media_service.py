@@ -188,7 +188,7 @@ class SocialMediaService:
     
     async def schedule_post(self, request: PostRequest) -> List[str]:
         """
-        Schedule content for future publishing.
+        Schedule content for future publishing using Celery task queue.
         
         Args:
             request: Publishing request with schedule time
@@ -203,15 +203,30 @@ class SocialMediaService:
             if request.schedule_time <= datetime.utcnow():
                 raise ValueError("Schedule time must be in the future")
             
-            # Store scheduled post (in production, use a job queue like Celery)
+            # Import here to avoid circular dependencies
+            from backend.tasks.social_media_tasks import publish_scheduled_post
+            
             schedule_ids = []
             
             for platform in request.platforms:
                 schedule_id = f"schedule_{platform}_{datetime.utcnow().timestamp()}"
                 
-                # TODO: Implement actual scheduling with job queue
-                # For now, just log the scheduling request
-                logger.info(f"Post scheduled schedule_id={schedule_id} platform={platform} schedule_time={request.schedule_time} content_id={request.content_id}")
+                # Prepare post data for Celery task
+                post_data = {
+                    'content_id': request.content_id,
+                    'platforms': [platform],
+                    'caption': request.caption,
+                    'hashtags': request.hashtags or [],
+                    'schedule_time': request.schedule_time.isoformat()
+                }
+                
+                # Schedule task with Celery using ETA (estimated time of arrival)
+                task = publish_scheduled_post.apply_async(
+                    args=[schedule_id, post_data],
+                    eta=request.schedule_time
+                )
+                
+                logger.info(f"Post scheduled with Celery: schedule_id={schedule_id} platform={platform} schedule_time={request.schedule_time} task_id={task.id}")
                 
                 schedule_ids.append(schedule_id)
             
