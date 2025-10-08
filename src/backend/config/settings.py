@@ -119,6 +119,34 @@ class Settings(BaseSettings):
         default=False,
         description="Enable Prometheus metrics"
     )
+    
+    # Redis/Celery configuration
+    redis_url: str = Field(
+        default="redis://localhost:6379/0",
+        description="Redis connection URL for Celery task queue"
+    )
+    celery_broker_url: Optional[str] = Field(
+        default=None,
+        description="Celery broker URL (defaults to redis_url if not set)"
+    )
+    celery_result_backend: Optional[str] = Field(
+        default=None,
+        description="Celery result backend URL (defaults to redis_url if not set)"
+    )
+    
+    # Backup configuration
+    backup_dir: str = Field(
+        default="/backups",
+        description="Directory for storing automated backups"
+    )
+    backup_retention_days: int = Field(
+        default=30,
+        description="Number of days to retain backups"
+    )
+    content_storage_path: str = Field(
+        default="generated_content",
+        description="Path to generated content directory"
+    )
 
 
 @lru_cache()
