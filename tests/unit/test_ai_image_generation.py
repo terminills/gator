@@ -39,11 +39,11 @@ class TestImageGeneration:
         # Check that we have image model configurations
         assert "image" in model_manager.local_model_configs
         image_configs = model_manager.local_model_configs["image"]
-        
+
         # Should have stable-diffusion-v1-5 as a diffusers model
         assert "stable-diffusion-v1-5" in image_configs
         sd_config = image_configs["stable-diffusion-v1-5"]
-        
+
         assert sd_config["inference_engine"] == "diffusers"
         assert sd_config["model_id"] == "runwayml/stable-diffusion-v1-5"
         assert "size_gb" in sd_config
@@ -54,10 +54,12 @@ class TestImageGeneration:
     async def test_generate_image_with_no_models(self, model_manager):
         """Test that generate_image raises error when no models are available."""
         await model_manager.initialize_models()
-        
+
         # If no models are available, should raise ValueError
         if not model_manager.available_models["image"]:
-            with pytest.raises(ValueError, match="No image generation models available"):
+            with pytest.raises(
+                ValueError, match="No image generation models available"
+            ):
                 await model_manager.generate_image("test prompt")
 
     @pytest.mark.asyncio
@@ -70,7 +72,7 @@ class TestImageGeneration:
             "format": "PNG",
             "model": "test-model",
         }
-        
+
         # Add a fake local model
         model_manager.available_models["image"] = [
             {
@@ -80,10 +82,12 @@ class TestImageGeneration:
                 "inference_engine": "diffusers",
             }
         ]
-        
+
         # Call generate_image
-        result = await model_manager.generate_image("test prompt", width=512, height=512)
-        
+        result = await model_manager.generate_image(
+            "test prompt", width=512, height=512
+        )
+
         # Verify diffusers was called
         mock_diffusers.assert_called_once()
         assert result["image_data"] == b"fake_image_data"
@@ -93,10 +97,10 @@ class TestImageGeneration:
     async def test_diffusers_method_signature(self, model_manager):
         """Test that _generate_image_diffusers has correct signature."""
         import inspect
-        
+
         sig = inspect.signature(model_manager._generate_image_diffusers)
         params = list(sig.parameters.keys())
-        
+
         assert "prompt" in params
         assert "model" in params
         assert "kwargs" in params
@@ -114,27 +118,27 @@ class TestImageGeneration:
         mock_pipe_instance.to.return_value = mock_pipe_instance
         mock_pipe_instance.scheduler = MagicMock()
         mock_pipe_instance.scheduler.config = {}
-        
+
         # Mock the image generation
         mock_image = MagicMock()
         mock_image_bytes = io.BytesIO()
         mock_image.save = lambda buf, format: mock_image_bytes.write(b"fake_png_data")
         mock_pipe_instance.return_value.images = [mock_image]
-        
+
         mock_pipeline.from_pretrained.return_value = mock_pipe_instance
-        
+
         # Create test model config
         test_model = {
             "name": "test-sd-model",
             "model_id": "test/model-id",
         }
-        
+
         # Call the method
         try:
             result = await model_manager._generate_image_diffusers(
                 "test prompt", test_model, width=512, height=512
             )
-            
+
             # Verify pipeline was loaded
             mock_pipeline.from_pretrained.assert_called()
             assert "image_data" in result
@@ -152,11 +156,9 @@ class TestImageGeneration:
             "name": "test-comfyui-model",
             "model_id": "test/comfyui",
         }
-        
-        result = await model_manager._generate_image_comfyui(
-            "test prompt", test_model
-        )
-        
+
+        result = await model_manager._generate_image_comfyui("test prompt", test_model)
+
         assert result["status"] == "not_implemented"
         assert result["workflow"] == "comfyui"
         assert "not_implemented" in result["status"].lower()
@@ -178,17 +180,16 @@ class TestImageGeneration:
                 "loaded": True,
             },
         ]
-        
-        with patch.object(
-            model_manager, "_generate_image_local"
-        ) as mock_local, patch.object(
-            model_manager, "_generate_image_openai"
-        ) as mock_openai:
+
+        with (
+            patch.object(model_manager, "_generate_image_local") as mock_local,
+            patch.object(model_manager, "_generate_image_openai") as mock_openai,
+        ):
             mock_local.return_value = {"image_data": b"local"}
             mock_openai.return_value = {"image_data": b"openai"}
-            
+
             result = await model_manager.generate_image("test")
-            
+
             # Should call local, not openai
             mock_local.assert_called_once()
             mock_openai.assert_not_called()
@@ -198,10 +199,10 @@ class TestImageGeneration:
         """Test that pipelines are cached after loading."""
         # Initially empty
         assert len(model_manager._loaded_pipelines) == 0
-        
+
         # After adding a mock pipeline
         model_manager._loaded_pipelines["test_pipeline"] = MagicMock()
-        
+
         assert len(model_manager._loaded_pipelines) == 1
         assert "test_pipeline" in model_manager._loaded_pipelines
 
@@ -215,18 +216,16 @@ class TestImageGeneration:
             "inference_engine": "diffusers",
             "model_id": "test/model",
         }
-        
+
         model_manager.available_models["image"] = [test_model]
-        
-        with patch.object(
-            model_manager, "_generate_image_diffusers"
-        ) as mock_diffusers:
+
+        with patch.object(model_manager, "_generate_image_diffusers") as mock_diffusers:
             mock_diffusers.return_value = {
                 "image_data": b"test",
                 "width": 1024,
                 "height": 768,
             }
-            
+
             result = await model_manager.generate_image(
                 "test prompt",
                 width=1024,
@@ -235,7 +234,7 @@ class TestImageGeneration:
                 guidance_scale=8.0,
                 seed=42,
             )
-            
+
             # Check that parameters were passed
             call_kwargs = mock_diffusers.call_args[1]
             assert call_kwargs["width"] == 1024
