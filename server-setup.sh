@@ -540,7 +540,7 @@ if [[ $INSTALL_ROCM_SUPPORT == true ]]; then
     # Try installing with [rocm] extra
     sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e .[rocm] --index-url https://download.pytorch.org/whl/rocm5.7 --extra-index-url https://pypi.org/simple --no-cache-dir || {
         warn "Failed to install torch with [rocm] extra. Attempting to install torch and torchvision separately."
-        sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install torch==2.2.0+rocm5.7 torchvision==0.17.0+rocm5.7 --index-url https://download.pytorch.org/whl/rocm5.7 --extra-index-url https://pypi.org/simple --no-cache-dir
+        sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install torch==2.3.1+rocm5.7 torchvision==0.18.1+rocm5.7 --index-url https://download.pytorch.org/whl/rocm5.7 --extra-index-url https://pypi.org/simple --no-cache-dir
         sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e . --extra-index-url https://pypi.org/simple --no-cache-dir
     }
 else
