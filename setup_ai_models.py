@@ -193,6 +193,34 @@ class ModelSetupManager:
         
         return total_memory / (1024 ** 3)  # Convert to GB
     
+    def get_gpu_details(self) -> List[Dict]:
+        """Get detailed information for each GPU device."""
+        if not self.has_gpu or not TORCH_AVAILABLE:
+            return []
+        
+        gpu_details = []
+        for i in range(self.gpu_count):
+            try:
+                props = torch.cuda.get_device_properties(i)
+                gpu_info = {
+                    "device_id": i,
+                    "name": torch.cuda.get_device_name(i),
+                    "total_memory_gb": props.total_memory / (1024 ** 3),
+                    "compute_capability": f"{props.major}.{props.minor}",
+                    "multi_processor_count": props.multi_processor_count,
+                }
+                gpu_details.append(gpu_info)
+            except Exception as e:
+                print(f"Warning: Could not get properties for GPU {i}: {e}")
+                gpu_details.append({
+                    "device_id": i,
+                    "name": "Unknown GPU",
+                    "total_memory_gb": 0,
+                    "error": str(e)
+                })
+        
+        return gpu_details
+    
     def _detect_gpu_type(self) -> str:
         """Detect GPU type (CUDA, ROCm, or CPU)."""
         try:
@@ -231,6 +259,20 @@ class ModelSetupManager:
         except Exception:
             pass
         return "cpu"
+    
+    def get_rocm_version(self) -> Optional[str]:
+        """Get ROCm build version from PyTorch if available."""
+        if not TORCH_AVAILABLE:
+            return None
+        
+        try:
+            # Check for ROCm version in torch.version
+            if hasattr(torch.version, 'hip'):
+                return getattr(torch.version, 'hip', None)
+        except Exception:
+            pass
+        
+        return None
     
     def _get_recommended_inference_engines(self, gpu_type: str) -> Dict[str, str]:
         """Get recommended inference engines based on hardware."""
@@ -293,9 +335,16 @@ class ModelSetupManager:
             "gpu_type": self.gpu_type,
             "gpu_count": self.gpu_count,
             "gpu_memory_gb": self.gpu_memory,
+            "gpu_devices": self.get_gpu_details(),
             "disk_space_gb": shutil.disk_usage(self.models_dir).free / (1024 ** 3),
             "recommended_engines": self._get_recommended_inference_engines(self.gpu_type)
         }
+        
+        # Add ROCm version if available
+        if self.gpu_type == "rocm":
+            rocm_version = self.get_rocm_version()
+            if rocm_version:
+                sys_info["rocm_version"] = rocm_version
         
         if is_mi25:
             sys_info["gpu_architecture"] = rocm_arch
