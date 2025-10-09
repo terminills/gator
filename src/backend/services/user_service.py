@@ -134,6 +134,10 @@ class UserService:
 
             await self.db.execute(stmt)
             await self.db.commit()
+            
+            # Expire session cache to ensure fresh data on next query
+            # This is necessary because Core update() doesn't update the session identity map
+            self.db.expire_all()
 
             logger.info(f"Updated user {user_id} fields={list(update_data.keys())}")
             return await self.get_user(user_id)
