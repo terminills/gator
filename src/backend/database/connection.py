@@ -55,11 +55,20 @@ class DatabaseManager:
         if database_url.startswith("sqlite:"):
             database_url = database_url.replace("sqlite:", "sqlite+aiosqlite:", 1)
 
+        # Configure engine with SQLite-specific settings for better concurrency
+        connect_args = {}
+        if "sqlite" in database_url:
+            connect_args = {
+                "check_same_thread": False,
+                "timeout": 30,  # 30 second timeout for database locks
+            }
+
         self.engine = create_async_engine(
             database_url,
             echo=self._settings.debug,
             future=True,
             pool_pre_ping=True,
+            connect_args=connect_args,
         )
 
         self.session_factory = async_sessionmaker(
@@ -72,6 +81,14 @@ class DatabaseManager:
         if self._settings.debug and "sqlite" in database_url:
             async with self.engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
+
+        # Enable WAL mode for SQLite for better concurrency with multiple workers
+        if "sqlite" in database_url:
+            async with self.engine.begin() as conn:
+                await conn.execute(text("PRAGMA journal_mode=WAL"))
+                await conn.execute(text("PRAGMA synchronous=NORMAL"))
+                await conn.execute(text("PRAGMA busy_timeout=30000"))  # 30 second busy timeout
+                logger.info("SQLite WAL mode enabled for improved concurrency")
 
         # Run automatic migrations to ensure schema is up to date
         try:
