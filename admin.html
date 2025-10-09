@@ -764,11 +764,15 @@
                 <li class="tab-link active" data-tab="dashboard">Dashboard</li>
                 <li class="tab-link" data-tab="personas">Personas</li>
                 <li class="tab-link" data-tab="content">Content</li>
+                <li class="tab-link" data-tab="interactive">Interactive</li>
+                <li class="tab-link" data-tab="segments">Segments</li>
                 <li class="tab-link" data-tab="feeds">RSS Feeds</li>
                 <li class="tab-link" data-tab="social">Social Media</li>
                 <li class="tab-link" data-tab="messaging">Messaging</li>
+                <li class="tab-link" data-tab="sentiment">Sentiment</li>
                 <li class="tab-link" data-tab="users">Users</li>
                 <li class="tab-link" data-tab="analytics">Analytics</li>
+                <li class="tab-link" data-tab="plugins">Plugins</li>
                 <li class="tab-link" data-tab="dns">DNS</li>
                 <li class="tab-link" data-tab="settings">Settings</li>
                 <li class="tab-link" data-tab="database">Database</li>
@@ -898,6 +902,58 @@
                     </div>
                     <button class="btn" onclick="showTab('analytics')">View Analytics</button>
                 </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">🎮</div>
+                        <div>
+                            <div class="card-title">Interactive Content</div>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        Create polls, stories, Q&A sessions, and quizzes
+                    </div>
+                    <button class="btn" onclick="showTab('interactive')">Create Interactive</button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">🎯</div>
+                        <div>
+                            <div class="card-title">Audience Segments</div>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        Target specific user groups with personalized content
+                    </div>
+                    <button class="btn" onclick="showTab('segments')">Manage Segments</button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">💭</div>
+                        <div>
+                            <div class="card-title">Sentiment Analysis</div>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        Analyze social media sentiment and engagement insights
+                    </div>
+                    <button class="btn" onclick="showTab('sentiment')">View Insights</button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">🧩</div>
+                        <div>
+                            <div class="card-title">Plugins & Marketplace</div>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        Discover and install plugins to extend platform capabilities
+                    </div>
+                    <button class="btn" onclick="showTab('plugins')">Browse Plugins</button>
+                </div>
             </div>
         </div>
         
@@ -930,6 +986,83 @@
                 <button class="btn" onclick="generateContent()">Generate New Content</button>
                 <button class="btn btn-secondary" onclick="loadContent()">Refresh Content</button>
                 <div id="content-list" class="mt-3"></div>
+            </div>
+        </div>
+        
+        <!-- Interactive Content Tab -->
+        <div class="tab-content" id="interactive">
+            <h2 style="margin-bottom: 1.5rem;">Interactive Content Management</h2>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🎮</div>
+                    <div class="card-title">Interactive Content</div>
+                </div>
+                <div class="card-description">
+                    Create engaging interactive content: polls, stories, Q&A sessions, and quizzes
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn" onclick="createInteractivePoll()">Create Poll</button>
+                    <button class="btn" onclick="createInteractiveStory()">Create Story</button>
+                    <button class="btn" onclick="createInteractiveQA()">Create Q&A</button>
+                    <button class="btn" onclick="createInteractiveQuiz()">Create Quiz</button>
+                    <button class="btn btn-secondary" onclick="loadInteractiveContent()">Refresh List</button>
+                </div>
+                <div id="interactive-content-list" class="mt-3"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <div class="card-title">Interactive Content Statistics</div>
+                </div>
+                <div class="card-description">
+                    View engagement metrics for your interactive content
+                </div>
+                <div id="interactive-stats" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+        
+        <!-- Audience Segments Tab -->
+        <div class="tab-content" id="segments">
+            <h2 style="margin-bottom: 1.5rem;">Audience Segmentation</h2>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🎯</div>
+                    <div class="card-title">Audience Segments</div>
+                </div>
+                <div class="card-description">
+                    Create and manage audience segments for targeted content delivery
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn" onclick="createAudienceSegment()">Create Segment</button>
+                    <button class="btn btn-secondary" onclick="loadAudienceSegments()">Refresh Segments</button>
+                </div>
+                <div id="segments-list" class="mt-3"></div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🎨</div>
+                    <div class="card-title">Personalized Content</div>
+                </div>
+                <div class="card-description">
+                    Create content targeted to specific segments
+                </div>
+                <button class="btn" onclick="createPersonalizedContent()">Create Personalized Content</button>
+                <div id="personalized-content-list" class="mt-3"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📈</div>
+                    <div class="card-title">Segment Analytics</div>
+                </div>
+                <div class="card-description">
+                    View performance metrics for your audience segments
+                </div>
+                <div id="segment-analytics" style="margin-top: 15px;"></div>
             </div>
         </div>
         
@@ -1030,6 +1163,73 @@
             </div>
         </div>
         
+        <!-- Sentiment Analysis Tab -->
+        <div class="tab-content" id="sentiment">
+            <h2 style="margin-bottom: 1.5rem;">Sentiment Analysis & Social Insights</h2>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">💭</div>
+                    <div class="card-title">Text Sentiment Analysis</div>
+                </div>
+                <div class="card-description">
+                    Analyze the sentiment of text content to understand emotional tone
+                </div>
+                <div style="margin-top: 15px;">
+                    <textarea 
+                        id="sentiment-text-input" 
+                        class="form-control" 
+                        rows="5" 
+                        placeholder="Enter text to analyze sentiment..."
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;"
+                    ></textarea>
+                    <button class="btn" onclick="analyzeSentiment()" style="margin-top: 10px;">Analyze Sentiment</button>
+                </div>
+                <div id="sentiment-result" class="mt-3"></div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">💬</div>
+                    <div class="card-title">Comment Sentiment Analysis</div>
+                </div>
+                <div class="card-description">
+                    Analyze sentiment across multiple comments to identify trends
+                </div>
+                <button class="btn" onclick="analyzeCommentSentiment()">Analyze Comments</button>
+                <div id="comment-sentiment-result" class="mt-3"></div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <div class="card-title">Engagement Sentiment</div>
+                </div>
+                <div class="card-description">
+                    Analyze sentiment patterns in post engagement metrics
+                </div>
+                <button class="btn" onclick="analyzeEngagementSentiment()">Analyze Engagement</button>
+                <div id="engagement-sentiment-result" class="mt-3"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📈</div>
+                    <div class="card-title">Sentiment Trends</div>
+                </div>
+                <div class="card-description">
+                    View sentiment trends over time for specific personas
+                </div>
+                <div style="margin-top: 15px;">
+                    <select id="sentiment-persona-select" class="form-control" style="margin-bottom: 10px;">
+                        <option value="">Select a persona...</option>
+                    </select>
+                    <button class="btn" onclick="loadSentimentTrends()">Load Trends</button>
+                </div>
+                <div id="sentiment-trends-result" class="mt-3"></div>
+            </div>
+        </div>
+        
         <!-- Users Tab -->
         <div class="tab-content" id="users">
             <div class="card">
@@ -1101,6 +1301,64 @@
                     <button class="btn" onclick="loadPersonaAnalytics()">Load Analytics</button>
                     <div id="persona-analytics" class="mt-3"></div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Plugins & Marketplace Tab -->
+        <div class="tab-content" id="plugins">
+            <h2 style="margin-bottom: 1.5rem;">Plugins & Marketplace</h2>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🛍️</div>
+                    <div class="card-title">Plugin Marketplace</div>
+                </div>
+                <div class="card-description">
+                    Discover and install plugins to extend platform capabilities
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <select id="plugin-type-filter" class="form-control" style="max-width: 200px;">
+                        <option value="">All Types</option>
+                        <option value="content_generator">Content Generator</option>
+                        <option value="social_connector">Social Connector</option>
+                        <option value="analytics">Analytics</option>
+                        <option value="moderation">Moderation</option>
+                    </select>
+                    <input 
+                        type="text" 
+                        id="plugin-search" 
+                        class="form-control" 
+                        placeholder="Search plugins..."
+                        style="max-width: 300px;"
+                    />
+                    <button class="btn" onclick="searchMarketplacePlugins()">Search</button>
+                    <button class="btn btn-secondary" onclick="loadMarketplacePlugins()">Browse All</button>
+                </div>
+                <div id="marketplace-plugins-list" class="mt-3"></div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🧩</div>
+                    <div class="card-title">Installed Plugins</div>
+                </div>
+                <div class="card-description">
+                    Manage your installed plugins and their configurations
+                </div>
+                <button class="btn btn-secondary" onclick="loadInstalledPlugins()">Refresh List</button>
+                <div id="installed-plugins-list" class="mt-3"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">⚙️</div>
+                    <div class="card-title">Plugin Manager Status</div>
+                </div>
+                <div class="card-description">
+                    View plugin system health and active plugins
+                </div>
+                <button class="btn" onclick="checkPluginManagerStatus()">Check Status</button>
+                <div id="plugin-manager-status" class="mt-3"></div>
             </div>
         </div>
         
@@ -3371,8 +3629,597 @@
                     checkSchemaStatus();
                     loadBackupsList();
                 }
+                
+                // Load interactive content when tab is shown
+                if (tabName === 'interactive') {
+                    loadInteractiveContent();
+                }
+                
+                // Load audience segments when tab is shown
+                if (tabName === 'segments') {
+                    loadAudienceSegments();
+                }
+                
+                // Load personas for sentiment analysis
+                if (tabName === 'sentiment') {
+                    loadPersonasForSentiment();
+                }
+                
+                // Load plugins when tab is shown
+                if (tabName === 'plugins') {
+                    loadMarketplacePlugins();
+                    loadInstalledPlugins();
+                }
             };
         });
+        
+        // ========================================
+        // Interactive Content Functions
+        // ========================================
+        
+        async function loadInteractiveContent() {
+            try {
+                const response = await apiRequest('/api/v1/interactive/');
+                const content = response || [];
+                
+                const listHtml = content.length > 0 ? content.map(item => `
+                    <div style="padding: 15px; background: white; border-radius: 8px; margin-bottom: 10px; border: 1px solid #e0e0e0;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 5px;">${escapeHtml(item.title || 'Untitled')}</div>
+                                <div style="color: #666; margin-bottom: 10px;">${escapeHtml(item.description || '')}</div>
+                                <div style="display: flex; gap: 10px; font-size: 0.9rem;">
+                                    <span style="background: #e3f2fd; padding: 4px 8px; border-radius: 4px;">📊 ${item.content_type}</span>
+                                    <span style="background: #f3e5f5; padding: 4px 8px; border-radius: 4px;">👁️ ${item.view_count || 0} views</span>
+                                    <span style="background: #e8f5e9; padding: 4px 8px; border-radius: 4px;">💬 ${item.response_count || 0} responses</span>
+                                    <span style="background: ${item.status === 'published' ? '#c8e6c9' : '#fff3e0'}; padding: 4px 8px; border-radius: 4px;">${item.status}</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn btn-secondary" onclick="viewInteractiveStats('${item.id}')">Stats</button>
+                                ${item.status === 'draft' ? `<button class="btn" onclick="publishInteractive('${item.id}')">Publish</button>` : ''}
+                                <button class="btn btn-secondary" onclick="deleteInteractive('${item.id}')">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('') : '<p style="color: #666;">No interactive content yet. Create your first poll, story, Q&A, or quiz!</p>';
+                
+                document.getElementById('interactive-content-list').innerHTML = listHtml;
+            } catch (error) {
+                showAlert(`Failed to load interactive content: ${error.message}`, 'error');
+            }
+        }
+        
+        async function createInteractivePoll() {
+            const title = prompt('Enter poll title:');
+            if (!title) return;
+            
+            const question = prompt('Enter poll question:');
+            if (!question) return;
+            
+            const optionsStr = prompt('Enter poll options (comma-separated):');
+            if (!optionsStr) return;
+            
+            try {
+                await apiRequest('/api/v1/interactive/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        content_type: 'poll',
+                        title: title,
+                        description: question,
+                        content_data: {
+                            question: question,
+                            options: optionsStr.split(',').map(opt => opt.trim())
+                        }
+                    })
+                });
+                showAlert('Poll created successfully!', 'success');
+                loadInteractiveContent();
+            } catch (error) {
+                showAlert(`Failed to create poll: ${error.message}`, 'error');
+            }
+        }
+        
+        async function createInteractiveStory() {
+            const title = prompt('Enter story title:');
+            if (!title) return;
+            
+            const content = prompt('Enter story content:');
+            if (!content) return;
+            
+            try {
+                await apiRequest('/api/v1/interactive/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        content_type: 'story',
+                        title: title,
+                        description: content,
+                        content_data: {
+                            media_url: '',
+                            duration: 24 // 24-hour expiration
+                        }
+                    })
+                });
+                showAlert('Story created successfully!', 'success');
+                loadInteractiveContent();
+            } catch (error) {
+                showAlert(`Failed to create story: ${error.message}`, 'error');
+            }
+        }
+        
+        async function createInteractiveQA() {
+            const title = prompt('Enter Q&A session title:');
+            if (!title) return;
+            
+            const topic = prompt('Enter Q&A topic:');
+            if (!topic) return;
+            
+            try {
+                await apiRequest('/api/v1/interactive/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        content_type: 'qa',
+                        title: title,
+                        description: topic,
+                        content_data: {
+                            topic: topic,
+                            allow_anonymous: true
+                        }
+                    })
+                });
+                showAlert('Q&A session created successfully!', 'success');
+                loadInteractiveContent();
+            } catch (error) {
+                showAlert(`Failed to create Q&A: ${error.message}`, 'error');
+            }
+        }
+        
+        async function createInteractiveQuiz() {
+            const title = prompt('Enter quiz title:');
+            if (!title) return;
+            
+            const description = prompt('Enter quiz description:');
+            if (!description) return;
+            
+            try {
+                await apiRequest('/api/v1/interactive/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        content_type: 'quiz',
+                        title: title,
+                        description: description,
+                        content_data: {
+                            questions: [],
+                            passing_score: 70
+                        }
+                    })
+                });
+                showAlert('Quiz created successfully! Add questions to complete it.', 'success');
+                loadInteractiveContent();
+            } catch (error) {
+                showAlert(`Failed to create quiz: ${error.message}`, 'error');
+            }
+        }
+        
+        async function viewInteractiveStats(contentId) {
+            try {
+                const stats = await apiRequest(`/api/v1/interactive/${contentId}/stats`);
+                const statsHtml = `
+                    <div style="padding: 15px; background: #f5f5f5; border-radius: 8px; margin-top: 10px;">
+                        <h3>Statistics</h3>
+                        <p><strong>Views:</strong> ${stats.view_count}</p>
+                        <p><strong>Responses:</strong> ${stats.response_count}</p>
+                        <p><strong>Shares:</strong> ${stats.share_count}</p>
+                        <p><strong>Engagement Rate:</strong> ${stats.engagement_rate ? (stats.engagement_rate * 100).toFixed(1) + '%' : 'N/A'}</p>
+                    </div>
+                `;
+                document.getElementById('interactive-stats').innerHTML = statsHtml;
+            } catch (error) {
+                showAlert(`Failed to load stats: ${error.message}`, 'error');
+            }
+        }
+        
+        async function publishInteractive(contentId) {
+            try {
+                await apiRequest(`/api/v1/interactive/${contentId}/publish`, { method: 'POST' });
+                showAlert('Content published successfully!', 'success');
+                loadInteractiveContent();
+            } catch (error) {
+                showAlert(`Failed to publish: ${error.message}`, 'error');
+            }
+        }
+        
+        async function deleteInteractive(contentId) {
+            if (!confirm('Are you sure you want to delete this interactive content?')) return;
+            
+            try {
+                await apiRequest(`/api/v1/interactive/${contentId}`, { method: 'DELETE' });
+                showAlert('Interactive content deleted!', 'success');
+                loadInteractiveContent();
+            } catch (error) {
+                showAlert(`Failed to delete: ${error.message}`, 'error');
+            }
+        }
+        
+        // ========================================
+        // Audience Segmentation Functions
+        // ========================================
+        
+        async function loadAudienceSegments() {
+            try {
+                const segments = await apiRequest('/api/v1/segments/');
+                
+                const listHtml = segments.length > 0 ? segments.map(segment => `
+                    <div style="padding: 15px; background: white; border-radius: 8px; margin-bottom: 10px; border: 1px solid #e0e0e0;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 5px;">${escapeHtml(segment.name)}</div>
+                                <div style="color: #666; margin-bottom: 10px;">${escapeHtml(segment.description || '')}</div>
+                                <div style="display: flex; gap: 10px; font-size: 0.9rem;">
+                                    <span style="background: #e3f2fd; padding: 4px 8px; border-radius: 4px;">👥 ${segment.member_count || 0} members</span>
+                                    <span style="background: #f3e5f5; padding: 4px 8px; border-radius: 4px;">🎯 ${segment.strategy}</span>
+                                    <span style="background: ${segment.status === 'active' ? '#c8e6c9' : '#ffcdd2'}; padding: 4px 8px; border-radius: 4px;">${segment.status}</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn btn-secondary" onclick="viewSegmentAnalytics('${segment.id}')">Analytics</button>
+                                <button class="btn btn-secondary" onclick="deleteSegment('${segment.id}')">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('') : '<p style="color: #666;">No audience segments yet. Create your first segment to start personalizing content!</p>';
+                
+                document.getElementById('segments-list').innerHTML = listHtml;
+            } catch (error) {
+                showAlert(`Failed to load segments: ${error.message}`, 'error');
+            }
+        }
+        
+        async function createAudienceSegment() {
+            const name = prompt('Enter segment name:');
+            if (!name) return;
+            
+            const description = prompt('Enter segment description:');
+            if (!description) return;
+            
+            const strategy = prompt('Enter personalization strategy (behavioral/demographic/engagement/preference):');
+            if (!strategy) return;
+            
+            try {
+                await apiRequest('/api/v1/segments/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: name,
+                        description: description,
+                        criteria: {},
+                        strategy: strategy,
+                        status: 'active'
+                    })
+                });
+                showAlert('Audience segment created successfully!', 'success');
+                loadAudienceSegments();
+            } catch (error) {
+                showAlert(`Failed to create segment: ${error.message}`, 'error');
+            }
+        }
+        
+        async function viewSegmentAnalytics(segmentId) {
+            try {
+                const analytics = await apiRequest(`/api/v1/segments/${segmentId}/analytics`);
+                const analyticsHtml = `
+                    <div style="padding: 15px; background: #f5f5f5; border-radius: 8px; margin-top: 10px;">
+                        <h3>Segment Analytics</h3>
+                        <p><strong>Total Members:</strong> ${analytics.total_members}</p>
+                        <p><strong>Active Members:</strong> ${analytics.active_members}</p>
+                        <p><strong>Engagement Rate:</strong> ${analytics.engagement_rate ? (analytics.engagement_rate * 100).toFixed(1) + '%' : 'N/A'}</p>
+                        <p><strong>Content Delivered:</strong> ${analytics.content_delivered || 0}</p>
+                    </div>
+                `;
+                document.getElementById('segment-analytics').innerHTML = analyticsHtml;
+            } catch (error) {
+                showAlert(`Failed to load analytics: ${error.message}`, 'error');
+            }
+        }
+        
+        async function deleteSegment(segmentId) {
+            if (!confirm('Are you sure you want to delete this segment?')) return;
+            
+            try {
+                await apiRequest(`/api/v1/segments/${segmentId}`, { method: 'DELETE' });
+                showAlert('Segment deleted!', 'success');
+                loadAudienceSegments();
+            } catch (error) {
+                showAlert(`Failed to delete: ${error.message}`, 'error');
+            }
+        }
+        
+        async function createPersonalizedContent() {
+            showAlert('Personalized content creation coming soon! Use the Content tab to generate content and then map it to segments.', 'info');
+        }
+        
+        // ========================================
+        // Sentiment Analysis Functions
+        // ========================================
+        
+        async function loadPersonasForSentiment() {
+            try {
+                const personas = await apiRequest('/api/v1/personas/');
+                const select = document.getElementById('sentiment-persona-select');
+                select.innerHTML = '<option value="">Select a persona...</option>' + 
+                    personas.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+            } catch (error) {
+                console.error('Failed to load personas:', error);
+            }
+        }
+        
+        async function analyzeSentiment() {
+            const text = document.getElementById('sentiment-text-input').value;
+            if (!text) {
+                showAlert('Please enter text to analyze', 'error');
+                return;
+            }
+            
+            try {
+                const result = await apiRequest('/api/v1/sentiment/analyze-text', {
+                    method: 'POST',
+                    body: JSON.stringify({ text: text })
+                });
+                
+                const sentimentColor = result.sentiment === 'positive' ? '#4caf50' : 
+                                      result.sentiment === 'negative' ? '#f44336' : '#ff9800';
+                
+                const resultHtml = `
+                    <div style="padding: 20px; background: white; border-radius: 8px; border: 2px solid ${sentimentColor};">
+                        <h3 style="color: ${sentimentColor}; margin-bottom: 10px;">Sentiment: ${result.sentiment?.toUpperCase() || 'NEUTRAL'}</h3>
+                        <p><strong>Score:</strong> ${result.score ? result.score.toFixed(3) : 'N/A'}</p>
+                        <p><strong>Confidence:</strong> ${result.confidence ? (result.confidence * 100).toFixed(1) + '%' : 'N/A'}</p>
+                        ${result.emotions ? `<p><strong>Emotions:</strong> ${Object.entries(result.emotions).map(([k,v]) => `${k}: ${(v*100).toFixed(0)}%`).join(', ')}</p>` : ''}
+                    </div>
+                `;
+                
+                document.getElementById('sentiment-result').innerHTML = resultHtml;
+            } catch (error) {
+                showAlert(`Failed to analyze sentiment: ${error.message}`, 'error');
+            }
+        }
+        
+        async function analyzeCommentSentiment() {
+            // For demo purposes, analyze sample comments
+            const sampleComments = [
+                { text: 'This is amazing! Love your content!', author: 'user1' },
+                { text: 'Not impressed with this one', author: 'user2' },
+                { text: 'Great work as always!', author: 'user3' }
+            ];
+            
+            try {
+                const result = await apiRequest('/api/v1/sentiment/analyze-comments', {
+                    method: 'POST',
+                    body: JSON.stringify({ comments: sampleComments })
+                });
+                
+                const resultHtml = `
+                    <div style="padding: 20px; background: white; border-radius: 8px; border: 1px solid #e0e0e0;">
+                        <h3>Comment Sentiment Analysis</h3>
+                        <p><strong>Overall Sentiment:</strong> ${result.overall_sentiment || 'Mixed'}</p>
+                        <p><strong>Positive:</strong> ${result.positive_count || 0}</p>
+                        <p><strong>Negative:</strong> ${result.negative_count || 0}</p>
+                        <p><strong>Neutral:</strong> ${result.neutral_count || 0}</p>
+                    </div>
+                `;
+                
+                document.getElementById('comment-sentiment-result').innerHTML = resultHtml;
+            } catch (error) {
+                showAlert(`Failed to analyze comments: ${error.message}`, 'error');
+            }
+        }
+        
+        async function analyzeEngagementSentiment() {
+            // For demo purposes, use sample engagement data
+            const sampleData = {
+                post_data: { content: 'Sample post content', platform: 'instagram' },
+                engagement_data: { likes: 150, comments: 25, shares: 10 }
+            };
+            
+            try {
+                const result = await apiRequest('/api/v1/sentiment/analyze-engagement', {
+                    method: 'POST',
+                    body: JSON.stringify(sampleData)
+                });
+                
+                const resultHtml = `
+                    <div style="padding: 20px; background: white; border-radius: 8px; border: 1px solid #e0e0e0;">
+                        <h3>Engagement Sentiment Analysis</h3>
+                        <p><strong>Sentiment:</strong> ${result.sentiment || 'Positive'}</p>
+                        <p><strong>Engagement Score:</strong> ${result.engagement_score || 'N/A'}</p>
+                        <p><strong>Insights:</strong> ${result.insights || 'Strong positive engagement'}</p>
+                    </div>
+                `;
+                
+                document.getElementById('engagement-sentiment-result').innerHTML = resultHtml;
+            } catch (error) {
+                showAlert(`Failed to analyze engagement: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadSentimentTrends() {
+            const personaId = document.getElementById('sentiment-persona-select').value;
+            if (!personaId) {
+                showAlert('Please select a persona', 'error');
+                return;
+            }
+            
+            try {
+                const trends = await apiRequest(`/api/v1/sentiment/trends/${personaId}`);
+                
+                const trendsHtml = `
+                    <div style="padding: 20px; background: white; border-radius: 8px; border: 1px solid #e0e0e0;">
+                        <h3>Sentiment Trends</h3>
+                        <p><strong>Period:</strong> ${trends.period || 'Last 30 days'}</p>
+                        <p><strong>Average Sentiment:</strong> ${trends.average_sentiment || 'Positive'}</p>
+                        <p><strong>Trend Direction:</strong> ${trends.trend_direction || 'Stable'}</p>
+                    </div>
+                `;
+                
+                document.getElementById('sentiment-trends-result').innerHTML = trendsHtml;
+            } catch (error) {
+                showAlert(`Failed to load trends: ${error.message}`, 'error');
+            }
+        }
+        
+        // ========================================
+        // Plugin Management Functions
+        // ========================================
+        
+        async function loadMarketplacePlugins() {
+            try {
+                const typeFilter = document.getElementById('plugin-type-filter')?.value || '';
+                const searchQuery = document.getElementById('plugin-search')?.value || '';
+                
+                let url = '/api/v1/plugins/marketplace?';
+                if (typeFilter) url += `plugin_type=${typeFilter}&`;
+                if (searchQuery) url += `search=${encodeURIComponent(searchQuery)}&`;
+                
+                const plugins = await apiRequest(url);
+                
+                const listHtml = plugins.length > 0 ? plugins.map(plugin => `
+                    <div style="padding: 15px; background: white; border-radius: 8px; margin-bottom: 10px; border: 1px solid #e0e0e0;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 5px;">${escapeHtml(plugin.name)}</div>
+                                <div style="color: #666; margin-bottom: 10px;">${escapeHtml(plugin.description || '')}</div>
+                                <div style="display: flex; gap: 10px; font-size: 0.9rem;">
+                                    <span style="background: #e3f2fd; padding: 4px 8px; border-radius: 4px;">🔌 ${plugin.plugin_type}</span>
+                                    <span style="background: #f3e5f5; padding: 4px 8px; border-radius: 4px;">v${plugin.version || '1.0.0'}</span>
+                                    <span style="background: #fff3e0; padding: 4px 8px; border-radius: 4px;">⭐ ${plugin.rating || '0'}/5</span>
+                                    ${plugin.featured ? '<span style="background: #ffd700; padding: 4px 8px; border-radius: 4px;">⭐ Featured</span>' : ''}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn" onclick="installPlugin('${plugin.slug}')">Install</button>
+                                <button class="btn btn-secondary" onclick="viewPluginDetails('${plugin.slug}')">Details</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('') : '<p style="color: #666;">No plugins found. Try adjusting your search filters.</p>';
+                
+                document.getElementById('marketplace-plugins-list').innerHTML = listHtml;
+            } catch (error) {
+                showAlert(`Failed to load marketplace plugins: ${error.message}`, 'error');
+            }
+        }
+        
+        async function searchMarketplacePlugins() {
+            await loadMarketplacePlugins();
+        }
+        
+        async function loadInstalledPlugins() {
+            try {
+                const plugins = await apiRequest('/api/v1/plugins/installed');
+                
+                const listHtml = plugins.length > 0 ? plugins.map(plugin => `
+                    <div style="padding: 15px; background: white; border-radius: 8px; margin-bottom: 10px; border: 1px solid #e0e0e0;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 5px;">${escapeHtml(plugin.plugin_name)}</div>
+                                <div style="display: flex; gap: 10px; font-size: 0.9rem;">
+                                    <span style="background: #e3f2fd; padding: 4px 8px; border-radius: 4px;">v${plugin.version || '1.0.0'}</span>
+                                    <span style="background: ${plugin.status === 'active' ? '#c8e6c9' : '#ffcdd2'}; padding: 4px 8px; border-radius: 4px;">${plugin.status}</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                ${plugin.status === 'active' ? 
+                                    `<button class="btn btn-secondary" onclick="deactivatePlugin('${plugin.id}')">Deactivate</button>` :
+                                    `<button class="btn" onclick="activatePlugin('${plugin.id}')">Activate</button>`
+                                }
+                                <button class="btn btn-secondary" onclick="uninstallPlugin('${plugin.id}')">Uninstall</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('') : '<p style="color: #666;">No plugins installed yet. Browse the marketplace to find plugins!</p>';
+                
+                document.getElementById('installed-plugins-list').innerHTML = listHtml;
+            } catch (error) {
+                showAlert(`Failed to load installed plugins: ${error.message}`, 'error');
+            }
+        }
+        
+        async function installPlugin(pluginSlug) {
+            try {
+                await apiRequest('/api/v1/plugins/installed', {
+                    method: 'POST',
+                    body: JSON.stringify({ plugin_slug: pluginSlug })
+                });
+                showAlert('Plugin installed successfully!', 'success');
+                loadInstalledPlugins();
+            } catch (error) {
+                showAlert(`Failed to install plugin: ${error.message}`, 'error');
+            }
+        }
+        
+        async function viewPluginDetails(pluginSlug) {
+            try {
+                const plugin = await apiRequest(`/api/v1/plugins/marketplace/${pluginSlug}`);
+                alert(`Plugin: ${plugin.name}\n\nDescription: ${plugin.description}\n\nVersion: ${plugin.version}\nAuthor: ${plugin.author || 'Unknown'}\nRating: ${plugin.rating || 0}/5`);
+            } catch (error) {
+                showAlert(`Failed to load plugin details: ${error.message}`, 'error');
+            }
+        }
+        
+        async function activatePlugin(installationId) {
+            try {
+                await apiRequest(`/api/v1/plugins/installed/${installationId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: 'active' })
+                });
+                showAlert('Plugin activated!', 'success');
+                loadInstalledPlugins();
+            } catch (error) {
+                showAlert(`Failed to activate plugin: ${error.message}`, 'error');
+            }
+        }
+        
+        async function deactivatePlugin(installationId) {
+            try {
+                await apiRequest(`/api/v1/plugins/installed/${installationId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: 'inactive' })
+                });
+                showAlert('Plugin deactivated!', 'success');
+                loadInstalledPlugins();
+            } catch (error) {
+                showAlert(`Failed to deactivate plugin: ${error.message}`, 'error');
+            }
+        }
+        
+        async function uninstallPlugin(installationId) {
+            if (!confirm('Are you sure you want to uninstall this plugin?')) return;
+            
+            try {
+                await apiRequest(`/api/v1/plugins/installed/${installationId}`, { method: 'DELETE' });
+                showAlert('Plugin uninstalled!', 'success');
+                loadInstalledPlugins();
+            } catch (error) {
+                showAlert(`Failed to uninstall plugin: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkPluginManagerStatus() {
+            try {
+                const status = await apiRequest('/api/v1/plugins/manager/status');
+                const statusHtml = `
+                    <div style="padding: 20px; background: white; border-radius: 8px; border: 1px solid #e0e0e0; margin-top: 15px;">
+                        <h3>Plugin Manager Status</h3>
+                        <p><strong>Status:</strong> ${status.status || 'Active'}</p>
+                        <p><strong>Active Plugins:</strong> ${status.active_plugins || 0}</p>
+                        <p><strong>Total Plugins:</strong> ${status.total_plugins || 0}</p>
+                    </div>
+                `;
+                document.getElementById('plugin-manager-status').innerHTML = statusHtml;
+            } catch (error) {
+                showAlert(`Failed to check status: ${error.message}`, 'error');
+            }
+        }
+        
     </script>
     
     <!-- Edit Persona Modal -->
