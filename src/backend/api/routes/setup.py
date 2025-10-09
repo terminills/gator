@@ -440,7 +440,40 @@ async def get_ai_models_status() -> Dict[str, Any]:
             system_info["torch_version"] = torch.__version__
             if torch.cuda.is_available():
                 system_info["gpu_count"] = torch.cuda.device_count()
-                system_info["gpu_name"] = torch.cuda.get_device_name(0)
+                
+                # Get detailed information for all GPUs
+                gpu_devices = []
+                for i in range(torch.cuda.device_count()):
+                    try:
+                        props = torch.cuda.get_device_properties(i)
+                        gpu_info = {
+                            "device_id": i,
+                            "name": torch.cuda.get_device_name(i),
+                            "total_memory_gb": round(props.total_memory / (1024 ** 3), 2),
+                            "compute_capability": f"{props.major}.{props.minor}",
+                            "multi_processor_count": props.multi_processor_count,
+                        }
+                        gpu_devices.append(gpu_info)
+                    except Exception as e:
+                        logger.warning(f"Could not get properties for GPU {i}: {e}")
+                        gpu_devices.append({
+                            "device_id": i,
+                            "name": "Unknown GPU",
+                            "total_memory_gb": 0,
+                            "error": str(e)
+                        })
+                
+                system_info["gpu_devices"] = gpu_devices
+                # Keep gpu_name for backward compatibility (first GPU)
+                system_info["gpu_name"] = torch.cuda.get_device_name(0) if gpu_devices else "Unknown"
+                
+                # Detect ROCm build version
+                if hasattr(torch.version, 'hip'):
+                    rocm_version = getattr(torch.version, 'hip', None)
+                    if rocm_version:
+                        system_info["rocm_version"] = rocm_version
+                        system_info["is_rocm_build"] = True
+                    
         except ImportError:
             system_info["gpu_available"] = False
             system_info["torch_installed"] = False

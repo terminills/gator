@@ -570,11 +570,57 @@
                     versionsHTML += '</div></div>';
                 }
                 
+                // Build GPU details HTML
+                let gpuDetailsHTML = '';
+                if (data.system.gpu_available && data.system.gpu_devices && data.system.gpu_devices.length > 0) {
+                    gpuDetailsHTML = '<div style="grid-column: 1 / -1; margin-top: 20px;">';
+                    gpuDetailsHTML += '<h3 style="margin-bottom: 15px; color: #333;">🎮 GPU Devices</h3>';
+                    
+                    // Add ROCm version info if available
+                    if (data.system.rocm_version) {
+                        gpuDetailsHTML += `<div class="alert alert-info" style="margin-bottom: 15px;">
+                            <strong>ROCm Build:</strong> ${data.system.rocm_version}
+                        </div>`;
+                    }
+                    
+                    gpuDetailsHTML += '<div style="display: grid; gap: 15px;">';
+                    data.system.gpu_devices.forEach((gpu, index) => {
+                        gpuDetailsHTML += `
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea;">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                                    <div style="font-weight: 600; font-size: 1.1rem; color: #333;">
+                                        Device ${gpu.device_id}: ${gpu.name}
+                                    </div>
+                                    <span class="status-badge available">Active</span>
+                                </div>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 10px;">
+                                    <div>
+                                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 3px;">Memory</div>
+                                        <div style="font-weight: 600; color: #333;">${gpu.total_memory_gb} GB</div>
+                                    </div>
+                                    ${gpu.compute_capability ? `
+                                    <div>
+                                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 3px;">Compute</div>
+                                        <div style="font-weight: 600; color: #333;">${gpu.compute_capability}</div>
+                                    </div>` : ''}
+                                    ${gpu.multi_processor_count ? `
+                                    <div>
+                                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 3px;">MPs</div>
+                                        <div style="font-weight: 600; color: #333;">${gpu.multi_processor_count}</div>
+                                    </div>` : ''}
+                                </div>
+                                ${gpu.error ? `<div style="margin-top: 10px; color: #dc3545; font-size: 0.85rem;">⚠️ ${gpu.error}</div>` : ''}
+                            </div>
+                        `;
+                    });
+                    gpuDetailsHTML += '</div></div>';
+                }
+                
                 systemInfoDiv.innerHTML = `
                     <div class="info-item">
                         <div class="info-label">GPU Status</div>
                         <div class="info-value">${gpuStatus}</div>
-                        ${data.system.gpu_name ? `<div style="margin-top: 5px; font-size: 0.9rem; color: #666;">${data.system.gpu_name}</div>` : ''}
+                        ${data.system.gpu_count ? `<div style="margin-top: 5px; font-size: 0.9rem; color: #666;">${data.system.gpu_count} device(s) detected</div>` : ''}
                     </div>
                     <div class="info-item">
                         <div class="info-label">Python Version</div>
@@ -583,6 +629,7 @@
                     <div class="info-item">
                         <div class="info-label">PyTorch Version</div>
                         <div class="info-value">${data.system.torch_version || 'Not installed'}</div>
+                        ${data.system.is_rocm_build ? `<div style="margin-top: 5px; font-size: 0.85rem; color: #667eea;">ROCm Build</div>` : ''}
                     </div>
                     <div class="info-item">
                         <div class="info-label">Platform</div>
@@ -592,6 +639,7 @@
                         <div class="info-label">Models Directory</div>
                         <div class="info-value">${data.models_directory || 'Not created yet'}</div>
                     </div>
+                    ${gpuDetailsHTML}
                     ${versionsHTML}
                 `;
                 
