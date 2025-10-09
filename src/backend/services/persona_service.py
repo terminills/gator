@@ -241,6 +241,10 @@ class PersonaService:
 
             await self.db.execute(stmt)
             await self.db.commit()
+            
+            # Expire session cache to ensure fresh data on next query
+            # This is necessary because Core update() doesn't update the session identity map
+            self.db.expire_all()
 
             logger.info(f"Updated persona {persona_id}: {list(update_data.keys())}")
 
