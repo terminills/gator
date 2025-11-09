@@ -418,16 +418,19 @@ def check_pytorch_installation() -> Dict[str, any]:
 
 def get_compatible_dependency_versions(
     pytorch_version: Optional[str] = None,
+    include_vllm: bool = False,
 ) -> Dict[str, str]:
     """
     Get compatible dependency versions based on installed PyTorch version.
 
-    This ensures that packages like transformers, diffusers, and accelerate
+    This ensures that packages like transformers, diffusers, accelerate, and vLLM
     are compatible with the installed PyTorch version.
 
     Args:
         pytorch_version: PyTorch version string (e.g., "2.10.0+rocm7.0", "2.3.1").
                         If None, will attempt to detect from installed PyTorch.
+        include_vllm: Whether to include vLLM in the dependencies. Default is False
+                     because vLLM requires CUDA/ROCm and may not be needed in all setups.
 
     Returns:
         Dictionary mapping package names to compatible version specifiers
@@ -461,39 +464,55 @@ def get_compatible_dependency_versions(
 
     # PyTorch 2.10+ (nightly/future releases)
     if major >= 3 or (major == 2 and minor >= 10):
-        return {
+        versions = {
             "transformers": ">=4.45.0",  # Latest transformers with PyTorch 2.10+ support
             "diffusers": ">=0.31.0",  # Latest diffusers with PyTorch 2.10+ support
             "accelerate": ">=0.34.0",  # Latest accelerate with PyTorch 2.10+ support
             "huggingface_hub": ">=0.25.0",
         }
+        if include_vllm:
+            # vLLM 0.7.0+ supports PyTorch 2.10+
+            versions["vllm"] = ">=0.7.0"
+        return versions
 
     # PyTorch 2.4-2.9
     elif major == 2 and 4 <= minor <= 9:
-        return {
+        versions = {
             "transformers": ">=4.43.0",
             "diffusers": ">=0.29.0",
             "accelerate": ">=0.30.0",
             "huggingface_hub": ">=0.24.0",
         }
+        if include_vllm:
+            # vLLM 0.5.0-0.6.x support PyTorch 2.4-2.9
+            versions["vllm"] = ">=0.5.0,<0.7.0"
+        return versions
 
     # PyTorch 2.3.x (ROCm 5.7 legacy)
     elif major == 2 and minor == 3:
-        return {
+        versions = {
             "transformers": ">=4.41.0,<4.50.0",  # Upper bound for safety
             "diffusers": ">=0.28.0,<0.35.0",
             "accelerate": ">=0.29.0,<0.35.0",
             "huggingface_hub": ">=0.23.0,<0.30.0",
         }
+        if include_vllm:
+            # vLLM 0.4.x-0.5.x support PyTorch 2.3
+            versions["vllm"] = ">=0.4.0,<0.6.0"
+        return versions
 
     # PyTorch 2.0-2.2
     elif major == 2 and minor <= 2:
-        return {
+        versions = {
             "transformers": ">=4.35.0,<4.45.0",
             "diffusers": ">=0.25.0,<0.30.0",
             "accelerate": ">=0.25.0,<0.30.0",
             "huggingface_hub": ">=0.20.0,<0.25.0",
         }
+        if include_vllm:
+            # vLLM 0.3.x-0.4.x support PyTorch 2.0-2.2
+            versions["vllm"] = ">=0.3.0,<0.5.0"
+        return versions
 
     # Default fallback
     return default_versions
@@ -580,6 +599,75 @@ def get_multi_gpu_config(gpu_count: int = None) -> Dict[str, any]:
         )
 
     return config
+
+
+def get_vllm_install_command(
+    pytorch_version: Optional[str] = None,
+    rocm_version: Optional[ROCmVersionInfo] = None,
+) -> Tuple[str, Dict[str, any]]:
+    """
+    Generate vLLM installation command based on PyTorch and ROCm versions.
+
+    vLLM has specific builds for ROCm and CUDA, and version compatibility
+    requirements with PyTorch.
+
+    Args:
+        pytorch_version: PyTorch version string. If None, auto-detect.
+        rocm_version: ROCm version info. If None, auto-detect.
+
+    Returns:
+        Tuple of (pip command string, metadata dict)
+    """
+    if pytorch_version is None:
+        pytorch_info = check_pytorch_installation()
+        if pytorch_info["installed"]:
+            pytorch_version = pytorch_info["version"]
+        else:
+            return (
+                "# PyTorch not installed - install PyTorch first",
+                {"error": "pytorch_not_installed"},
+            )
+
+    if rocm_version is None:
+        rocm_version = detect_rocm_version()
+
+    # Get compatible vLLM version range
+    deps = get_compatible_dependency_versions(pytorch_version, include_vllm=True)
+    vllm_version = deps.get("vllm", ">=0.5.0")
+
+    metadata = {
+        "pytorch_version": pytorch_version,
+        "rocm_version": str(rocm_version) if rocm_version else None,
+        "vllm_version": vllm_version,
+    }
+
+    # ROCm build
+    if rocm_version:
+        # vLLM requires specific ROCm builds
+        if rocm_version.is_6_5_or_later:
+            # ROCm 6.5+ uses standard vLLM builds
+            command = f"pip3 install vllm{vllm_version}"
+            metadata["build_type"] = "rocm_standard"
+            metadata["note"] = f"vLLM with ROCm {rocm_version.short_version} support"
+        else:
+            # ROCm 5.7 requires specific builds or manual compilation
+            command = f"pip3 install vllm{vllm_version}"
+            metadata["build_type"] = "rocm_legacy"
+            metadata["note"] = (
+                f"vLLM for ROCm {rocm_version.short_version} - "
+                "may require manual compilation for optimal performance"
+            )
+            metadata["warning"] = (
+                "ROCm 5.7 support in vLLM may be limited. "
+                "Consider upgrading to ROCm 6.5+ for better compatibility."
+            )
+    else:
+        # CUDA or CPU build
+        command = f"pip3 install vllm{vllm_version}"
+        metadata["build_type"] = "cuda_or_cpu"
+        metadata["note"] = "vLLM with CUDA support (if available)"
+
+    return command, metadata
 
 
 def generate_rocm_env_vars(
@@ -735,5 +823,27 @@ if __name__ == "__main__":
     for key, value in recommended.items():
         if key != "nightly_available":
             print(f"  {key}: {value}")
+
+    print()
+
+    # vLLM installation (if PyTorch is installed)
+    if pytorch_info.get("installed"):
+        print("vLLM Installation:")
+        vllm_command, vllm_metadata = get_vllm_install_command(
+            pytorch_info["version"], rocm_version
+        )
+        print(f"  Command: {vllm_command}")
+        print(f"  Build Type: {vllm_metadata.get('build_type', 'N/A')}")
+        print(f"  Note: {vllm_metadata.get('note', 'N/A')}")
+        if "warning" in vllm_metadata:
+            print(f"  ⚠️  Warning: {vllm_metadata['warning']}")
+
+        # Show compatible dependencies with vLLM
+        print("\n  Compatible Dependencies (with vLLM):")
+        deps_with_vllm = get_compatible_dependency_versions(
+            pytorch_info["version"], include_vllm=True
+        )
+        for pkg, version_spec in deps_with_vllm.items():
+            print(f"    {pkg}: {version_spec}")
 
     print("\n" + "=" * 70)

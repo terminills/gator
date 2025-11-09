@@ -16,6 +16,7 @@ from backend.utils.rocm_utils import (
     get_recommended_pytorch_version,
     check_pytorch_installation,
     get_compatible_dependency_versions,
+    get_vllm_install_command,
 )
 
 
@@ -328,6 +329,15 @@ class TestGetCompatibleDependencyVersions:
         assert ">=0.31.0" in deps["diffusers"]
         assert ">=0.34.0" in deps["accelerate"]
     
+    def test_pytorch_2_10_dependencies_with_vllm(self):
+        """Test dependency versions for PyTorch 2.10+ including vLLM."""
+        deps = get_compatible_dependency_versions("2.10.0+rocm7.0", include_vllm=True)
+        
+        assert "vllm" in deps
+        assert ">=0.7.0" in deps["vllm"]
+        assert "transformers" in deps
+        assert ">=4.45.0" in deps["transformers"]
+    
     def test_pytorch_2_4_dependencies(self):
         """Test dependency versions for PyTorch 2.4-2.9."""
         deps = get_compatible_dependency_versions("2.4.0+rocm6.5")
@@ -375,3 +385,57 @@ class TestGetCompatibleDependencyVersions:
         # Should return defaults
         assert "transformers" in deps
         assert ">=4.41.0" in deps["transformers"]
+    
+    def test_pytorch_2_4_dependencies_with_vllm(self):
+        """Test dependency versions for PyTorch 2.4-2.9 with vLLM."""
+        deps = get_compatible_dependency_versions("2.4.0+rocm6.5", include_vllm=True)
+        
+        assert "vllm" in deps
+        assert ">=0.5.0" in deps["vllm"]
+        assert "<0.7.0" in deps["vllm"]
+    
+    def test_pytorch_2_3_dependencies_with_vllm(self):
+        """Test dependency versions for PyTorch 2.3.x with vLLM."""
+        deps = get_compatible_dependency_versions("2.3.1+rocm5.7", include_vllm=True)
+        
+        assert "vllm" in deps
+        assert ">=0.4.0" in deps["vllm"]
+        assert "<0.6.0" in deps["vllm"]
+
+
+class TestGetVLLMInstallCommand:
+    """Test vLLM installation command generation."""
+    
+    def test_vllm_with_rocm_6_5(self):
+        """Test vLLM install command for ROCm 6.5+."""
+        version = ROCmVersionInfo("6.5.0", 6, 5, 0)
+        command, metadata = get_vllm_install_command("2.4.0+rocm6.5", version)
+        
+        assert "vllm" in command
+        assert "pip3 install" in command
+        assert metadata["build_type"] == "rocm_standard"
+        assert "6.5" in metadata["note"]
+    
+    def test_vllm_with_rocm_5_7(self):
+        """Test vLLM install command for ROCm 5.7."""
+        version = ROCmVersionInfo("5.7.1", 5, 7, 1)
+        command, metadata = get_vllm_install_command("2.3.1+rocm5.7", version)
+        
+        assert "vllm" in command
+        assert metadata["build_type"] == "rocm_legacy"
+        assert "warning" in metadata
+    
+    def test_vllm_with_pytorch_2_10(self):
+        """Test vLLM install command for PyTorch 2.10+."""
+        version = ROCmVersionInfo("7.0.0", 7, 0, 0)
+        command, metadata = get_vllm_install_command("2.10.0+rocm7.0", version)
+        
+        assert "vllm>=0.7.0" in command
+        assert metadata["pytorch_version"] == "2.10.0+rocm7.0"
+    
+    def test_vllm_without_rocm(self):
+        """Test vLLM install command without ROCm (CUDA/CPU)."""
+        command, metadata = get_vllm_install_command("2.4.0", None)
+        
+        assert "vllm" in command
+        assert metadata["build_type"] == "cuda_or_cpu"
