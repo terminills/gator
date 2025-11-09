@@ -432,52 +432,105 @@ async def get_ai_models_status() -> Dict[str, Any]:
             "platform": sys.platform,
         }
 
-        # Check for GPU
+        # Try to use new ROCm utilities for enhanced GPU detection
         try:
-            import torch
-
-            system_info["gpu_available"] = torch.cuda.is_available()
-            system_info["torch_version"] = torch.__version__
-            if torch.cuda.is_available():
-                system_info["gpu_count"] = torch.cuda.device_count()
+            sys.path.insert(0, str(Path(__file__).parents[3]))
+            from backend.utils.rocm_utils import (
+                detect_rocm_version,
+                check_pytorch_installation,
+                get_pytorch_install_info,
+                get_multi_gpu_config,
+                generate_rocm_env_vars,
+            )
+            
+            # Get ROCm version
+            rocm_version = detect_rocm_version()
+            if rocm_version:
+                system_info["rocm_detected"] = True
+                system_info["rocm_version_detected"] = str(rocm_version)
+                system_info["rocm_6_5_plus"] = rocm_version.is_6_5_or_later
+            
+            # Get PyTorch installation info
+            pytorch_info = check_pytorch_installation()
+            system_info["gpu_available"] = pytorch_info["gpu_available"]
+            system_info["torch_version"] = pytorch_info["version"]
+            system_info["torch_installed"] = pytorch_info["installed"]
+            system_info["gpu_count"] = pytorch_info["gpu_count"]
+            
+            if pytorch_info["installed"] and pytorch_info["is_rocm_build"]:
+                system_info["is_rocm_build"] = True
+                system_info["rocm_version"] = pytorch_info["rocm_build_version"]
+            
+            # Get detailed GPU architecture
+            gpu_arch = pytorch_info.get("gpu_architecture", {})
+            if gpu_arch.get("devices"):
+                system_info["gpu_devices"] = gpu_arch["devices"]
+                system_info["gpu_architectures"] = gpu_arch.get("architectures", [])
+                system_info["total_gpu_memory_gb"] = gpu_arch.get("total_memory_gb", 0)
+                system_info["multi_gpu"] = gpu_arch.get("multi_gpu", False)
                 
-                # Get detailed information for all GPUs
-                gpu_devices = []
-                for i in range(torch.cuda.device_count()):
-                    try:
-                        props = torch.cuda.get_device_properties(i)
-                        gpu_info = {
-                            "device_id": i,
-                            "name": torch.cuda.get_device_name(i),
-                            "total_memory_gb": round(props.total_memory / (1024 ** 3), 2),
-                            "compute_capability": f"{props.major}.{props.minor}",
-                            "multi_processor_count": props.multi_processor_count,
-                        }
-                        gpu_devices.append(gpu_info)
-                    except Exception as e:
-                        logger.warning(f"Could not get properties for GPU {i}: {e}")
-                        gpu_devices.append({
-                            "device_id": i,
-                            "name": "Unknown GPU",
-                            "total_memory_gb": 0,
-                            "error": str(e)
-                        })
-                
-                system_info["gpu_devices"] = gpu_devices
-                # Keep gpu_name for backward compatibility (first GPU)
-                system_info["gpu_name"] = torch.cuda.get_device_name(0) if gpu_devices else "Unknown"
-                
-                # Detect ROCm build version
-                if hasattr(torch.version, 'hip'):
-                    rocm_version = getattr(torch.version, 'hip', None)
-                    if rocm_version:
-                        system_info["rocm_version"] = rocm_version
-                        system_info["is_rocm_build"] = True
-                    
+                # Keep backward compatibility
+                if gpu_arch["devices"]:
+                    system_info["gpu_name"] = gpu_arch["devices"][0]["name"]
+            
+            # Get multi-GPU configuration if applicable
+            if system_info.get("gpu_count", 0) > 1:
+                multi_gpu_config = get_multi_gpu_config(system_info["gpu_count"])
+                system_info["multi_gpu_config"] = multi_gpu_config
+            
+            # Get recommended environment variables
+            env_vars = generate_rocm_env_vars(rocm_version, system_info.get("gpu_count"))
+            system_info["recommended_env_vars"] = env_vars
+            
         except ImportError:
-            system_info["gpu_available"] = False
-            system_info["torch_installed"] = False
-            system_info["torch_version"] = "Not installed"
+            # Fallback to legacy GPU detection
+            logger.warning("ROCm utilities not available, using legacy detection")
+            try:
+                import torch
+
+                system_info["gpu_available"] = torch.cuda.is_available()
+                system_info["torch_version"] = torch.__version__
+                system_info["torch_installed"] = True
+                
+                if torch.cuda.is_available():
+                    system_info["gpu_count"] = torch.cuda.device_count()
+                    
+                    # Get detailed information for all GPUs
+                    gpu_devices = []
+                    for i in range(torch.cuda.device_count()):
+                        try:
+                            props = torch.cuda.get_device_properties(i)
+                            gpu_info = {
+                                "device_id": i,
+                                "name": torch.cuda.get_device_name(i),
+                                "total_memory_gb": round(props.total_memory / (1024 ** 3), 2),
+                                "compute_capability": f"{props.major}.{props.minor}",
+                                "multi_processor_count": props.multi_processor_count,
+                            }
+                            gpu_devices.append(gpu_info)
+                        except Exception as e:
+                            logger.warning(f"Could not get properties for GPU {i}: {e}")
+                            gpu_devices.append({
+                                "device_id": i,
+                                "name": "Unknown GPU",
+                                "total_memory_gb": 0,
+                                "error": str(e)
+                            })
+                    
+                    system_info["gpu_devices"] = gpu_devices
+                    system_info["gpu_name"] = torch.cuda.get_device_name(0) if gpu_devices else "Unknown"
+                    
+                    # Detect ROCm build version
+                    if hasattr(torch.version, 'hip'):
+                        rocm_version = getattr(torch.version, 'hip', None)
+                        if rocm_version:
+                            system_info["rocm_version"] = rocm_version
+                            system_info["is_rocm_build"] = True
+                        
+            except ImportError:
+                system_info["gpu_available"] = False
+                system_info["torch_installed"] = False
+                system_info["torch_version"] = "Not installed"
 
         # Get installed package versions for ML dependencies
         installed_versions = {}

@@ -77,6 +77,19 @@ dev = [
     "sphinx>=7.1.0",
     "sphinx-rtd-theme>=1.3.0",
 ]
+# ROCm 5.7 (legacy support for MI-25 and older systems)
+rocm57 = [
+    "torch==2.3.1+rocm5.7",
+    "torchvision==0.18.1+rocm5.7",
+]
+# ROCm 6.5+ (standard wheels - install via index URL)
+# Usage: pip install -e .[rocm65] --index-url https://download.pytorch.org/whl/rocm6.5
+rocm65 = [
+    "torch>=2.4.0",
+    "torchvision>=0.19.0",
+    "torchaudio>=2.4.0",
+]
+# Default ROCm option points to 5.7 for backward compatibility
 rocm = [
     "torch==2.3.1+rocm5.7",
     "torchvision==0.18.1+rocm5.7",

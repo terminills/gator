@@ -8,12 +8,13 @@
 set -euo pipefail
 
 # Script configuration
-SCRIPT_VERSION="1.0.6"
+SCRIPT_VERSION="1.0.7"
 GATOR_USER="gator"
 GATOR_HOME="/opt/gator"
 PYTHON_VERSION="3.9"
 NODE_VERSION="18"
-ROCM_VERSION="5.7.1"
+ROCM_VERSION="5.7.1"  # Default/legacy version
+DETECTED_ROCM_VERSION=""  # Will be auto-detected
 
 # Color codes for output
 RED='\033[0;31m'
@@ -164,6 +165,46 @@ case $OS in
 esac
 
 log "🦎 Starting Gator AI Influencer Platform setup on $OS $OS_VERSION"
+
+# Function to detect installed ROCm version
+detect_rocm_version() {
+    if [[ -f /opt/rocm/.info/version ]]; then
+        DETECTED_ROCM_VERSION=$(cat /opt/rocm/.info/version 2>/dev/null | cut -d'-' -f1)
+        log "Detected ROCm version: $DETECTED_ROCM_VERSION"
+        return 0
+    elif command -v rocminfo >/dev/null 2>&1; then
+        # ROCm is installed but version file doesn't exist
+        DETECTED_ROCM_VERSION="unknown"
+        log "ROCm installed but version unknown"
+        return 0
+    fi
+    return 1
+}
+
+# Function to determine PyTorch index URL based on ROCm version
+get_pytorch_index_url() {
+    local rocm_ver="$1"
+    
+    # Parse version
+    local major=$(echo "$rocm_ver" | cut -d'.' -f1)
+    local minor=$(echo "$rocm_ver" | cut -d'.' -f2)
+    
+    # ROCm 6.5+ uses standard wheels
+    if [[ "$major" -ge 6 ]] && [[ "$minor" -ge 5 ]]; then
+        echo "https://download.pytorch.org/whl/rocm${major}.${minor}/"
+    # ROCm 6.4
+    elif [[ "$major" -eq 6 ]] && [[ "$minor" -eq 4 ]]; then
+        echo "https://download.pytorch.org/whl/rocm6.4/"
+    # ROCm 5.7 (legacy)
+    elif [[ "$major" -eq 5 ]] && [[ "$minor" -eq 7 ]]; then
+        echo "https://download.pytorch.org/whl/rocm5.7/"
+    # Default to closest version
+    elif [[ "$major" -ge 6 ]]; then
+        echo "https://download.pytorch.org/whl/rocm6.5/"
+    else
+        echo "https://download.pytorch.org/whl/rocm5.7/"
+    fi
+}
 
 # System update
 log "📦 Updating system packages..."
@@ -536,16 +577,51 @@ log "📦 Installing Python dependencies..."
 sudo -u $GATOR_USER python -m venv $GATOR_HOME/venv
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install --upgrade pip
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install wheel setuptools
+
 if [[ $INSTALL_ROCM_SUPPORT == true ]]; then
-    # Try installing with [rocm] extra
-    sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e .[rocm] --index-url https://download.pytorch.org/whl/rocm5.7 --extra-index-url https://pypi.org/simple --no-cache-dir || {
-        warn "Failed to install torch with [rocm] extra. Attempting to install torch and torchvision separately."
-        sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install torch==2.3.1+rocm5.7 torchvision==0.18.1+rocm5.7 --index-url https://download.pytorch.org/whl/rocm5.7 --extra-index-url https://pypi.org/simple --no-cache-dir
-        sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e . --extra-index-url https://pypi.org/simple --no-cache-dir
-    }
+    # Detect ROCm version and determine appropriate PyTorch index URL
+    detect_rocm_version
+    
+    if [[ -n "$DETECTED_ROCM_VERSION" ]] && [[ "$DETECTED_ROCM_VERSION" != "unknown" ]]; then
+        PYTORCH_INDEX_URL=$(get_pytorch_index_url "$DETECTED_ROCM_VERSION")
+        log "Using PyTorch index URL: $PYTORCH_INDEX_URL"
+        
+        # Parse ROCm version to determine installation method
+        ROCM_MAJOR=$(echo "$DETECTED_ROCM_VERSION" | cut -d'.' -f1)
+        ROCM_MINOR=$(echo "$DETECTED_ROCM_VERSION" | cut -d'.' -f2)
+        
+        # ROCm 6.5+ uses standard wheels
+        if [[ "$ROCM_MAJOR" -ge 6 ]] && [[ "$ROCM_MINOR" -ge 5 ]]; then
+            log "Installing PyTorch with ROCm ${ROCM_MAJOR}.${ROCM_MINOR} standard wheels..."
+            sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install torch torchvision torchaudio --index-url "$PYTORCH_INDEX_URL" --no-cache-dir || {
+                warn "Failed to install PyTorch with standard wheels. Falling back to legacy installation."
+                sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install torch==2.3.1+rocm5.7 torchvision==0.18.1+rocm5.7 --index-url https://download.pytorch.org/whl/rocm5.7 --extra-index-url https://pypi.org/simple --no-cache-dir
+            }
+            # Install the rest of the dependencies
+            sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e . --extra-index-url https://pypi.org/simple --no-cache-dir
+        else
+            # ROCm 5.7 or 6.4 - use version-specific installation
+            log "Installing PyTorch with ROCm ${ROCM_MAJOR}.${ROCM_MINOR} (legacy method)..."
+            sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e .[rocm57] --index-url "$PYTORCH_INDEX_URL" --extra-index-url https://pypi.org/simple --no-cache-dir || {
+                warn "Failed to install torch with [rocm57] extra. Attempting to install torch and torchvision separately."
+                sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install torch==2.3.1+rocm5.7 torchvision==0.18.1+rocm5.7 --index-url "$PYTORCH_INDEX_URL" --extra-index-url https://pypi.org/simple --no-cache-dir
+                sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e . --extra-index-url https://pypi.org/simple --no-cache-dir
+            }
+        fi
+    else
+        # ROCm detected but version unknown - use legacy 5.7
+        warn "ROCm version unknown, using legacy ROCm 5.7 PyTorch installation"
+        sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e .[rocm57] --index-url https://download.pytorch.org/whl/rocm5.7 --extra-index-url https://pypi.org/simple --no-cache-dir || {
+            warn "Failed to install torch with [rocm57] extra. Attempting to install torch and torchvision separately."
+            sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install torch==2.3.1+rocm5.7 torchvision==0.18.1+rocm5.7 --index-url https://download.pytorch.org/whl/rocm5.7 --extra-index-url https://pypi.org/simple --no-cache-dir
+            sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e . --extra-index-url https://pypi.org/simple --no-cache-dir
+        }
+    fi
 else
+    # No ROCm support - standard installation
     sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install -e . --extra-index-url https://pypi.org/simple --no-cache-dir
 fi
+
 sudo -u $GATOR_USER $GATOR_HOME/venv/bin/pip install gunicorn uvicorn[standard] supervisor
 
 # Verify backend.models.content module
@@ -625,10 +701,11 @@ Environment="ROCM_PATH=/opt/rocm"
 Environment="HIP_PATH=/opt/rocm/hip"
 Environment="HIP_VISIBLE_DEVICES=0,1,2,3,4,5,6,7"
 Environment="ROCR_VISIBLE_DEVICES=0,1,2,3,4,5,6,7"
-Environment="HSA_OVERRIDE_GFX_VERSION=9.0.0"
-Environment="HCC_AMDGPU_TARGET=gfx900"
-Environment="PYTORCH_ROCM_ARCH=gfx900"
-Environment="TF_ROCM_AMDGPU_TARGETS=gfx900"
+Environment="GPU_MAX_ALLOC_PERCENT=100"
+Environment="GPU_MAX_HEAP_SIZE=100"
+Environment="HSA_ENABLE_SDMA=0"
+Environment="NCCL_IB_DISABLE=1"
+Environment="HIP_FORCE_DEV_KERNARG=1"
 ExecStart=$GATOR_HOME/venv/bin/gunicorn -w 4 -k uvicorn.workers.UvicornWorker backend.api.main:app -b 0.0.0.0:8000
 Restart=always
 RestartSec=10

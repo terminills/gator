@@ -29,3 +29,11 @@ data:
   # Rate Limiting
   rate-limit-per-minute: "60"
   rate-limit-per-hour: "1000"
+  
+  # GPU Configuration (ROCm)
+  # Multi-GPU support: Adjust based on available GPUs
+  hip-visible-devices: "0,1"
+  rocr-visible-devices: "0,1"
+  gpu-max-alloc-percent: "100"
+  gpu-max-heap-size: "100"
+  nccl-ib-disable: "1"

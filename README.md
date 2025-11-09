@@ -189,13 +189,28 @@ docker-compose up -d
 
 ### AMD GPUs (ROCm)
 
-Gator supports AMD GPUs through ROCm, with special optimizations for the MI25:
+Gator supports AMD GPUs through ROCm with automatic version detection and optimization:
 
+#### Modern GPUs (ROCm 6.5+) - **Recommended**
+- **Radeon Pro V620 (RDNA2/gfx1030)**: Fully supported with ROCm 6.5+ ✨
+  - Multi-GPU: 2-8 cards (96GB-256GB VRAM)
+  - Standard PyTorch wheels available
+  - Nightly builds supported
+- **MI210/MI250 (CDNA2/gfx90a)**: ROCm 6.5+
+- **RX 7900 Series (RDNA3/gfx1100)**: ROCm 6.5+
+- **RX 6000 Series (RDNA2/gfx1030)**: ROCm 6.5+
+
+#### Legacy GPUs (ROCm 5.7)
 - **MI25 (Vega 10/gfx900)**: Fully supported with ROCm 5.7.1
-- **MI210/MI250**: Supported with ROCm 5.7.1+
-- **RX 6000 Series**: Supported with ROCm 5.7.1+
+  - See [MI25 Compatibility Guide](docs/MI25_COMPATIBILITY.md)
 
-**MI25 Users**: See the dedicated [MI25 Compatibility Guide](docs/MI25_COMPATIBILITY.md) for Ubuntu 20.04 installation instructions, performance tuning, and troubleshooting.
+#### Multi-GPU Support 🚀
+Gator automatically detects and optimizes for multi-GPU configurations:
+- **2 GPUs**: Parallel inference and load balancing
+- **3 GPUs**: Specialized tasks (LLM + Image + Video)
+- **4+ GPUs**: Enterprise multi-tenant deployment
+
+See [Multi-GPU Setup Guide](docs/MULTI_GPU_SETUP.md) for V620 and other modern GPU configurations.
 
 Installation:
 ```bash
