@@ -62,13 +62,49 @@ spec:
             configMapKeyRef:
               name: gator-config
               key: log-level
+        # GPU Configuration (ROCm 6.5+)
+        - name: ROCM_PATH
+          value: "/opt/rocm"
+        - name: HIP_PATH
+          value: "/opt/rocm/hip"
+        - name: HIP_VISIBLE_DEVICES
+          valueFrom:
+            configMapKeyRef:
+              name: gator-config
+              key: hip-visible-devices
+        - name: ROCR_VISIBLE_DEVICES
+          valueFrom:
+            configMapKeyRef:
+              name: gator-config
+              key: rocr-visible-devices
+        - name: GPU_MAX_ALLOC_PERCENT
+          valueFrom:
+            configMapKeyRef:
+              name: gator-config
+              key: gpu-max-alloc-percent
+        - name: GPU_MAX_HEAP_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: gator-config
+              key: gpu-max-heap-size
+        - name: NCCL_IB_DISABLE
+          valueFrom:
+            configMapKeyRef:
+              name: gator-config
+              key: nccl-ib-disable
+        - name: HSA_ENABLE_SDMA
+          value: "0"
+        - name: HIP_FORCE_DEV_KERNARG
+          value: "1"
         resources:
           requests:
             memory: "2Gi"
             cpu: "1000m"
+            amd.com/gpu: "1"  # Request 1 GPU per pod
           limits:
             memory: "4Gi"
             cpu: "2000m"
+            amd.com/gpu: "1"  # Limit to 1 GPU per pod
         livenessProbe:
           httpGet:
             path: /health
