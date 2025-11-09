@@ -16,6 +16,22 @@ import json
 import shutil
 import platform
 
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+
+try:
+    from backend.utils.rocm_utils import (
+        detect_rocm_version,
+        get_pytorch_index_url,
+        get_pytorch_install_command,
+        get_recommended_pytorch_version,
+        check_pytorch_installation,
+    )
+    ROCM_UTILS_AVAILABLE = True
+except ImportError:
+    ROCM_UTILS_AVAILABLE = False
+    print("Warning: ROCm utilities not available, using legacy detection")
+
 try:
     import torch
     TORCH_AVAILABLE = True
@@ -202,9 +218,25 @@ class ModelSetupManager:
         for i in range(self.gpu_count):
             try:
                 props = torch.cuda.get_device_properties(i)
+                device_name = torch.cuda.get_device_name(i)
+                
+                # Detect architecture
+                architecture = "unknown"
+                if "V620" in device_name or "Pro V620" in device_name:
+                    architecture = "gfx1030 (RDNA2)"
+                elif "MI25" in device_name or "Vega 10" in device_name:
+                    architecture = "gfx900 (Vega)"
+                elif "MI210" in device_name or "MI250" in device_name:
+                    architecture = "gfx90a (CDNA2)"
+                elif "6900 XT" in device_name or "6800" in device_name:
+                    architecture = "gfx1030 (RDNA2)"
+                elif "7900" in device_name:
+                    architecture = "gfx1100 (RDNA3)"
+                
                 gpu_info = {
                     "device_id": i,
-                    "name": torch.cuda.get_device_name(i),
+                    "name": device_name,
+                    "architecture": architecture,
                     "total_memory_gb": props.total_memory / (1024 ** 3),
                     "compute_capability": f"{props.major}.{props.minor}",
                     "multi_processor_count": props.multi_processor_count,
@@ -262,6 +294,13 @@ class ModelSetupManager:
     
     def get_rocm_version(self) -> Optional[str]:
         """Get ROCm build version from PyTorch if available."""
+        # Try using new ROCm utilities first
+        if ROCM_UTILS_AVAILABLE:
+            rocm_info = detect_rocm_version()
+            if rocm_info:
+                return rocm_info.version
+        
+        # Fallback to checking PyTorch build version
         if not TORCH_AVAILABLE:
             return None
         
@@ -273,6 +312,43 @@ class ModelSetupManager:
             pass
         
         return None
+    
+    def get_pytorch_install_info(self) -> Dict[str, any]:
+        """Get PyTorch installation information for current system."""
+        if not ROCM_UTILS_AVAILABLE:
+            return {
+                "method": "legacy",
+                "command": "pip install torch torchvision --index-url https://download.pytorch.org/whl/rocm5.7",
+                "note": "Using legacy ROCm 5.7 installation"
+            }
+        
+        rocm_version = detect_rocm_version()
+        if rocm_version:
+            command, metadata = get_pytorch_install_command(
+                rocm_version,
+                use_nightly=False,
+                include_torchvision=True,
+                include_torchaudio=False
+            )
+            
+            recommended = get_recommended_pytorch_version(rocm_version)
+            
+            return {
+                "method": "auto-detected",
+                "rocm_version": str(rocm_version),
+                "rocm_6_5_plus": rocm_version.is_6_5_or_later,
+                "command": command,
+                "index_url": metadata["index_url"],
+                "nightly_available": recommended.get("nightly_available", False),
+                "recommended_versions": recommended,
+                "note": recommended.get("note", "")
+            }
+        else:
+            return {
+                "method": "cpu-only",
+                "command": "pip install torch torchvision",
+                "note": "No ROCm detected, using CPU-only builds"
+            }
     
     def _get_recommended_inference_engines(self, gpu_type: str) -> Dict[str, str]:
         """Get recommended inference engines based on hardware."""
@@ -340,11 +416,15 @@ class ModelSetupManager:
             "recommended_engines": self._get_recommended_inference_engines(self.gpu_type)
         }
         
-        # Add ROCm version if available
+        # Add ROCm version and PyTorch installation info
         if self.gpu_type == "rocm":
             rocm_version = self.get_rocm_version()
             if rocm_version:
                 sys_info["rocm_version"] = rocm_version
+            
+            # Add PyTorch installation info using new utilities
+            pytorch_info = self.get_pytorch_install_info()
+            sys_info["pytorch_installation"] = pytorch_info
         
         if is_mi25:
             sys_info["gpu_architecture"] = rocm_arch
