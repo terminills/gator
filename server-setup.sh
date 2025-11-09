@@ -338,12 +338,35 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
                 local installed_version=$(cat /opt/rocm/.info/version 2>/dev/null || echo "unknown")
                 # Strip any suffix (e.g., -98) for comparison
                 local installed_base_version=$(echo "$installed_version" | cut -d'-' -f1)
-                if [[ "$installed_base_version" == "$desired_version" ]]; then
-                    log "✅ ROCm $installed_version is compatible with $desired_version. Skipping installation."
-                    return 0
-                else
-                    warn "ROCm version $installed_version found, but $desired_version is required. Proceeding with installation."
+                
+                # Test if rocminfo can actually detect GPUs (i.e., ROCm is working)
+                if ! rocminfo >/dev/null 2>&1; then
+                    warn "ROCm $installed_version is installed but not working properly. Proceeding with installation."
                     return 1
+                fi
+                
+                # Check if version is 5.7.1 or later
+                if [[ "$installed_base_version" != "unknown" ]]; then
+                    local major=$(echo "$installed_base_version" | cut -d'.' -f1)
+                    local minor=$(echo "$installed_base_version" | cut -d'.' -f2)
+                    local patch=$(echo "$installed_base_version" | cut -d'.' -f3)
+                    
+                    # Version comparison: require 5.7.1+
+                    if [[ "$major" -gt 5 ]] || \
+                       ([[ "$major" -eq 5 ]] && [[ "$minor" -gt 7 ]]) || \
+                       ([[ "$major" -eq 5 ]] && [[ "$minor" -eq 7 ]] && [[ "$patch" -ge 1 ]]); then
+                        log "✅ ROCm $installed_version is already installed and working. Skipping installation."
+                        log "   Note: Desired version is $desired_version, but using existing compatible installation."
+                        return 0
+                    else
+                        warn "ROCm $installed_version is older than 5.7.1. Proceeding with installation."
+                        return 1
+                    fi
+                else
+                    # Version unknown but ROCm is working - use it
+                    log "✅ ROCm is already installed and working (version unknown). Skipping installation."
+                    log "   Note: Desired version is $desired_version, but using existing installation."
+                    return 0
                 fi
             else
                 log "No ROCm installation detected. Proceeding with installation."
@@ -371,7 +394,7 @@ if [[ $INSTALL_GPU_SUPPORT == true ]]; then
         if lspci | grep -i amd > /dev/null || lspci | grep -i "advanced micro devices" > /dev/null; then
             # Check for existing ROCm installation
             if check_rocm "$ROCM_VERSION"; then
-                log "Using existing ROCm $ROCM_VERSION installation."
+                log "Using existing ROCm installation."
             else
                 log "Installing AMD ROCm $ROCM_VERSION..."
 
