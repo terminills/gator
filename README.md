@@ -191,6 +191,12 @@ docker-compose up -d
 
 Gator supports AMD GPUs through ROCm with automatic version detection and optimization:
 
+#### Next-Gen Support (ROCm 7.0+) - **PyTorch 2.10** 🆕
+- **Full PyTorch 2.10 nightly support** with automatic dependency compatibility checking
+- **ROCm 7.0+ detection**: Automatically detects and installs correct PyTorch versions
+- **Intelligent dependency management**: Compatible versions of transformers, diffusers, and accelerate
+- See [PyTorch Version Compatibility Guide](PYTORCH_VERSION_COMPATIBILITY.md) for details
+
 #### Modern GPUs (ROCm 6.5+) - **Recommended**
 - **Radeon Pro V620 (RDNA2/gfx1030)**: Fully supported with ROCm 6.5+ ✨
   - Multi-GPU: 2-8 cards (96GB-256GB VRAM)
@@ -216,7 +222,16 @@ Installation:
 ```bash
 # Automatic detection and installation
 sudo bash server-setup.sh --rocm
+
+# Check PyTorch version and compatible dependencies
+python demo_pytorch_version_check.py
+
+# Install PyTorch 2.10 nightly with ROCm 7.0
+pip3 install --pre torch torchvision torchaudio \
+  --index-url https://download.pytorch.org/whl/nightly/rocm7.0
 ```
+
+**PyTorch Version Compatibility**: The system automatically detects your PyTorch version and ensures compatible versions of ML libraries are installed. See [PyTorch Version Compatibility Guide](PYTORCH_VERSION_COMPATIBILITY.md) for details.
 
 ### NVIDIA GPUs (CUDA)
 
