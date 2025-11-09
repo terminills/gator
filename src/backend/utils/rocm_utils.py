@@ -143,6 +143,10 @@ def get_pytorch_index_url(
     """
     Get appropriate PyTorch index URL based on ROCm version.
     
+    For ROCm 7.0+:
+    - Stable: https://download.pytorch.org/whl/rocm7.0/
+    - Nightly: https://download.pytorch.org/whl/nightly/rocm7.0/
+    
     For ROCm 6.5+:
     - Stable: https://download.pytorch.org/whl/rocm6.5/
     - Nightly: https://download.pytorch.org/whl/nightly/rocm6.5/
@@ -183,7 +187,10 @@ def get_pytorch_index_url(
         return "https://download.pytorch.org/whl/rocm5.7/"
     
     # Default fallback to closest version
-    if rocm_version.major >= 6:
+    if rocm_version.major >= 7:
+        # Use ROCm 7.0+ for major version 7+
+        return f"https://download.pytorch.org/whl/rocm{rocm_version.short_version}/"
+    elif rocm_version.major >= 6:
         # Use latest ROCm 6.x
         return "https://download.pytorch.org/whl/rocm6.5/"
     else:
@@ -376,9 +383,20 @@ def check_pytorch_installation() -> Dict[str, any]:
         # Get detailed GPU architecture info
         gpu_arch_info = get_gpu_architecture()
         
+        # Parse PyTorch version to get major.minor
+        pytorch_major_minor = None
+        try:
+            # Handle versions like "2.10.0+rocm7.0" or "2.3.1"
+            version_parts = pytorch_version.split('+')[0].split('.')
+            if len(version_parts) >= 2:
+                pytorch_major_minor = f"{version_parts[0]}.{version_parts[1]}"
+        except Exception:
+            pass
+        
         return {
             "installed": True,
             "version": pytorch_version,
+            "pytorch_major_minor": pytorch_major_minor,
             "is_rocm_build": is_rocm_build,
             "rocm_build_version": rocm_build_version,
             "gpu_available": gpu_available,
@@ -389,12 +407,96 @@ def check_pytorch_installation() -> Dict[str, any]:
         return {
             "installed": False,
             "version": None,
+            "pytorch_major_minor": None,
             "is_rocm_build": False,
             "rocm_build_version": None,
             "gpu_available": False,
             "gpu_count": 0,
             "gpu_architecture": {"devices": [], "architectures": [], "total_memory_gb": 0},
         }
+
+
+def get_compatible_dependency_versions(
+    pytorch_version: Optional[str] = None
+) -> Dict[str, str]:
+    """
+    Get compatible dependency versions based on installed PyTorch version.
+    
+    This ensures that packages like transformers, diffusers, and accelerate
+    are compatible with the installed PyTorch version.
+    
+    Args:
+        pytorch_version: PyTorch version string (e.g., "2.10.0+rocm7.0", "2.3.1").
+                        If None, will attempt to detect from installed PyTorch.
+    
+    Returns:
+        Dictionary mapping package names to compatible version specifiers
+    """
+    # Default/latest compatible versions
+    default_versions = {
+        "transformers": ">=4.41.0",
+        "diffusers": ">=0.28.0",
+        "accelerate": ">=0.29.0",
+        "huggingface_hub": ">=0.23.0",
+    }
+    
+    if pytorch_version is None:
+        # Try to detect from installed PyTorch
+        pytorch_info = check_pytorch_installation()
+        if pytorch_info["installed"]:
+            pytorch_version = pytorch_info["version"]
+        else:
+            # No PyTorch installed, return defaults
+            return default_versions
+    
+    # Parse PyTorch version
+    try:
+        version_base = pytorch_version.split('+')[0]  # Remove build suffix
+        version_parts = version_base.split('.')
+        major = int(version_parts[0])
+        minor = int(version_parts[1]) if len(version_parts) > 1 else 0
+    except (ValueError, IndexError):
+        # Couldn't parse, return defaults
+        return default_versions
+    
+    # PyTorch 2.10+ (nightly/future releases)
+    if major >= 3 or (major == 2 and minor >= 10):
+        return {
+            "transformers": ">=4.45.0",  # Latest transformers with PyTorch 2.10+ support
+            "diffusers": ">=0.31.0",     # Latest diffusers with PyTorch 2.10+ support
+            "accelerate": ">=0.34.0",    # Latest accelerate with PyTorch 2.10+ support
+            "huggingface_hub": ">=0.25.0",
+        }
+    
+    # PyTorch 2.4-2.9
+    elif major == 2 and 4 <= minor <= 9:
+        return {
+            "transformers": ">=4.43.0",
+            "diffusers": ">=0.29.0",
+            "accelerate": ">=0.30.0",
+            "huggingface_hub": ">=0.24.0",
+        }
+    
+    # PyTorch 2.3.x (ROCm 5.7 legacy)
+    elif major == 2 and minor == 3:
+        return {
+            "transformers": ">=4.41.0,<4.50.0",  # Upper bound for safety
+            "diffusers": ">=0.28.0,<0.35.0",
+            "accelerate": ">=0.29.0,<0.35.0",
+            "huggingface_hub": ">=0.23.0,<0.30.0",
+        }
+    
+    # PyTorch 2.0-2.2
+    elif major == 2 and minor <= 2:
+        return {
+            "transformers": ">=4.35.0,<4.45.0",
+            "diffusers": ">=0.25.0,<0.30.0",
+            "accelerate": ">=0.25.0,<0.30.0",
+            "huggingface_hub": ">=0.20.0,<0.25.0",
+        }
+    
+    # Default fallback
+    return default_versions
 
 
 def get_multi_gpu_config(gpu_count: int = None) -> Dict[str, any]:
