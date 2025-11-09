@@ -189,8 +189,11 @@ get_pytorch_index_url() {
     local major=$(echo "$rocm_ver" | cut -d'.' -f1)
     local minor=$(echo "$rocm_ver" | cut -d'.' -f2)
     
+    # ROCm 7.0+ uses standard wheels
+    if [[ "$major" -ge 7 ]]; then
+        echo "https://download.pytorch.org/whl/rocm${major}.${minor}/"
     # ROCm 6.5+ uses standard wheels
-    if [[ "$major" -ge 6 ]] && [[ "$minor" -ge 5 ]]; then
+    elif [[ "$major" -eq 6 ]] && [[ "$minor" -ge 5 ]]; then
         echo "https://download.pytorch.org/whl/rocm${major}.${minor}/"
     # ROCm 6.4
     elif [[ "$major" -eq 6 ]] && [[ "$minor" -eq 4 ]]; then

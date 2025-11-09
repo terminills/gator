@@ -82,6 +82,13 @@ rocm57 = [
     "torch==2.3.1+rocm5.7",
     "torchvision==0.18.1+rocm5.7",
 ]
+# ROCm 7.0+ (standard wheels - install via index URL)
+# Usage: pip install -e .[rocm70] --index-url https://download.pytorch.org/whl/rocm7.0
+rocm70 = [
+    "torch>=2.5.0",
+    "torchvision>=0.20.0",
+    "torchaudio>=2.5.0",
+]
 # ROCm 6.5+ (standard wheels - install via index URL)
 # Usage: pip install -e .[rocm65] --index-url https://download.pytorch.org/whl/rocm6.5
 rocm65 = [
