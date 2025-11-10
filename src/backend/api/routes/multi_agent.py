@@ -290,7 +290,7 @@ async def search_marketplace(
         return results
     except Exception as e:
         logger.error(f"Marketplace search failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Marketplace search failed")
 
 
 @router.get("/marketplace/agents/{agent_id}")
@@ -316,7 +316,7 @@ async def get_marketplace_agent(
         raise
     except Exception as e:
         logger.error(f"Get marketplace agent failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Get marketplace agent failed")
 
 
 @router.post("/marketplace/install/{agent_id}")
@@ -344,7 +344,7 @@ async def install_agent(
         raise
     except Exception as e:
         logger.error(f"Agent installation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Agent installation failed")
 
 
 @router.delete("/marketplace/uninstall/{agent_id}")
@@ -370,7 +370,7 @@ async def uninstall_agent(
         raise
     except Exception as e:
         logger.error(f"Agent uninstallation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Agent uninstallation failed")
 
 
 @router.get("/marketplace/updates/{agent_id}")
@@ -444,4 +444,4 @@ async def publish_agent(
         raise
     except Exception as e:
         logger.error(f"Agent publication failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Agent publication failed")

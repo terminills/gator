@@ -48,7 +48,7 @@ async def train_engagement_model(
         return result
     except Exception as e:
         logger.error(f"Model training failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Model training failed")
 
 
 @router.post("/models/train-success-classifier", status_code=200)
@@ -74,7 +74,7 @@ async def train_success_classifier(
         return result
     except Exception as e:
         logger.error(f"Classifier training failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Classifier training failed")
 
 
 @router.get("/models/feature-importance")
@@ -138,7 +138,7 @@ async def score_content(
         raise
     except Exception as e:
         logger.error(f"Content scoring failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Content scoring failed")
 
 
 @router.get("/optimize/{context_id}")
@@ -175,7 +175,7 @@ async def optimize_content(
         raise
     except Exception as e:
         logger.error(f"Content optimization failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Content optimization failed")
 
 
 @router.get("/predict-timing")
@@ -202,7 +202,7 @@ async def predict_optimal_timing(
         return prediction
     except Exception as e:
         logger.error(f"Timing prediction failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Timing prediction failed")
 
 
 # Cross-Persona Learning Endpoints
@@ -230,7 +230,7 @@ async def aggregate_cross_persona_patterns(
         return patterns
     except Exception as e:
         logger.error(f"Cross-persona aggregation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Cross-persona aggregation failed")
 
 
 @router.get("/cross-persona/benchmark/{persona_id}")
@@ -311,7 +311,7 @@ async def create_ab_test(
         return config
     except Exception as e:
         logger.error(f"A/B test creation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="A/B test creation failed")
 
 
 @router.post("/ab-tests/{test_id}/start")
