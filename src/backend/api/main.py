@@ -280,37 +280,33 @@ def create_app() -> FastAPI:
     @app.get("/admin/content", tags=["system"])
     async def admin_content():
         """Serve content management page."""
-        # TODO: Create dedicated content management page
-        admin_panel_path = os.path.join(project_root, "admin_panel", "index.html")
-        if os.path.exists(admin_panel_path):
-            return FileResponse(admin_panel_path)
+        content_path = os.path.join(project_root, "admin_panel", "content.html")
+        if os.path.exists(content_path):
+            return FileResponse(content_path)
         return {"error": "Content management page not found"}
     
     @app.get("/admin/rss", tags=["system"])
     async def admin_rss():
         """Serve RSS feed management page."""
-        # TODO: Create dedicated RSS management page
-        admin_panel_path = os.path.join(project_root, "admin_panel", "index.html")
-        if os.path.exists(admin_panel_path):
-            return FileResponse(admin_panel_path)
+        rss_path = os.path.join(project_root, "admin_panel", "rss.html")
+        if os.path.exists(rss_path):
+            return FileResponse(rss_path)
         return {"error": "RSS management page not found"}
     
     @app.get("/admin/analytics", tags=["system"])
     async def admin_analytics():
         """Serve analytics dashboard page."""
-        # TODO: Create dedicated analytics page
-        admin_panel_path = os.path.join(project_root, "admin_panel", "index.html")
-        if os.path.exists(admin_panel_path):
-            return FileResponse(admin_panel_path)
+        analytics_path = os.path.join(project_root, "admin_panel", "analytics.html")
+        if os.path.exists(analytics_path):
+            return FileResponse(analytics_path)
         return {"error": "Analytics page not found"}
     
     @app.get("/admin/settings", tags=["system"])
     async def admin_settings():
         """Serve system settings page."""
-        # TODO: Create dedicated settings page
-        admin_panel_path = os.path.join(project_root, "admin_panel", "index.html")
-        if os.path.exists(admin_panel_path):
-            return FileResponse(admin_panel_path)
+        settings_path = os.path.join(project_root, "admin_panel", "settings.html")
+        if os.path.exists(settings_path):
+            return FileResponse(settings_path)
         return {"error": "Settings page not found"}
 
     @app.get("/ai-models-setup", tags=["system"])

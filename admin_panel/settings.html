@@ -3,8 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Settings - Gator AI Admin</title>
+    <title>Settings - Gator AI Admin</title>
     <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5568d3;
+            --accent: #10b981;
+            --dark-bg: #0f0f1e;
+            --dark-surface: #1a1a2e;
+            --dark-card: #16213e;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --sidebar-width: 260px;
+            --border-color: #2a2a3e;
+        }
+        
         * {
             margin: 0;
             padding: 0;
@@ -12,184 +25,211 @@
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            display: flex;
             min-height: 100vh;
         }
         
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .header-content {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 20px;
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--dark-surface);
+            border-right: 1px solid var(--border-color);
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .logo {
+            display: flex;
             align-items: center;
+            gap: 12px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
         }
         
-        .header h1 {
-            font-size: 1.8rem;
+        .logo-icon {
+            font-size: 2rem;
         }
         
-        .back-btn {
-            background: rgba(255,255,255,0.2);
-            padding: 10px 20px;
+        .tenant-selector {
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--dark-card);
             border-radius: 8px;
-            text-decoration: none;
-            color: white;
-            transition: background 0.3s;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.2s;
         }
         
-        .back-btn:hover {
-            background: rgba(255,255,255,0.3);
+        .tenant-selector:hover {
+            border-color: var(--primary);
         }
         
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 30px 20px;
-        }
-        
-        .settings-section {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        
-        .settings-section h2 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 1.3rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .section-icon {
-            font-size: 1.8rem;
-        }
-        
-        .setting-item {
-            margin-bottom: 25px;
-            padding-bottom: 25px;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        
-        .setting-item:last-child {
-            margin-bottom: 0;
-            padding-bottom: 0;
-            border-bottom: none;
-        }
-        
-        .setting-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: start;
-            margin-bottom: 8px;
-        }
-        
-        .setting-label {
+        .tenant-name {
             font-weight: 600;
-            color: #333;
-            font-size: 1rem;
-        }
-        
-        .setting-description {
-            color: #666;
             font-size: 0.9rem;
-            margin-bottom: 12px;
+            margin-bottom: 4px;
         }
         
-        .form-input {
-            width: 100%;
-            padding: 10px 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
+        .tenant-plan {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
         }
         
-        .form-input:focus {
-            outline: none;
-            border-color: #667eea;
+        .nav-section {
+            padding: 20px 16px 8px;
         }
         
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 26px;
+        .nav-section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-bottom: 8px;
+            padding: 0 12px;
         }
         
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
+        .nav-menu {
+            list-style: none;
         }
         
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 26px;
+        .nav-item {
+            margin-bottom: 4px;
         }
         
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 20px;
-            width: 20px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        
-        input:checked + .slider {
-            background-color: #667eea;
-        }
-        
-        input:checked + .slider:before {
-            transform: translateX(24px);
-        }
-        
-        .color-picker-wrapper {
+        .nav-link {
             display: flex;
-            gap: 15px;
             align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
         }
         
-        .color-input {
-            width: 60px;
+        .nav-link:hover {
+            background: var(--dark-card);
+            color: var(--text-primary);
+        }
+        
+        .nav-link.active {
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            color: white;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.3rem;
+            width: 24px;
+            text-align: center;
+        }
+        
+        .badge {
+            margin-left: auto;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: var(--accent);
+            color: white;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .topbar {
+            height: 70px;
+            background: var(--dark-surface);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .search-box {
+            position: relative;
+        }
+        
+        .search-input {
+            width: 300px;
+            padding: 10px 16px 10px 40px;
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+        
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .icon-btn {
+            width: 40px;
             height: 40px;
-            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
             cursor: pointer;
+            transition: all 0.2s;
         }
         
-        .color-value {
+        .icon-btn:hover {
+            border-color: var(--primary);
+        }
+        
+        .content-area {
             flex: 1;
-            padding: 10px 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-family: monospace;
+            padding: 32px;
+            overflow-y: auto;
         }
         
         .btn {
-            padding: 12px 24px;
+            padding: 10px 20px;
             border: none;
             border-radius: 8px;
             font-weight: 600;
@@ -197,264 +237,342 @@
             transition: all 0.3s;
             text-decoration: none;
             display: inline-block;
+            font-size: 0.9rem;
         }
         
         .btn-primary {
-            background: #667eea;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
         }
         
         .btn-primary:hover {
-            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
         
         .btn-secondary {
-            background: #6c757d;
-            color: white;
+            background: var(--dark-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
         }
         
         .btn-secondary:hover {
-            background: #5a6268;
+            border-color: var(--primary);
         }
         
-        .actions-bar {
-            background: white;
+        .section {
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
             border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-            position: sticky;
-            bottom: 20px;
+            padding: 24px;
+            margin-bottom: 24px;
         }
         
-        .success-message {
-            background: #d4edda;
-            color: #155724;
-            padding: 12px 20px;
-            border-radius: 8px;
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 20px;
-            display: none;
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        
+        .toolbar {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .toolbar-search {
+            flex: 1;
+            min-width: 250px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state h2 {
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+        
+        .empty-state p {
+            margin-bottom: 24px;
+        }
+        
+        .card {
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.2s;
+        }
+        
+        .card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="header-content">
-            <h1>⚙️ System Settings</h1>
-            <a href="/admin" class="back-btn">← Back to Dashboard</a>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-icon" id="brand-icon">🐊</span>
+                <span id="brand-name">AI Platform</span>
+            </div>
+            
+            <div class="tenant-selector" onclick="switchTenant()">
+                <div class="tenant-name" id="tenant-name">My Instance</div>
+                <div class="tenant-plan"><span id="tenant-plan-text">Self-Hosted</span> • GPU Enabled</div>
+            </div>
         </div>
-    </div>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Main</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin" class="nav-link ">
+                        <span class="nav-icon">📊</span>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/personas" class="nav-link ">
+                        <span class="nav-icon">🎭</span>
+                        <span>Personas</span>
+                        <span class="badge" id="persona-badge">0</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/content" class="nav-link ">
+                        <span class="nav-icon">🎨</span>
+                        <span>Content</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Resources</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/ai-models-setup" class="nav-link">
+                        <span class="nav-icon">🤖</span>
+                        <span>AI Models</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/rss" class="nav-link ">
+                        <span class="nav-icon">📡</span>
+                        <span>RSS Feeds</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Insights</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin/analytics" class="nav-link ">
+                        <span class="nav-icon">📈</span>
+                        <span>Analytics</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/gallery" class="nav-link">
+                        <span class="nav-icon">🌐</span>
+                        <span>Public View</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section" style="margin-top: auto;">
+            <div class="nav-section-title">System</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin/settings" class="nav-link active">
+                        <span class="nav-icon">⚙️</span>
+                        <span>Settings</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/docs" class="nav-link">
+                        <span class="nav-icon">📚</span>
+                        <span>API Docs</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
     
-    <div class="container">
-        <div id="success-message" class="success-message">
-            ✓ Settings saved successfully!
-        </div>
-        
-        <!-- Branding Settings -->
-        <div class="settings-section">
-            <h2><span class="section-icon">🎨</span> Branding</h2>
-            
-            <div class="setting-item">
-                <div class="setting-label">Site Name</div>
-                <div class="setting-description">The name of your AI platform installation</div>
-                <input type="text" class="form-input" id="site-name" placeholder="My AI Platform">
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <h1 class="page-title">Settings</h1>
             </div>
             
-            <div class="setting-item">
-                <div class="setting-label">Site Icon</div>
-                <div class="setting-description">Emoji or icon to represent your platform</div>
-                <input type="text" class="form-input" id="site-icon" placeholder="🤖">
-            </div>
-            
-            <div class="setting-item">
-                <div class="setting-label">Tagline</div>
-                <div class="setting-description">Brief description of your platform</div>
-                <input type="text" class="form-input" id="site-tagline" placeholder="AI-Powered Content Generation">
-            </div>
-            
-            <div class="setting-item">
-                <div class="setting-label">Primary Color</div>
-                <div class="setting-description">Main brand color used throughout the interface</div>
-                <div class="color-picker-wrapper">
-                    <input type="color" class="color-input" id="primary-color" value="#667eea">
-                    <input type="text" class="color-value" id="primary-color-text" value="#667eea">
+            <div class="topbar-right">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" placeholder="Search...">
                 </div>
-            </div>
-            
-            <div class="setting-item">
-                <div class="setting-label">Accent Color</div>
-                <div class="setting-description">Secondary color for highlights and accents</div>
-                <div class="color-picker-wrapper">
-                    <input type="color" class="color-input" id="accent-color" value="#10b981">
-                    <input type="text" class="color-value" id="accent-color-text" value="#10b981">
-                </div>
+                <div class="icon-btn">🔔</div>
+                <div class="icon-btn">👤</div>
             </div>
         </div>
         
-        <!-- Content Settings -->
-        <div class="settings-section">
-            <h2><span class="section-icon">📸</span> Content Generation</h2>
-            
-            <div class="setting-item">
-                <div class="setting-header">
+        <div class="content-area">
+            <!-- System Settings -->
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">⚙️ General Settings</h2>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 20px;">
                     <div>
-                        <div class="setting-label">Enable Auto-Generation</div>
-                        <div class="setting-description">Automatically generate content from RSS feeds</div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">Site Name</label>
+                        <input type="text" class="search-input" id="site-name" placeholder="My AI Platform" style="width: 100%; max-width: 400px;">
                     </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="auto-generation">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-            </div>
-            
-            <div class="setting-item">
-                <div class="setting-label">Default Content Rating</div>
-                <div class="setting-description">Default rating for new content</div>
-                <select class="form-input" id="default-rating">
-                    <option value="sfw">SFW - Safe for Work</option>
-                    <option value="moderate">Moderate</option>
-                    <option value="nsfw">NSFW - Not Safe for Work</option>
-                </select>
-            </div>
-            
-            <div class="setting-item">
-                <div class="setting-label">Generation Interval (minutes)</div>
-                <div class="setting-description">How often to check for new content generation opportunities</div>
-                <input type="number" class="form-input" id="generation-interval" value="30" min="5" max="1440">
-            </div>
-        </div>
-        
-        <!-- System Settings -->
-        <div class="settings-section">
-            <h2><span class="section-icon">🖥️</span> System</h2>
-            
-            <div class="setting-item">
-                <div class="setting-header">
                     <div>
-                        <div class="setting-label">Debug Mode</div>
-                        <div class="setting-description">Enable detailed logging for troubleshooting</div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">Site Icon</label>
+                        <input type="text" class="search-input" id="site-icon" placeholder="🐊" style="width: 100px;">
                     </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="debug-mode">
-                        <span class="slider"></span>
-                    </label>
+                    <button class="btn btn-primary" onclick="saveSettings()">
+                        💾 Save Settings
+                    </button>
                 </div>
             </div>
             
-            <div class="setting-item">
-                <div class="setting-label">Database URL</div>
-                <div class="setting-description">Connection string for your database</div>
-                <input type="text" class="form-input" id="database-url" placeholder="sqlite:///./gator.db" readonly>
-                <small style="color: #999; margin-top: 5px; display: block;">Database URL is read-only and configured via environment variables</small>
-            </div>
-        </div>
-        
-        <!-- RSS Settings -->
-        <div class="settings-section">
-            <h2><span class="section-icon">📡</span> RSS Feeds</h2>
-            
-            <div class="setting-item">
-                <div class="setting-header">
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">🔑 API Keys</h2>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 20px;">
                     <div>
-                        <div class="setting-label">Enable RSS Ingestion</div>
-                        <div class="setting-description">Automatically fetch and process RSS feeds</div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">OpenAI API Key</label>
+                        <input type="password" class="search-input" id="openai-key" placeholder="sk-..." style="width: 100%; max-width: 400px;">
                     </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="rss-enabled" checked>
-                        <span class="slider"></span>
-                    </label>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">Hugging Face Token</label>
+                        <input type="password" class="search-input" id="hf-token" placeholder="hf_..." style="width: 100%; max-width: 400px;">
+                    </div>
+                    <button class="btn btn-primary" onclick="saveAPIKeys()">
+                        💾 Save API Keys
+                    </button>
                 </div>
             </div>
             
-            <div class="setting-item">
-                <div class="setting-label">Update Frequency (minutes)</div>
-                <div class="setting-description">How often to check RSS feeds for new content</div>
-                <input type="number" class="form-input" id="rss-frequency" value="60" min="15" max="1440">
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">🗄️ Database</h2>
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn btn-secondary" onclick="backupDatabase()">
+                        💾 Backup Database
+                    </button>
+                    <button class="btn btn-secondary" onclick="optimizeDatabase()">
+                        ⚡ Optimize Database
+                    </button>
+                </div>
             </div>
         </div>
-        
-        <div class="actions-bar">
-            <button class="btn btn-secondary" onclick="loadSettings()">Reset</button>
-            <button class="btn btn-primary" onclick="saveSettings()">Save Changes</button>
-        </div>
-    </div>
+    </main>
     
     <script>
-        // Load settings from API
+        // Load branding configuration
+        async function loadBranding() {
+            try {
+                const response = await fetch('/api/v1/branding');
+                const branding = await response.json();
+                
+                document.getElementById('brand-name').textContent = branding.site_name || 'AI Platform';
+                document.getElementById('brand-icon').textContent = branding.icon || '🐊';
+                document.getElementById('tenant-name').textContent = branding.instance_name || 'My Instance';
+            } catch (e) {
+                console.log('Using default branding');
+            }
+        }
+        
+        function switchTenant() {
+            alert('Tenant switching coming soon! This will allow you to manage multiple tenants.');
+        }
+        
+        // Load branding on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadBranding();
+        });
+
+        // Settings Management
         async function loadSettings() {
             try {
-                // Load branding
-                const brandingResponse = await fetch('/api/v1/branding');
-                const branding = await brandingResponse.json();
+                const response = await fetch('/api/v1/branding');
+                const branding = await response.json();
                 
-                document.getElementById('site-name').value = branding.site_name || 'Gator AI';
-                document.getElementById('site-icon').value = branding.site_icon || '🐊';
-                document.getElementById('site-tagline').value = branding.site_tagline || 'AI-Powered Content Generation';
-                document.getElementById('primary-color').value = branding.primary_color || '#667eea';
-                document.getElementById('primary-color-text').value = branding.primary_color || '#667eea';
-                document.getElementById('accent-color').value = branding.accent_color || '#10b981';
-                document.getElementById('accent-color-text').value = branding.accent_color || '#10b981';
-                
+                document.getElementById('site-name').value = branding.site_name || '';
+                document.getElementById('site-icon').value = branding.icon || '';
             } catch (error) {
                 console.error('Failed to load settings:', error);
             }
         }
         
-        // Save settings to API
         async function saveSettings() {
             try {
-                // Save branding
-                const brandingData = {
+                const settings = {
                     site_name: document.getElementById('site-name').value,
-                    site_icon: document.getElementById('site-icon').value,
-                    site_tagline: document.getElementById('site-tagline').value,
-                    primary_color: document.getElementById('primary-color').value,
-                    accent_color: document.getElementById('accent-color').value
+                    icon: document.getElementById('site-icon').value
                 };
                 
-                await fetch('/api/v1/branding', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(brandingData)
+                const response = await fetch('/api/v1/branding', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
                 });
                 
-                // Show success message
-                const successMsg = document.getElementById('success-message');
-                successMsg.style.display = 'block';
-                setTimeout(() => {
-                    successMsg.style.display = 'none';
-                }, 3000);
-                
+                if (response.ok) {
+                    alert('✅ Settings saved successfully!');
+                    loadBranding();
+                } else {
+                    alert('❌ Failed to save settings');
+                }
             } catch (error) {
-                console.error('Failed to save settings:', error);
-                alert('Failed to save settings. Please try again.');
+                alert('❌ Failed to save settings');
             }
         }
         
-        // Sync color picker with text input
-        document.getElementById('primary-color').addEventListener('input', (e) => {
-            document.getElementById('primary-color-text').value = e.target.value;
-        });
+        async function saveAPIKeys() {
+            alert('💡 API keys will be saved securely. This feature is coming soon!');
+        }
         
-        document.getElementById('primary-color-text').addEventListener('input', (e) => {
-            document.getElementById('primary-color').value = e.target.value;
-        });
+        function backupDatabase() {
+            alert('💾 Database backup will be created. This feature is coming soon!');
+        }
         
-        document.getElementById('accent-color').addEventListener('input', (e) => {
-            document.getElementById('accent-color-text').value = e.target.value;
-        });
+        function optimizeDatabase() {
+            alert('⚡ Database optimization will be performed. This feature is coming soon!');
+        }
         
-        document.getElementById('accent-color-text').addEventListener('input', (e) => {
-            document.getElementById('accent-color').value = e.target.value;
+        // Load on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
         });
-        
-        // Load settings on page load
-        document.addEventListener('DOMContentLoaded', loadSettings);
     </script>
 </body>
 </html>
