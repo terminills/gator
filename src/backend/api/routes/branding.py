@@ -2,14 +2,24 @@
 Branding API Routes
 
 Provides endpoints for site branding and customization.
-Allows each installation/tenant to customize their appearance.
+Stores branding in database for dynamic updates without restarts.
 """
 
 from typing import Dict, Any
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
-from backend.config.settings import get_settings
+from backend.database.connection import get_db_session
+from backend.models.branding import (
+    BrandingModel,
+    BrandingCreate,
+    BrandingUpdate,
+    BrandingResponse,
+)
+from backend.config.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/branding",
@@ -17,61 +27,183 @@ router = APIRouter(
 )
 
 
-class BrandingResponse(BaseModel):
-    """Branding configuration response."""
-    
-    site_name: str
-    icon: str
-    instance_name: str
-    tagline: str
-    primary_color: str
-    accent_color: str
-    logo_url: str | None = None
-    powered_by: str = "Gator AI Platform"
-
-
 @router.get("", response_model=BrandingResponse)
-async def get_branding():
+async def get_branding(db: AsyncSession = Depends(get_db_session)):
     """
-    Get current site branding configuration.
+    Get current site branding configuration from database.
     
     Returns customizable branding for the current installation.
     Each tenant/site can have their own branding while powered by Gator software.
     
+    Args:
+        db: Database session
+    
     Returns:
         BrandingResponse: Site branding configuration
     """
-    settings = get_settings()
-    
-    # Load branding from environment/config
-    # These can be customized per installation via .env file
-    return BrandingResponse(
-        site_name=getattr(settings, 'site_name', 'AI Content Platform'),
-        icon=getattr(settings, 'site_icon', '🤖'),
-        instance_name=getattr(settings, 'instance_name', 'My AI Platform'),
-        tagline=getattr(settings, 'site_tagline', 'AI-Powered Content Generation'),
-        primary_color=getattr(settings, 'primary_color', '#667eea'),
-        accent_color=getattr(settings, 'accent_color', '#10b981'),
-        logo_url=getattr(settings, 'logo_url', None),
-        powered_by='Gator AI Platform'  # Always credit the software
-    )
+    try:
+        # Get active branding from database
+        query = select(BrandingModel).where(BrandingModel.is_active == True).limit(1)
+        result = await db.execute(query)
+        branding = result.scalar_one_or_none()
+        
+        if not branding:
+            # Create default branding if none exists
+            branding = BrandingModel(
+                site_name="AI Content Platform",
+                site_icon="🤖",
+                instance_name="My AI Platform",
+                site_tagline="AI-Powered Content Generation",
+                primary_color="#667eea",
+                accent_color="#10b981",
+                is_active=True,
+            )
+            db.add(branding)
+            await db.commit()
+            await db.refresh(branding)
+            logger.info("Created default branding configuration")
+        
+        # Convert to response model
+        return BrandingResponse(
+            id=str(branding.id),
+            site_name=branding.site_name,
+            site_icon=branding.site_icon,
+            instance_name=branding.instance_name,
+            site_tagline=branding.site_tagline,
+            primary_color=branding.primary_color,
+            accent_color=branding.accent_color,
+            logo_url=branding.logo_url,
+            favicon_url=branding.favicon_url,
+            custom_css=branding.custom_css,
+            created_at=branding.created_at,
+            updated_at=branding.updated_at,
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to get branding: {e}")
+        # Return default branding as fallback
+        from datetime import datetime, timezone
+        return BrandingResponse(
+            id="default",
+            site_name="AI Content Platform",
+            site_icon="🤖",
+            instance_name="My AI Platform",
+            site_tagline="AI-Powered Content Generation",
+            primary_color="#667eea",
+            accent_color="#10b981",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
 
 
-@router.put("")
-async def update_branding(branding: BrandingResponse):
+@router.put("", response_model=BrandingResponse)
+async def update_branding(
+    branding_update: BrandingUpdate,
+    db: AsyncSession = Depends(get_db_session)
+):
     """
-    Update site branding configuration.
+    Update site branding configuration in database.
     
-    TODO: Implement branding persistence
+    Updates the active branding record with new values.
+    Changes take effect immediately without restarting.
     
     Args:
-        branding: New branding configuration
+        branding_update: New branding values
+        db: Database session
         
     Returns:
-        Success message
+        Updated branding configuration
     """
-    # TODO: Save to database or config file
-    return {
-        "success": True,
-        "message": "Branding updated (not yet persisted)"
-    }
+    try:
+        # Get active branding
+        query = select(BrandingModel).where(BrandingModel.is_active == True).limit(1)
+        result = await db.execute(query)
+        branding = result.scalar_one_or_none()
+        
+        if not branding:
+            raise HTTPException(status_code=404, detail="No active branding found")
+        
+        # Update fields that were provided
+        update_data = branding_update.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(branding, field, value)
+        
+        await db.commit()
+        await db.refresh(branding)
+        
+        logger.info(f"Updated branding configuration: {update_data.keys()}")
+        
+        return BrandingResponse(
+            id=str(branding.id),
+            site_name=branding.site_name,
+            site_icon=branding.site_icon,
+            instance_name=branding.instance_name,
+            site_tagline=branding.site_tagline,
+            primary_color=branding.primary_color,
+            accent_color=branding.accent_color,
+            logo_url=branding.logo_url,
+            favicon_url=branding.favicon_url,
+            custom_css=branding.custom_css,
+            created_at=branding.created_at,
+            updated_at=branding.updated_at,
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update branding: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update branding")
+
+
+@router.post("", response_model=BrandingResponse)
+async def create_branding(
+    branding_data: BrandingCreate,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    Create new branding configuration.
+    
+    Note: Only one active branding configuration should exist.
+    This endpoint is mainly for initial setup.
+    
+    Args:
+        branding_data: Branding configuration
+        db: Database session
+        
+    Returns:
+        Created branding configuration
+    """
+    try:
+        # Deactivate any existing branding
+        await db.execute(
+            select(BrandingModel).where(BrandingModel.is_active == True)
+        )
+        
+        # Create new branding
+        branding = BrandingModel(**branding_data.model_dump(), is_active=True)
+        db.add(branding)
+        await db.commit()
+        await db.refresh(branding)
+        
+        logger.info("Created new branding configuration")
+        
+        return BrandingResponse(
+            id=str(branding.id),
+            site_name=branding.site_name,
+            site_icon=branding.site_icon,
+            instance_name=branding.instance_name,
+            site_tagline=branding.site_tagline,
+            primary_color=branding.primary_color,
+            accent_color=branding.accent_color,
+            logo_url=branding.logo_url,
+            favicon_url=branding.favicon_url,
+            custom_css=branding.custom_css,
+            created_at=branding.created_at,
+            updated_at=branding.updated_at,
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to create branding: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to create branding")
