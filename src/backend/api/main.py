@@ -42,6 +42,7 @@ from backend.api.routes import (
     plugins,
     friend_groups,
     enhanced_persona,
+    branding,
 )
 from backend.api.websocket import websocket_endpoint
 
@@ -182,6 +183,7 @@ def create_app() -> FastAPI:
 
     # Include API routers
     app.include_router(public.router)
+    app.include_router(branding.router)
     app.include_router(dns.router, prefix="/api/v1")
     app.include_router(setup.router, prefix="/api/v1")
     app.include_router(database_admin.router, prefix="/api/v1")
@@ -239,11 +241,15 @@ def create_app() -> FastAPI:
     @app.get("/admin", tags=["system"])
     async def admin_dashboard():
         """Serve main admin dashboard hub."""
-        # Serve the new modular admin dashboard
+        # Serve the new modern admin dashboard
+        dashboard_path = os.path.join(project_root, "admin_panel", "dashboard.html")
+        if os.path.exists(dashboard_path):
+            return FileResponse(dashboard_path)
+        # Fallback to simple admin panel
         admin_panel_path = os.path.join(project_root, "admin_panel", "index.html")
         if os.path.exists(admin_panel_path):
             return FileResponse(admin_panel_path)
-        # Fallback to legacy admin.html
+        # Last resort: legacy admin.html
         admin_path = os.path.join(project_root, "admin.html")
         if os.path.exists(admin_path):
             return FileResponse(admin_path)

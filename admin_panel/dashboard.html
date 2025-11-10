@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Platform Control - Gator AI</title>
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5568d3;
+            --accent: #10b981;
+            --dark-bg: #0f0f1e;
+            --dark-surface: #1a1a2e;
+            --dark-card: #16213e;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --sidebar-width: 260px;
+            --border-color: #2a2a3e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--dark-surface);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .logo-icon {
+            font-size: 2rem;
+        }
+        
+        .tenant-selector {
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--dark-card);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tenant-selector:hover {
+            border-color: var(--primary);
+        }
+        
+        .tenant-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+        
+        .tenant-plan {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        .nav-section {
+            padding: 20px 16px 8px;
+        }
+        
+        .nav-section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-bottom: 8px;
+            padding: 0 12px;
+        }
+        
+        .nav-menu {
+            list-style: none;
+        }
+        
+        .nav-item {
+            margin-bottom: 4px;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .nav-link:hover {
+            background: var(--dark-card);
+            color: var(--text-primary);
+        }
+        
+        .nav-link.active {
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            color: white;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.3rem;
+            width: 24px;
+            text-align: center;
+        }
+        
+        .badge {
+            margin-left: auto;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: var(--accent);
+            color: white;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .topbar {
+            height: 70px;
+            background: var(--dark-surface);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .search-box {
+            position: relative;
+        }
+        
+        .search-input {
+            width: 300px;
+            padding: 10px 16px 10px 40px;
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+        
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .icon-btn:hover {
+            border-color: var(--primary);
+        }
+        
+        .content-area {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+        }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        
+        .stat-card {
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.2s;
+        }
+        
+        .stat-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+        
+        .stat-icon {
+            font-size: 2rem;
+            opacity: 0.8;
+        }
+        
+        .stat-trend {
+            font-size: 0.8rem;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        
+        .trend-up {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent);
+        }
+        
+        .trend-down {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        /* Quick Actions */
+        .section {
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        
+        .action-card {
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        
+        .action-card:hover {
+            border-color: var(--primary);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+        }
+        
+        .action-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+        
+        .action-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        
+        .action-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        /* Resource Allocation */
+        .resource-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .resource-card {
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .resource-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .resource-name {
+            font-weight: 600;
+        }
+        
+        .resource-status {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .status-available {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent);
+        }
+        
+        .status-allocated {
+            background: rgba(102, 126, 234, 0.1);
+            color: var(--primary);
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background: var(--dark-surface);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 12px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            transition: width 0.3s;
+        }
+        
+        .resource-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+        
+        .btn-outline:hover {
+            border-color: var(--primary);
+            background: rgba(102, 126, 234, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-icon" id="brand-icon">🐊</span>
+                <span id="brand-name">AI Platform</span>
+            </div>
+            
+            <div class="tenant-selector" onclick="switchTenant()">
+                <div class="tenant-name" id="tenant-name">My Instance</div>
+                <div class="tenant-plan"><span id="tenant-plan-text">Self-Hosted</span> • GPU Enabled</div>
+            </div>
+        </div>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Main</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin" class="nav-link active">
+                        <span class="nav-icon">📊</span>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/personas" class="nav-link">
+                        <span class="nav-icon">🎭</span>
+                        <span>Personas</span>
+                        <span class="badge" id="persona-badge">0</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/content" class="nav-link">
+                        <span class="nav-icon">🎨</span>
+                        <span>Content</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Resources</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/ai-models-setup" class="nav-link">
+                        <span class="nav-icon">🤖</span>
+                        <span>AI Models</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/rss" class="nav-link">
+                        <span class="nav-icon">📡</span>
+                        <span>RSS Feeds</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Insights</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin/analytics" class="nav-link">
+                        <span class="nav-icon">📈</span>
+                        <span>Analytics</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/gallery" class="nav-link">
+                        <span class="nav-icon">🌐</span>
+                        <span>Public View</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section" style="margin-top: auto;">
+            <div class="nav-section-title">System</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin/settings" class="nav-link">
+                        <span class="nav-icon">⚙️</span>
+                        <span>Settings</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/docs" class="nav-link">
+                        <span class="nav-icon">📚</span>
+                        <span>API Docs</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <h1 class="page-title">Platform Control</h1>
+            </div>
+            
+            <div class="topbar-right">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" placeholder="Search...">
+                </div>
+                <div class="icon-btn">🔔</div>
+                <div class="icon-btn">👤</div>
+            </div>
+        </div>
+        
+        <div class="content-area">
+            <!-- Stats Overview -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-icon">🎭</span>
+                        <span class="stat-trend trend-up">↑ 12%</span>
+                    </div>
+                    <div class="stat-value" id="stat-personas">-</div>
+                    <div class="stat-label">Active Personas</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-icon">🎨</span>
+                        <span class="stat-trend trend-up">↑ 28%</span>
+                    </div>
+                    <div class="stat-value" id="stat-content">-</div>
+                    <div class="stat-label">Generated Content</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-icon">🤖</span>
+                        <span class="stat-trend trend-up">↑ 5%</span>
+                    </div>
+                    <div class="stat-value" id="stat-models">-</div>
+                    <div class="stat-label">AI Models Available</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-icon">📊</span>
+                        <span class="stat-trend trend-up">↑ 100%</span>
+                    </div>
+                    <div class="stat-value" id="stat-status">●</div>
+                    <div class="stat-label">System Status</div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">⚡ Quick Actions</h2>
+                </div>
+                <div class="actions-grid">
+                    <div class="action-card" onclick="createPersona()">
+                        <div class="action-icon">➕</div>
+                        <div class="action-title">Create Persona</div>
+                        <div class="action-desc">New AI character</div>
+                    </div>
+                    <div class="action-card" onclick="generateContent()">
+                        <div class="action-icon">🎨</div>
+                        <div class="action-title">Generate Content</div>
+                        <div class="action-desc">Create now</div>
+                    </div>
+                    <div class="action-card" onclick="location.href='/admin/rss'">
+                        <div class="action-icon">📡</div>
+                        <div class="action-title">Add RSS Feed</div>
+                        <div class="action-desc">Monitor trends</div>
+                    </div>
+                    <div class="action-card" onclick="location.href='/ai-models-setup'">
+                        <div class="action-icon">🚀</div>
+                        <div class="action-title">Install Model</div>
+                        <div class="action-desc">Add AI capability</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Resource Allocation (Multi-tenant ready) -->
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">💾 Resource Allocation</h2>
+                    <button class="btn btn-outline">Manage Resources</button>
+                </div>
+                <div class="resource-grid" id="resources-grid">
+                    <!-- Will be populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+        // Load branding configuration
+        async function loadBranding() {
+            try {
+                // Try to load branding from API
+                const response = await fetch('/api/v1/branding');
+                const branding = await response.json();
+                
+                document.getElementById('brand-name').textContent = branding.site_name || 'AI Platform';
+                document.getElementById('brand-icon').textContent = branding.icon || '🐊';
+                document.getElementById('tenant-name').textContent = branding.instance_name || 'My Instance';
+                document.title = `Control Center - ${branding.site_name || 'AI Platform'}`;
+            } catch (e) {
+                // Fallback to defaults if branding endpoint doesn't exist
+                console.log('Using default branding');
+            }
+        }
+        
+        // Load system data
+        async function loadDashboard() {
+            try {
+                // Health check
+                const healthResp = await fetch('/health');
+                const health = await healthResp.json();
+                document.getElementById('stat-status').textContent = 
+                    health.status === 'healthy' ? '● Online' : '● Issues';
+                
+                // Personas
+                const personasResp = await fetch('/api/v1/personas/');
+                const personasData = await personasResp.json();
+                const personaCount = personasData.personas?.length || 0;
+                document.getElementById('stat-personas').textContent = personaCount;
+                document.getElementById('persona-badge').textContent = personaCount;
+                
+                // Content
+                const contentResp = await fetch('/api/v1/content/');
+                const contentData = await contentResp.json();
+                document.getElementById('stat-content').textContent = contentData.content?.length || 0;
+                
+                // Models
+                try {
+                    const modelsResp = await fetch('/api/v1/setup/ai-models/status');
+                    const modelsData = await modelsResp.json();
+                    document.getElementById('stat-models').textContent = modelsData.installed_models?.length || 0;
+                    
+                    // Load resource allocation
+                    loadResourceAllocation(modelsData);
+                } catch (e) {
+                    document.getElementById('stat-models').textContent = '0';
+                }
+                
+            } catch (error) {
+                console.error('Failed to load dashboard:', error);
+            }
+        }
+        
+        function loadResourceAllocation(modelsData) {
+            const grid = document.getElementById('resources-grid');
+            
+            // GPU resources
+            if (modelsData.system?.gpu_available) {
+                const gpuCount = modelsData.system.gpu_count || 1;
+                const allocatedGPUs = Math.min(gpuCount, 1); // Simulate allocation
+                const utilizationPercent = (allocatedGPUs / gpuCount) * 100;
+                
+                grid.innerHTML += `
+                    <div class="resource-card">
+                        <div class="resource-header">
+                            <div class="resource-name">🎮 GPU Compute</div>
+                            <div class="resource-status status-allocated">Allocated</div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${utilizationPercent}%"></div>
+                        </div>
+                        <div class="resource-details">
+                            <span>${allocatedGPUs} of ${gpuCount} GPUs</span>
+                            <span>${utilizationPercent.toFixed(0)}% utilized</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Model slots
+            const installedModels = modelsData.installed_models?.length || 0;
+            const maxModels = 10; // Configurable per tenant
+            const modelPercent = (installedModels / maxModels) * 100;
+            
+            grid.innerHTML += `
+                <div class="resource-card">
+                    <div class="resource-header">
+                        <div class="resource-name">🤖 Model Slots</div>
+                        <div class="resource-status ${installedModels < maxModels ? 'status-available' : 'status-allocated'}">
+                            ${installedModels < maxModels ? 'Available' : 'Full'}
+                        </div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${modelPercent}%"></div>
+                    </div>
+                    <div class="resource-details">
+                        <span>${installedModels} of ${maxModels} models</span>
+                        <span>${maxModels - installedModels} slots free</span>
+                    </div>
+                </div>
+            `;
+            
+            // Storage (placeholder)
+            grid.innerHTML += `
+                <div class="resource-card">
+                    <div class="resource-header">
+                        <div class="resource-name">💾 Storage</div>
+                        <div class="resource-status status-available">Available</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 35%"></div>
+                    </div>
+                    <div class="resource-details">
+                        <span>35 GB of 100 GB</span>
+                        <span>65 GB free</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function createPersona() {
+            window.location.href = '/admin/personas?action=create';
+        }
+        
+        async function generateContent() {
+            try {
+                const response = await fetch('/api/v1/content/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content_type: 'image',
+                        prompt: 'Generate trending content based on RSS feeds'
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('✅ Content generation started!');
+                    setTimeout(loadDashboard, 2000);
+                }
+            } catch (error) {
+                alert('❌ Failed to generate content');
+            }
+        }
+        
+        function switchTenant() {
+            // Placeholder for tenant switching
+            alert('Tenant switching coming soon! This will allow you to manage multiple tenants.');
+        }
+        
+        // Load on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadBranding();
+            loadDashboard();
+            setInterval(loadDashboard, 30000);
+        });
+    </script>
+</body>
+</html>

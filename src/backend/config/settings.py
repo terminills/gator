@@ -83,6 +83,36 @@ class Settings(BaseSettings):
     instagram_api_key: Optional[str] = Field(default=None)
     instagram_api_secret: Optional[str] = Field(default=None)
 
+    # Branding and customization (per-installation settings)
+    site_name: str = Field(
+        default="AI Content Platform",
+        description="Public-facing name of the site/platform"
+    )
+    site_icon: str = Field(
+        default="🤖",
+        description="Icon/emoji for the site"
+    )
+    instance_name: str = Field(
+        default="My AI Platform",
+        description="Internal instance name for multi-tenant setups"
+    )
+    site_tagline: str = Field(
+        default="AI-Powered Content Generation",
+        description="Site tagline/slogan"
+    )
+    primary_color: str = Field(
+        default="#667eea",
+        description="Primary brand color (hex)"
+    )
+    accent_color: str = Field(
+        default="#10b981",
+        description="Accent brand color (hex)"
+    )
+    logo_url: Optional[str] = Field(
+        default=None,
+        description="URL to custom logo image"
+    )
+
     # DNS Management (GoDaddy)
     godaddy_api_key: Optional[str] = Field(
         default=None, description="GoDaddy API key for DNS management"
