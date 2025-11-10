@@ -140,101 +140,332 @@
             <h1>🐊 Gator AI Platform</h1>
             <p>Private AI Influencer Content Generation System</p>
             <div style="margin-top: 20px;">
-                <span class="status">✅ System Online</span>
+                <span class="status" id="system-status">⏳ Checking Status...</span>
+            </div>
+            <div id="stats-container" style="margin-top: 20px; display: flex; gap: 30px; justify-content: center; flex-wrap: wrap;">
+                <!-- Dynamic stats will be loaded here -->
             </div>
         </div>
         
         <div class="dashboard">
             <div class="card">
                 <h3>🎭 Persona Management</h3>
-                <p>Create and manage AI personas with unique personalities, appearances, and content themes.</p>
-                <a href="/docs#/personas" class="btn">Manage Personas</a>
+                <p id="persona-info">Loading persona information...</p>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <a href="/admin" class="btn">Manage Personas</a>
+                    <a href="/gallery" class="btn" style="background: #28a745;">View Gallery</a>
+                </div>
             </div>
             
             <div class="card">
                 <h3>🎨 Content Generation</h3>
-                <p>Generate high-quality images, videos, and text content using advanced AI models.</p>
-                <a href="/docs#/content" class="btn">Generate Content</a>
+                <p id="content-info">Loading content generation info...</p>
+                <button onclick="generateContent()" class="btn" id="generate-btn">Generate Content Now</button>
             </div>
             
             <div class="card">
                 <h3>📡 RSS Feed Monitoring</h3>
-                <p>Ingest and analyze RSS feeds to stay current with trending topics and generate relevant content.</p>
+                <p id="rss-info">Loading RSS feed information...</p>
                 <a href="/docs#/rss-feeds" class="btn">Manage Feeds</a>
             </div>
             
             <div class="card">
                 <h3>🤖 AI Model Setup</h3>
-                <p>Install and configure AI models for content generation and messaging. View system capabilities and manage model installations.</p>
+                <p id="model-info">Loading AI model information...</p>
                 <a href="/ai-models-setup" class="btn">Configure Models</a>
             </div>
             
             <div class="card">
                 <h3>📱 Social Media Integration</h3>
-                <p>Publish content across multiple social media platforms with automated optimization.</p>
+                <p id="social-info">Connect and publish to multiple platforms.</p>
                 <a href="/docs#/social-media" class="btn">Social Media</a>
             </div>
             
             <div class="card">
-                <h3>👥 Public Gallery</h3>
-                <p>Showcase your AI-generated content in a public gallery for audience engagement.</p>
-                <a href="/gallery" class="btn">View Gallery</a>
-            </div>
-            
-            <div class="card">
                 <h3>📊 Creator Dashboard</h3>
-                <p>Monitor performance, analytics, and get optimization suggestions for your AI personas.</p>
-                <a href="/docs#/creator-panel" class="btn">Creator Panel</a>
+                <p id="analytics-info">Loading analytics...</p>
+                <a href="/admin" class="btn">Creator Panel</a>
             </div>
         </div>
         
-        <div class="features">
-            <div class="feature">
-                <h4>🤖 AI Models</h4>
-                <p>Integrated with Stable Diffusion, GPT, and custom models</p>
-            </div>
-            <div class="feature">
-                <h4>🔒 Privacy First</h4>
-                <p>Self-hosted solution with complete data control</p>
-            </div>
-            <div class="feature">
-                <h4>⚡ High Performance</h4>
-                <p>Optimized for GPU acceleration and batch processing</p>
-            </div>
-            <div class="feature">
-                <h4>🎯 Smart Content</h4>
-                <p>Trend-aware generation based on RSS feed analysis</p>
+        <div class="features" id="ai-features">
+            <!-- Dynamic AI capabilities will be loaded here -->
+        </div>
+        
+        <div style="margin-top: 40px;">
+            <h2 style="text-align: center; color: white; margin-bottom: 20px;">🎨 Recent Content</h2>
+            <div id="recent-content" class="dashboard">
+                <!-- Recent generated content will be loaded here -->
             </div>
         </div>
     </div>
 
     <script>
-        // Check system health
+        // Global state
+        let systemData = {
+            personas: [],
+            content: [],
+            models: {},
+            analytics: {}
+        };
+
+        // Check system health and load all data
         async function checkHealth() {
             try {
                 const response = await fetch('/health');
                 const health = await response.json();
                 
-                const statusEl = document.querySelector('.status');
-                if (health.status === 'healthy') {
+                const statusEl = document.getElementById('system-status');
+                if (health.status === 'healthy' && health.database === 'healthy') {
                     statusEl.innerHTML = '✅ System Online';
                     statusEl.style.background = '#10B981';
+                } else if (health.status === 'healthy') {
+                    statusEl.innerHTML = '⚠️ Database Issues';
+                    statusEl.style.background = '#F59E0B';
                 } else {
                     statusEl.innerHTML = '⚠️ System Issues';
                     statusEl.style.background = '#F59E0B';
                 }
             } catch (error) {
-                const statusEl = document.querySelector('.status');
+                const statusEl = document.getElementById('system-status');
                 statusEl.innerHTML = '❌ System Offline';
                 statusEl.style.background = '#EF4444';
             }
         }
         
-        // Check health on page load
-        checkHealth();
+        // Load system statistics
+        async function loadStats() {
+            try {
+                // Load personas
+                const personasResp = await fetch('/api/v1/personas/');
+                const personasData = await personasResp.json();
+                systemData.personas = personasData.personas || [];
+                
+                // Load content
+                const contentResp = await fetch('/api/v1/content/');
+                const contentData = await contentResp.json();
+                systemData.content = contentData.content || [];
+                
+                // Load AI model status
+                try {
+                    const modelsResp = await fetch('/api/v1/setup/ai-models/status');
+                    const modelsData = await modelsResp.json();
+                    systemData.models = modelsData;
+                } catch (e) {
+                    console.log('AI models endpoint not available yet');
+                }
+                
+                // Load analytics if available
+                try {
+                    const analyticsResp = await fetch('/api/v1/analytics/summary');
+                    const analyticsData = await analyticsResp.json();
+                    systemData.analytics = analyticsData;
+                } catch (e) {
+                    console.log('Analytics endpoint not available yet');
+                }
+                
+                updateUI();
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
         
-        // Refresh health status every 30 seconds
-        setInterval(checkHealth, 30000);
+        // Update UI with loaded data
+        function updateUI() {
+            // Update stats container
+            const statsContainer = document.getElementById('stats-container');
+            statsContainer.innerHTML = `
+                <div style="text-align: center; color: white;">
+                    <div style="font-size: 2rem; font-weight: bold;">${systemData.personas.length}</div>
+                    <div style="font-size: 0.9rem; opacity: 0.9;">Active Personas</div>
+                </div>
+                <div style="text-align: center; color: white;">
+                    <div style="font-size: 2rem; font-weight: bold;">${systemData.content.length}</div>
+                    <div style="font-size: 0.9rem; opacity: 0.9;">Generated Content</div>
+                </div>
+                <div style="text-align: center; color: white;">
+                    <div style="font-size: 2rem; font-weight: bold;">${getModelCount()}</div>
+                    <div style="font-size: 0.9rem; opacity: 0.9;">AI Models</div>
+                </div>
+            `;
+            
+            // Update persona info
+            const personaInfo = document.getElementById('persona-info');
+            if (systemData.personas.length > 0) {
+                personaInfo.textContent = `You have ${systemData.personas.length} active persona${systemData.personas.length !== 1 ? 's' : ''} ready to generate content.`;
+            } else {
+                personaInfo.textContent = 'No personas created yet. Create your first AI persona to start generating content.';
+            }
+            
+            // Update content info
+            const contentInfo = document.getElementById('content-info');
+            contentInfo.textContent = systemData.content.length > 0 
+                ? `${systemData.content.length} pieces of content generated. Click below to create more!`
+                : 'No content generated yet. Start creating AI-powered content now!';
+            
+            // Update RSS info
+            const rssInfo = document.getElementById('rss-info');
+            rssInfo.textContent = 'Monitor and analyze RSS feeds to stay current with trending topics.';
+            
+            // Update model info
+            const modelInfo = document.getElementById('model-info');
+            const modelCount = getModelCount();
+            if (modelCount > 0) {
+                const gpuStatus = systemData.models?.system?.gpu_available ? '✅ GPU Available' : '⚠️ CPU Only';
+                modelInfo.textContent = `${modelCount} AI models available. ${gpuStatus}`;
+            } else {
+                modelInfo.textContent = 'Configure AI models to enable local content generation.';
+            }
+            
+            // Update analytics info
+            const analyticsInfo = document.getElementById('analytics-info');
+            analyticsInfo.textContent = 'Monitor performance, analytics, and get optimization suggestions.';
+            
+            // Update AI features
+            updateAIFeatures();
+            
+            // Update recent content
+            updateRecentContent();
+        }
+        
+        // Get model count from system data
+        function getModelCount() {
+            if (!systemData.models?.installed_models) return 0;
+            return systemData.models.installed_models.length;
+        }
+        
+        // Update AI features section
+        function updateAIFeatures() {
+            const featuresContainer = document.getElementById('ai-features');
+            const features = [];
+            
+            if (systemData.models?.system?.gpu_available) {
+                features.push({
+                    icon: '🎮',
+                    title: 'GPU Acceleration',
+                    desc: `${systemData.models.system.gpu_count || 1} GPU(s) available for fast generation`
+                });
+            }
+            
+            if (systemData.models?.installed_models?.length > 0) {
+                features.push({
+                    icon: '🤖',
+                    title: 'Local AI Models',
+                    desc: `${systemData.models.installed_models.length} models installed for offline generation`
+                });
+            } else {
+                features.push({
+                    icon: '☁️',
+                    title: 'Cloud AI APIs',
+                    desc: 'OpenAI, Anthropic, and other cloud models available'
+                });
+            }
+            
+            features.push({
+                icon: '🔒',
+                title: 'Privacy First',
+                desc: 'Self-hosted solution with complete data control'
+            });
+            
+            features.push({
+                icon: '🎯',
+                title: 'Smart Content',
+                desc: 'Trend-aware generation based on RSS feed analysis'
+            });
+            
+            featuresContainer.innerHTML = features.map(f => `
+                <div class="feature">
+                    <h4>${f.icon} ${f.title}</h4>
+                    <p>${f.desc}</p>
+                </div>
+            `).join('');
+        }
+        
+        // Update recent content section
+        function updateRecentContent() {
+            const recentContainer = document.getElementById('recent-content');
+            
+            if (systemData.content.length === 0) {
+                recentContainer.innerHTML = `
+                    <div class="card" style="grid-column: 1 / -1; text-align: center;">
+                        <h3>No content generated yet</h3>
+                        <p style="margin: 20px 0;">Start creating AI-powered content by clicking "Generate Content Now" above!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Show most recent 6 items
+            const recentItems = systemData.content.slice(0, 6);
+            recentContainer.innerHTML = recentItems.map(item => `
+                <div class="card">
+                    <h3>${item.content_type || 'Content'}</h3>
+                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">
+                        ${item.persona_name || 'Unknown Persona'}
+                    </p>
+                    ${item.prompt ? `<p style="font-size: 0.85rem; color: #888; margin-bottom: 10px;">${item.prompt.substring(0, 100)}...</p>` : ''}
+                    <div style="font-size: 0.8rem; color: #999;">
+                        ${new Date(item.created_at).toLocaleDateString()}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Generate content function
+        async function generateContent() {
+            const btn = document.getElementById('generate-btn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Generating...';
+            
+            try {
+                const response = await fetch('/api/v1/content/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content_type: 'image',
+                        prompt: 'Create engaging social media content'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    btn.textContent = '✅ Content Generated!';
+                    btn.style.background = '#28a745';
+                    
+                    // Reload data after 2 seconds
+                    setTimeout(() => {
+                        loadStats();
+                        btn.disabled = false;
+                        btn.textContent = 'Generate Content Now';
+                        btn.style.background = '';
+                    }, 2000);
+                } else {
+                    throw new Error(result.detail || 'Generation failed');
+                }
+            } catch (error) {
+                console.error('Failed to generate content:', error);
+                btn.textContent = '❌ Failed - Try Again';
+                btn.disabled = false;
+                setTimeout(() => {
+                    btn.textContent = 'Generate Content Now';
+                }, 3000);
+            }
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            checkHealth();
+            loadStats();
+            
+            // Refresh every 30 seconds
+            setInterval(() => {
+                checkHealth();
+                loadStats();
+            }, 30000);
+        });
     </script>
 </body>
 </html>

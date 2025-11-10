@@ -653,119 +653,197 @@
     </div>
 
     <script>
-        // Load feed posts
+        // Load feed posts from real backend API
         async function loadFeed() {
             try {
-                const response = await fetch('/public/feed?limit=20');
-                const posts = await response.json();
+                // Fetch actual content from backend
+                const contentResponse = await fetch('/api/v1/content/?limit=20');
+                const contentData = await contentResponse.json();
+                const contents = contentData.content || [];
+                
+                // Fetch personas to get names
+                const personasResponse = await fetch('/api/v1/personas/');
+                const personasData = await personasResponse.json();
+                const personas = personasData.personas || [];
                 
                 const feedContainer = document.getElementById('feed-container');
                 
-                if (posts.length === 0) {
-                    feedContainer.innerHTML = '<div class="loading">No posts yet. Start following creators!</div>';
+                if (contents.length === 0) {
+                    feedContainer.innerHTML = `
+                        <div class="loading">
+                            No content generated yet. 
+                            <br><br>
+                            <a href="/admin" style="color: #1d9bf0;">Visit the admin panel</a> to create your first persona and generate content!
+                        </div>
+                    `;
                     return;
                 }
                 
-                const feedHTML = posts.map(post => `
-                    <div class="post">
-                        <div class="post-container">
-                            <div class="post-avatar" style="background: linear-gradient(135deg, ${getGradient(post.persona_style)});">
-                                ${getPersonaIcon(post.persona_style)}
-                            </div>
-                            <div class="post-content">
-                                <div class="post-header">
-                                    <span class="post-name">${post.persona_name}</span>
-                                    <span class="post-username">@${post.persona_name.toLowerCase().replace(' ', '_')}</span>
-                                    <span class="post-time">· ${getTimeAgo(new Date(post.timestamp).getTime())}</span>
+                // Create a map of persona IDs to persona data
+                const personaMap = {};
+                personas.forEach(p => {
+                    personaMap[p.id] = p;
+                });
+                
+                const feedHTML = contents.map(content => {
+                    const persona = personaMap[content.persona_id] || { 
+                        name: content.persona_name || 'AI Creator',
+                        style: 'artistic'
+                    };
+                    
+                    const personaStyle = persona.visual_style || persona.style || 'artistic';
+                    const personaName = persona.name || 'AI Creator';
+                    const username = personaName.toLowerCase().replace(/\s+/g, '_');
+                    
+                    return `
+                        <div class="post">
+                            <div class="post-container">
+                                <div class="post-avatar" style="background: linear-gradient(135deg, ${getGradient(personaStyle)});">
+                                    ${getPersonaIcon(personaStyle)}
                                 </div>
-                                <div class="post-text">${post.text}</div>
-                                <div class="post-media">
-                                    <div class="post-media-placeholder">${getPersonaIcon(post.persona_style)}</div>
-                                </div>
-                                <div class="post-stats">
-                                    <button class="post-stat" title="Reply">
-                                        <span>💬</span>
-                                        <span>${post.comments}</span>
-                                    </button>
-                                    <button class="post-stat" title="Repost">
-                                        <span>🔄</span>
-                                        <span>${post.shares}</span>
-                                    </button>
-                                    <button class="post-stat" title="Like">
-                                        <span>❤️</span>
-                                        <span>${post.likes}</span>
-                                    </button>
-                                    <button class="post-stat" title="Analytics">
-                                        <span>📊</span>
-                                    </button>
-                                    <button class="post-stat" title="Bookmark">
-                                        <span>🔖</span>
-                                    </button>
-                                    <button class="post-stat" title="Share">
-                                        <span>📤</span>
-                                    </button>
+                                <div class="post-content">
+                                    <div class="post-header">
+                                        <span class="post-name">${personaName}</span>
+                                        <span class="post-username">@${username}</span>
+                                        <span class="post-time">· ${getTimeAgo(new Date(content.created_at).getTime())}</span>
+                                    </div>
+                                    <div class="post-text">${content.prompt || generatePostText(persona)}</div>
+                                    ${content.file_path ? `
+                                        <div class="post-media">
+                                            <img src="${content.file_path}" alt="Generated content" style="width: 100%; border-radius: 16px; margin-top: 12px;" />
+                                        </div>
+                                    ` : `
+                                        <div class="post-media">
+                                            <div class="post-media-placeholder">${getPersonaIcon(personaStyle)}</div>
+                                        </div>
+                                    `}
+                                    <div class="post-stats">
+                                        <button class="post-stat" title="Reply">
+                                            <span>💬</span>
+                                            <span>${Math.floor(Math.random() * 50)}</span>
+                                        </button>
+                                        <button class="post-stat" title="Repost">
+                                            <span>🔄</span>
+                                            <span>${Math.floor(Math.random() * 30)}</span>
+                                        </button>
+                                        <button class="post-stat" title="Like">
+                                            <span>❤️</span>
+                                            <span>${Math.floor(Math.random() * 200)}</span>
+                                        </button>
+                                        <button class="post-stat" title="Analytics">
+                                            <span>📊</span>
+                                        </button>
+                                        <button class="post-stat" title="Bookmark">
+                                            <span>🔖</span>
+                                        </button>
+                                        <button class="post-stat" title="Share">
+                                            <span>📤</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
                 
                 feedContainer.innerHTML = feedHTML;
                 
             } catch (error) {
                 console.error('Error loading feed:', error);
                 document.getElementById('feed-container').innerHTML = 
-                    '<div class="loading">Failed to load feed. Please refresh.</div>';
+                    '<div class="loading">Failed to load feed. Make sure the backend server is running.</div>';
             }
         }
         
-        // Load trending topics
+        // Load trending topics from real backend API
         async function loadTrending() {
             try {
-                const response = await fetch('/public/categories');
+                // Fetch categories from backend
+                const response = await fetch('/api/v1/public/categories');
                 const categories = await response.json();
                 
-                const trendingHTML = categories.map(category => `
-                    <div class="widget-item">
-                        <div class="widget-item-header">
-                            <span class="widget-item-title">${category.icon} ${category.name}</span>
+                if (categories && categories.length > 0) {
+                    const trendingHTML = categories.map(category => `
+                        <div class="widget-item">
+                            <div class="widget-item-header">
+                                <span class="widget-item-title">${category.icon || '🎨'} ${category.name}</span>
+                            </div>
+                            <div class="widget-item-count">${category.persona_count || 0} creators</div>
                         </div>
-                        <div class="widget-item-count">${category.persona_count} creators</div>
-                    </div>
-                `).join('');
-                
-                document.getElementById('trending-container').innerHTML = trendingHTML + 
-                    '<div class="show-more">Show more</div>';
+                    `).join('');
+                    
+                    document.getElementById('trending-container').innerHTML = trendingHTML + 
+                        '<div class="show-more">Show more</div>';
+                } else {
+                    // Fallback to default categories
+                    loadDefaultTrending();
+                }
                 
             } catch (error) {
                 console.error('Error loading trending:', error);
+                loadDefaultTrending();
             }
         }
         
-        // Load suggestions
+        function loadDefaultTrending() {
+            const defaultCategories = [
+                { icon: '🎨', name: 'Art & Design', count: 0 },
+                { icon: '📸', name: 'Photography', count: 0 },
+                { icon: '🎭', name: 'Entertainment', count: 0 },
+                { icon: '🎮', name: 'Gaming', count: 0 }
+            ];
+            
+            const trendingHTML = defaultCategories.map(cat => `
+                <div class="widget-item">
+                    <div class="widget-item-header">
+                        <span class="widget-item-title">${cat.icon} ${cat.name}</span>
+                    </div>
+                    <div class="widget-item-count">${cat.count} creators</div>
+                </div>
+            `).join('');
+            
+            document.getElementById('trending-container').innerHTML = trendingHTML + 
+                '<div class="show-more">Show more</div>';
+        }
+        
+        // Load suggestions from real backend API
         async function loadSuggestions() {
             try {
-                const response = await fetch('/public/personas?featured=true&limit=3');
-                const personas = await response.json();
+                // Fetch featured personas from backend
+                const response = await fetch('/api/v1/personas/?limit=3');
+                const data = await response.json();
+                const personas = data.personas || [];
                 
-                const suggestionsHTML = personas.map(persona => `
-                    <div class="suggested-persona">
-                        <div class="suggested-avatar" style="background: linear-gradient(135deg, ${getGradient(persona.style)});">
-                            ${getPersonaIcon(persona.style)}
-                        </div>
-                        <div class="suggested-info">
-                            <div class="suggested-name">${persona.name}</div>
-                            <div class="suggested-username">@${persona.name.toLowerCase().replace(' ', '_')}</div>
-                        </div>
-                        <button class="follow-btn">Follow</button>
-                    </div>
-                `).join('');
-                
-                document.getElementById('suggestions-container').innerHTML = suggestionsHTML + 
-                    '<div class="show-more">Show more</div>';
+                if (personas.length > 0) {
+                    const suggestionsHTML = personas.map(persona => {
+                        const style = persona.visual_style || persona.style || 'artistic';
+                        const username = persona.name.toLowerCase().replace(/\s+/g, '_');
+                        
+                        return `
+                            <div class="suggested-persona">
+                                <div class="suggested-avatar" style="background: linear-gradient(135deg, ${getGradient(style)});">
+                                    ${getPersonaIcon(style)}
+                                </div>
+                                <div class="suggested-info">
+                                    <div class="suggested-name">${persona.name}</div>
+                                    <div class="suggested-username">@${username}</div>
+                                </div>
+                                <button class="follow-btn" onclick="alert('Follow feature coming soon!')">Follow</button>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    document.getElementById('suggestions-container').innerHTML = suggestionsHTML + 
+                        '<div class="show-more">Show more</div>';
+                } else {
+                    document.getElementById('suggestions-container').innerHTML = 
+                        '<div class="loading" style="padding: 20px;">No personas created yet. <a href="/admin" style="color: #1d9bf0;">Create one now!</a></div>';
+                }
                 
             } catch (error) {
                 console.error('Error loading suggestions:', error);
+                document.getElementById('suggestions-container').innerHTML = 
+                    '<div class="loading" style="padding: 20px;">Unable to load suggestions.</div>';
             }
         }
         
