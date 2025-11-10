@@ -77,11 +77,27 @@ check_dependencies() {
 
 # Install/upgrade PyTorch with ROCm support
 install_pytorch_rocm() {
+    # Check if PyTorch is already installed
+    if python3 -c "import torch; print(f'PyTorch {torch.__version__} already installed')" 2>/dev/null; then
+        local EXISTING_VERSION=$(python3 -c "import torch; print(torch.__version__)" 2>/dev/null)
+        print_warning "PyTorch $EXISTING_VERSION is already installed"
+        print_info "Skipping PyTorch installation to preserve existing setup"
+        
+        # Check for GPU support with existing installation
+        if python3 -c "import torch; exit(0 if torch.cuda.is_available() else 1)" 2>/dev/null; then
+            GPU_COUNT=$(python3 -c "import torch; print(torch.cuda.device_count())")
+            print_info "GPU support enabled ($GPU_COUNT device(s) detected)"
+        else
+            print_warning "GPU support not available, ComfyUI will run in CPU mode"
+        fi
+        return 0
+    fi
+    
     print_info "Installing PyTorch with ROCm support..."
     
     if [ "$ROCM_MAJOR" -eq 0 ]; then
         print_warning "Installing CPU-only PyTorch"
-        python3 -m pip install --upgrade torch torchvision torchaudio
+        python3 -m pip install torch torchvision torchaudio
     else
         # Determine PyTorch index URL based on ROCm version
         if (( $(echo "$ROCM_MAJOR >= 6" | bc -l) )); then
@@ -96,7 +112,7 @@ install_pytorch_rocm() {
         fi
         
         # Install PyTorch and related packages
-        python3 -m pip install --upgrade \
+        python3 -m pip install \
             torch torchvision torchaudio \
             --index-url $PYTORCH_INDEX
     fi

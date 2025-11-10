@@ -61,9 +61,14 @@ check_dependencies() {
     local missing_deps=()
     
     # Check for essential build tools
-    for cmd in gcc g++ make cmake git ninja-build; do
+    for cmd in gcc g++ make cmake git ninja; do
         if ! command -v $cmd &> /dev/null; then
-            missing_deps+=($cmd)
+            # Map ninja command to ninja-build package name for apt
+            if [ "$cmd" = "ninja" ]; then
+                missing_deps+=("ninja-build")
+            else
+                missing_deps+=($cmd)
+            fi
         fi
     done
     
