@@ -285,28 +285,28 @@ class RSSIngestionService:
     async def get_recent_items(self, limit: int = 20) -> List[FeedItemModel]:
         """
         Get recently fetched feed items across all feeds.
-        
+
         Args:
             limit: Maximum number of items to return
-            
+
         Returns:
             List of recent feed items with feed relationship loaded
         """
         try:
             from sqlalchemy.orm import selectinload
-            
+
             stmt = (
                 select(FeedItemModel)
                 .options(selectinload(FeedItemModel.feed))
                 .order_by(FeedItemModel.created_at.desc())
                 .limit(limit)
             )
-            
+
             result = await self.db.execute(stmt)
             items = result.scalars().all()
-            
+
             return list(items)
-            
+
         except Exception as e:
             logger.error(f"Error getting recent items: {str(e)}")
             return []

@@ -242,7 +242,7 @@ class AIModelManager:
                     # 2. Direct: ./models/model-name/
                     model_path_with_category = self.models_dir / "text" / model_name
                     model_path_direct = self.models_dir / model_name
-                    
+
                     # Prefer category subdirectory if it exists, fallback to direct
                     if model_path_with_category.exists():
                         model_path = model_path_with_category
@@ -251,7 +251,9 @@ class AIModelManager:
                         model_path = model_path_direct
                         is_downloaded = True
                     else:
-                        model_path = model_path_with_category  # Default for future downloads
+                        model_path = (
+                            model_path_with_category  # Default for future downloads
+                        )
                         is_downloaded = False
 
                     inference_engine = config.get("inference_engine", "transformers")
@@ -279,9 +281,13 @@ class AIModelManager:
                     )
 
                     if is_downloaded and engine_available:
-                        logger.info(f"Local text model {model_name} ready at {model_path}")
+                        logger.info(
+                            f"Local text model {model_name} ready at {model_path}"
+                        )
                     elif is_downloaded and not engine_available:
-                        logger.warning(f"Local text model {model_name} found at {model_path} but inference engine {inference_engine} not available")
+                        logger.warning(
+                            f"Local text model {model_name} found at {model_path} but inference engine {inference_engine} not available"
+                        )
                     elif can_run and engine_available:
                         logger.info(f"Local text model {model_name} can be downloaded")
                     else:
@@ -308,7 +314,7 @@ class AIModelManager:
                     # 2. Direct: ./models/model-name/
                     model_path_with_category = self.models_dir / "image" / model_name
                     model_path_direct = self.models_dir / model_name
-                    
+
                     # Prefer category subdirectory if it exists, fallback to direct
                     if model_path_with_category.exists():
                         model_path = model_path_with_category
@@ -317,7 +323,9 @@ class AIModelManager:
                         model_path = model_path_direct
                         is_downloaded = True
                     else:
-                        model_path = model_path_with_category  # Default for future downloads
+                        model_path = (
+                            model_path_with_category  # Default for future downloads
+                        )
                         is_downloaded = False
 
                     inference_engine = config.get("inference_engine", "diffusers")
@@ -342,9 +350,13 @@ class AIModelManager:
                     )
 
                     if is_downloaded and engine_available:
-                        logger.info(f"Local image model {model_name} ready at {model_path}")
+                        logger.info(
+                            f"Local image model {model_name} ready at {model_path}"
+                        )
                     elif is_downloaded and not engine_available:
-                        logger.warning(f"Local image model {model_name} found at {model_path} but inference engine {inference_engine} not available")
+                        logger.warning(
+                            f"Local image model {model_name} found at {model_path} but inference engine {inference_engine} not available"
+                        )
 
         except Exception as e:
             logger.error(f"Failed to initialize local image models: {str(e)}")
@@ -363,7 +375,7 @@ class AIModelManager:
                     # 2. Direct: ./models/model-name/
                     model_path_with_category = self.models_dir / "voice" / model_name
                     model_path_direct = self.models_dir / model_name
-                    
+
                     # Prefer category subdirectory if it exists, fallback to direct
                     if model_path_with_category.exists():
                         model_path = model_path_with_category
@@ -372,7 +384,9 @@ class AIModelManager:
                         model_path = model_path_direct
                         is_downloaded = True
                     else:
-                        model_path = model_path_with_category  # Default for future downloads
+                        model_path = (
+                            model_path_with_category  # Default for future downloads
+                        )
                         is_downloaded = False
 
                     self.available_models["voice"].append(
@@ -396,7 +410,9 @@ class AIModelManager:
                     )
 
                     if is_downloaded:
-                        logger.info(f"Local voice model {model_name} ready at {model_path}")
+                        logger.info(
+                            f"Local voice model {model_name} ready at {model_path}"
+                        )
 
         except Exception as e:
             logger.error(f"Failed to initialize local voice models: {str(e)}")
@@ -612,106 +628,136 @@ class AIModelManager:
             logger.error(f"Failed to initialize video models: {str(e)}")
 
     async def _select_optimal_model(
-        self, 
-        prompt: str, 
+        self,
+        prompt: str,
         content_type: str,
         available_models: List[Dict[str, Any]],
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Intelligently select the optimal model for the given content request.
-        
+
         Uses a lightweight analysis to match content requirements with model capabilities.
         With 60GB VRAM available, we can be smart about model selection.
-        
+
         Args:
             prompt: The content generation prompt
             content_type: Type of content (image, text, video, etc.)
             available_models: List of available models to choose from
             **kwargs: Additional parameters like quality, style, etc.
-            
+
         Returns:
             Selected model dictionary
         """
         if not available_models:
             raise ValueError(f"No {content_type} generation models available")
-        
+
         # If only one model available, use it
         if len(available_models) == 1:
             return available_models[0]
-        
+
         # Simple heuristic-based selection (can be enhanced with ML later)
         quality = kwargs.get("quality", "standard")
-        
+
         # For image models
         if content_type == "image":
             # Keywords that indicate need for high quality
             high_quality_keywords = [
-                "detailed", "professional", "portrait", "high quality", 
-                "photorealistic", "8k", "4k", "masterpiece"
+                "detailed",
+                "professional",
+                "portrait",
+                "high quality",
+                "photorealistic",
+                "8k",
+                "4k",
+                "masterpiece",
             ]
-            
+
             # Keywords that indicate speed is acceptable
-            speed_keywords = [
-                "quick", "draft", "simple", "sketch", "concept"
-            ]
-            
+            speed_keywords = ["quick", "draft", "simple", "sketch", "concept"]
+
             prompt_lower = prompt.lower()
-            needs_quality = any(kw in prompt_lower for kw in high_quality_keywords) or quality in ["high", "hd", "premium"]
-            needs_speed = any(kw in prompt_lower for kw in speed_keywords) or quality == "draft"
-            
+            needs_quality = any(
+                kw in prompt_lower for kw in high_quality_keywords
+            ) or quality in ["high", "hd", "premium"]
+            needs_speed = (
+                any(kw in prompt_lower for kw in speed_keywords) or quality == "draft"
+            )
+
             # Model preference based on needs
             # SDXL models: Best quality but slower
             # SD 1.5: Faster, good quality
             # Flux: Highest quality, needs most resources
-            
+
             if needs_quality:
                 # Prefer SDXL or Flux for quality
                 for model in available_models:
                     if "xl" in model["name"].lower() or "flux" in model["name"].lower():
-                        logger.info(f"Selected {model['name']} for high-quality generation")
+                        logger.info(
+                            f"Selected {model['name']} for high-quality generation"
+                        )
                         return model
-            
+
             if needs_speed:
                 # Prefer SD 1.5 for speed
                 for model in available_models:
                     if "v1-5" in model["name"] or "1.5" in model["name"]:
                         logger.info(f"Selected {model['name']} for fast generation")
                         return model
-            
+
             # Default: prefer local models by size (larger = better quality typically)
             local_models = [m for m in available_models if m.get("provider") == "local"]
             if local_models:
                 # Sort by size_gb descending for quality, or ascending for speed
                 if needs_speed:
-                    sorted_models = sorted(local_models, key=lambda x: x.get("size_gb", 0))
+                    sorted_models = sorted(
+                        local_models, key=lambda x: x.get("size_gb", 0)
+                    )
                 else:
-                    sorted_models = sorted(local_models, key=lambda x: x.get("size_gb", 0), reverse=True)
-                logger.info(f"Selected {sorted_models[0]['name']} based on size optimization")
+                    sorted_models = sorted(
+                        local_models, key=lambda x: x.get("size_gb", 0), reverse=True
+                    )
+                logger.info(
+                    f"Selected {sorted_models[0]['name']} based on size optimization"
+                )
                 return sorted_models[0]
-        
+
         # For text models
         elif content_type == "text":
             # Longer prompts or complex tasks need larger models
             prompt_length = len(prompt.split())
             max_tokens = kwargs.get("max_tokens", 500)
-            
-            complexity_keywords = ["analyze", "explain", "detailed", "comprehensive", "essay"]
-            needs_large_model = prompt_length > 100 or max_tokens > 800 or any(kw in prompt.lower() for kw in complexity_keywords)
-            
+
+            complexity_keywords = [
+                "analyze",
+                "explain",
+                "detailed",
+                "comprehensive",
+                "essay",
+            ]
+            needs_large_model = (
+                prompt_length > 100
+                or max_tokens > 800
+                or any(kw in prompt.lower() for kw in complexity_keywords)
+            )
+
             if needs_large_model:
                 # Prefer 70B+ models
                 for model in available_models:
                     if "70b" in model["name"].lower() or "72b" in model["name"].lower():
-                        logger.info(f"Selected {model['name']} for complex text generation")
+                        logger.info(
+                            f"Selected {model['name']} for complex text generation"
+                        )
                         return model
             else:
                 # Prefer smaller, faster models for simple tasks
                 for model in available_models:
                     if "8b" in model["name"].lower():
-                        logger.info(f"Selected {model['name']} for fast text generation")
+                        logger.info(
+                            f"Selected {model['name']} for fast text generation"
+                        )
                         return model
-        
+
         # Default: return first available model
         logger.info(f"Using default model selection: {available_models[0]['name']}")
         return available_models[0]
@@ -723,7 +769,7 @@ class AIModelManager:
         model = None
         had_errors = False
         error_message = None
-        
+
         try:
             # Find best available image model (prefer local first)
             local_models = [
@@ -748,13 +794,13 @@ class AIModelManager:
                 prompt=prompt,
                 content_type="image",
                 available_models=available_models,
-                **kwargs
+                **kwargs,
             )
-            
+
             # Record model selection reasoning for benchmark
             selection_reasoning = (
-                model.get("selection_reason") or 
-                f"Selected based on quality={kwargs.get('quality', 'standard')}"
+                model.get("selection_reason")
+                or f"Selected based on quality={kwargs.get('quality', 'standard')}"
             )
 
             # Perform generation
@@ -765,10 +811,10 @@ class AIModelManager:
                 result = await self._generate_image_local(prompt, model, **kwargs)
             else:
                 raise ValueError(f"Unsupported image model: {model['name']}")
-            
+
             generation_time = time.time() - generation_start
             total_time = time.time() - start_time
-            
+
             # Add timing info to result
             result["generation_time_seconds"] = generation_time
             result["total_time_seconds"] = total_time
@@ -778,7 +824,7 @@ class AIModelManager:
                 "selection_reasoning": selection_reasoning,
                 "available_models": [m["name"] for m in available_models],
             }
-            
+
             return result
 
         except Exception as e:
@@ -936,7 +982,7 @@ class AIModelManager:
                 prompt=prompt,
                 content_type="text",
                 available_models=available_models,
-                **kwargs
+                **kwargs,
             )
 
             if model.get("provider") == "openai":
@@ -1118,7 +1164,9 @@ class AIModelManager:
             model_name = model["name"]
             model_id = model["model_id"]
             # Use the path from model info if available (handles both formats)
-            model_path = Path(model.get("path", str(self.models_dir / "image" / model_name)))
+            model_path = Path(
+                model.get("path", str(self.models_dir / "image" / model_name))
+            )
 
             # Check if reference image is provided for visual consistency
             reference_image_path = kwargs.get("reference_image_path")

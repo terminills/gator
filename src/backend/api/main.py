@@ -66,31 +66,55 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     await database_manager.connect()
     print("Database connection established.")
-    
+
     # Initialize AI models for content generation
     try:
         from backend.services.ai_models import ai_models
-        
+
         print("Initializing AI models...")
         await ai_models.initialize_models()
-        
+
         # Log available models
         available_counts = {
-            "text": len([m for m in ai_models.available_models.get("text", []) if m.get("loaded")]),
-            "image": len([m for m in ai_models.available_models.get("image", []) if m.get("loaded")]),
-            "voice": len([m for m in ai_models.available_models.get("voice", []) if m.get("loaded")]),
-            "video": len([m for m in ai_models.available_models.get("video", []) if m.get("loaded")]),
+            "text": len(
+                [
+                    m
+                    for m in ai_models.available_models.get("text", [])
+                    if m.get("loaded")
+                ]
+            ),
+            "image": len(
+                [
+                    m
+                    for m in ai_models.available_models.get("image", [])
+                    if m.get("loaded")
+                ]
+            ),
+            "voice": len(
+                [
+                    m
+                    for m in ai_models.available_models.get("voice", [])
+                    if m.get("loaded")
+                ]
+            ),
+            "video": len(
+                [
+                    m
+                    for m in ai_models.available_models.get("video", [])
+                    if m.get("loaded")
+                ]
+            ),
         }
-        
+
         print(f"AI models initialized:")
         print(f"  - Text models loaded: {available_counts['text']}")
         print(f"  - Image models loaded: {available_counts['image']}")
         print(f"  - Voice models loaded: {available_counts['voice']}")
         print(f"  - Video models loaded: {available_counts['video']}")
-        
+
         if sum(available_counts.values()) == 0:
             print("  ⚠️  No local models found. Using cloud APIs if configured.")
-        
+
     except Exception as e:
         print(f"Warning: Failed to initialize AI models: {str(e)}")
         print("  Content generation may use fallback mechanisms.")
@@ -99,15 +123,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     print("Shutting down Gator AI Platform...")
-    
+
     # Clean up AI models
     try:
         from backend.services.ai_models import ai_models
+
         await ai_models.close()
         print("AI models cleaned up.")
     except Exception as e:
         print(f"Warning: Error cleaning up AI models: {str(e)}")
-    
+
     # Disconnect from database
     await database_manager.disconnect()
     print("Database connection closed.")

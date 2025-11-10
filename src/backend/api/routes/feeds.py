@@ -111,13 +111,13 @@ async def fetch_all_feeds(
     try:
         results = await rss_service.fetch_all_feeds()
         logger.info(f"Manual RSS fetch completed results={results}")
-        
+
         # Get summary of recently fetched items for display
         recent_items = await rss_service.get_recent_items(limit=10)
-        
+
         # Calculate total items fetched
         total_items = sum(results.values())
-        
+
         return {
             "status": "success",
             "feeds_fetched": len(results),
@@ -126,13 +126,19 @@ async def fetch_all_feeds(
             "recent_items": [
                 {
                     "title": item.title,
-                    "feed_name": item.feed.name if hasattr(item, 'feed') and item.feed else "Unknown",
-                    "published": item.published_date.isoformat() if item.published_date else None,
+                    "feed_name": (
+                        item.feed.name
+                        if hasattr(item, "feed") and item.feed
+                        else "Unknown"
+                    ),
+                    "published": (
+                        item.published_date.isoformat() if item.published_date else None
+                    ),
                     "url": item.url,
                 }
                 for item in recent_items
             ],
-            "message": f"Successfully fetched {total_items} new items from {len(results)} feeds"
+            "message": f"Successfully fetched {total_items} new items from {len(results)} feeds",
         }
 
     except Exception as e:
