@@ -50,6 +50,11 @@ class DatabaseManager:
             logger.warning("Database already connected")
             return
 
+        # Import all models to ensure they're registered with SQLAlchemy
+        # This must happen before Base.metadata.create_all() is called
+        # to ensure foreign key relationships can be resolved
+        import backend.models  # noqa: F401
+
         # Convert sync SQLite URL to async for development
         database_url = self._settings.database_url
         if database_url.startswith("sqlite:"):
