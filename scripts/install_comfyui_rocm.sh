@@ -136,7 +136,7 @@ install_pytorch_rocm() {
 
 # Clone ComfyUI repository
 clone_comfyui() {
-    local COMFYUI_DIR="${1:-./ComfyUI}"
+    COMFYUI_DIR="${1:-./ComfyUI}"
     
     if [ -d "$COMFYUI_DIR" ]; then
         print_warning "ComfyUI directory already exists: $COMFYUI_DIR"
