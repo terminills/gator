@@ -22,18 +22,28 @@ Builds and installs vLLM (Very Large Language Model inference engine) for AMD RO
 - Uses `--no-build-isolation` to prevent PyTorch version conflicts during vLLM build
 - Ensures torchvision and torchaudio versions match installed PyTorch
 - Compatible with both stable (ROCm 6.x) and nightly (ROCm 7.0+) PyTorch builds
+- **New**: `--amd-repo` flag to use stable PyTorch 2.8.0 from AMD ROCm repository
+- **New**: `--repair` mode to fix PyTorch version conflicts after failed builds
 
 **Usage**:
 ```bash
 # Activate your virtual environment first
 source venv/bin/activate  # or conda activate your_env
 
-# Run installation script
+# Standard installation (uses PyTorch nightly for ROCm 7.0+)
 bash scripts/install_vllm_rocm.sh [optional-install-dir]
 
-# Default install directory is ./vllm-rocm
-# Example with custom directory:
+# Use stable PyTorch 2.8.0 from AMD repository (ROCm 7.0+ only)
+bash scripts/install_vllm_rocm.sh --amd-repo
+
+# Repair PyTorch installation if build fails (ROCm 7.0+ only)
+bash scripts/install_vllm_rocm.sh --repair
+
+# Custom directory
 bash scripts/install_vllm_rocm.sh /path/to/vllm
+
+# Show help
+bash scripts/install_vllm_rocm.sh --help
 ```
 
 **What it does**:
@@ -219,8 +229,13 @@ if torch.cuda.is_available():
 - **PyTorch version conflicts** (e.g., "torchvision requires torch==2.10.0 but you have torch 2.9.0"):
   - This occurs when vLLM's build dependencies conflict with installed PyTorch
   - The script now uses `--no-build-isolation` to prevent this issue
-  - Ensure torchvision and torchaudio are installed: `pip install torchvision torchaudio --index-url <pytorch-index>`
-  - For ROCm 7.0+: Use nightly index URL: `https://download.pytorch.org/whl/nightly/rocm7.0`
+  - **Quick fix for ROCm 7.0+**: Run repair mode: `bash scripts/install_vllm_rocm.sh --repair`
+  - **Alternative**: Use AMD repository: `bash scripts/install_vllm_rocm.sh --amd-repo`
+  - **Manual repair**:
+    ```bash
+    pip install --pre torch==2.8.0 torchvision torchaudio==2.8.0 \
+      -f https://repo.radeon.com/rocm/manylinux/rocm-rel-7.0.2/ && pip install triton
+    ```
 
 **ComfyUI not starting**:
 - Check dependencies: `cd ComfyUI && pip install -r requirements.txt`

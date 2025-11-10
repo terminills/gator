@@ -144,6 +144,88 @@ def test_vllm_comfyui_doc_updated():
     print("✓ VLLM_COMFYUI_INSTALLATION.md mentions PyTorch 2.10")
 
 
+def test_amd_repo_function():
+    """Verify AMD ROCm repository installation function exists."""
+    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    content = script_path.read_text()
+    
+    # Check for function definition
+    assert 'install_pytorch_amd_repo()' in content, "Missing install_pytorch_amd_repo function"
+    
+    # Check for AMD repository URL
+    assert 'repo.radeon.com/rocm/manylinux' in content, "Missing AMD repository URL"
+    assert 'torch==2.8.0' in content, "Missing PyTorch 2.8.0 version pin"
+    assert 'torchaudio==2.8.0' in content, "Missing torchaudio 2.8.0 version pin"
+    assert 'triton' in content, "Missing triton installation"
+    
+    print("✓ AMD ROCm repository installation function exists")
+
+
+def test_repair_mode():
+    """Verify repair mode functionality exists."""
+    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    content = script_path.read_text()
+    
+    # Check for repair function
+    assert 'repair_pytorch()' in content, "Missing repair_pytorch function"
+    
+    # Check for --repair flag handling
+    assert '--repair' in content, "Missing --repair flag"
+    assert 'REPAIR_MODE' in content, "Missing REPAIR_MODE variable"
+    
+    print("✓ Repair mode functionality exists")
+
+
+def test_amd_repo_flag():
+    """Verify --amd-repo flag exists."""
+    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    content = script_path.read_text()
+    
+    # Check for --amd-repo flag handling
+    assert '--amd-repo' in content, "Missing --amd-repo flag"
+    assert 'USE_AMD_REPO' in content, "Missing USE_AMD_REPO variable"
+    
+    print("✓ --amd-repo flag exists")
+
+
+def test_help_flag():
+    """Verify --help flag provides usage information."""
+    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    content = script_path.read_text()
+    
+    # Check for help flag and usage text
+    assert '--help' in content, "Missing --help flag"
+    assert 'Usage:' in content, "Missing usage text"
+    assert 'Examples:' in content, "Missing examples in help"
+    
+    print("✓ --help flag exists with usage information")
+
+
+def test_fallback_to_amd_repo():
+    """Verify automatic fallback to AMD repo on nightly failure."""
+    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    content = script_path.read_text()
+    
+    # Check for fallback logic
+    assert 'Falling back to AMD ROCm repository' in content, "Missing fallback message"
+    assert 'install_pytorch_amd_repo' in content, "Missing fallback call"
+    
+    print("✓ Automatic fallback to AMD repository exists")
+
+
+def test_documentation_repair_instructions():
+    """Verify documentation includes repair instructions."""
+    readme_path = Path(__file__).parent / "scripts" / "README.md"
+    content = readme_path.read_text()
+    
+    # Check for repair instructions
+    assert '--repair' in content, "Missing --repair in documentation"
+    assert 'torch==2.8.0' in content, "Missing PyTorch 2.8.0 in repair instructions"
+    assert 'repo.radeon.com' in content, "Missing AMD repository URL in documentation"
+    
+    print("✓ Documentation includes repair instructions")
+
+
 def main():
     """Run all tests."""
     print("=" * 70)
@@ -162,6 +244,12 @@ def main():
         test_pytorch_version_logging,
         test_documentation_updated,
         test_vllm_comfyui_doc_updated,
+        test_amd_repo_function,
+        test_repair_mode,
+        test_amd_repo_flag,
+        test_help_flag,
+        test_fallback_to_amd_repo,
+        test_documentation_repair_instructions,
     ]
     
     passed = 0

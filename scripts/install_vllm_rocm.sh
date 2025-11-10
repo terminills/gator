@@ -110,7 +110,10 @@ get_pytorch_index_url() {
     # Determine PyTorch index URL based on ROCm version
     if (( $(echo "$ROCM_MAJOR >= 7" | bc -l) )); then
         PYTORCH_INDEX="https://download.pytorch.org/whl/nightly/rocm${ROCM_MAJOR}.${ROCM_MINOR}"
+        # Also set AMD repository URL for ROCm 7.0+ as fallback
+        AMD_ROCM_REPO="https://repo.radeon.com/rocm/manylinux/rocm-rel-${ROCM_MAJOR}.${ROCM_MINOR}.2/"
         print_info "PyTorch index: ROCm ${ROCM_MAJOR}.${ROCM_MINOR} nightly wheels (PyTorch 2.10+)"
+        print_info "Fallback repo: AMD ROCm ${ROCM_MAJOR}.${ROCM_MINOR}.2 (PyTorch 2.8.0)"
     elif (( $(echo "$ROCM_MAJOR == 6" | bc -l) )) && (( $(echo "$ROCM_MINOR >= 5" | bc -l) )); then
         PYTORCH_INDEX="https://download.pytorch.org/whl/rocm${ROCM_MAJOR}.${ROCM_MINOR}"
         print_info "PyTorch index: ROCm ${ROCM_MAJOR}.${ROCM_MINOR} wheels"
@@ -123,6 +126,49 @@ get_pytorch_index_url() {
     else
         print_warning "Unsupported ROCm version for standard wheels"
         PYTORCH_INDEX="https://download.pytorch.org/whl/rocm5.7"
+    fi
+}
+
+# Install PyTorch 2.8.0 from AMD ROCm repository (ROCm 7.0+ fallback)
+install_pytorch_amd_repo() {
+    print_info "Installing PyTorch 2.8.0 from AMD ROCm repository..."
+    print_info "This is a stable alternative to nightly builds for ROCm 7.0+"
+    
+    # Install PyTorch 2.8.0 with triton from AMD repository
+    if python3 -m pip install --pre \
+        torch==2.8.0 \
+        torchvision \
+        torchaudio==2.8.0 \
+        -f "$AMD_ROCM_REPO"; then
+        
+        print_info "PyTorch 2.8.0 installed from AMD repository"
+        
+        # Install triton separately
+        if python3 -m pip install triton; then
+            print_info "Triton installed successfully"
+        else
+            print_warning "Failed to install triton, but PyTorch is functional"
+        fi
+        
+        # Verify installation
+        if python3 -c "import torch; print(f'PyTorch {torch.__version__} installed successfully')" 2>/dev/null; then
+            print_info "PyTorch 2.8.0 verified"
+            
+            # Check for GPU support
+            if python3 -c "import torch; exit(0 if torch.cuda.is_available() else 1)" 2>/dev/null; then
+                GPU_COUNT=$(python3 -c "import torch; print(torch.cuda.device_count())")
+                print_info "GPU support enabled ($GPU_COUNT device(s) detected)"
+            else
+                print_warning "GPU support not available"
+            fi
+            return 0
+        else
+            print_error "Failed to verify PyTorch installation"
+            return 1
+        fi
+    else
+        print_error "Failed to install PyTorch from AMD repository"
+        return 1
     fi
 }
 
@@ -173,12 +219,35 @@ install_pytorch_rocm() {
         return 0
     fi
     
-    print_info "Installing PyTorch with ROCm support..."
-    
-    # Install PyTorch and related packages
-    python3 -m pip install \
-        torch torchvision torchaudio \
-        --index-url "$PYTORCH_INDEX"
+    # For ROCm 7.0+, offer choice between nightly and AMD repo
+    if (( $(echo "$ROCM_MAJOR >= 7" | bc -l) )) && [ "$USE_AMD_REPO" != "1" ]; then
+        print_info "Installing PyTorch with ROCm support..."
+        print_info "Note: Use --amd-repo flag to install stable PyTorch 2.8.0 instead of nightly"
+        
+        # Try installing from PyTorch nightly
+        if python3 -m pip install \
+            torch torchvision torchaudio \
+            --index-url "$PYTORCH_INDEX"; then
+            print_info "PyTorch installed from nightly wheels"
+        else
+            print_error "Failed to install PyTorch from nightly wheels"
+            print_info "Falling back to AMD ROCm repository (PyTorch 2.8.0)..."
+            install_pytorch_amd_repo
+            return $?
+        fi
+    elif (( $(echo "$ROCM_MAJOR >= 7" | bc -l) )) && [ "$USE_AMD_REPO" = "1" ]; then
+        # User requested AMD repository explicitly
+        print_info "Using AMD ROCm repository as requested..."
+        install_pytorch_amd_repo
+        return $?
+    else
+        # ROCm 6.x or 5.7 - use standard method
+        print_info "Installing PyTorch with ROCm support..."
+        
+        python3 -m pip install \
+            torch torchvision torchaudio \
+            --index-url "$PYTORCH_INDEX"
+    fi
     
     # Verify PyTorch installation
     if python3 -c "import torch; print(f'PyTorch {torch.__version__} installed successfully')" 2>/dev/null; then
@@ -280,6 +349,45 @@ build_vllm() {
     fi
 }
 
+# Repair PyTorch installation with AMD repository (ROCm 7.0+)
+repair_pytorch() {
+    print_info "=== PyTorch Repair Mode ==="
+    print_info "This will reinstall PyTorch 2.8.0 from AMD ROCm repository"
+    echo
+    
+    detect_rocm
+    
+    if ! (( $(echo "$ROCM_MAJOR >= 7" | bc -l) )); then
+        print_error "Repair mode is only for ROCm 7.0+"
+        print_info "Your ROCm version: $ROCM_VERSION"
+        exit 1
+    fi
+    
+    get_pytorch_index_url
+    
+    print_warning "This will uninstall existing PyTorch and reinstall from AMD repository"
+    read -p "Continue? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 0
+    fi
+    
+    # Uninstall existing PyTorch
+    print_info "Uninstalling existing PyTorch..."
+    python3 -m pip uninstall -y torch torchvision torchaudio triton 2>/dev/null || true
+    
+    # Install from AMD repository
+    install_pytorch_amd_repo
+    
+    if [ $? -eq 0 ]; then
+        print_info "PyTorch repair completed successfully"
+        print_info "You can now run the vLLM installation again"
+    else
+        print_error "PyTorch repair failed"
+        exit 1
+    fi
+}
+
 # Main installation flow
 main() {
     print_info "=== vLLM ROCm Installation Script ==="
@@ -287,7 +395,50 @@ main() {
     echo
     
     # Parse command line arguments
-    VLLM_DIR="${1:-./vllm-rocm}"
+    VLLM_DIR="./vllm-rocm"
+    USE_AMD_REPO=0
+    REPAIR_MODE=0
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --amd-repo)
+                USE_AMD_REPO=1
+                shift
+                ;;
+            --repair)
+                REPAIR_MODE=1
+                shift
+                ;;
+            --help|-h)
+                echo "Usage: $0 [OPTIONS] [VLLM_DIR]"
+                echo ""
+                echo "Options:"
+                echo "  --amd-repo    Use AMD ROCm repository for PyTorch 2.8.0 (ROCm 7.0+ only)"
+                echo "  --repair      Repair PyTorch installation using AMD repository"
+                echo "  --help, -h    Show this help message"
+                echo ""
+                echo "Arguments:"
+                echo "  VLLM_DIR      Directory to clone vLLM (default: ./vllm-rocm)"
+                echo ""
+                echo "Examples:"
+                echo "  $0                           # Standard installation"
+                echo "  $0 --amd-repo                # Use AMD repo for PyTorch 2.8.0"
+                echo "  $0 --repair                  # Repair PyTorch installation"
+                echo "  $0 /custom/path              # Install to custom directory"
+                exit 0
+                ;;
+            *)
+                VLLM_DIR="$1"
+                shift
+                ;;
+        esac
+    done
+    
+    # Handle repair mode
+    if [ "$REPAIR_MODE" = "1" ]; then
+        repair_pytorch
+        exit 0
+    fi
     
     # Run installation steps
     check_venv
@@ -311,6 +462,15 @@ main() {
     print_info "  from vllm import LLM, SamplingParams"
     print_info "  llm = LLM(model='facebook/opt-125m')"
     print_info "  outputs = llm.generate('Hello, my name is', SamplingParams(max_tokens=50))"
+    
+    # Show repair option for ROCm 7.0+
+    if (( $(echo "$ROCM_MAJOR >= 7" | bc -l) )); then
+        echo
+        print_info "ROCm 7.0+ Troubleshooting:"
+        print_info "  If you encounter PyTorch version conflicts, run repair mode:"
+        print_info "  bash $0 --repair"
+        print_info "  This will install stable PyTorch 2.8.0 from AMD repository"
+    fi
     echo
 }
 
