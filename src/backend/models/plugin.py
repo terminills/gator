@@ -20,12 +20,10 @@ from sqlalchemy import (
     Enum as SQLEnum,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.declarative import declarative_base
 from pydantic import BaseModel, Field
 
+from backend.database.connection import Base
 from backend.plugins import PluginType, PluginStatus
-
-Base = declarative_base()
 
 
 class PluginModel(Base):

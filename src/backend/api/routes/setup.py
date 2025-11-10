@@ -599,17 +599,33 @@ async def get_ai_models_status() -> Dict[str, Any]:
 
         installed_models = []
         if models_exist:
-            # Check for installed models
-            for category in ["text", "image", "voice"]:
+            # Check for installed models in all categories
+            for category in ["text", "image", "voice", "video", "audio"]:
                 category_path = models_dir / category
                 if category_path.exists():
                     for model_path in category_path.iterdir():
                         if model_path.is_dir():
+                            # Get model size
+                            try:
+                                total_size = sum(f.stat().st_size for f in model_path.rglob('*') if f.is_file())
+                                size_gb = round(total_size / (1024 ** 3), 2)
+                            except Exception:
+                                size_gb = 0
+                            
+                            # Check if model has required files
+                            has_config = (model_path / "config.json").exists()
+                            has_model_files = any(model_path.glob("*.safetensors")) or any(model_path.glob("*.bin")) or any(model_path.glob("*.pt"))
+                            is_valid = has_config or has_model_files
+                            
                             installed_models.append(
                                 {
                                     "name": model_path.name,
                                     "category": category,
                                     "path": str(model_path),
+                                    "size_gb": size_gb,
+                                    "is_valid": is_valid,
+                                    "has_config": has_config,
+                                    "has_model_files": has_model_files,
                                 }
                             )
 
@@ -894,6 +910,68 @@ async def enable_model(request: ModelEnableRequest) -> Dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to enable/disable model: {str(e)}",
+        )
+
+
+class ModelUninstallRequest(BaseModel):
+    """Request to uninstall an AI model."""
+
+    model_name: str = Field(..., description="Model name")
+    model_category: str = Field("text", description="Model category (text, image, voice)")
+
+
+@router.post("/ai-models/uninstall")
+async def uninstall_model(request: ModelUninstallRequest) -> Dict[str, Any]:
+    """
+    Uninstall an AI model.
+
+    Removes the model files from disk and updates the configuration.
+    """
+    try:
+        import shutil
+        from pathlib import Path
+
+        models_dir = Path("./models")
+        model_path = models_dir / request.model_category / request.model_name
+
+        if not model_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Model {request.model_name} not found in {request.model_category}"
+            )
+
+        # Remove model directory
+        shutil.rmtree(model_path)
+        logger.info(f"Removed model directory: {model_path}")
+
+        # Update model configuration
+        config_path = models_dir / "model_config.json"
+        if config_path.exists():
+            import json
+            with open(config_path, "r") as f:
+                config = json.load(f)
+            
+            # Remove from enabled models if present
+            if "enabled_models" in config and request.model_name in config["enabled_models"]:
+                del config["enabled_models"][request.model_name]
+            
+            with open(config_path, "w") as f:
+                json.dump(config, f, indent=2)
+
+        return {
+            "success": True,
+            "message": f"Model {request.model_name} uninstalled successfully",
+            "model_name": request.model_name,
+            "model_category": request.model_category,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to uninstall model: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to uninstall model: {str(e)}",
         )
 
 

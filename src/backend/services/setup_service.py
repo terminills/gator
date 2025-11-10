@@ -103,6 +103,29 @@ class SetupService:
                 if template_path.exists():
                     with open(template_path, "r") as f:
                         existing_lines = f.readlines()
+                    # Parse existing keys from template
+                    for line in existing_lines:
+                        if "=" in line and not line.strip().startswith("#"):
+                            key = line.split("=", 1)[0].strip()
+                            existing_keys.add(key)
+                else:
+                    # Create minimal template if .env.template doesn't exist
+                    logger.warning("No .env.template found, creating minimal configuration")
+                    existing_lines = [
+                        "# Gator AI Platform Configuration\n",
+                        "\n",
+                        "# Database\n",
+                        "DATABASE_URL=sqlite:///./gator.db\n",
+                        "\n",
+                        "# Security\n",
+                        "SECRET_KEY=your_super_secret_key_change_in_production\n",
+                        "JWT_SECRET=your_jwt_secret_key\n",
+                        "\n",
+                        "# Application\n",
+                        "DEBUG=true\n",
+                        "ENVIRONMENT=development\n",
+                        "\n",
+                    ]
 
             # Update values
             updated_lines = []
