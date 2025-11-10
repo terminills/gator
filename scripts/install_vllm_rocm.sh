@@ -54,6 +54,26 @@ detect_rocm() {
     fi
 }
 
+# Detect GPU architecture
+detect_gpu_arch() {
+    if command -v rocminfo &> /dev/null; then
+        # Extract unique GPU architectures from rocminfo output
+        # rocminfo lists each GPU agent with "Name: gfxXXX" format
+        local gpu_archs=$(rocminfo | grep -oP 'Name:\s+\Kgfx[0-9a-z]+' | sort -u | tr '\n' ';' | sed 's/;$//')
+        
+        if [ -n "$gpu_archs" ]; then
+            print_info "Detected GPU architecture(s): $gpu_archs"
+            export DETECTED_GPU_ARCH="$gpu_archs"
+        else
+            print_warning "Could not detect GPU architecture, will use default set"
+            export DETECTED_GPU_ARCH=""
+        fi
+    else
+        print_warning "rocminfo not available, cannot detect GPU architecture"
+        export DETECTED_GPU_ARCH=""
+    fi
+}
+
 # Check for required build dependencies
 check_dependencies() {
     print_info "Checking build dependencies..."
@@ -310,7 +330,13 @@ build_vllm() {
     cd "$VLLM_SOURCE_DIR"
     
     # Set environment variables for ROCm build
-    export PYTORCH_ROCM_ARCH="${PYTORCH_ROCM_ARCH:-gfx900;gfx906;gfx908;gfx90a;gfx940;gfx941;gfx942;gfx1030;gfx1100}"
+    # Use detected GPU architecture if available, otherwise fall back to comprehensive list
+    if [ -n "$DETECTED_GPU_ARCH" ]; then
+        export PYTORCH_ROCM_ARCH="${PYTORCH_ROCM_ARCH:-$DETECTED_GPU_ARCH}"
+    else
+        # Fallback to comprehensive architecture list if detection failed
+        export PYTORCH_ROCM_ARCH="${PYTORCH_ROCM_ARCH:-gfx900;gfx906;gfx908;gfx90a;gfx940;gfx941;gfx942;gfx1030;gfx1100}"
+    fi
     export VLLM_TARGET_DEVICE=rocm
     
     # For AMD build, we need to use ROCm-specific flags
@@ -451,6 +477,7 @@ main() {
     # Run installation steps
     check_venv
     detect_rocm
+    detect_gpu_arch
     check_dependencies
     get_pytorch_index_url
     install_python_deps

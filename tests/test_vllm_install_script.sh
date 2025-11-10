@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test script for install_vllm_rocm.sh argument parsing
+# Test script for install_vllm_rocm.sh argument parsing and GPU detection
 
 set -e
 
@@ -68,6 +68,28 @@ run_test "Accept --amd-repo flag" \
 run_test "Accept --repair flag" \
     "PyTorch Repair Mode" \
     bash "$INSTALL_SCRIPT" --repair < /dev/null
+
+# Test 7: GPU architecture detection logic
+echo
+echo "Test 7: GPU architecture detection logic"
+test_count=$((test_count + 1))
+
+# Test the extraction logic used by detect_gpu_arch
+mock_rocminfo_output='Agent 1
+  Name:                    gfx90a
+  Marketing Name:          AMD Instinct MI210
+Agent 2
+  Name:                    gfx90a
+  Marketing Name:          AMD Instinct MI210'
+
+detected=$(echo "$mock_rocminfo_output" | grep -oP 'Name:\s+\Kgfx[0-9a-z]+' | sort -u | tr '\n' ';' | sed 's/;$//')
+if [ "$detected" = "gfx90a" ]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    pass_count=$((pass_count + 1))
+else
+    echo -e "${RED}✗ FAIL${NC}"
+    echo "Expected: gfx90a, Got: $detected"
+fi
 
 echo "=========================================="
 echo "Test Results: $pass_count/$test_count passed"
