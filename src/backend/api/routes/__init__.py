@@ -9,6 +9,7 @@ from . import (
     gator_agent,
     interactive,
     segments,
+    friend_groups,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "gator_agent",
     "interactive",
     "segments",
+    "friend_groups",
 ]

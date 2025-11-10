@@ -40,6 +40,7 @@ from backend.api.routes import (
     interactive,
     segments,
     plugins,
+    friend_groups,
 )
 from backend.api.websocket import websocket_endpoint
 
@@ -196,6 +197,7 @@ def create_app() -> FastAPI:
     app.include_router(interactive.router)
     app.include_router(segments.router)
     app.include_router(plugins.router, prefix="/api/v1")
+    app.include_router(friend_groups.router, prefix="/api/v1")
 
     # WebSocket endpoint for real-time communication
     @app.websocket("/ws/{user_id}")
