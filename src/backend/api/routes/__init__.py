@@ -10,6 +10,7 @@ from . import (
     interactive,
     segments,
     friend_groups,
+    enhanced_persona,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "interactive",
     "segments",
     "friend_groups",
+    "enhanced_persona",
 ]
