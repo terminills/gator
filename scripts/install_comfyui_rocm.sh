@@ -322,6 +322,9 @@ display_summary() {
     print_info "=== Installation Complete ==="
     print_info "ComfyUI is now installed at: $COMFYUI_DIR"
     echo
+    print_info "To help other tools detect ComfyUI, add this to your shell profile:"
+    print_info "  export COMFYUI_DIR=\"$(cd "$COMFYUI_DIR" && pwd)\""
+    echo
     print_info "Next steps:"
     print_info "  1. Download models (optional):"
     print_info "     cd $COMFYUI_DIR && python3 download_models.py"

@@ -492,14 +492,45 @@ class ModelSetupManager:
         except Exception as e:
             return f"Failed: {str(e)}"
     
+    def _find_comfyui_installation(self) -> Optional[Path]:
+        """
+        Find ComfyUI installation in common locations.
+        
+        Returns:
+            Path to ComfyUI directory if found, None otherwise
+        """
+        # Check environment variable first (set by install script)
+        if "COMFYUI_DIR" in os.environ:
+            comfyui_path = Path(os.environ["COMFYUI_DIR"])
+            if comfyui_path.exists() and (comfyui_path / "main.py").exists():
+                return comfyui_path
+        
+        # Check common installation locations
+        possible_locations = [
+            self.models_dir.parent / "ComfyUI",  # Next to models dir
+            Path("./ComfyUI"),  # Current directory
+            Path.cwd() / "ComfyUI",  # Current working directory
+            Path(__file__).parent / "ComfyUI",  # Script directory
+            Path.home() / "ComfyUI",  # Home directory
+        ]
+        
+        for location in possible_locations:
+            # Check if directory exists and has main.py (indicates valid ComfyUI installation)
+            if location.exists() and (location / "main.py").exists():
+                return location
+        
+        return None
+    
     async def _setup_comfyui_rocm(self) -> str:
         """Setup ComfyUI with ROCm support."""
         try:
-            script_path = Path(__file__).parent / "scripts" / "install_comfyui_rocm.sh"
-            comfyui_dir = self.models_dir.parent / "ComfyUI"
+            # Check if ComfyUI is already installed
+            comfyui_path = self._find_comfyui_installation()
+            if comfyui_path:
+                return f"ComfyUI already installed at: {comfyui_path}"
             
-            if comfyui_dir.exists():
-                return "ComfyUI already installed"
+            # Not found, provide installation instructions
+            script_path = Path(__file__).parent / "scripts" / "install_comfyui_rocm.sh"
             
             if not script_path.exists():
                 return "ComfyUI - installation script not found. Run: ./scripts/install_comfyui_rocm.sh"
@@ -527,11 +558,13 @@ class ModelSetupManager:
     async def _setup_comfyui_cuda(self) -> str:
         """Setup ComfyUI with CUDA support."""
         try:
-            script_path = Path(__file__).parent / "scripts" / "install_comfyui_rocm.sh"
-            comfyui_dir = self.models_dir.parent / "ComfyUI"
+            # Check if ComfyUI is already installed
+            comfyui_path = self._find_comfyui_installation()
+            if comfyui_path:
+                return f"ComfyUI already installed at: {comfyui_path}"
             
-            if comfyui_dir.exists():
-                return "ComfyUI already installed"
+            # Not found, provide installation instructions
+            script_path = Path(__file__).parent / "scripts" / "install_comfyui_rocm.sh"
             
             if not script_path.exists():
                 return "ComfyUI - git clone https://github.com/comfyanonymous/ComfyUI"
