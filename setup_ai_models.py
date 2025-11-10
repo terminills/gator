@@ -27,10 +27,29 @@ try:
         get_recommended_pytorch_version,
         check_pytorch_installation,
     )
+    from backend.utils.model_detection import find_comfyui_installation
     ROCM_UTILS_AVAILABLE = True
 except ImportError:
     ROCM_UTILS_AVAILABLE = False
     print("Warning: ROCm utilities not available, using legacy detection")
+    # Provide fallback for find_comfyui_installation
+    def find_comfyui_installation(base_dir=None):
+        """Fallback ComfyUI detection for when utils are not available."""
+        if "COMFYUI_DIR" in os.environ:
+            comfyui_path = Path(os.environ["COMFYUI_DIR"])
+            if comfyui_path.exists() and (comfyui_path / "main.py").exists():
+                return comfyui_path
+        possible_locations = [
+            Path("./ComfyUI"),
+            Path.cwd() / "ComfyUI",
+            Path.home() / "ComfyUI",
+        ]
+        if base_dir:
+            possible_locations.insert(0, base_dir / "ComfyUI")
+        for location in possible_locations:
+            if location.exists() and (location / "main.py").exists():
+                return location
+        return None
 
 try:
     import torch
@@ -499,27 +518,8 @@ class ModelSetupManager:
         Returns:
             Path to ComfyUI directory if found, None otherwise
         """
-        # Check environment variable first (set by install script)
-        if "COMFYUI_DIR" in os.environ:
-            comfyui_path = Path(os.environ["COMFYUI_DIR"])
-            if comfyui_path.exists() and (comfyui_path / "main.py").exists():
-                return comfyui_path
-        
-        # Check common installation locations
-        possible_locations = [
-            self.models_dir.parent / "ComfyUI",  # Next to models dir
-            Path("./ComfyUI"),  # Current directory
-            Path.cwd() / "ComfyUI",  # Current working directory
-            Path(__file__).parent / "ComfyUI",  # Script directory
-            Path.home() / "ComfyUI",  # Home directory
-        ]
-        
-        for location in possible_locations:
-            # Check if directory exists and has main.py (indicates valid ComfyUI installation)
-            if location.exists() and (location / "main.py").exists():
-                return location
-        
-        return None
+        # Use shared utility for consistency
+        return find_comfyui_installation(base_dir=self.models_dir.parent)
     
     async def _setup_comfyui_rocm(self) -> str:
         """Setup ComfyUI with ROCm support."""

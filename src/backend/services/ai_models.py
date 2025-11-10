@@ -26,6 +26,10 @@ import torch
 
 from backend.config.logging import get_logger
 from backend.config.settings import get_settings
+from backend.utils.model_detection import (
+    find_comfyui_installation,
+    check_inference_engine_available,
+)
 
 logger = get_logger(__name__)
 
@@ -419,27 +423,8 @@ class AIModelManager:
 
     async def _check_inference_engine(self, engine: str) -> bool:
         """Check if inference engine is available."""
-        try:
-            if engine == "vllm":
-                import vllm
-
-                return True
-            elif engine == "comfyui":
-                # Check if ComfyUI is available
-                comfyui_path = Path("./ComfyUI")
-                return comfyui_path.exists()
-            elif engine == "diffusers":
-                import diffusers
-
-                return True
-            elif engine == "transformers":
-                import transformers
-
-                return True
-            else:
-                return False
-        except ImportError:
-            return False
+        # Use comprehensive detection logic from model_detection utility
+        return check_inference_engine_available(engine, base_dir=self.models_dir.parent)
 
     async def _initialize_cloud_text_models(self) -> None:
         """Initialize cloud-based text generation models."""
