@@ -29,6 +29,9 @@ from backend.models.content import (
 )
 from backend.services.template_service import TemplateService
 from backend.config.logging import get_logger
+from backend.utils.acd_integration import ACDContextManager
+from backend.models.acd import AIComplexity, AIConfidence, AIState
+from backend.services.acd_service import ACDService
 
 logger = get_logger(__name__)
 
@@ -387,95 +390,144 @@ class ContentGenerationService:
         self, persona: PersonaModel, request: GenerationRequest
     ) -> Dict[str, Any]:
         """
-        Generate image using AI model.
+        Generate image using AI model with ACD context tracking.
 
         Integrated with real AI models including OpenAI DALL-E and Stable Diffusion.
         Uses base_image_path for visual consistency when appearance_locked is True.
+        Tracks generation context via ACD for learning and debugging.
         """
-        try:
-            from backend.services.ai_models import ai_models
+        # Determine complexity based on quality and locked appearance
+        complexity = AIComplexity.LOW
+        if request.quality == "hd":
+            complexity = AIComplexity.HIGH
+        elif persona.appearance_locked:
+            complexity = AIComplexity.MEDIUM
+        
+        # Create ACD context for tracking
+        initial_context = {
+            "prompt": request.prompt,
+            "persona_id": str(persona.id),
+            "quality": request.quality,
+            "content_rating": request.content_rating.value,
+            "appearance_locked": persona.appearance_locked,
+        }
+        
+        async with ACDContextManager(
+            self.db,
+            phase="IMAGE_GENERATION",
+            note=f"Generating image for persona {persona.name}",
+            complexity=complexity,
+            initial_context=initial_context,
+        ) as acd:
+            try:
+                from backend.services.ai_models import ai_models
 
-            # Ensure AI models are initialized
-            if not ai_models.models_loaded:
-                await ai_models.initialize_models()
+                # Ensure AI models are initialized
+                if not ai_models.models_loaded:
+                    await ai_models.initialize_models()
 
-            # Prepare generation parameters
-            generation_params = {
-                "prompt": request.prompt,
-                "size": "1024x1024",
-                "quality": (
-                    request.quality
-                    if request.quality in ["standard", "hd"]
-                    else "standard"
-                ),
-            }
+                # Prepare generation parameters
+                generation_params = {
+                    "prompt": request.prompt,
+                    "size": "1024x1024",
+                    "quality": (
+                        request.quality
+                        if request.quality in ["standard", "hd"]
+                        else "standard"
+                    ),
+                }
 
-            # Add visual consistency parameters if appearance is locked
-            if persona.appearance_locked and persona.base_image_path:
-                generation_params["reference_image_path"] = persona.base_image_path
-                generation_params["use_controlnet"] = True
-                logger.info(
-                    f"Using visual reference for consistency: {persona.base_image_path}"
+                # Add visual consistency parameters if appearance is locked
+                if persona.appearance_locked and persona.base_image_path:
+                    generation_params["reference_image_path"] = persona.base_image_path
+                    generation_params["use_controlnet"] = True
+                    logger.info(
+                        f"Using visual reference for consistency: {persona.base_image_path}"
+                    )
+                    await acd.set_metadata({
+                        **initial_context,
+                        "using_reference": True,
+                        "reference_path": persona.base_image_path,
+                    })
+
+                # Generate image using AI model
+                image_result = await ai_models.generate_image(**generation_params)
+
+                # Save the generated image
+                filename = f"image_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                file_path = self.content_dir / "images" / filename
+
+                # Write image data to file
+                with open(file_path, "wb") as f:
+                    f.write(image_result["image_data"])
+
+                result_data = {
+                    "file_path": str(file_path),
+                    "file_size": len(image_result["image_data"]),
+                    "width": image_result.get("width", 1024),
+                    "height": image_result.get("height", 1024),
+                    "format": image_result.get("format", "PNG"),
+                    "content_rating": request.content_rating.value,
+                    "model": image_result.get("model", "unknown"),
+                    "provider": image_result.get("provider", "unknown"),
+                    "acd_context_id": acd.context_id,  # Link to ACD context
+                }
+
+                # Add benchmark data for feedback tracking
+                if "benchmark_data" in image_result:
+                    result_data["benchmark_data"] = image_result["benchmark_data"]
+                    result_data["generation_time_seconds"] = image_result.get(
+                        "generation_time_seconds"
+                    )
+                    result_data["total_time_seconds"] = image_result.get(
+                        "total_time_seconds"
+                    )
+
+                # Update ACD with successful generation details
+                await acd.set_confidence(AIConfidence.CONFIDENT)
+                await acd.set_metadata({
+                    **initial_context,
+                    "model_used": image_result.get("model", "unknown"),
+                    "provider": image_result.get("provider", "unknown"),
+                    "file_size": len(image_result["image_data"]),
+                    "success": True,
+                })
+
+                return result_data
+
+            except Exception as e:
+                # Mark ACD as failed before fallback
+                await acd.set_confidence(AIConfidence.UNCERTAIN)
+                await acd.set_metadata({
+                    **initial_context,
+                    "error": str(e),
+                    "using_fallback": True,
+                })
+                
+                # Fallback to placeholder if AI generation fails
+                logger.warning(f"AI image generation failed, using placeholder: {str(e)}")
+                await asyncio.sleep(0.1)  # Simulate processing time
+
+                filename = (
+                    f"image_placeholder_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
                 )
+                file_path = self.content_dir / "images" / filename
 
-            # Generate image using AI model
-            image_result = await ai_models.generate_image(**generation_params)
+                # Create fallback file with error info
+                error_content = f"# Image generation temporarily unavailable\n# Original prompt: {request.prompt}\n# Error: {str(e)}\n# Note: AI model initialization or API connection required for image generation"
+                file_path.write_text(error_content)
 
-            # Save the generated image
-            filename = f"image_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-            file_path = self.content_dir / "images" / filename
-
-            # Write image data to file
-            with open(file_path, "wb") as f:
-                f.write(image_result["image_data"])
-
-            result_data = {
-                "file_path": str(file_path),
-                "file_size": len(image_result["image_data"]),
-                "width": image_result.get("width", 1024),
-                "height": image_result.get("height", 1024),
-                "format": image_result.get("format", "PNG"),
-                "content_rating": request.content_rating.value,
-                "model": image_result.get("model", "unknown"),
-                "provider": image_result.get("provider", "unknown"),
-            }
-
-            # Add benchmark data for feedback tracking
-            if "benchmark_data" in image_result:
-                result_data["benchmark_data"] = image_result["benchmark_data"]
-                result_data["generation_time_seconds"] = image_result.get(
-                    "generation_time_seconds"
-                )
-                result_data["total_time_seconds"] = image_result.get(
-                    "total_time_seconds"
-                )
-
-            return result_data
-
-        except Exception as e:
-            # Fallback to placeholder if AI generation fails
-            logger.warning(f"AI image generation failed, using placeholder: {str(e)}")
-            await asyncio.sleep(0.1)  # Simulate processing time
-
-            filename = (
-                f"image_placeholder_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-            )
-            file_path = self.content_dir / "images" / filename
-
-            # Create fallback file with error info
-            error_content = f"# Image generation temporarily unavailable\n# Original prompt: {request.prompt}\n# Error: {str(e)}\n# Note: AI model initialization or API connection required for image generation"
-            file_path.write_text(error_content)
-
-            return {
-                "file_path": str(file_path),
-                "file_size": file_path.stat().st_size,
-                "width": 1024,
-                "height": 1024,
-                "format": "TXT",  # Text file format for error placeholder
-                "content_rating": request.content_rating.value,
-                "error": str(e),
-                "fallback": True,
-            }
+                return {
+                    "file_path": str(file_path),
+                    "file_size": file_path.stat().st_size,
+                    "width": 1024,
+                    "height": 1024,
+                    "format": "TXT",  # Text file format for error placeholder
+                    "content_rating": request.content_rating.value,
+                    "error": str(e),
+                    "fallback": True,
+                    "acd_context_id": acd.context_id,  # Link to ACD context even on fallback
+                }
 
     async def _generate_video(
         self, persona: PersonaModel, request: GenerationRequest
@@ -729,28 +781,52 @@ class ContentGenerationService:
         self, persona: PersonaModel, request: GenerationRequest
     ) -> Dict[str, Any]:
         """
-        Generate text using AI model.
+        Generate text using AI model with ACD context tracking.
 
         First attempts real AI generation, falls back to smart template-based generation.
         Uses base_appearance_description for consistency when appearance_locked is True.
+        Tracks generation context via ACD for learning and debugging.
         """
-        try:
-            from backend.services.ai_models import ai_models
+        # Determine complexity based on quality and content themes
+        complexity = AIComplexity.LOW
+        if request.quality in ["high", "premium"]:
+            complexity = AIComplexity.MEDIUM
+        if persona.appearance_locked:
+            complexity = AIComplexity.MEDIUM
+        
+        # Create ACD context for tracking
+        initial_context = {
+            "prompt": request.prompt,
+            "persona_id": str(persona.id),
+            "quality": request.quality,
+            "content_rating": request.content_rating.value,
+            "content_themes": persona.content_themes[:3] if persona.content_themes else [],
+        }
+        
+        async with ACDContextManager(
+            self.db,
+            phase="TEXT_GENERATION",
+            note=f"Generating text for persona {persona.name}",
+            complexity=complexity,
+            initial_context=initial_context,
+        ) as acd:
+            try:
+                from backend.services.ai_models import ai_models
 
-            # Ensure AI models are initialized
-            if not ai_models.models_loaded:
-                await ai_models.initialize_models()
+                # Ensure AI models are initialized
+                if not ai_models.models_loaded:
+                    await ai_models.initialize_models()
 
-            # Use base appearance if locked for consistency
-            appearance_desc = (
-                persona.base_appearance_description
-                if persona.appearance_locked and persona.base_appearance_description
-                else persona.appearance
-            )
+                # Use base appearance if locked for consistency
+                appearance_desc = (
+                    persona.base_appearance_description
+                    if persona.appearance_locked and persona.base_appearance_description
+                    else persona.appearance
+                )
 
-            # Enhanced prompt with persona context
-            enhanced_prompt = f"""You are {persona.name}, an AI influencer with the following characteristics:
-            
+                # Enhanced prompt with persona context
+                enhanced_prompt = f"""You are {persona.name}, an AI influencer with the following characteristics:
+                
 Appearance: {appearance_desc}
 Personality: {persona.personality}
 Content Themes: {', '.join(persona.content_themes[:3]) if persona.content_themes else 'general topics'}
@@ -765,68 +841,97 @@ Original request: {request.prompt}
 
 Generate the social media content now:"""
 
-            # Try AI generation first
-            generated_text = await ai_models.generate_text(
-                prompt=enhanced_prompt,
-                max_tokens=500 if request.quality == "draft" else 800,
-                temperature=0.7 if request.quality in ["standard", "high"] else 0.5,
-            )
+                # Try AI generation first
+                generated_text = await ai_models.generate_text(
+                    prompt=enhanced_prompt,
+                    max_tokens=500 if request.quality == "draft" else 800,
+                    temperature=0.7 if request.quality in ["standard", "high"] else 0.5,
+                )
 
-            # Clean up and format the text
-            generated_text = generated_text.strip()
+                # Clean up and format the text
+                generated_text = generated_text.strip()
 
-            # Save the generated text
-            filename = f"text_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-            file_path = self.content_dir / "text" / filename
+                # Save the generated text
+                filename = f"text_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                file_path = self.content_dir / "text" / filename
 
-            file_path.write_text(generated_text, encoding="utf-8")
+                file_path.write_text(generated_text, encoding="utf-8")
 
-            return {
-                "file_path": str(file_path),
-                "file_size": file_path.stat().st_size,
-                "word_count": len(generated_text.split()),
-                "character_count": len(generated_text),
-                "text_preview": (
-                    generated_text[:200] + "..."
-                    if len(generated_text) > 200
-                    else generated_text
-                ),
-                "content_rating": request.content_rating.value,
-                "full_text": generated_text,
-                "ai_generated": True,
-            }
+                # Update ACD with successful generation details
+                await acd.set_confidence(AIConfidence.CONFIDENT)
+                await acd.set_metadata({
+                    **initial_context,
+                    "word_count": len(generated_text.split()),
+                    "character_count": len(generated_text),
+                    "ai_generated": True,
+                    "success": True,
+                })
 
-        except Exception as e:
-            # Enhanced fallback generation using persona characteristics
-            logger.warning(
-                f"AI text generation failed, using enhanced fallback: {str(e)}"
-            )
-            await asyncio.sleep(0.05)  # Simulate processing time
+                return {
+                    "file_path": str(file_path),
+                    "file_size": file_path.stat().st_size,
+                    "word_count": len(generated_text.split()),
+                    "character_count": len(generated_text),
+                    "text_preview": (
+                        generated_text[:200] + "..."
+                        if len(generated_text) > 200
+                        else generated_text
+                    ),
+                    "content_rating": request.content_rating.value,
+                    "full_text": generated_text,
+                    "ai_generated": True,
+                    "acd_context_id": acd.context_id,  # Link to ACD context
+                }
 
-            # Create more sophisticated fallback content based on persona and prompt
-            generated_text = await self._create_enhanced_fallback_text(persona, request)
+            except Exception as e:
+                # Mark ACD as using fallback
+                await acd.set_confidence(AIConfidence.UNCERTAIN)
+                await acd.set_metadata({
+                    **initial_context,
+                    "error": str(e),
+                    "using_fallback": True,
+                })
+                
+                # Enhanced fallback generation using persona characteristics
+                logger.warning(
+                    f"AI text generation failed, using enhanced fallback: {str(e)}"
+                )
+                await asyncio.sleep(0.05)  # Simulate processing time
 
-            filename = f"text_enhanced_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-            file_path = self.content_dir / "text" / filename
+                # Create more sophisticated fallback content based on persona and prompt
+                generated_text = await self._create_enhanced_fallback_text(persona, request)
 
-            file_path.write_text(generated_text, encoding="utf-8")
+                filename = f"text_enhanced_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                file_path = self.content_dir / "text" / filename
 
-            return {
-                "file_path": str(file_path),
-                "file_size": file_path.stat().st_size,
-                "word_count": len(generated_text.split()),
-                "character_count": len(generated_text),
-                "text_preview": (
-                    generated_text[:200] + "..."
-                    if len(generated_text) > 200
-                    else generated_text
-                ),
-                "content_rating": request.content_rating.value,
-                "full_text": generated_text,
-                "ai_generated": False,
-                "fallback": True,
-                "fallback_reason": str(e),
-            }
+                file_path.write_text(generated_text, encoding="utf-8")
+
+                # Update ACD with fallback details
+                await acd.set_metadata({
+                    **initial_context,
+                    "error": str(e),
+                    "using_fallback": True,
+                    "word_count": len(generated_text.split()),
+                    "character_count": len(generated_text),
+                })
+
+                return {
+                    "file_path": str(file_path),
+                    "file_size": file_path.stat().st_size,
+                    "word_count": len(generated_text.split()),
+                    "character_count": len(generated_text),
+                    "text_preview": (
+                        generated_text[:200] + "..."
+                        if len(generated_text) > 200
+                        else generated_text
+                    ),
+                    "content_rating": request.content_rating.value,
+                    "full_text": generated_text,
+                    "ai_generated": False,
+                    "fallback": True,
+                    "fallback_reason": str(e),
+                    "acd_context_id": acd.context_id,  # Link to ACD context even on fallback
+                }
 
     async def _create_enhanced_fallback_text(
         self, persona: PersonaModel, request: GenerationRequest

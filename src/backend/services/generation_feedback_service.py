@@ -22,6 +22,8 @@ from backend.models.generation_feedback import (
     BenchmarkStats,
 )
 from backend.config.logging import get_logger
+from backend.services.acd_service import ACDService
+from backend.models.acd import ACDContextUpdate, AIValidation, AIConfidence
 
 logger = get_logger(__name__)
 
@@ -81,6 +83,7 @@ class GenerationFeedbackService:
     ) -> GenerationBenchmarkResponse:
         """
         Submit human feedback for a generation benchmark.
+        Updates both the benchmark record and linked ACD context for learning.
 
         Args:
             feedback: Human feedback data
@@ -112,6 +115,10 @@ class GenerationFeedbackService:
             await self.db.commit()
             await self.db.refresh(benchmark)
 
+            # Update linked ACD context with feedback (close the learning loop)
+            if benchmark.acd_context_id:
+                await self._update_acd_with_feedback(benchmark, feedback)
+
             logger.info(
                 f"Feedback recorded for benchmark {benchmark.id}: "
                 f"rating={feedback.rating.value}, "
@@ -124,6 +131,68 @@ class GenerationFeedbackService:
             logger.error(f"Failed to submit feedback: {str(e)}")
             await self.db.rollback()
             raise
+
+    async def _update_acd_with_feedback(
+        self, benchmark: GenerationBenchmarkModel, feedback: FeedbackSubmission
+    ):
+        """
+        Update ACD context with human feedback to close the learning loop.
+        
+        Args:
+            benchmark: The benchmark record with feedback
+            feedback: The submitted feedback data
+        """
+        try:
+            acd_service = ACDService(self.db)
+            
+            # Map feedback rating to validation status
+            validation_map = {
+                FeedbackRating.EXCELLENT: AIValidation.APPROVED,
+                FeedbackRating.GOOD: AIValidation.APPROVED,
+                FeedbackRating.ACCEPTABLE: AIValidation.CONDITIONALLY_APPROVED,
+                FeedbackRating.POOR: AIValidation.REJECTED,
+                FeedbackRating.UNACCEPTABLE: AIValidation.REJECTED,
+            }
+            
+            # Map rating to confidence
+            confidence_map = {
+                FeedbackRating.EXCELLENT: AIConfidence.VALIDATED,
+                FeedbackRating.GOOD: AIConfidence.VALIDATED,
+                FeedbackRating.ACCEPTABLE: AIConfidence.CONFIDENT,
+                FeedbackRating.POOR: AIConfidence.UNCERTAIN,
+                FeedbackRating.UNACCEPTABLE: AIConfidence.UNCERTAIN,
+            }
+            
+            validation = validation_map.get(feedback.rating, AIValidation.PENDING)
+            confidence = confidence_map.get(feedback.rating, AIConfidence.CONFIDENT)
+            
+            # Prepare update data
+            update_data = ACDContextUpdate(
+                ai_validation=validation,
+                ai_confidence=confidence,
+                human_override=feedback.feedback_text if feedback.feedback_text else None,
+                ai_issues=feedback.issues if feedback.issues else None,
+            )
+            
+            # If highly rated, extract pattern for learning
+            if feedback.rating in [FeedbackRating.EXCELLENT, FeedbackRating.GOOD]:
+                # Extract pattern from successful generation
+                pattern = f"{benchmark.content_type}_{benchmark.model_selected}"
+                strategy = f"Model: {benchmark.model_selected}, Quality: {benchmark.quality_requested}, Rating: {feedback.rating.value}"
+                
+                update_data.ai_pattern = pattern
+                update_data.ai_strategy = strategy
+            
+            await acd_service.update_context(benchmark.acd_context_id, update_data)
+            
+            logger.info(
+                f"Updated ACD context {benchmark.acd_context_id} with feedback: "
+                f"validation={validation.value}, confidence={confidence.value}"
+            )
+            
+        except Exception as e:
+            # Don't fail feedback submission if ACD update fails
+            logger.error(f"Failed to update ACD context with feedback: {str(e)}")
 
     async def get_benchmark_stats(
         self,
