@@ -184,14 +184,17 @@ class ACDContextManager:
         """Update context metadata."""
         if self.context_id and self.acd_service:
             try:
-                # Get current context
+                # Get current context to merge metadata
                 context = await self.acd_service.get_context(self.context_id)
                 if context:
                     current_context = context.ai_context or {}
                     current_context.update(metadata)
-
-                    # Note: We need to update the ai_context field directly
-                    # This is a limitation - we should enhance the update to merge contexts
+                    
+                    # Update the context with merged metadata
+                    await self.acd_service.update_context(
+                        self.context_id,
+                        ACDContextUpdate(ai_context=current_context),
+                    )
                     logger.info(f"Updated context metadata for {self.context_id}")
             except Exception as e:
                 logger.error(f"Failed to set metadata: {str(e)}")
