@@ -86,6 +86,24 @@ class TestVLLMInstallationScript:
         assert 'ninja-build' in content, \
             "Script should reference 'ninja-build' package name for apt-get"
 
+    def test_script_preserves_existing_pytorch(self, scripts_dir):
+        """Test that the vLLM script preserves existing PyTorch installation."""
+        script_path = scripts_dir / "install_vllm_rocm.sh"
+        with open(script_path, "r") as f:
+            content = f.read()
+
+        # Should check if PyTorch is already installed
+        assert 'if python3 -c "import torch' in content, \
+            "Script should check if PyTorch is already installed"
+        
+        # Should skip installation if PyTorch exists
+        assert 'already installed' in content, \
+            "Script should indicate when PyTorch is already present"
+        
+        # Should preserve existing setup
+        assert 'preserve existing' in content or 'Skipping PyTorch installation' in content, \
+            "Script should preserve existing PyTorch installation"
+
 
 class TestComfyUIInstallationScript:
     """Tests for ComfyUI installation script."""
@@ -166,6 +184,26 @@ class TestComfyUIInstallationScript:
         assert (
             "CPU mode" in content or "cpu" in content.lower()
         ), "Missing CPU fallback support"
+
+    def test_script_exports_comfyui_dir_correctly(self, scripts_dir):
+        """Test that the script correctly exports COMFYUI_DIR variable."""
+        script_path = scripts_dir / "install_comfyui_rocm.sh"
+        with open(script_path, "r") as f:
+            content = f.read()
+
+        # Check that COMFYUI_DIR is not declared as local before export
+        # This ensures it's available to subsequent functions
+        lines = content.split('\n')
+        in_clone_function = False
+        for i, line in enumerate(lines):
+            if 'clone_comfyui()' in line:
+                in_clone_function = True
+            if in_clone_function and 'COMFYUI_DIR=' in line and 'export' not in line:
+                # If we find COMFYUI_DIR assignment, make sure it's not local
+                assert 'local COMFYUI_DIR=' not in line, \
+                    "COMFYUI_DIR should not be declared as local before export"
+            if in_clone_function and 'export COMFYUI_DIR' in line:
+                break
 
 
 class TestScriptsDocumentation:
