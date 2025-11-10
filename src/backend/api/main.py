@@ -67,9 +67,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Initialize database connection
     from backend.database.connection import database_manager
+    from backend.database.migrations import run_migrations
 
     await database_manager.connect()
     print("Database connection established.")
+    
+    # Run database migrations automatically (if AUTO_MIGRATE is enabled)
+    migration_results = await run_migrations(database_manager.engine)
+    if migration_results.get("columns_added"):
+        print(f"  ✓ Applied database migrations: {', '.join(migration_results['columns_added'])}")
+    else:
+        print("  ✓ Database schema is up to date")
 
     # Initialize AI models for content generation
     try:
