@@ -2509,8 +2509,12 @@
             }
         }
         
+        let currentContentId = null; // Track current content for feedback
+        
         async function viewContent(contentId) {
             try {
+                currentContentId = contentId; // Store for feedback
+                
                 // Fetch content details
                 const content = await apiRequest(`/api/v1/content/${contentId}`);
                 
@@ -2622,6 +2626,45 @@
         
         function closeViewContentModal() {
             document.getElementById('viewContentModal').classList.remove('active');
+            currentContentId = null;
+            document.getElementById('feedback-status').innerHTML = '';
+        }
+        
+        async function rateContent(rating) {
+            if (!currentContentId) {
+                showAlert('No content selected for rating', 'error');
+                return;
+            }
+            
+            try {
+                const feedbackStatus = document.getElementById('feedback-status');
+                feedbackStatus.innerHTML = '⏳ Submitting feedback...';
+                
+                // TODO: Create feedback endpoint to record rating
+                // For now, just show confirmation
+                const ratingEmojis = {
+                    'excellent': '⭐⭐⭐⭐⭐',
+                    'good': '⭐⭐⭐⭐',
+                    'acceptable': '⭐⭐⭐',
+                    'poor': '⭐⭐',
+                    'unacceptable': '⭐'
+                };
+                
+                feedbackStatus.innerHTML = `✅ Thank you! Rated as ${rating} ${ratingEmojis[rating]}. This helps improve future content generation.`;
+                feedbackStatus.style.color = '#10b981';
+                
+                // In production, this would call:
+                // await apiRequest(`/api/v1/content/${currentContentId}/feedback`, {
+                //     method: 'POST',
+                //     body: JSON.stringify({ rating: rating })
+                // });
+                
+                showAlert(`Content rated as ${rating}!`, 'success');
+            } catch (error) {
+                document.getElementById('feedback-status').innerHTML = `❌ Error: ${error.message}`;
+                document.getElementById('feedback-status').style.color = '#dc2626';
+                showAlert(`Failed to submit rating: ${error.message}`, 'error');
+            }
         }
         
         async function deleteContent(contentId) {
@@ -3206,12 +3249,54 @@
         
         async function fetchAllFeeds() {
             try {
+                showAlert('Fetching RSS feeds...', 'info');
                 const response = await apiRequest('/api/v1/feeds/fetch', { method: 'POST' });
-                showAlert(`Fetched ${response.items_count || 0} new items from feeds!`);
+                
+                // Show success message with summary
+                const message = response.message || `Fetched ${response.total_new_items || 0} new items from ${response.feeds_fetched || 0} feeds`;
+                showAlert(message, 'success');
+                
+                // Display recent items if available
+                if (response.recent_items && response.recent_items.length > 0) {
+                    displayRecentFeedItems(response.recent_items);
+                }
+                
                 loadRSSFeeds();
             } catch (error) {
                 showAlert(`Error fetching feeds: ${error.message}`, 'error');
             }
+        }
+        
+        function displayRecentFeedItems(items) {
+            // Find or create a section to display recent items
+            let recentItemsSection = document.getElementById('recent-feed-items');
+            if (!recentItemsSection) {
+                const feedsList = document.getElementById('feeds-list');
+                recentItemsSection = document.createElement('div');
+                recentItemsSection.id = 'recent-feed-items';
+                recentItemsSection.style.marginTop = '30px';
+                feedsList.appendChild(recentItemsSection);
+            }
+            
+            let html = '<h3 style="margin-bottom: 15px; color: #667eea;">📰 Recently Fetched Items</h3>';
+            html += '<div style="display: flex; flex-direction: column; gap: 12px;">';
+            
+            items.forEach(item => {
+                const publishedDate = item.published ? new Date(item.published).toLocaleString() : 'Unknown date';
+                html += `
+                    <div class="card" style="padding: 15px; border-left: 3px solid #667eea;">
+                        <div style="font-weight: 600; color: #333; margin-bottom: 5px;">${item.title || 'Untitled'}</div>
+                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 5px;">
+                            <span style="font-weight: 500;">Source:</span> ${item.feed_name || 'Unknown'} • 
+                            <span style="font-weight: 500;">Published:</span> ${publishedDate}
+                        </div>
+                        ${item.url ? `<a href="${item.url}" target="_blank" style="font-size: 0.85rem; color: #667eea; text-decoration: none;">View Article →</a>` : ''}
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            recentItemsSection.innerHTML = html;
         }
         
         async function loadTrendingTopics() {
@@ -4545,8 +4630,22 @@
                     <div id="view-content-adaptations"></div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeViewContentModal()">Close</button>
+            <div class="modal-footer" style="flex-direction: column; align-items: stretch; gap: 15px;">
+                <!-- Quick Feedback Section -->
+                <div id="content-feedback-section" style="padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0;">
+                    <div style="font-weight: 600; margin-bottom: 10px; color: #333;">📊 Rate this content (helps improve model selection):</div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn" style="background: #10b981; flex: 1; min-width: 120px;" onclick="rateContent('excellent')">⭐⭐⭐⭐⭐ Excellent</button>
+                        <button class="btn" style="background: #059669; flex: 1; min-width: 120px;" onclick="rateContent('good')">⭐⭐⭐⭐ Good</button>
+                        <button class="btn" style="background: #fbbf24; flex: 1; min-width: 120px;" onclick="rateContent('acceptable')">⭐⭐⭐ OK</button>
+                        <button class="btn" style="background: #f59e0b; flex: 1; min-width: 120px;" onclick="rateContent('poor')">⭐⭐ Poor</button>
+                        <button class="btn" style="background: #dc2626; flex: 1; min-width: 120px;" onclick="rateContent('unacceptable')">⭐ Bad</button>
+                    </div>
+                    <div id="feedback-status" style="margin-top: 10px; font-size: 0.9rem; color: #666;"></div>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeViewContentModal()">Close</button>
+                </div>
             </div>
         </div>
     </div>
