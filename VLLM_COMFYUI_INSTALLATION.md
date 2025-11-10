@@ -31,6 +31,11 @@ python3 -c "import vllm; print(vllm.__version__)"
 
 **Build time**: 10-30 minutes (one-time build)
 
+**ROCm 7.0+ / PyTorch 2.10 Support**: 
+- Automatically detects ROCm 7.0+ and uses PyTorch 2.10 nightly wheels
+- Uses `--no-build-isolation` to prevent version conflicts during build
+- Ensures compatible torchvision/torchaudio versions
+
 ### Install ComfyUI
 
 ```bash
