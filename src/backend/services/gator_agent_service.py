@@ -1,14 +1,19 @@
 """
 Gator Agent Service
 
-Implements the LLM help agent with the persona of Gator from "The Other Guys".
-Provides assistance and guidance with Gator's characteristic attitude and style.
+Implements the LLM help agent with Gator's tough, no-nonsense attitude.
+Provides assistance and guidance with characteristic directness.
 """
 
 import random
 from typing import Dict, List, Optional
 from datetime import datetime
 import re
+import os
+
+from backend.config.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class GatorAgentService:
@@ -21,12 +26,30 @@ class GatorAgentService:
 
     def __init__(self):
         self.conversation_history: List[Dict[str, str]] = []
+        
+        # Check for local models first
+        self.local_model_available = False
+        try:
+            from backend.services.ai_models import AIModelManager
+            self.ai_models = AIModelManager()
+            self.local_model_available = True
+            logger.info("Gator agent initialized with local LLM support")
+        except Exception as e:
+            logger.debug(f"Local models not available: {e}")
+            self.ai_models = None
+        
+        # Check for cloud LLM API keys as fallback
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+        self.cloud_llm_available = bool(self.openai_api_key or self.anthropic_api_key)
+        
+        if not self.local_model_available and self.cloud_llm_available:
+            logger.info("Gator agent will use cloud LLM APIs (no local models)")
+        elif not self.local_model_available and not self.cloud_llm_available:
+            logger.info("Gator agent using rule-based responses (no LLMs available)")
 
-        # Gator's characteristic phrases and expressions (authentic movie quotes)
+        # Gator's characteristic phrases
         self.gator_phrases = [
-            "I'm a peacock, you gotta let me fly!",
-            "I'm like a tiny peacock with a big beak",
-            "I'm a lion, and I want to be free like a lion",
             "Listen here",
             "I'm gonna break it down for you",
             "Don't waste my time",
@@ -39,11 +62,11 @@ class GatorAgentService:
             "I ain't playing games",
         ]
 
-        # Gator's confidence and bravado quotes
+        # Gator's confidence phrases
         self.gator_confidence = [
-            "I'm a pimp and pimps don't commit suicide",
-            "I'm a peacock, you gotta let me fly!",
-            "I'm a lion, and I want to be free like a lion",
+            "I know what I'm doing",
+            "Trust me on this",
+            "I've been around",
         ]
 
         self.gator_responses = {
@@ -137,6 +160,23 @@ class GatorAgentService:
         self, message: str, context: Optional[Dict] = None
     ) -> str:
         """Generate Gator's response based on message analysis."""
+        
+        # Try local model first, then cloud APIs, then rule-based
+        if self.local_model_available:
+            try:
+                llm_response = await self._generate_local_llm_response(message, context)
+                if llm_response:
+                    return llm_response
+            except Exception as e:
+                logger.warning(f"Local LLM response failed, trying cloud APIs: {e}")
+        
+        if self.cloud_llm_available:
+            try:
+                llm_response = await self._generate_cloud_llm_response(message, context)
+                if llm_response:
+                    return llm_response
+            except Exception as e:
+                logger.warning(f"Cloud LLM response failed, falling back to rule-based: {e}")
 
         # Greeting detection
         if any(word in message for word in ["hello", "hi", "hey", "what's up", "sup"]):
@@ -288,6 +328,130 @@ class GatorAgentService:
 
         confidence_quote = random.choice(self.gator_confidence)
         return f"{gator_start} {advice} {confidence_quote} - and next time, give me more details about what exactly went wrong."
+
+    async def _generate_local_llm_response(
+        self, message: str, context: Optional[Dict] = None
+    ) -> Optional[str]:
+        """Generate response using local LLM models."""
+        try:
+            if not self.ai_models:
+                return None
+            
+            # Build system prompt with Gator's persona
+            system_prompt = """You are Gator, a tough, no-nonsense AI help agent for the Gator AI Influencer Platform. 
+You're direct, confident, and sometimes intimidating, but ultimately helpful. You don't waste time on pleasantries.
+
+The Gator platform helps users:
+- Create and manage AI personas (virtual influencers)
+- Generate AI content (images, text, videos)
+- Manage DNS and domain settings
+- Monitor system status and analytics
+- Configure AI models and settings
+
+Be helpful but stay in character - you're tough, you know your stuff, and you expect users to pay attention.
+Keep responses concise (2-3 sentences max). Use phrases like "Listen here", "Pay attention", "Don't waste my time".
+"""
+            
+            # Add context if provided
+            if context:
+                system_prompt += f"\n\nCurrent context: {context}"
+            
+            # Use local text generation model
+            full_prompt = f"{system_prompt}\n\nUser: {message}\nGator:"
+            
+            # Check if we have any text models available
+            if not self.ai_models.available_models.get("text"):
+                logger.debug("No local text models available")
+                return None
+            
+            # For now, return None to use cloud/rule-based until we fully initialize models
+            # In production, this would call the actual local model
+            logger.debug("Local model integration requires full model initialization")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Local LLM response generation failed: {e}")
+            return None
+
+    async def _generate_cloud_llm_response(
+        self, message: str, context: Optional[Dict] = None
+    ) -> Optional[str]:
+        """Generate response using cloud LLM APIs (OpenAI or Anthropic)."""
+        try:
+            import httpx
+            
+            # Build system prompt with Gator's persona
+            system_prompt = """You are Gator, a tough, no-nonsense AI help agent for the Gator AI Influencer Platform. 
+You're direct, confident, and sometimes intimidating, but ultimately helpful. You don't waste time on pleasantries.
+
+The Gator platform helps users:
+- Create and manage AI personas (virtual influencers)
+- Generate AI content (images, text, videos)
+- Manage DNS and domain settings
+- Monitor system status and analytics
+- Configure AI models and settings
+
+Be helpful but stay in character - you're tough, you know your stuff, and you expect users to pay attention.
+Keep responses concise (2-3 sentences max). Use phrases like "Listen here", "Pay attention", "Don't waste my time".
+"""
+            
+            # Add context if provided
+            if context:
+                system_prompt += f"\n\nCurrent context: {context}"
+            
+            # Try OpenAI first
+            if self.openai_api_key:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {self.openai_api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": "gpt-3.5-turbo",
+                            "messages": [
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": message}
+                            ],
+                            "temperature": 0.8,
+                            "max_tokens": 200,
+                        }
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        return data["choices"][0]["message"]["content"]
+            
+            # Try Anthropic if OpenAI failed or not available
+            if self.anthropic_api_key:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={
+                            "x-api-key": self.anthropic_api_key,
+                            "anthropic-version": "2023-06-01",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": "claude-3-haiku-20240307",
+                            "max_tokens": 200,
+                            "system": system_prompt,
+                            "messages": [
+                                {"role": "user", "content": message}
+                            ],
+                        }
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        return data["content"][0]["text"]
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"LLM response generation failed: {e}")
+            return None
 
     def get_conversation_history(self) -> List[Dict[str, str]]:
         """Get the conversation history."""

@@ -24,7 +24,11 @@ app = Celery(
         if hasattr(settings, "REDIS_URL")
         else "redis://localhost:6379/0"
     ),
-    include=["backend.tasks.social_media_tasks", "backend.tasks.backup_tasks"],
+    include=[
+        "backend.tasks.social_media_tasks",
+        "backend.tasks.backup_tasks",
+        "backend.tasks.rss_feed_tasks",
+    ],
 )
 
 # Celery configuration
@@ -50,9 +54,17 @@ app.conf.beat_schedule = {
         "task": "backend.tasks.social_media_tasks.process_scheduled_posts",
         "schedule": 60.0,  # Run every minute
     },
+    "fetch-rss-feeds": {
+        "task": "backend.tasks.rss_feed_tasks.fetch_all_rss_feeds",
+        "schedule": 900.0,  # Run every 15 minutes
+    },
     "cleanup-old-tasks": {
         "task": "backend.tasks.social_media_tasks.cleanup_old_tasks",
         "schedule": crontab(hour=2, minute=0),  # Run daily at 2 AM
+    },
+    "cleanup-old-feed-items": {
+        "task": "backend.tasks.rss_feed_tasks.cleanup_old_feed_items",
+        "schedule": crontab(hour=3, minute=0),  # Run daily at 3 AM
     },
     "daily-database-backup": {
         "task": "backend.tasks.backup_tasks.create_automated_backup",

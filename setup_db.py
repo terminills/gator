@@ -22,6 +22,7 @@ from backend.models.content import ContentModel
 from backend.models.feed import RSSFeedModel, FeedItemModel
 from backend.models.interactive_content import InteractiveContentModel, InteractiveContentResponse
 from backend.models.audience_segment import AudienceSegmentModel, PersonalizedContentModel, SegmentMemberModel
+from backend.models.plugin import PluginModel, PluginInstallation, PluginReview
 from backend.config.logging import setup_logging, get_logger
 
 # Setup logging
@@ -56,6 +57,9 @@ async def create_tables():
         print("   • audience_segments - Audience segmentation")
         print("   • personalized_content - Personalized content mapping")
         print("   • segment_members - Segment membership tracking")
+        print("   • plugins - Plugin marketplace registry")
+        print("   • plugin_installations - Installed plugins")
+        print("   • plugin_reviews - Plugin reviews")
 
         # Disconnect
         await database_manager.disconnect()
