@@ -162,7 +162,7 @@ class PersonaInteractionModel(Base):
 
     # Metadata
     platform = Column(String(50), nullable=True)  # Where interaction occurred
-    metadata = Column(JSON, nullable=True, default=dict)  # Additional data
+    interaction_metadata = Column(JSON, nullable=True, default=dict)  # Additional data
 
     # Timestamps
     created_at = Column(
