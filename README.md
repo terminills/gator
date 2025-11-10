@@ -94,6 +94,33 @@ cd src && python -m backend.api.main
 - **Content Analytics**: Track engagement rates, click-through rates, and audience metrics
 - **Usage Reports**: Detailed reporting for content generation and publishing statistics
 
+### 🤖 ACD (Autonomous Continuous Development) System
+Gator includes a groundbreaking **ACD system** that enables AI-to-AI communication and autonomous learning:
+
+- **Context Tracking**: Every content generation creates an ACD context that records phase, complexity, confidence, and metadata
+- **Error Diagnostics**: Comprehensive trace artifacts capture full stack traces, environment info, and error patterns
+- **Multi-Agent Coordination**: Agents communicate via ACD metadata to coordinate tasks, request reviews, and hand off work
+- **Learning Loop**: System learns from successful generations by extracting patterns and strategies
+- **Pattern Analysis**: Analyze what content performs well and automatically apply learned strategies to future generations
+- **Feedback Integration**: User ratings and social media engagement automatically update ACD contexts
+- **Agent Communication Protocol**: Standardized protocol for AI agents to share context and coordinate autonomously
+
+**What Makes ACD Special:**
+- **AI-First Design**: Built for agent-to-agent communication, not just human monitoring
+- **Institutional Memory**: Knowledge persists across generations and improves over time
+- **Self-Improving System**: Automatically learns from every piece of content generated
+- **Competitive Moat**: Learning compounds over time, creating a continuously improving advantage
+
+**ACD API Endpoints:**
+- `POST /api/v1/acd/contexts/` - Create ACD context
+- `GET /api/v1/acd/contexts/{id}` - Get context details
+- `PUT /api/v1/acd/contexts/{id}` - Update context
+- `POST /api/v1/acd/trace-artifacts/` - Log errors with full diagnostics
+- `GET /api/v1/acd/stats/` - Get analytics and metrics
+- `GET /api/v1/acd/validation-report/` - System health report
+
+See [ACD Implementation Summary](ACD_IMPLEMENTATION_SUMMARY.md) for technical details and [ACD AI-First Perspective](ACD_AI_FIRST_PERSPECTIVE.md) for the vision.
+
 ## 🔮 Planned Features
 
 ### 🎬 Advanced Content Generation
@@ -300,6 +327,7 @@ Gator includes built-in GoDaddy DNS integration for automated domain management:
 - **Social**: `/api/v1/social/` - Social media integration
 - **Analytics**: `/api/v1/analytics/` - Platform metrics and reporting
 - **Feeds**: `/api/v1/feeds/` - RSS feed management
+- **ACD**: `/api/v1/acd/` - Autonomous context management and AI coordination
 
 Interactive API documentation available at `http://your-domain.com:8000/docs`
 
@@ -442,6 +470,9 @@ pg_dump -U gator_user gator_production > backup_$(date +%Y%m%d).sql
 - **API Reference**: Complete API documentation with examples
 - **Developer Guide**: In-depth development and customization guide  
 - **Deployment Guide**: Production deployment best practices
+- **[ACD Implementation Summary](ACD_IMPLEMENTATION_SUMMARY.md)**: Technical reference for the Autonomous Continuous Development system
+- **[ACD AI-First Perspective](ACD_AI_FIRST_PERSPECTIVE.md)**: Understanding ACD as an AI-to-AI communication protocol
+- **[ACD Phase 2 Implementation](ACD_PHASE2_IMPLEMENTATION.md)**: Active integration and learning loop documentation
 - **[Local Image Generation Guide](LOCAL_IMAGE_GENERATION.md)**: Setup and usage for local AI image generation
 - **[Installation Scripts Guide](docs/INSTALLATION_SCRIPTS_GUIDE.md)**: vLLM and ComfyUI installation for AMD ROCm
 - **Troubleshooting**: Common issues and solutions
