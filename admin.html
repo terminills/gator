@@ -1641,6 +1641,19 @@
                     </div>
                     <button class="btn" onclick="saveSystemSettings()">Save Settings</button>
                 </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">🤖</div>
+                        <div class="card-title">Local AI Models Status</div>
+                    </div>
+                    <div class="card-description">
+                        View installed and available AI models for local content generation. Local models run on your server hardware.
+                    </div>
+                    <button class="btn" onclick="loadLocalAIModelsStatus()">Check Models Status</button>
+                    <a href="/ai-models-setup" class="btn btn-secondary" style="text-decoration: none; display: inline-block; margin-left: 10px;">Install/Manage Models</a>
+                    <div id="local-ai-models-status" style="margin-top: 1rem;"></div>
+                </div>
             </div>
         </div>
         
@@ -3064,6 +3077,86 @@
             
             // Reload status to restore placeholders
             loadSetupStatus();
+        }
+        
+        // Local AI Models Status Functions
+        async function loadLocalAIModelsStatus() {
+            const statusDiv = document.getElementById('local-ai-models-status');
+            if (!statusDiv) return;
+            
+            statusDiv.innerHTML = '<div class="loading"></div> Loading AI models status...';
+            
+            try {
+                const response = await apiRequest('/api/v1/setup/ai-models/status');
+                
+                let html = '<div style="margin-top: 15px;">';
+                
+                // System Information
+                html += '<div style="padding: 15px; background: #f5f7fa; border-radius: 8px; margin-bottom: 15px;">';
+                html += '<h4 style="margin: 0 0 10px 0; color: #667eea;">System Information</h4>';
+                html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 0.9rem;">`;
+                html += `<div><strong>Python:</strong> ${response.system.python_version.split(' ')[0]}</div>`;
+                html += `<div><strong>Platform:</strong> ${response.system.platform}</div>`;
+                html += `<div><strong>GPU Available:</strong> ${response.system.gpu_available ? '✅ Yes' : '❌ No'}</div>`;
+                html += `<div><strong>PyTorch:</strong> ${response.system.torch_version}</div>`;
+                html += '</div>';
+                html += '</div>';
+                
+                // Installed Models
+                html += '<div style="padding: 15px; background: #f5f7fa; border-radius: 8px; margin-bottom: 15px;">';
+                html += '<h4 style="margin: 0 0 10px 0; color: #667eea;">Installed Local Models</h4>';
+                if (response.installed_models && response.installed_models.length > 0) {
+                    html += '<div style="display: flex; flex-direction: column; gap: 8px;">';
+                    response.installed_models.forEach(model => {
+                        html += `<div style="padding: 10px; background: white; border-radius: 6px; border-left: 3px solid #22c55e;">`;
+                        html += `<div style="font-weight: 600; color: #333;">${model.name || model}</div>`;
+                        if (model.category) html += `<div style="font-size: 0.85rem; color: #666;">Category: ${model.category}</div>`;
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                } else {
+                    html += '<p style="color: #666; margin: 0;">No local models installed yet. Use the "Install/Manage Models" button to get started.</p>';
+                }
+                html += '</div>';
+                
+                // Available Models
+                html += '<div style="padding: 15px; background: #f5f7fa; border-radius: 8px;">';
+                html += '<h4 style="margin: 0 0 10px 0; color: #667eea;">Available Models</h4>';
+                if (response.available_models && response.available_models.length > 0) {
+                    html += '<div style="display: flex; flex-direction: column; gap: 8px;">';
+                    response.available_models.slice(0, 5).forEach(model => {
+                        const isInstalled = response.installed_models && response.installed_models.some(
+                            m => (m.name || m) === model.name
+                        );
+                        const borderColor = isInstalled ? '#22c55e' : '#e5e7eb';
+                        html += `<div style="padding: 10px; background: white; border-radius: 6px; border-left: 3px solid ${borderColor};">`;
+                        html += `<div style="font-weight: 600; color: #333;">${model.name} ${isInstalled ? '✅' : ''}</div>`;
+                        html += `<div style="font-size: 0.85rem; color: #666;">${model.description}</div>`;
+                        html += `<div style="font-size: 0.8rem; color: #888; margin-top: 4px;">`;
+                        html += `Category: ${model.category} | Size: ${model.size}`;
+                        if (model.requires_gpu) html += ' | ⚡ Requires GPU';
+                        if (model.requires_api_key) html += ` | 🔑 Requires ${model.requires_api_key}`;
+                        html += '</div>';
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                    if (response.available_models.length > 5) {
+                        html += `<p style="color: #666; margin-top: 10px; font-size: 0.9rem;">... and ${response.available_models.length - 5} more models. Visit the AI Models Setup page to see all.</p>`;
+                    }
+                } else {
+                    html += '<p style="color: #666; margin: 0;">No models available.</p>';
+                }
+                html += '</div>';
+                
+                html += '</div>';
+                statusDiv.innerHTML = html;
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<div style="padding: 15px; background: #fee2e2; border: 1px solid #dc2626; border-radius: 6px; color: #991b1b; margin-top: 15px;">
+                    <strong>❌ Error Loading Models Status</strong><br>
+                    ${error.message}
+                </div>`;
+            }
         }
         
         // RSS Feeds Functions
