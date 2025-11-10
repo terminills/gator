@@ -27,15 +27,26 @@ class GatorAgentService:
     def __init__(self):
         self.conversation_history: List[Dict[str, str]] = []
         
-        # Check for LLM API keys
+        # Check for local models first
+        self.local_model_available = False
+        try:
+            from backend.services.ai_models import AIModelManager
+            self.ai_models = AIModelManager()
+            self.local_model_available = True
+            logger.info("Gator agent initialized with local LLM support")
+        except Exception as e:
+            logger.debug(f"Local models not available: {e}")
+            self.ai_models = None
+        
+        # Check for cloud LLM API keys as fallback
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
-        self.use_llm = bool(self.openai_api_key or self.anthropic_api_key)
+        self.cloud_llm_available = bool(self.openai_api_key or self.anthropic_api_key)
         
-        if self.use_llm:
-            logger.info("Gator agent initialized with LLM support")
-        else:
-            logger.info("Gator agent initialized with rule-based responses (no LLM API keys)")
+        if not self.local_model_available and self.cloud_llm_available:
+            logger.info("Gator agent will use cloud LLM APIs (no local models)")
+        elif not self.local_model_available and not self.cloud_llm_available:
+            logger.info("Gator agent using rule-based responses (no LLMs available)")
 
         # Gator's characteristic phrases
         self.gator_phrases = [
@@ -150,14 +161,22 @@ class GatorAgentService:
     ) -> str:
         """Generate Gator's response based on message analysis."""
         
-        # Try LLM-based response first if available
-        if self.use_llm:
+        # Try local model first, then cloud APIs, then rule-based
+        if self.local_model_available:
             try:
-                llm_response = await self._generate_llm_response(message, context)
+                llm_response = await self._generate_local_llm_response(message, context)
                 if llm_response:
                     return llm_response
             except Exception as e:
-                logger.warning(f"LLM response failed, falling back to rule-based: {e}")
+                logger.warning(f"Local LLM response failed, trying cloud APIs: {e}")
+        
+        if self.cloud_llm_available:
+            try:
+                llm_response = await self._generate_cloud_llm_response(message, context)
+                if llm_response:
+                    return llm_response
+            except Exception as e:
+                logger.warning(f"Cloud LLM response failed, falling back to rule-based: {e}")
 
         # Greeting detection
         if any(word in message for word in ["hello", "hi", "hey", "what's up", "sup"]):
@@ -310,10 +329,54 @@ class GatorAgentService:
         confidence_quote = random.choice(self.gator_confidence)
         return f"{gator_start} {advice} {confidence_quote} - and next time, give me more details about what exactly went wrong."
 
-    async def _generate_llm_response(
+    async def _generate_local_llm_response(
         self, message: str, context: Optional[Dict] = None
     ) -> Optional[str]:
-        """Generate response using LLM (OpenAI or Anthropic)."""
+        """Generate response using local LLM models."""
+        try:
+            if not self.ai_models:
+                return None
+            
+            # Build system prompt with Gator's persona
+            system_prompt = """You are Gator, a tough, no-nonsense AI help agent for the Gator AI Influencer Platform. 
+You're direct, confident, and sometimes intimidating, but ultimately helpful. You don't waste time on pleasantries.
+
+The Gator platform helps users:
+- Create and manage AI personas (virtual influencers)
+- Generate AI content (images, text, videos)
+- Manage DNS and domain settings
+- Monitor system status and analytics
+- Configure AI models and settings
+
+Be helpful but stay in character - you're tough, you know your stuff, and you expect users to pay attention.
+Keep responses concise (2-3 sentences max). Use phrases like "Listen here", "Pay attention", "Don't waste my time".
+"""
+            
+            # Add context if provided
+            if context:
+                system_prompt += f"\n\nCurrent context: {context}"
+            
+            # Use local text generation model
+            full_prompt = f"{system_prompt}\n\nUser: {message}\nGator:"
+            
+            # Check if we have any text models available
+            if not self.ai_models.available_models.get("text"):
+                logger.debug("No local text models available")
+                return None
+            
+            # For now, return None to use cloud/rule-based until we fully initialize models
+            # In production, this would call the actual local model
+            logger.debug("Local model integration requires full model initialization")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Local LLM response generation failed: {e}")
+            return None
+
+    async def _generate_cloud_llm_response(
+        self, message: str, context: Optional[Dict] = None
+    ) -> Optional[str]:
+        """Generate response using cloud LLM APIs (OpenAI or Anthropic)."""
         try:
             import httpx
             
