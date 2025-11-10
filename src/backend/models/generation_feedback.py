@@ -103,6 +103,16 @@ class GenerationBenchmarkModel(Base):
     prompt_keywords = Column(JSON, nullable=True)  # Extracted keywords for analysis
     content_features = Column(JSON, nullable=True)  # Extracted features for learning
 
+    # ACD Integration - Context metadata for autonomous operation
+    acd_context_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("acd_contexts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    acd_phase = Column(String(100), nullable=True, index=True)  # Content generation phase
+    acd_metadata = Column(JSON, nullable=True)  # Additional ACD metadata
+
     # Timestamps
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
@@ -139,6 +149,9 @@ class GenerationBenchmarkCreate(BaseModel):
     fallback_used: bool = False
     prompt_keywords: Optional[list] = None
     content_features: Optional[Dict[str, Any]] = None
+    acd_context_id: Optional[uuid.UUID] = None
+    acd_phase: Optional[str] = None
+    acd_metadata: Optional[Dict[str, Any]] = None
 
 
 class FeedbackSubmission(BaseModel):
