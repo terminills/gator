@@ -72,6 +72,20 @@ class TestVLLMInstallationScript:
         assert "set -e" in content, "Missing 'set -e' for error handling"
         assert "print_error" in content, "Missing error printing function"
 
+    def test_script_checks_ninja_command_not_package(self, scripts_dir):
+        """Test that the script checks for 'ninja' command, not 'ninja-build'."""
+        script_path = scripts_dir / "install_vllm_rocm.sh"
+        with open(script_path, "r") as f:
+            content = f.read()
+
+        # Should check for ninja command (executable)
+        assert 'for cmd in gcc g++ make cmake git ninja;' in content, \
+            "Script should check for 'ninja' command"
+        
+        # Should map ninja to ninja-build package for error messages
+        assert 'ninja-build' in content, \
+            "Script should reference 'ninja-build' package name for apt-get"
+
 
 class TestComfyUIInstallationScript:
     """Tests for ComfyUI installation script."""
@@ -124,6 +138,24 @@ class TestComfyUIInstallationScript:
 
         assert "set -e" in content, "Missing 'set -e' for error handling"
         assert "print_error" in content, "Missing error printing function"
+
+    def test_script_checks_existing_pytorch(self, scripts_dir):
+        """Test that the script checks for existing PyTorch installation."""
+        script_path = scripts_dir / "install_comfyui_rocm.sh"
+        with open(script_path, "r") as f:
+            content = f.read()
+
+        # Should check if PyTorch is already installed
+        assert 'if python3 -c "import torch' in content, \
+            "Script should check if PyTorch is already installed"
+        
+        # Should skip installation if PyTorch exists
+        assert 'already installed' in content, \
+            "Script should indicate when PyTorch is already present"
+        
+        # Should preserve existing setup
+        assert 'preserve existing' in content or 'Skipping PyTorch installation' in content, \
+            "Script should preserve existing PyTorch installation"
 
     def test_script_supports_cpu_fallback(self, scripts_dir):
         """Test that the script supports CPU-only mode."""
