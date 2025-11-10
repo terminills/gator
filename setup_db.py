@@ -23,6 +23,8 @@ from backend.models.feed import RSSFeedModel, FeedItemModel
 from backend.models.interactive_content import InteractiveContentModel, InteractiveContentResponse
 from backend.models.audience_segment import AudienceSegmentModel, PersonalizedContentModel, SegmentMemberModel
 from backend.models.plugin import PluginModel, PluginInstallation, PluginReview
+from backend.models.generation_feedback import GenerationBenchmarkModel
+from backend.models.acd import ACDContextModel, ACDTraceArtifactModel
 from backend.config.logging import setup_logging, get_logger
 
 # Setup logging
@@ -60,6 +62,9 @@ async def create_tables():
         print("   • plugins - Plugin marketplace registry")
         print("   • plugin_installations - Installed plugins")
         print("   • plugin_reviews - Plugin reviews")
+        print("   • generation_benchmarks - AI generation performance tracking")
+        print("   • acd_contexts - ACD context metadata for autonomous operation")
+        print("   • acd_trace_artifacts - ACD trace artifacts for error tracking")
 
         # Disconnect
         await database_manager.disconnect()
