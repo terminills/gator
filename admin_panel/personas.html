@@ -3,8 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Persona Management - Gator AI Admin</title>
+    <title>Personas - Gator AI Admin</title>
     <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5568d3;
+            --accent: #10b981;
+            --dark-bg: #0f0f1e;
+            --dark-surface: #1a1a2e;
+            --dark-card: #16213e;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --sidebar-width: 260px;
+            --border-color: #2a2a3e;
+        }
+        
         * {
             margin: 0;
             padding: 0;
@@ -12,74 +25,207 @@
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            display: flex;
             min-height: 100vh;
         }
         
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .header-content {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 20px;
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--dark-surface);
+            border-right: 1px solid var(--border-color);
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .logo {
+            display: flex;
             align-items: center;
+            gap: 12px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
         }
         
-        .header h1 {
-            font-size: 1.8rem;
+        .logo-icon {
+            font-size: 2rem;
         }
         
-        .back-btn {
-            background: rgba(255,255,255,0.2);
-            padding: 10px 20px;
+        .tenant-selector {
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--dark-card);
             border-radius: 8px;
-            text-decoration: none;
-            color: white;
-            transition: background 0.3s;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.2s;
         }
         
-        .back-btn:hover {
-            background: rgba(255,255,255,0.3);
+        .tenant-selector:hover {
+            border-color: var(--primary);
         }
         
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 30px 20px;
+        .tenant-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
         }
         
-        .toolbar {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        .tenant-plan {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        .nav-section {
+            padding: 20px 16px 8px;
+        }
+        
+        .nav-section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-bottom: 8px;
+            padding: 0 12px;
+        }
+        
+        .nav-menu {
+            list-style: none;
+        }
+        
+        .nav-item {
+            margin-bottom: 4px;
+        }
+        
+        .nav-link {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
+            gap: 12px;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .nav-link:hover {
+            background: var(--dark-card);
+            color: var(--text-primary);
+        }
+        
+        .nav-link.active {
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            color: white;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.3rem;
+            width: 24px;
+            text-align: center;
+        }
+        
+        .badge {
+            margin-left: auto;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: var(--accent);
+            color: white;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .topbar {
+            height: 70px;
+            background: var(--dark-surface);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
         }
         
         .search-box {
-            flex: 1;
-            min-width: 250px;
+            position: relative;
         }
         
         .search-input {
-            width: 100%;
-            padding: 10px 15px;
-            border: 1px solid #ddd;
+            width: 300px;
+            padding: 10px 16px 10px 40px;
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
-            font-size: 14px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+        
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .icon-btn:hover {
+            border-color: var(--primary);
+        }
+        
+        .content-area {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
         }
         
         .btn {
@@ -91,310 +237,257 @@
             transition: all 0.3s;
             text-decoration: none;
             display: inline-block;
+            font-size: 0.9rem;
         }
         
         .btn-primary {
-            background: #667eea;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
         }
         
         .btn-primary:hover {
-            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
         
-        .personas-grid {
+        .btn-secondary {
+            background: var(--dark-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--primary);
+        }
+        
+        .section {
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        
+        .toolbar {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .toolbar-search {
+            flex: 1;
+            min-width: 250px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state h2 {
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+        
+        .empty-state p {
+            margin-bottom: 24px;
+        }
+        
+        .card {
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.2s;
+        }
+        
+        .card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        
+        .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
         }
-        
-        .persona-card {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-        
-        .persona-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        }
-        
-        .persona-header {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .persona-icon {
-            font-size: 3rem;
-        }
-        
-        .persona-info h3 {
-            color: #333;
-            margin-bottom: 5px;
-        }
-        
-        .persona-status {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        
-        .status-active {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .persona-bio {
-            color: #666;
-            line-height: 1.5;
-            margin-bottom: 15px;
-            font-size: 0.9rem;
-        }
-        
-        .persona-stats {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 15px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-        
-        .stat {
-            text-align: center;
-        }
-        
-        .stat-value {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #667eea;
-        }
-        
-        .stat-label {
-            font-size: 0.75rem;
-            color: #666;
-        }
-        
-        .persona-actions {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .btn-small {
-            padding: 8px 15px;
-            font-size: 0.85rem;
-        }
-        
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-        
-        .empty-state {
-            background: white;
-            border-radius: 12px;
-            padding: 60px 20px;
-            text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        
-        .empty-state h2 {
-            color: #333;
-            margin-bottom: 15px;
-        }
-        
-        .empty-state p {
-            color: #666;
-            margin-bottom: 25px;
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            align-items: center;
-            justify-content: center;
-            overflow-y: auto;
-        }
-        
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 600px;
-            width: 90%;
-            margin: 50px auto;
-        }
-        
-        .modal h2 {
-            margin-bottom: 20px;
-            color: #333;
-        }
-        
-        .form-group {
-            margin-bottom: 15px;
-        }
-        
-        .form-label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .form-input, .form-textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
-            font-family: inherit;
-        }
-        
-        .form-textarea {
-            min-height: 100px;
-            resize: vertical;
-        }
-        
-        .form-input:focus, .form-textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .form-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-            margin-top: 20px;
-        }
-        
-        .tag-input-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            min-height: 42px;
-        }
-        
-        .tag {
-            background: #667eea;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 12px;
-            font-size: 0.85rem;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .tag-remove {
-            cursor: pointer;
-            font-weight: bold;
-        }
-        
-        .tag-input {
-            border: none;
-            outline: none;
-            flex: 1;
-            min-width: 100px;
-            padding: 5px;
-        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="header-content">
-            <h1>🎭 Persona Management</h1>
-            <a href="/admin" class="back-btn">← Back to Dashboard</a>
-        </div>
-    </div>
-    
-    <div class="container">
-        <div class="toolbar">
-            <div class="search-box">
-                <input type="text" class="search-input" placeholder="Search personas..." id="search-input">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-icon" id="brand-icon">🐊</span>
+                <span id="brand-name">AI Platform</span>
             </div>
-            <button class="btn btn-primary" onclick="createPersona()">
-                ➕ Create New Persona
-            </button>
+            
+            <div class="tenant-selector" onclick="switchTenant()">
+                <div class="tenant-name" id="tenant-name">My Instance</div>
+                <div class="tenant-plan"><span id="tenant-plan-text">Self-Hosted</span> • GPU Enabled</div>
+            </div>
         </div>
         
-        <div id="personas-container" class="personas-grid">
-            <div style="grid-column: 1 / -1; text-align: center; padding: 40px;">
-                <div style="font-size: 2rem; margin-bottom: 10px;">⏳</div>
-                <div style="color: #666;">Loading personas...</div>
+        <nav class="nav-section">
+            <div class="nav-section-title">Main</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin" class="nav-link ">
+                        <span class="nav-icon">📊</span>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/personas" class="nav-link active">
+                        <span class="nav-icon">🎭</span>
+                        <span>Personas</span>
+                        <span class="badge" id="persona-badge">0</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/content" class="nav-link ">
+                        <span class="nav-icon">🎨</span>
+                        <span>Content</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Resources</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/ai-models-setup" class="nav-link">
+                        <span class="nav-icon">🤖</span>
+                        <span>AI Models</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/rss" class="nav-link ">
+                        <span class="nav-icon">📡</span>
+                        <span>RSS Feeds</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Insights</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin/analytics" class="nav-link ">
+                        <span class="nav-icon">📈</span>
+                        <span>Analytics</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/gallery" class="nav-link">
+                        <span class="nav-icon">🌐</span>
+                        <span>Public View</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section" style="margin-top: auto;">
+            <div class="nav-section-title">System</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin/settings" class="nav-link ">
+                        <span class="nav-icon">⚙️</span>
+                        <span>Settings</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/docs" class="nav-link">
+                        <span class="nav-icon">📚</span>
+                        <span>API Docs</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <h1 class="page-title">Personas</h1>
+            </div>
+            
+            <div class="topbar-right">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" placeholder="Search...">
+                </div>
+                <div class="icon-btn">🔔</div>
+                <div class="icon-btn">👤</div>
             </div>
         </div>
-    </div>
-    
-    <!-- Create/Edit Persona Modal -->
-    <div id="persona-modal" class="modal">
-        <div class="modal-content">
-            <h2 id="modal-title">Create New Persona</h2>
-            <form id="persona-form">
-                <div class="form-group">
-                    <label class="form-label">Name *</label>
-                    <input type="text" class="form-input" id="persona-name" placeholder="Tech Guru Sarah" required>
+        
+        <div class="content-area">
+            <!-- Personas Management -->
+            <div class="toolbar">
+                <div class="toolbar-search">
+                    <input type="text" class="search-input" id="search-personas" placeholder="Search personas..." style="width: 100%;">
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Appearance *</label>
-                    <textarea class="form-textarea" id="persona-appearance" 
-                              placeholder="Professional tech journalist with modern style, confident demeanor..." required></textarea>
-                    <small style="color: #666;">Physical appearance description for image generation (min 10 characters)</small>
+                <button class="btn btn-primary" onclick="createPersona()">
+                    ➕ Create New Persona
+                </button>
+            </div>
+            
+            <div id="personas-container">
+                <div class="empty-state">
+                    <h2>No Personas Yet</h2>
+                    <p>Create your first AI persona to get started with content generation.</p>
+                    <button class="btn btn-primary" onclick="createPersona()">
+                        ➕ Create Your First Persona
+                    </button>
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Personality *</label>
-                    <textarea class="form-textarea" id="persona-personality" 
-                              placeholder="Enthusiastic, knowledgeable, approachable, passionate about technology..." required></textarea>
-                    <small style="color: #666;">Personality traits and characteristics (min 10 characters)</small>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Content Themes</label>
-                    <div class="tag-input-container" id="themes-container">
-                        <input type="text" class="tag-input" id="theme-input" placeholder="Type and press Enter">
-                    </div>
-                    <small style="color: #666;">Press Enter to add themes (e.g., technology, AI, programming)</small>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Default Content Rating</label>
-                    <select class="form-input" id="persona-rating">
-                        <option value="sfw">SFW - Safe for Work</option>
-                        <option value="moderate">Moderate</option>
-                        <option value="nsfw">NSFW - Not Safe for Work</option>
-                    </select>
-                </div>
-                
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closePersonaModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Persona</button>
-                </div>
-            </form>
+            </div>
         </div>
-    </div>
+    </main>
     
     <script>
-        // Load personas from API
+        // Load branding configuration
+        async function loadBranding() {
+            try {
+                const response = await fetch('/api/v1/branding');
+                const branding = await response.json();
+                
+                document.getElementById('brand-name').textContent = branding.site_name || 'AI Platform';
+                document.getElementById('brand-icon').textContent = branding.icon || '🐊';
+                document.getElementById('tenant-name').textContent = branding.instance_name || 'My Instance';
+            } catch (e) {
+                console.log('Using default branding');
+            }
+        }
+        
+        function switchTenant() {
+            alert('Tenant switching coming soon! This will allow you to manage multiple tenants.');
+        }
+        
+        // Load branding on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadBranding();
+        });
+
+        // Personas Management
         async function loadPersonas() {
             try {
                 const response = await fetch('/api/v1/personas/');
@@ -405,7 +498,7 @@
                 
                 if (personas.length === 0) {
                     container.innerHTML = `
-                        <div class="empty-state" style="grid-column: 1 / -1;">
+                        <div class="empty-state">
                             <h2>No Personas Yet</h2>
                             <p>Create your first AI persona to get started with content generation.</p>
                             <button class="btn btn-primary" onclick="createPersona()">
@@ -416,202 +509,54 @@
                     return;
                 }
                 
-                container.innerHTML = personas.map(persona => `
-                    <div class="persona-card">
-                        <div class="persona-header">
-                            <div class="persona-icon">🎭</div>
-                            <div class="persona-info">
-                                <h3>${persona.name}</h3>
-                                <span class="persona-status status-active">
-                                    ${persona.is_active ? 'Active' : 'Inactive'}
-                                </span>
-                            </div>
-                        </div>
-                        
-                        <div class="persona-bio">
-                            ${(persona.personality || '').substring(0, 150)}${(persona.personality || '').length > 150 ? '...' : ''}
-                        </div>
-                        
-                        <div class="persona-stats">
-                            <div class="stat">
-                                <div class="stat-value">${persona.generation_count || 0}</div>
-                                <div class="stat-label">Content</div>
-                            </div>
-                            <div class="stat">
-                                <div class="stat-value">${(persona.content_themes || []).length}</div>
-                                <div class="stat-label">Themes</div>
-                            </div>
-                        </div>
-                        
-                        <div class="persona-actions">
-                            <button class="btn btn-primary btn-small" onclick="editPersona('${persona.id}')">
+                container.innerHTML = '<div class="grid" id="personas-grid"></div>';
+                const grid = document.getElementById('personas-grid');
+                
+                personas.forEach(persona => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.innerHTML = `
+                        <h3 style="margin-bottom: 12px; color: var(--text-primary);">
+                            ${persona.icon || '🎭'} ${persona.name}
+                        </h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.9rem;">
+                            ${persona.bio || 'No bio available'}
+                        </p>
+                        <div style="display: flex; gap: 12px; margin-top: 16px;">
+                            <button class="btn btn-secondary" onclick="editPersona('${persona.id}')">
                                 ✏️ Edit
                             </button>
-                            <button class="btn btn-secondary btn-small" onclick="viewContent('${persona.id}')">
-                                👁️ View Content
+                            <button class="btn btn-secondary" onclick="viewPersona('${persona.id}')">
+                                👁️ View
                             </button>
                         </div>
-                    </div>
-                `).join('');
-                
-            } catch (error) {
-                console.error('Failed to load personas:', error);
-                document.getElementById('personas-container').innerHTML = `
-                    <div class="empty-state" style="grid-column: 1 / -1;">
-                        <h2>Failed to Load Personas</h2>
-                        <p>There was an error loading persona data. Please try again.</p>
-                        <button class="btn btn-primary" onclick="loadPersonas()">
-                            🔄 Retry
-                        </button>
-                    </div>
-                `;
-            }
-        }
-        
-        let currentPersonaId = null;
-        let personaThemes = [];
-        
-        // Open modal for creating new persona
-        function createPersona() {
-            currentPersonaId = null;
-            personaThemes = [];
-            document.getElementById('modal-title').textContent = 'Create New Persona';
-            document.getElementById('persona-form').reset();
-            updateThemesDisplay();
-            document.getElementById('persona-modal').style.display = 'flex';
-        }
-        
-        // Open modal for editing persona
-        async function editPersona(personaId) {
-            try {
-                const response = await fetch(`/api/v1/personas/${personaId}`);
-                const persona = await response.json();
-                
-                currentPersonaId = personaId;
-                personaThemes = persona.content_themes || [];
-                
-                document.getElementById('modal-title').textContent = 'Edit Persona';
-                document.getElementById('persona-name').value = persona.name;
-                document.getElementById('persona-appearance').value = persona.appearance || '';
-                document.getElementById('persona-personality').value = persona.personality || '';
-                document.getElementById('persona-rating').value = persona.default_content_rating || 'SFW';
-                
-                updateThemesDisplay();
-                document.getElementById('persona-modal').style.display = 'flex';
-            } catch (error) {
-                console.error('Failed to load persona:', error);
-                alert('Failed to load persona data. Please try again.');
-            }
-        }
-        
-        // Close modal
-        function closePersonaModal() {
-            document.getElementById('persona-modal').style.display = 'none';
-            currentPersonaId = null;
-            personaThemes = [];
-        }
-        
-        // Update themes display
-        function updateThemesDisplay() {
-            const container = document.getElementById('themes-container');
-            const input = document.getElementById('theme-input');
-            
-            container.innerHTML = personaThemes.map(theme => `
-                <span class="tag">
-                    ${theme}
-                    <span class="tag-remove" onclick="removeTheme('${theme}')">×</span>
-                </span>
-            `).join('') + input.outerHTML;
-            
-            // Re-attach event listener to new input
-            const newInput = document.getElementById('theme-input');
-            newInput.addEventListener('keydown', handleThemeInput);
-        }
-        
-        // Handle theme input
-        function handleThemeInput(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const value = e.target.value.trim();
-                if (value && !personaThemes.includes(value)) {
-                    personaThemes.push(value);
-                    updateThemesDisplay();
-                    e.target.value = '';
-                }
-            }
-        }
-        
-        // Remove theme
-        function removeTheme(theme) {
-            personaThemes = personaThemes.filter(t => t !== theme);
-            updateThemesDisplay();
-        }
-        
-        // Handle form submission
-        document.getElementById('persona-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const personaData = {
-                name: document.getElementById('persona-name').value,
-                appearance: document.getElementById('persona-appearance').value,
-                personality: document.getElementById('persona-personality').value,
-                content_themes: personaThemes,
-                default_content_rating: document.getElementById('persona-rating').value
-            };
-            
-            try {
-                const url = currentPersonaId 
-                    ? `/api/v1/personas/${currentPersonaId}`
-                    : '/api/v1/personas/';
-                const method = currentPersonaId ? 'PUT' : 'POST';
-                
-                const response = await fetch(url, {
-                    method: method,
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(personaData)
+                    `;
+                    grid.appendChild(card);
                 });
                 
-                if (!response.ok) {
-                    throw new Error('Failed to save persona');
-                }
-                
-                alert(`Persona ${currentPersonaId ? 'updated' : 'created'} successfully!`);
-                closePersonaModal();
-                loadPersonas();
+                // Update badge count
+                document.getElementById('persona-badge').textContent = personas.length;
             } catch (error) {
-                console.error('Failed to save persona:', error);
-                alert('Failed to save persona. Please check your input and try again.');
+                console.error('Failed to load personas:', error);
             }
-        });
-        
-        // Initialize theme input listener
-        document.addEventListener('DOMContentLoaded', () => {
-            const themeInput = document.getElementById('theme-input');
-            if (themeInput) {
-                themeInput.addEventListener('keydown', handleThemeInput);
-            }
-        });
-        
-        // View content for persona
-        function viewContent(personaId) {
-            window.location.href = `/gallery/persona/${personaId}`;
         }
         
-        // Search functionality
-        document.getElementById('search-input').addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase();
-            const cards = document.querySelectorAll('.persona-card');
-            
-            cards.forEach(card => {
-                const text = card.textContent.toLowerCase();
-                card.style.display = text.includes(searchTerm) ? 'block' : 'none';
-            });
-        });
+        function createPersona() {
+            window.location.href = '/admin/personas?action=create';
+        }
         
-        // Load personas on page load
-        document.addEventListener('DOMContentLoaded', loadPersonas);
+        function editPersona(id) {
+            window.location.href = `/admin/personas?action=edit&id=${id}`;
+        }
+        
+        function viewPersona(id) {
+            window.location.href = `/gallery/persona/${id}`;
+        }
+        
+        // Load on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPersonas();
+        });
     </script>
 </body>
 </html>

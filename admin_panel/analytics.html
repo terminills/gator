@@ -3,8 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analytics Dashboard - Gator AI Admin</title>
+    <title>Analytics - Gator AI Admin</title>
     <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5568d3;
+            --accent: #10b981;
+            --dark-bg: #0f0f1e;
+            --dark-surface: #1a1a2e;
+            --dark-card: #16213e;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --sidebar-width: 260px;
+            --border-color: #2a2a3e;
+        }
+        
         * {
             margin: 0;
             padding: 0;
@@ -12,451 +25,529 @@
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            display: flex;
             min-height: 100vh;
         }
         
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--dark-surface);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
         }
         
-        .header-content {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 20px;
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .logo {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 12px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
         }
         
-        .header h1 {
-            font-size: 1.8rem;
-        }
-        
-        .back-btn {
-            background: rgba(255,255,255,0.2);
-            padding: 10px 20px;
-            border-radius: 8px;
-            text-decoration: none;
-            color: white;
-            transition: background 0.3s;
-        }
-        
-        .back-btn:hover {
-            background: rgba(255,255,255,0.3);
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 30px 20px;
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .stat-card {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            transition: transform 0.3s;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-3px);
-        }
-        
-        .stat-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: start;
-            margin-bottom: 15px;
-        }
-        
-        .stat-icon {
+        .logo-icon {
             font-size: 2rem;
         }
         
-        .stat-trend {
-            padding: 5px 10px;
+        .tenant-selector {
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--dark-card);
             border-radius: 8px;
-            font-size: 0.8rem;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tenant-selector:hover {
+            border-color: var(--primary);
+        }
+        
+        .tenant-name {
             font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
         }
         
-        .trend-up {
-            background: #d4edda;
-            color: #155724;
+        .tenant-plan {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
         }
         
-        .trend-down {
-            background: #f8d7da;
-            color: #721c24;
+        .nav-section {
+            padding: 20px 16px 8px;
         }
         
-        .stat-value {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #333;
-            margin-bottom: 5px;
+        .nav-section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-bottom: 8px;
+            padding: 0 12px;
         }
         
-        .stat-label {
-            color: #666;
+        .nav-menu {
+            list-style: none;
+        }
+        
+        .nav-item {
+            margin-bottom: 4px;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s;
             font-size: 0.9rem;
         }
         
-        .charts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
+        .nav-link:hover {
+            background: var(--dark-card);
+            color: var(--text-primary);
         }
         
-        .chart-card {
-            background: white;
+        .nav-link.active {
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            color: white;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.3rem;
+            width: 24px;
+            text-align: center;
+        }
+        
+        .badge {
+            margin-left: auto;
+            padding: 2px 8px;
             border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: var(--accent);
+            color: white;
         }
         
-        .chart-card h3 {
-            margin-bottom: 20px;
-            color: #333;
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            display: flex;
+            flex-direction: column;
         }
         
-        .chart-placeholder {
-            height: 300px;
-            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+        .topbar {
+            height: 70px;
+            background: var(--dark-surface);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .search-box {
+            position: relative;
+        }
+        
+        .search-input {
+            width: 300px;
+            padding: 10px 16px 10px 40px;
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+        
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .icon-btn {
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #666;
-            font-size: 1.2rem;
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
         }
         
-        .table-card {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
+        .icon-btn:hover {
+            border-color: var(--primary);
         }
         
-        .table-card h3 {
-            margin-bottom: 20px;
-            color: #333;
+        .content-area {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
         }
         
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        thead {
-            background: #f8f9fa;
-        }
-        
-        th {
-            padding: 12px;
-            text-align: left;
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
             font-weight: 600;
-            color: #333;
-            border-bottom: 2px solid #ddd;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 0.9rem;
         }
         
-        td {
-            padding: 12px;
-            border-bottom: 1px solid #f0f0f0;
-            color: #666;
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
         }
         
-        tr:hover {
-            background: #f8f9fa;
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
         
-        .progress-bar {
-            height: 8px;
-            background: #f0f0f0;
-            border-radius: 4px;
-            overflow: hidden;
+        .btn-secondary {
+            background: var(--dark-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
         }
         
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            border-radius: 4px;
+        .btn-secondary:hover {
+            border-color: var(--primary);
+        }
+        
+        .section {
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
         }
         
         .toolbar {
-            background: white;
-            border-radius: 12px;
-            padding: 15px 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             display: flex;
-            gap: 10px;
-            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
             flex-wrap: wrap;
+            align-items: center;
         }
         
-        .filter-select {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
-            background: white;
+        .toolbar-search {
+            flex: 1;
+            min-width: 250px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state h2 {
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+        
+        .empty-state p {
+            margin-bottom: 24px;
+        }
+        
+        .card {
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.2s;
+        }
+        
+        .card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="header-content">
-            <h1>📊 Analytics Dashboard</h1>
-            <a href="/admin" class="back-btn">← Back to Dashboard</a>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-icon" id="brand-icon">🐊</span>
+                <span id="brand-name">AI Platform</span>
+            </div>
+            
+            <div class="tenant-selector" onclick="switchTenant()">
+                <div class="tenant-name" id="tenant-name">My Instance</div>
+                <div class="tenant-plan"><span id="tenant-plan-text">Self-Hosted</span> • GPU Enabled</div>
+            </div>
         </div>
-    </div>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Main</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin" class="nav-link ">
+                        <span class="nav-icon">📊</span>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/personas" class="nav-link ">
+                        <span class="nav-icon">🎭</span>
+                        <span>Personas</span>
+                        <span class="badge" id="persona-badge">0</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/content" class="nav-link ">
+                        <span class="nav-icon">🎨</span>
+                        <span>Content</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Resources</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/ai-models-setup" class="nav-link">
+                        <span class="nav-icon">🤖</span>
+                        <span>AI Models</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/rss" class="nav-link ">
+                        <span class="nav-icon">📡</span>
+                        <span>RSS Feeds</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Insights</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin/analytics" class="nav-link active">
+                        <span class="nav-icon">📈</span>
+                        <span>Analytics</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/gallery" class="nav-link">
+                        <span class="nav-icon">🌐</span>
+                        <span>Public View</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section" style="margin-top: auto;">
+            <div class="nav-section-title">System</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin/settings" class="nav-link ">
+                        <span class="nav-icon">⚙️</span>
+                        <span>Settings</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/docs" class="nav-link">
+                        <span class="nav-icon">📚</span>
+                        <span>API Docs</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
     
-    <div class="container">
-        <div class="toolbar">
-            <label>Time Period:</label>
-            <select class="filter-select" id="period-filter">
-                <option value="7">Last 7 Days</option>
-                <option value="30" selected>Last 30 Days</option>
-                <option value="90">Last 90 Days</option>
-                <option value="365">Last Year</option>
-            </select>
-        </div>
-        
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-header">
-                    <div class="stat-icon">🎭</div>
-                    <div class="stat-trend trend-up">↑ 12%</div>
-                </div>
-                <div class="stat-value" id="total-personas">0</div>
-                <div class="stat-label">Total Personas</div>
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <h1 class="page-title">Analytics</h1>
             </div>
             
-            <div class="stat-card">
-                <div class="stat-header">
-                    <div class="stat-icon">📸</div>
-                    <div class="stat-trend trend-up">↑ 24%</div>
+            <div class="topbar-right">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" placeholder="Search...">
                 </div>
-                <div class="stat-value" id="total-content">0</div>
-                <div class="stat-label">Content Generated</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-header">
-                    <div class="stat-icon">📡</div>
-                    <div class="stat-trend trend-up">↑ 8%</div>
-                </div>
-                <div class="stat-value" id="active-feeds">0</div>
-                <div class="stat-label">Active RSS Feeds</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-header">
-                    <div class="stat-icon">💬</div>
-                    <div class="stat-trend trend-up">↑ 35%</div>
-                </div>
-                <div class="stat-value" id="total-messages">0</div>
-                <div class="stat-label">Total Messages</div>
+                <div class="icon-btn">🔔</div>
+                <div class="icon-btn">👤</div>
             </div>
         </div>
         
-        <div class="charts-grid">
-            <div class="chart-card">
-                <h3>📈 Content Generation Over Time</h3>
-                <div class="chart-placeholder">
-                    Chart visualization coming soon
+        <div class="content-area">
+            <!-- Analytics Dashboard -->
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">📊 Performance Overview</h2>
+                </div>
+                <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                    <div class="card" style="text-align: center;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">👁️</div>
+                        <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent);" id="stat-views">-</div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">Total Views</div>
+                    </div>
+                    <div class="card" style="text-align: center;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">❤️</div>
+                        <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent);" id="stat-engagement">-</div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">Engagement Rate</div>
+                    </div>
+                    <div class="card" style="text-align: center;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📈</div>
+                        <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent);" id="stat-growth">-</div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">Growth Rate</div>
+                    </div>
+                    <div class="card" style="text-align: center;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">🎯</div>
+                        <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent);" id="stat-reach">-</div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">Total Reach</div>
+                    </div>
                 </div>
             </div>
             
-            <div class="chart-card">
-                <h3>🎯 Content by Rating</h3>
-                <div class="chart-placeholder">
-                    Chart visualization coming soon
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">🎭 Persona Performance</h2>
+                </div>
+                <div id="persona-analytics">
+                    <p style="color: var(--text-secondary);">Loading analytics data...</p>
                 </div>
             </div>
         </div>
-        
-        <div class="table-card">
-            <h3>🏆 Top Performing Personas</h3>
-            <table id="top-personas-table">
-                <thead>
-                    <tr>
-                        <th>Persona</th>
-                        <th>Content Generated</th>
-                        <th>Themes</th>
-                        <th>Performance</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td colspan="4" style="text-align: center; padding: 40px;">
-                            ⏳ Loading data...
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="table-card">
-            <h3>📡 RSS Feed Activity</h3>
-            <table id="feed-activity-table">
-                <thead>
-                    <tr>
-                        <th>Feed</th>
-                        <th>Items</th>
-                        <th>Last Update</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td colspan="4" style="text-align: center; padding: 40px;">
-                            ⏳ Loading data...
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
+    </main>
     
     <script>
-        // Load analytics data
+        // Load branding configuration
+        async function loadBranding() {
+            try {
+                const response = await fetch('/api/v1/branding');
+                const branding = await response.json();
+                
+                document.getElementById('brand-name').textContent = branding.site_name || 'AI Platform';
+                document.getElementById('brand-icon').textContent = branding.icon || '🐊';
+                document.getElementById('tenant-name').textContent = branding.instance_name || 'My Instance';
+            } catch (e) {
+                console.log('Using default branding');
+            }
+        }
+        
+        function switchTenant() {
+            alert('Tenant switching coming soon! This will allow you to manage multiple tenants.');
+        }
+        
+        // Load branding on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadBranding();
+        });
+
+        // Analytics Dashboard
         async function loadAnalytics() {
             try {
-                // Load personas
-                const personasResponse = await fetch('/api/v1/personas/');
-                const personasData = await personasResponse.json();
-                const personas = personasData.personas || [];
+                const response = await fetch('/api/v1/analytics/');
+                const data = await response.json();
                 
-                document.getElementById('total-personas').textContent = personas.length;
+                // Update stats
+                document.getElementById('stat-views').textContent = data.total_views || '0';
+                document.getElementById('stat-engagement').textContent = (data.engagement_rate || 0) + '%';
+                document.getElementById('stat-growth').textContent = (data.growth_rate || 0) + '%';
+                document.getElementById('stat-reach').textContent = data.total_reach || '0';
                 
-                // Load content
-                const contentResponse = await fetch('/api/v1/content/');
-                const contentData = await contentResponse.json();
-                const content = contentData.content || [];
-                
-                document.getElementById('total-content').textContent = content.length;
-                
-                // Load feeds
-                const feedsResponse = await fetch('/api/v1/feeds/');
-                const feedsData = await feedsResponse.json();
-                const feeds = feedsData.feeds || [];
-                
-                const activeFeeds = feeds.filter(f => f.is_active).length;
-                document.getElementById('active-feeds').textContent = activeFeeds;
-                
-                // Load messages (if available)
-                try {
-                    const messagesResponse = await fetch('/api/v1/direct-messages/');
-                    const messagesData = await messagesResponse.json();
-                    const messages = messagesData.messages || [];
-                    document.getElementById('total-messages').textContent = messages.length;
-                } catch {
-                    document.getElementById('total-messages').textContent = '0';
+                // Load persona analytics
+                const container = document.getElementById('persona-analytics');
+                if (data.persona_stats && data.persona_stats.length > 0) {
+                    container.innerHTML = '<div class="grid"></div>';
+                    const grid = container.querySelector('.grid');
+                    
+                    data.persona_stats.forEach(stat => {
+                        const card = document.createElement('div');
+                        card.className = 'card';
+                        card.innerHTML = `
+                            <h3 style="color: var(--text-primary); margin-bottom: 12px;">
+                                ${stat.persona_name}
+                            </h3>
+                            <p style="color: var(--text-secondary);">
+                                Views: ${stat.views || 0} | Engagement: ${stat.engagement || 0}%
+                            </p>
+                        `;
+                        grid.appendChild(card);
+                    });
+                } else {
+                    container.innerHTML = '<p style="color: var(--text-secondary);">No analytics data available yet.</p>';
                 }
-                
-                // Populate top personas table
-                populateTopPersonasTable(personas);
-                
-                // Populate feed activity table
-                populateFeedActivityTable(feeds);
-                
             } catch (error) {
                 console.error('Failed to load analytics:', error);
             }
         }
         
-        // Populate top personas table
-        function populateTopPersonasTable(personas) {
-            const tbody = document.querySelector('#top-personas-table tbody');
-            
-            if (personas.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="4" style="text-align: center; padding: 40px;">
-                            No personas yet
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-            
-            // Sort by generation count
-            const sorted = [...personas].sort((a, b) => 
-                (b.generation_count || 0) - (a.generation_count || 0)
-            ).slice(0, 10);
-            
-            tbody.innerHTML = sorted.map(persona => {
-                const maxGenerations = Math.max(...personas.map(p => p.generation_count || 0));
-                const percentage = maxGenerations > 0 ? ((persona.generation_count || 0) / maxGenerations * 100) : 0;
-                
-                return `
-                    <tr>
-                        <td><strong>${persona.name}</strong></td>
-                        <td>${persona.generation_count || 0}</td>
-                        <td>${(persona.content_themes || []).length}</td>
-                        <td>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${percentage}%"></div>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
-        
-        // Populate feed activity table
-        function populateFeedActivityTable(feeds) {
-            const tbody = document.querySelector('#feed-activity-table tbody');
-            
-            if (feeds.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="4" style="text-align: center; padding: 40px;">
-                            No RSS feeds configured
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-            
-            tbody.innerHTML = feeds.map(feed => `
-                <tr>
-                    <td><strong>${feed.name || 'Unnamed Feed'}</strong></td>
-                    <td>${feed.item_count || 0}</td>
-                    <td>${feed.last_fetched ? new Date(feed.last_fetched).toLocaleString() : 'Never'}</td>
-                    <td>
-                        <span style="padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; 
-                                     background: ${feed.is_active ? '#d4edda' : '#f8d7da'}; 
-                                     color: ${feed.is_active ? '#155724' : '#721c24'}">
-                            ${feed.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                    </td>
-                </tr>
-            `).join('');
-        }
-        
-        // Reload data when period changes
-        document.getElementById('period-filter').addEventListener('change', loadAnalytics);
-        
-        // Load analytics on page load
-        document.addEventListener('DOMContentLoaded', loadAnalytics);
+        // Load on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAnalytics();
+        });
     </script>
 </body>
 </html>
