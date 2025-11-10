@@ -385,18 +385,27 @@
                     return;
                 }
                 
-                // Load persona details
-                const [personaResponse, galleryResponse] = await Promise.all([
-                    fetch(`/public/personas/${personaId}`),
-                    fetch(`/public/personas/${personaId}/gallery?limit=50`)
-                ]);
+                // Load persona details from real backend API
+                const personaResponse = await fetch(`/api/v1/personas/${personaId}`);
                 
                 if (!personaResponse.ok) {
                     throw new Error('Persona not found');
                 }
                 
-                const persona = await personaResponse.json();
-                const gallery = await galleryResponse.json();
+                const personaData = await personaResponse.json();
+                const persona = personaData.persona || personaData;
+                
+                // Load content for this persona
+                let gallery = [];
+                try {
+                    const contentResponse = await fetch(`/api/v1/content/persona/${personaId}?limit=50`);
+                    if (contentResponse.ok) {
+                        const contentData = await contentResponse.json();
+                        gallery = contentData.content || contentData || [];
+                    }
+                } catch (e) {
+                    console.log('No content available for this persona yet');
+                }
                 
                 // Update page title
                 document.getElementById('page-title').textContent = `${persona.name} - Gator AI`;
@@ -405,20 +414,20 @@
                 const personaHTML = `
                     <div class="persona-header">
                         <div class="header-content">
-                            <div class="persona-avatar">${getPersonaIcon(persona.style_preferences?.visual_style || 'realistic')}</div>
+                            <div class="persona-avatar">${getPersonaIcon(persona.visual_style || persona.style_preferences?.visual_style || 'realistic')}</div>
                             <h1 class="persona-name">${persona.name}</h1>
-                            <p class="persona-bio">${persona.bio}</p>
+                            <p class="persona-bio">${persona.bio || 'AI content creator on Gator Platform'}</p>
                             <div class="persona-stats">
                                 <div class="stat-item">
-                                    <span class="stat-number">${persona.statistics.content_created}</span>
+                                    <span class="stat-number">${gallery.length}</span>
                                     <span class="stat-label">Creations</span>
                                 </div>
                                 <div class="stat-item">
-                                    <span class="stat-number">${formatDate(persona.statistics.active_since)}</span>
+                                    <span class="stat-number">${formatDate(persona.created_at)}</span>
                                     <span class="stat-label">Active Since</span>
                                 </div>
                                 <div class="stat-item">
-                                    <span class="stat-number">${persona.themes?.length || 0}</span>
+                                    <span class="stat-number">${persona.themes?.length || (persona.content_themes?.length || 0)}</span>
                                     <span class="stat-label">Themes</span>
                                 </div>
                             </div>
@@ -426,11 +435,11 @@
                     </div>
                     
                     <div class="container">
-                        ${persona.themes?.length ? `
+                        ${(persona.themes?.length || persona.content_themes?.length) ? `
                             <div class="themes-section">
                                 <h3 class="themes-title">Creative Themes</h3>
                                 <div class="themes-container">
-                                    ${persona.themes.map(theme => `<span class="theme-tag">${theme}</span>`).join('')}
+                                    ${(persona.themes || persona.content_themes || []).map(theme => `<span class="theme-tag">${theme}</span>`).join('')}
                                 </div>
                             </div>
                         ` : ''}
@@ -476,19 +485,29 @@
                 `;
             }
             
-            return gallery.map(item => `
-                <div class="content-item" data-type="${item.type}" onclick="viewContent('${item.id}')">
-                    <div class="content-preview">${getContentIcon(item.type)}</div>
-                    <div class="content-info">
-                        <h4 class="content-title">${item.title}</h4>
-                        <p class="content-description">${item.description || 'No description available'}</p>
-                        <div class="content-meta">
-                            <span class="content-type">${item.type}</span>
-                            <span class="content-date">${formatDate(item.created_at)}</span>
+            return gallery.map(item => {
+                const contentType = item.content_type || item.type || 'image';
+                const contentTitle = item.title || item.prompt?.substring(0, 50) || 'Untitled Creation';
+                const contentDesc = item.description || item.prompt || 'AI-generated content';
+                
+                return `
+                    <div class="content-item" data-type="${contentType}" onclick="viewContent('${item.id}')">
+                        ${item.file_path ? `
+                            <img src="${item.file_path}" alt="${contentTitle}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px;" />
+                        ` : `
+                            <div class="content-preview">${getContentIcon(contentType)}</div>
+                        `}
+                        <div class="content-info">
+                            <h4 class="content-title">${contentTitle}</h4>
+                            <p class="content-description">${contentDesc.substring(0, 100)}${contentDesc.length > 100 ? '...' : ''}</p>
+                            <div class="content-meta">
+                                <span class="content-type">${contentType}</span>
+                                <span class="content-date">${formatDate(item.created_at)}</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
         
         function getPersonaIcon(style) {

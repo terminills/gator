@@ -42,6 +42,7 @@ from backend.api.routes import (
     plugins,
     friend_groups,
     enhanced_persona,
+    branding,
 )
 from backend.api.websocket import websocket_endpoint
 
@@ -182,6 +183,7 @@ def create_app() -> FastAPI:
 
     # Include API routers
     app.include_router(public.router)
+    app.include_router(branding.router)
     app.include_router(dns.router, prefix="/api/v1")
     app.include_router(setup.router, prefix="/api/v1")
     app.include_router(database_admin.router, prefix="/api/v1")
@@ -238,16 +240,68 @@ def create_app() -> FastAPI:
 
     @app.get("/admin", tags=["system"])
     async def admin_dashboard():
-        """Serve admin/creator dashboard."""
-        # Serve the admin dashboard
+        """Serve main admin dashboard hub."""
+        # Serve the new modern admin dashboard
+        dashboard_path = os.path.join(project_root, "admin_panel", "dashboard.html")
+        if os.path.exists(dashboard_path):
+            return FileResponse(dashboard_path)
+        # Fallback to simple admin panel
+        admin_panel_path = os.path.join(project_root, "admin_panel", "index.html")
+        if os.path.exists(admin_panel_path):
+            return FileResponse(admin_panel_path)
+        # Last resort: legacy admin.html
         admin_path = os.path.join(project_root, "admin.html")
         if os.path.exists(admin_path):
             return FileResponse(admin_path)
-        # Fallback to frontend index.html if admin.html doesn't exist
-        dashboard_path = os.path.join(frontend_path, "index.html")
-        if os.path.exists(dashboard_path):
-            return FileResponse(dashboard_path)
         return {"error": "Admin dashboard not found"}
+    
+    @app.get("/admin/personas", tags=["system"])
+    async def admin_personas():
+        """Serve persona management page."""
+        personas_path = os.path.join(project_root, "admin_panel", "personas.html")
+        if os.path.exists(personas_path):
+            return FileResponse(personas_path)
+        # Fallback to main admin
+        admin_panel_path = os.path.join(project_root, "admin_panel", "index.html")
+        if os.path.exists(admin_panel_path):
+            return FileResponse(admin_panel_path)
+        return {"error": "Persona management page not found"}
+    
+    @app.get("/admin/content", tags=["system"])
+    async def admin_content():
+        """Serve content management page."""
+        # TODO: Create dedicated content management page
+        admin_panel_path = os.path.join(project_root, "admin_panel", "index.html")
+        if os.path.exists(admin_panel_path):
+            return FileResponse(admin_panel_path)
+        return {"error": "Content management page not found"}
+    
+    @app.get("/admin/rss", tags=["system"])
+    async def admin_rss():
+        """Serve RSS feed management page."""
+        # TODO: Create dedicated RSS management page
+        admin_panel_path = os.path.join(project_root, "admin_panel", "index.html")
+        if os.path.exists(admin_panel_path):
+            return FileResponse(admin_panel_path)
+        return {"error": "RSS management page not found"}
+    
+    @app.get("/admin/analytics", tags=["system"])
+    async def admin_analytics():
+        """Serve analytics dashboard page."""
+        # TODO: Create dedicated analytics page
+        admin_panel_path = os.path.join(project_root, "admin_panel", "index.html")
+        if os.path.exists(admin_panel_path):
+            return FileResponse(admin_panel_path)
+        return {"error": "Analytics page not found"}
+    
+    @app.get("/admin/settings", tags=["system"])
+    async def admin_settings():
+        """Serve system settings page."""
+        # TODO: Create dedicated settings page
+        admin_panel_path = os.path.join(project_root, "admin_panel", "index.html")
+        if os.path.exists(admin_panel_path):
+            return FileResponse(admin_panel_path)
+        return {"error": "Settings page not found"}
 
     @app.get("/ai-models-setup", tags=["system"])
     async def ai_models_setup():
