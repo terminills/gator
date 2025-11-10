@@ -186,6 +186,8 @@ class GenerationBenchmarkResponse(BaseModel):
     human_feedback_text: Optional[str]
     had_errors: bool
     fallback_used: bool
+    acd_context_id: Optional[uuid.UUID] = None
+    acd_phase: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

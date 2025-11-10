@@ -36,6 +36,7 @@ class AIStatus(str, Enum):
     NOT_STARTED = "NOT_STARTED"
     FIXED = "FIXED"
     DEPRECATED = "DEPRECATED"
+    EXPERIMENTAL = "EXPERIMENTAL"
 
 
 class AIComplexity(str, Enum):
@@ -356,12 +357,18 @@ class ACDContextResponse(BaseModel):
     ai_status: str
     ai_complexity: Optional[str]
     ai_note: Optional[str]
+    ai_dependencies: Optional[List[str]] = None
     ai_state: str
     ai_confidence: Optional[str]
     ai_queue_priority: Optional[str]
     ai_queue_status: Optional[str]
     ai_validation: Optional[str]
     ai_assigned_to: Optional[str]
+    ai_assigned_at: Optional[datetime] = None
+    ai_assignment_reason: Optional[str] = None
+    ai_previous_assignee: Optional[str] = None
+    ai_context: Optional[Dict[str, Any]] = None
+    ai_metadata: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
 
