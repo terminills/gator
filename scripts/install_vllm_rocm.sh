@@ -427,6 +427,14 @@ main() {
                 echo "  $0 /custom/path              # Install to custom directory"
                 exit 0
                 ;;
+            --*)
+                print_error "Unknown option: $1"
+                print_info "Run '$0 --help' to see available options"
+                print_info ""
+                print_info "Note: The --no-build-isolation flag is used internally by pip"
+                print_info "      and should not be passed to this installation script."
+                exit 1
+                ;;
             *)
                 VLLM_DIR="$1"
                 shift
