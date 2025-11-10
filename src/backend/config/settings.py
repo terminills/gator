@@ -49,12 +49,12 @@ class Settings(BaseSettings):
 
     # API security
     allowed_hosts: List[str] = Field(
-        default=["localhost", "127.0.0.1", "0.0.0.0", "testserver"],
-        description="Allowed hosts for security",
+        default=["*"],
+        description="Allowed hosts for security. Use ['*'] to allow all hosts (recommended for development/internal networks) or specify exact hosts for production",
     )
     allowed_origins: List[str] = Field(
-        default=["http://localhost:3000", "http://127.0.0.1:3000"],
-        description="CORS allowed origins",
+        default=["*"],
+        description="CORS allowed origins. Use ['*'] to allow all origins (recommended for development) or specify exact origins for production",
     )
 
     # AI Model configuration
