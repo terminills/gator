@@ -429,7 +429,7 @@ class ContentGenerationService:
             with open(file_path, "wb") as f:
                 f.write(image_result["image_data"])
 
-            return {
+            result_data = {
                 "file_path": str(file_path),
                 "file_size": len(image_result["image_data"]),
                 "width": image_result.get("width", 1024),
@@ -439,6 +439,18 @@ class ContentGenerationService:
                 "model": image_result.get("model", "unknown"),
                 "provider": image_result.get("provider", "unknown"),
             }
+
+            # Add benchmark data for feedback tracking
+            if "benchmark_data" in image_result:
+                result_data["benchmark_data"] = image_result["benchmark_data"]
+                result_data["generation_time_seconds"] = image_result.get(
+                    "generation_time_seconds"
+                )
+                result_data["total_time_seconds"] = image_result.get(
+                    "total_time_seconds"
+                )
+
+            return result_data
 
         except Exception as e:
             # Fallback to placeholder if AI generation fails

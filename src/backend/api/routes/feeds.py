@@ -92,7 +92,7 @@ async def list_feeds(
     return await rss_service.list_feeds(active_only)
 
 
-@router.post("/fetch", response_model=Dict[str, int])
+@router.post("/fetch", response_model=Dict[str, Any])
 async def fetch_all_feeds(
     rss_service: RSSIngestionService = Depends(get_rss_service),
 ):
@@ -106,12 +106,40 @@ async def fetch_all_feeds(
         rss_service: Injected RSS ingestion service
 
     Returns:
-        Dict[str, int]: Mapping of feed_id to number of new items fetched
+        Dict with fetch results including counts and recent items summary
     """
     try:
         results = await rss_service.fetch_all_feeds()
         logger.info(f"Manual RSS fetch completed results={results}")
-        return results
+
+        # Get summary of recently fetched items for display
+        recent_items = await rss_service.get_recent_items(limit=10)
+
+        # Calculate total items fetched
+        total_items = sum(results.values())
+
+        return {
+            "status": "success",
+            "feeds_fetched": len(results),
+            "total_new_items": total_items,
+            "results": results,
+            "recent_items": [
+                {
+                    "title": item.title,
+                    "feed_name": (
+                        item.feed.name
+                        if hasattr(item, "feed") and item.feed
+                        else "Unknown"
+                    ),
+                    "published": (
+                        item.published_date.isoformat() if item.published_date else None
+                    ),
+                    "url": item.url,
+                }
+                for item in recent_items
+            ],
+            "message": f"Successfully fetched {total_items} new items from {len(results)} feeds",
+        }
 
     except Exception as e:
         logger.error(f"RSS fetch failed: {str(e)}")
