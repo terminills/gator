@@ -483,19 +483,29 @@ class ModelSetupManager:
     async def _setup_vllm_rocm(self) -> str:
         """Setup vLLM with ROCm support."""
         try:
-            # This would install vLLM with ROCm in production
-            return "vLLM (ROCm build) - installation commands needed"
+            script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+            if not script_path.exists():
+                return "vLLM (ROCm) - installation script not found. Run: ./scripts/install_vllm_rocm.sh"
+            
+            # Return instructions for manual installation
+            return f"vLLM (ROCm) - Run: bash {script_path}"
         except Exception as e:
             return f"Failed: {str(e)}"
     
     async def _setup_comfyui_rocm(self) -> str:
         """Setup ComfyUI with ROCm support."""
         try:
-            # This would clone and setup ComfyUI with ROCm PyTorch
+            script_path = Path(__file__).parent / "scripts" / "install_comfyui_rocm.sh"
             comfyui_dir = self.models_dir.parent / "ComfyUI"
-            if not comfyui_dir.exists():
-                return "ComfyUI - requires manual setup with ROCm PyTorch"
-            return "ComfyUI available"
+            
+            if comfyui_dir.exists():
+                return "ComfyUI already installed"
+            
+            if not script_path.exists():
+                return "ComfyUI - installation script not found. Run: ./scripts/install_comfyui_rocm.sh"
+            
+            # Return instructions for manual installation
+            return f"ComfyUI - Run: bash {script_path}"
         except Exception as e:
             return f"Failed: {str(e)}"
     
@@ -509,17 +519,25 @@ class ModelSetupManager:
     async def _setup_vllm_cuda(self) -> str:
         """Setup vLLM with CUDA support."""
         try:
-            return "vLLM (CUDA) - pip install vllm"
+            # CUDA version has official wheels available
+            return "vLLM (CUDA) - Install with: pip install vllm"
         except Exception as e:
             return f"Failed: {str(e)}"
     
     async def _setup_comfyui_cuda(self) -> str:
         """Setup ComfyUI with CUDA support."""
         try:
-            comfyui_dir = self.models_dir.parent / "ComfyUI" 
-            if not comfyui_dir.exists():
+            script_path = Path(__file__).parent / "scripts" / "install_comfyui_rocm.sh"
+            comfyui_dir = self.models_dir.parent / "ComfyUI"
+            
+            if comfyui_dir.exists():
+                return "ComfyUI already installed"
+            
+            if not script_path.exists():
                 return "ComfyUI - git clone https://github.com/comfyanonymous/ComfyUI"
-            return "ComfyUI available"
+            
+            # Same script works for CUDA (it auto-detects)
+            return f"ComfyUI - Run: bash {script_path}"
         except Exception as e:
             return f"Failed: {str(e)}"
     

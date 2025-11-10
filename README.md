@@ -233,6 +233,30 @@ pip3 install --pre torch torchvision torchaudio \
 
 **PyTorch Version Compatibility**: The system automatically detects your PyTorch version and ensures compatible versions of ML libraries are installed. See [PyTorch Version Compatibility Guide](PYTORCH_VERSION_COMPATIBILITY.md) for details.
 
+#### Advanced AI Frameworks for AMD
+
+For advanced AI workloads on AMD hardware, Gator provides automated installation scripts:
+
+**vLLM (High-Performance LLM Inference)**:
+```bash
+# Build and install vLLM from source for AMD ROCm
+bash scripts/install_vllm_rocm.sh
+```
+- Required for production LLM inference
+- No standard wheels available for AMD - builds from source
+- 10-30 minute build time
+- See [Installation Scripts Guide](docs/INSTALLATION_SCRIPTS_GUIDE.md)
+
+**ComfyUI (Node-Based Stable Diffusion)**:
+```bash
+# Install ComfyUI with ROCm support
+bash scripts/install_comfyui_rocm.sh
+```
+- Powerful UI for Stable Diffusion workflows
+- Auto-detects ROCm or falls back to CPU mode
+- Includes extension manager and model downloader
+- See [Installation Scripts Guide](docs/INSTALLATION_SCRIPTS_GUIDE.md)
+
 ### NVIDIA GPUs (CUDA)
 
 - **RTX 40 Series**: Full support with CUDA 12.0+
@@ -419,6 +443,7 @@ pg_dump -U gator_user gator_production > backup_$(date +%Y%m%d).sql
 - **Developer Guide**: In-depth development and customization guide  
 - **Deployment Guide**: Production deployment best practices
 - **[Local Image Generation Guide](LOCAL_IMAGE_GENERATION.md)**: Setup and usage for local AI image generation
+- **[Installation Scripts Guide](docs/INSTALLATION_SCRIPTS_GUIDE.md)**: vLLM and ComfyUI installation for AMD ROCm
 - **Troubleshooting**: Common issues and solutions
 
 ### Community Resources
