@@ -217,6 +217,105 @@
             color: #666;
             margin-bottom: 25px;
         }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            margin: 50px auto;
+        }
+        
+        .modal h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        
+        .tag-input-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            min-height: 42px;
+        }
+        
+        .tag {
+            background: #667eea;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .tag-remove {
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .tag-input {
+            border: none;
+            outline: none;
+            flex: 1;
+            min-width: 100px;
+            padding: 5px;
+        }
     </style>
 </head>
 <body>
@@ -242,6 +341,54 @@
                 <div style="font-size: 2rem; margin-bottom: 10px;">⏳</div>
                 <div style="color: #666;">Loading personas...</div>
             </div>
+        </div>
+    </div>
+    
+    <!-- Create/Edit Persona Modal -->
+    <div id="persona-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Create New Persona</h2>
+            <form id="persona-form">
+                <div class="form-group">
+                    <label class="form-label">Name *</label>
+                    <input type="text" class="form-input" id="persona-name" placeholder="Tech Guru Sarah" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Appearance *</label>
+                    <textarea class="form-textarea" id="persona-appearance" 
+                              placeholder="Professional tech journalist with modern style, confident demeanor..." required></textarea>
+                    <small style="color: #666;">Physical appearance description for image generation (min 10 characters)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Personality *</label>
+                    <textarea class="form-textarea" id="persona-personality" 
+                              placeholder="Enthusiastic, knowledgeable, approachable, passionate about technology..." required></textarea>
+                    <small style="color: #666;">Personality traits and characteristics (min 10 characters)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Content Themes</label>
+                    <div class="tag-input-container" id="themes-container">
+                        <input type="text" class="tag-input" id="theme-input" placeholder="Type and press Enter">
+                    </div>
+                    <small style="color: #666;">Press Enter to add themes (e.g., technology, AI, programming)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Default Content Rating</label>
+                    <select class="form-input" id="persona-rating">
+                        <option value="SFW">SFW - Safe for Work</option>
+                        <option value="NSFW">NSFW - Not Safe for Work</option>
+                    </select>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closePersonaModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Persona</button>
+                </div>
+            </form>
         </div>
     </div>
     
@@ -320,17 +467,131 @@
             }
         }
         
-        // Create new persona
+        let currentPersonaId = null;
+        let personaThemes = [];
+        
+        // Open modal for creating new persona
         function createPersona() {
-            // TODO: Implement persona creation modal/form
-            alert('Persona creation form coming soon! For now, use the API at /api/v1/personas/');
+            currentPersonaId = null;
+            personaThemes = [];
+            document.getElementById('modal-title').textContent = 'Create New Persona';
+            document.getElementById('persona-form').reset();
+            updateThemesDisplay();
+            document.getElementById('persona-modal').style.display = 'flex';
         }
         
-        // Edit persona
-        function editPersona(personaId) {
-            // TODO: Implement persona editing
-            alert(`Edit persona ${personaId} - Coming soon!`);
+        // Open modal for editing persona
+        async function editPersona(personaId) {
+            try {
+                const response = await fetch(`/api/v1/personas/${personaId}`);
+                const persona = await response.json();
+                
+                currentPersonaId = personaId;
+                personaThemes = persona.content_themes || [];
+                
+                document.getElementById('modal-title').textContent = 'Edit Persona';
+                document.getElementById('persona-name').value = persona.name;
+                document.getElementById('persona-appearance').value = persona.appearance || '';
+                document.getElementById('persona-personality').value = persona.personality || '';
+                document.getElementById('persona-rating').value = persona.default_content_rating || 'SFW';
+                
+                updateThemesDisplay();
+                document.getElementById('persona-modal').style.display = 'flex';
+            } catch (error) {
+                console.error('Failed to load persona:', error);
+                alert('Failed to load persona data. Please try again.');
+            }
         }
+        
+        // Close modal
+        function closePersonaModal() {
+            document.getElementById('persona-modal').style.display = 'none';
+            currentPersonaId = null;
+            personaThemes = [];
+        }
+        
+        // Update themes display
+        function updateThemesDisplay() {
+            const container = document.getElementById('themes-container');
+            const input = document.getElementById('theme-input');
+            
+            container.innerHTML = personaThemes.map(theme => `
+                <span class="tag">
+                    ${theme}
+                    <span class="tag-remove" onclick="removeTheme('${theme}')">×</span>
+                </span>
+            `).join('') + input.outerHTML;
+            
+            // Re-attach event listener to new input
+            const newInput = document.getElementById('theme-input');
+            newInput.addEventListener('keydown', handleThemeInput);
+        }
+        
+        // Handle theme input
+        function handleThemeInput(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const value = e.target.value.trim();
+                if (value && !personaThemes.includes(value)) {
+                    personaThemes.push(value);
+                    updateThemesDisplay();
+                    e.target.value = '';
+                }
+            }
+        }
+        
+        // Remove theme
+        function removeTheme(theme) {
+            personaThemes = personaThemes.filter(t => t !== theme);
+            updateThemesDisplay();
+        }
+        
+        // Handle form submission
+        document.getElementById('persona-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const personaData = {
+                name: document.getElementById('persona-name').value,
+                appearance: document.getElementById('persona-appearance').value,
+                personality: document.getElementById('persona-personality').value,
+                content_themes: personaThemes,
+                default_content_rating: document.getElementById('persona-rating').value
+            };
+            
+            try {
+                const url = currentPersonaId 
+                    ? `/api/v1/personas/${currentPersonaId}`
+                    : '/api/v1/personas/';
+                const method = currentPersonaId ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(personaData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to save persona');
+                }
+                
+                alert(`Persona ${currentPersonaId ? 'updated' : 'created'} successfully!`);
+                closePersonaModal();
+                loadPersonas();
+            } catch (error) {
+                console.error('Failed to save persona:', error);
+                alert('Failed to save persona. Please check your input and try again.');
+            }
+        });
+        
+        // Initialize theme input listener
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeInput = document.getElementById('theme-input');
+            if (themeInput) {
+                themeInput.addEventListener('keydown', handleThemeInput);
+            }
+        });
         
         // View content for persona
         function viewContent(personaId) {

@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Settings - Gator AI Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 1.8rem;
+        }
+        
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: white;
+            transition: background 0.3s;
+        }
+        
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+        
+        .settings-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .settings-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-icon {
+            font-size: 1.8rem;
+        }
+        
+        .setting-item {
+            margin-bottom: 25px;
+            padding-bottom: 25px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .setting-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .setting-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 8px;
+        }
+        
+        .setting-label {
+            font-weight: 600;
+            color: #333;
+            font-size: 1rem;
+        }
+        
+        .setting-description {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 26px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #667eea;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+        
+        .color-picker-wrapper {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .color-input {
+            width: 60px;
+            height: 40px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .color-value {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-family: monospace;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .actions-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            position: sticky;
+            bottom: 20px;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>⚙️ System Settings</h1>
+            <a href="/admin" class="back-btn">← Back to Dashboard</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div id="success-message" class="success-message">
+            ✓ Settings saved successfully!
+        </div>
+        
+        <!-- Branding Settings -->
+        <div class="settings-section">
+            <h2><span class="section-icon">🎨</span> Branding</h2>
+            
+            <div class="setting-item">
+                <div class="setting-label">Site Name</div>
+                <div class="setting-description">The name of your AI platform installation</div>
+                <input type="text" class="form-input" id="site-name" placeholder="My AI Platform">
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Site Icon</div>
+                <div class="setting-description">Emoji or icon to represent your platform</div>
+                <input type="text" class="form-input" id="site-icon" placeholder="🤖">
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Tagline</div>
+                <div class="setting-description">Brief description of your platform</div>
+                <input type="text" class="form-input" id="site-tagline" placeholder="AI-Powered Content Generation">
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Primary Color</div>
+                <div class="setting-description">Main brand color used throughout the interface</div>
+                <div class="color-picker-wrapper">
+                    <input type="color" class="color-input" id="primary-color" value="#667eea">
+                    <input type="text" class="color-value" id="primary-color-text" value="#667eea">
+                </div>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Accent Color</div>
+                <div class="setting-description">Secondary color for highlights and accents</div>
+                <div class="color-picker-wrapper">
+                    <input type="color" class="color-input" id="accent-color" value="#10b981">
+                    <input type="text" class="color-value" id="accent-color-text" value="#10b981">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Content Settings -->
+        <div class="settings-section">
+            <h2><span class="section-icon">📸</span> Content Generation</h2>
+            
+            <div class="setting-item">
+                <div class="setting-header">
+                    <div>
+                        <div class="setting-label">Enable Auto-Generation</div>
+                        <div class="setting-description">Automatically generate content from RSS feeds</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="auto-generation">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Default Content Rating</div>
+                <div class="setting-description">Default rating for new content</div>
+                <select class="form-input" id="default-rating">
+                    <option value="SFW">SFW - Safe for Work</option>
+                    <option value="NSFW">NSFW - Not Safe for Work</option>
+                </select>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Generation Interval (minutes)</div>
+                <div class="setting-description">How often to check for new content generation opportunities</div>
+                <input type="number" class="form-input" id="generation-interval" value="30" min="5" max="1440">
+            </div>
+        </div>
+        
+        <!-- System Settings -->
+        <div class="settings-section">
+            <h2><span class="section-icon">🖥️</span> System</h2>
+            
+            <div class="setting-item">
+                <div class="setting-header">
+                    <div>
+                        <div class="setting-label">Debug Mode</div>
+                        <div class="setting-description">Enable detailed logging for troubleshooting</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="debug-mode">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Database URL</div>
+                <div class="setting-description">Connection string for your database</div>
+                <input type="text" class="form-input" id="database-url" placeholder="sqlite:///./gator.db" readonly>
+                <small style="color: #999; margin-top: 5px; display: block;">Database URL is read-only and configured via environment variables</small>
+            </div>
+        </div>
+        
+        <!-- RSS Settings -->
+        <div class="settings-section">
+            <h2><span class="section-icon">📡</span> RSS Feeds</h2>
+            
+            <div class="setting-item">
+                <div class="setting-header">
+                    <div>
+                        <div class="setting-label">Enable RSS Ingestion</div>
+                        <div class="setting-description">Automatically fetch and process RSS feeds</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="rss-enabled" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Update Frequency (minutes)</div>
+                <div class="setting-description">How often to check RSS feeds for new content</div>
+                <input type="number" class="form-input" id="rss-frequency" value="60" min="15" max="1440">
+            </div>
+        </div>
+        
+        <div class="actions-bar">
+            <button class="btn btn-secondary" onclick="loadSettings()">Reset</button>
+            <button class="btn btn-primary" onclick="saveSettings()">Save Changes</button>
+        </div>
+    </div>
+    
+    <script>
+        // Load settings from API
+        async function loadSettings() {
+            try {
+                // Load branding
+                const brandingResponse = await fetch('/api/v1/branding');
+                const branding = await brandingResponse.json();
+                
+                document.getElementById('site-name').value = branding.site_name || 'Gator AI';
+                document.getElementById('site-icon').value = branding.site_icon || '🐊';
+                document.getElementById('site-tagline').value = branding.site_tagline || 'AI-Powered Content Generation';
+                document.getElementById('primary-color').value = branding.primary_color || '#667eea';
+                document.getElementById('primary-color-text').value = branding.primary_color || '#667eea';
+                document.getElementById('accent-color').value = branding.accent_color || '#10b981';
+                document.getElementById('accent-color-text').value = branding.accent_color || '#10b981';
+                
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+            }
+        }
+        
+        // Save settings to API
+        async function saveSettings() {
+            try {
+                // Save branding
+                const brandingData = {
+                    site_name: document.getElementById('site-name').value,
+                    site_icon: document.getElementById('site-icon').value,
+                    site_tagline: document.getElementById('site-tagline').value,
+                    primary_color: document.getElementById('primary-color').value,
+                    accent_color: document.getElementById('accent-color').value
+                };
+                
+                await fetch('/api/v1/branding', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(brandingData)
+                });
+                
+                // Show success message
+                const successMsg = document.getElementById('success-message');
+                successMsg.style.display = 'block';
+                setTimeout(() => {
+                    successMsg.style.display = 'none';
+                }, 3000);
+                
+            } catch (error) {
+                console.error('Failed to save settings:', error);
+                alert('Failed to save settings. Please try again.');
+            }
+        }
+        
+        // Sync color picker with text input
+        document.getElementById('primary-color').addEventListener('input', (e) => {
+            document.getElementById('primary-color-text').value = e.target.value;
+        });
+        
+        document.getElementById('primary-color-text').addEventListener('input', (e) => {
+            document.getElementById('primary-color').value = e.target.value;
+        });
+        
+        document.getElementById('accent-color').addEventListener('input', (e) => {
+            document.getElementById('accent-color-text').value = e.target.value;
+        });
+        
+        document.getElementById('accent-color-text').addEventListener('input', (e) => {
+            document.getElementById('accent-color').value = e.target.value;
+        });
+        
+        // Load settings on page load
+        document.addEventListener('DOMContentLoaded', loadSettings);
+    </script>
+</body>
+</html>
