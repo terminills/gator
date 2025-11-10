@@ -105,6 +105,49 @@ install_python_deps() {
     print_info "Python build dependencies installed"
 }
 
+# Get PyTorch index URL based on ROCm version
+get_pytorch_index_url() {
+    # Determine PyTorch index URL based on ROCm version
+    if (( $(echo "$ROCM_MAJOR >= 7" | bc -l) )); then
+        PYTORCH_INDEX="https://download.pytorch.org/whl/nightly/rocm${ROCM_MAJOR}.${ROCM_MINOR}"
+        print_info "PyTorch index: ROCm ${ROCM_MAJOR}.${ROCM_MINOR} nightly wheels (PyTorch 2.10+)"
+    elif (( $(echo "$ROCM_MAJOR == 6" | bc -l) )) && (( $(echo "$ROCM_MINOR >= 5" | bc -l) )); then
+        PYTORCH_INDEX="https://download.pytorch.org/whl/rocm${ROCM_MAJOR}.${ROCM_MINOR}"
+        print_info "PyTorch index: ROCm ${ROCM_MAJOR}.${ROCM_MINOR} wheels"
+    elif (( $(echo "$ROCM_MAJOR == 6" | bc -l) )); then
+        PYTORCH_INDEX="https://download.pytorch.org/whl/rocm6.2"
+        print_info "PyTorch index: ROCm 6.2 wheels"
+    elif (( $(echo "$ROCM_MAJOR == 5" | bc -l) )); then
+        PYTORCH_INDEX="https://download.pytorch.org/whl/rocm5.7"
+        print_info "PyTorch index: ROCm 5.7 wheels"
+    else
+        print_warning "Unsupported ROCm version for standard wheels"
+        PYTORCH_INDEX="https://download.pytorch.org/whl/rocm5.7"
+    fi
+}
+
+# Verify PyTorch vision/audio packages are compatible
+verify_pytorch_packages() {
+    print_info "Verifying PyTorch package versions..."
+    
+    # Check if torchvision and torchaudio match PyTorch
+    if python3 -c "import torch, torchvision; print('torchvision:', torchvision.__version__)" 2>/dev/null; then
+        print_info "✓ torchvision is installed"
+    else
+        print_warning "torchvision not found - will need to install matching version"
+        return 1
+    fi
+    
+    if python3 -c "import torch, torchaudio; print('torchaudio:', torchaudio.__version__)" 2>/dev/null; then
+        print_info "✓ torchaudio is installed"
+    else
+        print_warning "torchaudio not found - will need to install matching version"
+        return 1
+    fi
+    
+    return 0
+}
+
 # Install/upgrade PyTorch with ROCm support
 install_pytorch_rocm() {
     # Check if PyTorch is already installed
@@ -120,27 +163,22 @@ install_pytorch_rocm() {
         else
             print_warning "GPU support not available with existing PyTorch installation"
         fi
+        
+        # Verify vision/audio packages are present
+        if ! verify_pytorch_packages; then
+            print_warning "Missing torchvision or torchaudio - installing matching versions"
+            python3 -m pip install torchvision torchaudio --index-url "$PYTORCH_INDEX" --upgrade
+        fi
+        
         return 0
     fi
     
     print_info "Installing PyTorch with ROCm support..."
     
-    # Determine PyTorch index URL based on ROCm version
-    if (( $(echo "$ROCM_MAJOR >= 6" | bc -l) )); then
-        PYTORCH_INDEX="https://download.pytorch.org/whl/rocm6.2"
-        print_info "Using PyTorch ROCm 6.2 wheels"
-    elif (( $(echo "$ROCM_MAJOR == 5" | bc -l) )); then
-        PYTORCH_INDEX="https://download.pytorch.org/whl/rocm5.7"
-        print_info "Using PyTorch ROCm 5.7 wheels"
-    else
-        print_warning "Unsupported ROCm version for standard wheels"
-        PYTORCH_INDEX="https://download.pytorch.org/whl/rocm5.7"
-    fi
-    
     # Install PyTorch and related packages
     python3 -m pip install \
         torch torchvision torchaudio \
-        --index-url $PYTORCH_INDEX
+        --index-url "$PYTORCH_INDEX"
     
     # Verify PyTorch installation
     if python3 -c "import torch; print(f'PyTorch {torch.__version__} installed successfully')" 2>/dev/null; then
@@ -177,6 +215,25 @@ clone_vllm() {
     export VLLM_SOURCE_DIR="$VLLM_DIR"
 }
 
+# Install vLLM build dependencies
+install_vllm_build_deps() {
+    print_info "Installing vLLM build dependencies..."
+    
+    # Install required build dependencies that vLLM needs
+    python3 -m pip install --upgrade \
+        torch \
+        packaging \
+        psutil \
+        ray
+    
+    # Ensure we have the correct versions of ninja and cmake
+    if ! python3 -c "import ninja" 2>/dev/null; then
+        python3 -m pip install ninja
+    fi
+    
+    print_info "Build dependencies installed"
+}
+
 # Build and install vLLM from source
 build_vllm() {
     print_info "Building vLLM from source (this may take 10-30 minutes)..."
@@ -191,10 +248,14 @@ build_vllm() {
     export ROCM_HOME="${ROCM_HOME:-/opt/rocm}"
     export HIP_PATH="${HIP_PATH:-$ROCM_HOME}"
     
+    # Get installed PyTorch version for compatibility info
+    PYTORCH_VERSION=$(python3 -c "import torch; print(torch.__version__)" 2>/dev/null || echo "unknown")
+    
     print_info "Build configuration:"
     print_info "  ROCM_HOME: $ROCM_HOME"
     print_info "  PYTORCH_ROCM_ARCH: $PYTORCH_ROCM_ARCH"
     print_info "  VLLM_TARGET_DEVICE: $VLLM_TARGET_DEVICE"
+    print_info "  PyTorch version: $PYTORCH_VERSION"
     
     # Clean previous builds
     if [ -d "build" ]; then
@@ -203,7 +264,10 @@ build_vllm() {
     fi
     
     # Build and install vLLM
-    python3 -m pip install -e . --verbose
+    # Use --no-build-isolation to prevent pip from creating a separate build environment
+    # that might install a different PyTorch version, causing conflicts
+    print_info "Installing vLLM (using existing PyTorch installation)..."
+    python3 -m pip install -e . --no-build-isolation --verbose
     
     cd -
     
@@ -229,9 +293,11 @@ main() {
     check_venv
     detect_rocm
     check_dependencies
+    get_pytorch_index_url
     install_python_deps
     install_pytorch_rocm
     clone_vllm "$VLLM_DIR"
+    install_vllm_build_deps
     build_vllm
     
     echo

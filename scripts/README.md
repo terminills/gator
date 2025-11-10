@@ -11,11 +11,17 @@ Builds and installs vLLM (Very Large Language Model inference engine) for AMD RO
 **Purpose**: vLLM is a high-performance inference engine for large language models. AMD systems require building from source as there are no pre-built wheels available.
 
 **Requirements**:
-- ROCm 5.7+ or 6.x+
+- ROCm 5.7+ or 6.x+ or 7.0+ (for PyTorch 2.10 support)
 - Python 3.9+
 - Build tools (gcc, g++, cmake, ninja)
 - 16GB+ RAM for building
 - AMD GPU with ROCm support
+
+**ROCm 7.0+ / PyTorch 2.10 Support**:
+- Automatically detects ROCm 7.0+ and uses nightly PyTorch 2.10+ wheels
+- Uses `--no-build-isolation` to prevent PyTorch version conflicts during vLLM build
+- Ensures torchvision and torchaudio versions match installed PyTorch
+- Compatible with both stable (ROCm 6.x) and nightly (ROCm 7.0+) PyTorch builds
 
 **Usage**:
 ```bash
@@ -210,6 +216,11 @@ if torch.cuda.is_available():
 - Ensure ROCm is properly installed: `rocminfo`
 - Check PyTorch version: `python3 -c "import torch; print(torch.__version__)"`
 - Verify ROCM_HOME: `echo $ROCM_HOME`
+- **PyTorch version conflicts** (e.g., "torchvision requires torch==2.10.0 but you have torch 2.9.0"):
+  - This occurs when vLLM's build dependencies conflict with installed PyTorch
+  - The script now uses `--no-build-isolation` to prevent this issue
+  - Ensure torchvision and torchaudio are installed: `pip install torchvision torchaudio --index-url <pytorch-index>`
+  - For ROCm 7.0+: Use nightly index URL: `https://download.pytorch.org/whl/nightly/rocm7.0`
 
 **ComfyUI not starting**:
 - Check dependencies: `cd ComfyUI && pip install -r requirements.txt`
