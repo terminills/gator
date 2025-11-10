@@ -147,6 +147,9 @@ async def add_personas_appearance_columns(conn, is_sqlite: bool) -> List[str]:
 async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
     """
     Run all pending migrations on the database.
+    
+    Automatic migrations can be controlled via the AUTO_MIGRATE environment variable.
+    Set AUTO_MIGRATE=false in production to disable automatic migrations.
 
     Args:
         engine: SQLAlchemy async engine
@@ -154,6 +157,28 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
     Returns:
         Dict with migration results
     """
+    import os
+    
+    # Check if auto-migration is enabled
+    auto_migrate = os.getenv("AUTO_MIGRATE", "true").lower() in ("true", "1", "yes")
+    env = os.getenv("GATOR_ENV", "development").lower()
+    
+    if not auto_migrate:
+        logger.info("Automatic migrations disabled (AUTO_MIGRATE=false)")
+        return {
+            "migrations_run": [],
+            "columns_added": [],
+            "success": True,
+            "skipped": True,
+            "reason": "AUTO_MIGRATE disabled"
+        }
+    
+    if env == "production":
+        logger.warning(
+            "Running automatic migrations in production. "
+            "Set AUTO_MIGRATE=false to disable this in production."
+        )
+    
     db_url = str(engine.url)
     is_sqlite = "sqlite" in db_url
 
