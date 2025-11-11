@@ -829,6 +829,20 @@
                 </div>
             </div>
             
+            <!-- Inference Engines Section -->
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">🔧 Inference Engines</h2>
+                    <button class="btn btn-sm btn-secondary" onclick="refreshInferenceEngines()">🔄 Refresh</button>
+                </div>
+                <div id="inference-engines">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading inference engines...
+                    </div>
+                </div>
+            </div>
+            
             <!-- Available Models Section -->
             <div class="section">
                 <div class="section-header">
@@ -1481,10 +1495,187 @@
             modal.style.display = 'block';
         }
         
+        // Inference Engines Functions
+        async function loadInferenceEngines() {
+            const enginesDiv = document.getElementById('inference-engines');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/setup/inference-engines/status`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error('Failed to load inference engines');
+                }
+                
+                const engines = data.engines;
+                const byCategory = data.by_category;
+                
+                let html = '';
+                
+                // Display engines grouped by category
+                ['text', 'image'].forEach(category => {
+                    if (!byCategory[category] || byCategory[category].length === 0) return;
+                    
+                    const categoryIcon = category === 'text' ? '📝' : '🎨';
+                    const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1);
+                    
+                    html += `<div style="margin-bottom: 30px;">`;
+                    html += `<h3 style="color: var(--text-primary); margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">`;
+                    html += `${categoryIcon} ${categoryTitle} Generation Engines</h3>`;
+                    html += `<div class="models-grid">`;
+                    
+                    byCategory[category].forEach(engine => {
+                        const isInstalled = engine.status === 'installed';
+                        const statusBadge = isInstalled 
+                            ? '<span class="status-badge installed">✓ Installed</span>'
+                            : '<span class="status-badge unavailable">Not Installed</span>';
+                        
+                        html += `<div class="model-card">`;
+                        html += `<span class="model-category ${category}">${category}</span>`;
+                        html += `<div class="model-name">${engine.name}</div>`;
+                        
+                        // Show details based on installation status
+                        if (isInstalled) {
+                            html += `<div class="model-details">`;
+                            if (engine.version) {
+                                html += `📦 Version: ${engine.version}<br>`;
+                            }
+                            if (engine.path) {
+                                html += `📁 Path: ${engine.path}<br>`;
+                            }
+                            if (engine.web_ui) {
+                                html += `🌐 Web UI: <a href="${engine.web_ui}" target="_blank">${engine.web_ui}</a><br>`;
+                            }
+                            if (engine.is_rocm_build) {
+                                html += `<span style="color: var(--accent);">🎮 ROCm Build</span><br>`;
+                            }
+                            if (engine.is_hip_build) {
+                                html += `<span style="color: var(--accent);">🎮 HIP Build</span><br>`;
+                            }
+                            if (engine.python_package) {
+                                html += `🐍 Python Package<br>`;
+                            }
+                            html += `</div>`;
+                        } else {
+                            html += `<div class="model-details">`;
+                            if (engine.install_script) {
+                                html += `📜 Script: ${engine.install_script}<br>`;
+                            }
+                            if (engine.install_url) {
+                                html += `🔗 <a href="${engine.install_url}" target="_blank">Installation Guide</a><br>`;
+                            }
+                            html += `</div>`;
+                        }
+                        
+                        html += statusBadge;
+                        
+                        // Show install button if not installed and has install script
+                        if (!isInstalled && engine.install_script) {
+                            html += `<div style="margin-top: 15px;">`;
+                            html += `<button class="btn btn-success btn-sm" id="install-engine-${engine.id}" onclick="installInferenceEngine('${engine.id}')">`;
+                            html += `🚀 Install ${engine.name}`;
+                            html += `</button>`;
+                            html += `<p style="margin-top: 8px; font-size: 0.85rem; color: var(--text-secondary);">`;
+                            html += `Installation may take 10-30 minutes`;
+                            html += `</p>`;
+                            html += `</div>`;
+                        }
+                        
+                        html += `</div>`;
+                    });
+                    
+                    html += `</div></div>`;
+                });
+                
+                // Add informational note
+                html += `<div class="alert alert-info" style="margin-top: 20px;">`;
+                html += `<strong>ℹ️ About Inference Engines:</strong><br>`;
+                html += `• <strong>Text Engines:</strong> vLLM and llama.cpp-hip are used for running large language models locally<br>`;
+                html += `• <strong>Image Engines:</strong> ComfyUI and Automatic1111 provide powerful interfaces for Stable Diffusion<br>`;
+                html += `• <strong>ROCm/HIP builds</strong> are optimized for AMD GPUs<br>`;
+                html += `• Python packages (transformers, diffusers) are lighter-weight alternatives<br>`;
+                html += `• Installation scripts are available in the <code>scripts/</code> directory`;
+                html += `</div>`;
+                
+                enginesDiv.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Failed to load inference engines:', error);
+                enginesDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        Failed to load inference engines. Please try refreshing the page.
+                    </div>
+                `;
+            }
+        }
+        
+        async function refreshInferenceEngines() {
+            const enginesDiv = document.getElementById('inference-engines');
+            enginesDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Refreshing inference engines...
+                </div>
+            `;
+            await loadInferenceEngines();
+        }
+        
+        async function installInferenceEngine(engineId) {
+            const btn = document.getElementById(`install-engine-${engineId}`);
+            if (!btn) return;
+            
+            // Disable button and show progress
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Installing...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/setup/inference-engines/install`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        engine_name: engineId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Show installation log
+                showInstallationLog(engineId, data);
+                
+                if (data.success) {
+                    btn.innerHTML = '✅ Installed!';
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-secondary');
+                    
+                    // Reload engines after successful installation
+                    setTimeout(() => {
+                        refreshInferenceEngines();
+                    }, 3000);
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = '❌ Failed - Retry';
+                }
+            } catch (error) {
+                btn.disabled = false;
+                btn.innerHTML = '❌ Failed - Retry';
+                
+                // Show error in log modal
+                showInstallationLog(engineId, {
+                    success: false,
+                    message: `Error: ${error.message}`,
+                    stdout: '',
+                    stderr: error.stack || error.message
+                });
+            }
+        }
+        
         // Load data on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadBranding();
             loadSystemInfo();
+            loadInferenceEngines();
         });
     </script>
 </body>

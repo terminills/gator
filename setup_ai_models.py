@@ -907,11 +907,34 @@ class ModelSetupManager:
             print(f"Missing dependencies for voice models: {str(e)}")
             print(f"Please install: pip install huggingface_hub")
     
+    def get_inference_engines_status(self) -> Dict:
+        """
+        Get status of inference engines using model_detection utilities.
+        
+        Returns:
+            Dictionary with inference engine status information
+        """
+        try:
+            # Try to import the model_detection utilities
+            sys.path.insert(0, str(Path(__file__).parent / "src"))
+            from backend.utils.model_detection import get_inference_engines_status
+            
+            return get_inference_engines_status(base_dir=self.models_dir.parent)
+        except ImportError:
+            # Fallback if utilities not available
+            return {
+                "error": "Model detection utilities not available",
+                "vllm": {"status": "unknown"},
+                "comfyui": {"status": "unknown"},
+                "llama-cpp": {"status": "unknown"},
+            }
+    
     def create_model_config(self) -> None:
         """Create model configuration file."""
         config = {
             "system_info": self.get_system_info(),
             "installed_models": {},
+            "inference_engines": self.get_inference_engines_status(),
             "api_services": {
                 "openai": {
                     "enabled": False,
