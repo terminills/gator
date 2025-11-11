@@ -20,6 +20,9 @@ class ChatMessage(BaseModel):
     context: Optional[Dict] = Field(
         None, description="Optional context about current page/state"
     )
+    verbose: bool = Field(
+        False, description="Enable verbose command-line style output with execution details"
+    )
 
 
 class ChatResponse(BaseModel):
@@ -43,12 +46,16 @@ async def chat_with_gator(message_data: ChatMessage):
 
     Gator is the tough, no-nonsense help agent who will guide you through
     the platform with his characteristic attitude and expertise.
+    
+    Set verbose=True for command-line style output with detailed execution logs.
     """
     try:
         from datetime import datetime
 
         response = await gator_agent.process_message(
-            message=message_data.message, context=message_data.context
+            message=message_data.message, 
+            context=message_data.context,
+            verbose=message_data.verbose
         )
 
         return ChatResponse(response=response, timestamp=datetime.now().isoformat())

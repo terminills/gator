@@ -27,26 +27,20 @@ class GatorAgentService:
     def __init__(self):
         self.conversation_history: List[Dict[str, str]] = []
         
-        # Check for local models first
-        self.local_model_available = False
+        # Always use the AI models manager which handles local models
+        self.ai_models = None
+        self.models_available = False
         try:
-            from backend.services.ai_models import AIModelManager
-            self.ai_models = AIModelManager()
-            self.local_model_available = True
-            logger.info("Gator agent initialized with local LLM support")
+            from backend.services.ai_models import ai_models
+            self.ai_models = ai_models
+            self.models_available = True
+            logger.info("Gator agent initialized with AI models manager (prioritizes local models)")
         except Exception as e:
-            logger.debug(f"Local models not available: {e}")
-            self.ai_models = None
+            logger.error(f"AI models manager not available: {e}")
+            logger.error("CRITICAL: Gator agent cannot function without AI models!")
         
-        # Check for cloud LLM API keys as fallback
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
-        self.cloud_llm_available = bool(self.openai_api_key or self.anthropic_api_key)
-        
-        if not self.local_model_available and self.cloud_llm_available:
-            logger.info("Gator agent will use cloud LLM APIs (no local models)")
-        elif not self.local_model_available and not self.cloud_llm_available:
-            logger.info("Gator agent using rule-based responses (no LLMs available)")
+        if not self.models_available:
+            logger.error("GATOR AGENT DISABLED: No AI models available. Install local models to enable.")
 
         # Gator's characteristic phrases
         self.gator_phrases = [
@@ -127,7 +121,7 @@ class GatorAgentService:
         }
 
     async def process_message(
-        self, message: str, context: Optional[Dict] = None
+        self, message: str, context: Optional[Dict] = None, verbose: bool = False
     ) -> str:
         """
         Process a user message and return Gator's response.
@@ -135,12 +129,13 @@ class GatorAgentService:
         Args:
             message: The user's input message
             context: Optional context about the current state/page
+            verbose: If True, return detailed execution logs (command-line style)
 
         Returns:
-            Gator's response as a string
+            Gator's response as a string (or detailed logs if verbose=True)
         """
         # Clean and normalize the message
-        message = message.strip().lower()
+        message_lower = message.strip().lower()
 
         # Add to conversation history
         timestamp = datetime.now().isoformat()
@@ -148,38 +143,104 @@ class GatorAgentService:
             {"timestamp": timestamp, "user_message": message, "context": context or {}}
         )
 
-        # Analyze the message and generate response
-        response = await self._generate_response(message, context)
+        # In verbose mode, provide detailed execution logging
+        if verbose:
+            response = await self._generate_verbose_response(message, message_lower, context)
+        else:
+            # Analyze the message and generate response
+            response = await self._generate_response(message_lower, context)
 
         # Add response to history
         self.conversation_history[-1]["gator_response"] = response
 
         return response
 
-    async def _generate_response(
-        self, message: str, context: Optional[Dict] = None
+    async def _generate_verbose_response(
+        self, message: str, message_lower: str, context: Optional[Dict] = None
     ) -> str:
-        """Generate Gator's response based on message analysis."""
+        """Generate verbose command-line style response with execution details."""
+        output = []
+        output.append(f"[GATOR CLI] Processing command: {message}")
+        output.append(f"[TIMESTAMP] {datetime.now().isoformat()}")
+        output.append(f"[CONTEXT] {context if context else 'None'}")
+        output.append("")
         
-        # Try local model first, then cloud APIs, then rule-based
-        if self.local_model_available:
-            try:
-                llm_response = await self._generate_local_llm_response(message, context)
-                if llm_response:
-                    return llm_response
-            except Exception as e:
-                logger.warning(f"Local LLM response failed, trying cloud APIs: {e}")
+        # Check for AI model availability
+        output.append("[SYSTEM CHECK] Checking AI models...")
+        if not self.models_available or not self.ai_models:
+            output.append("  ✗ AI models manager: NOT AVAILABLE")
+            output.append("")
+            output.append("[FATAL ERROR] Cannot proceed without AI models manager!")
+            output.append("[ACTION REQUIRED] Install and configure local AI models")
+            return "\n".join(output)
         
-        if self.cloud_llm_available:
-            try:
-                llm_response = await self._generate_cloud_llm_response(message, context)
-                if llm_response:
-                    return llm_response
-            except Exception as e:
-                logger.warning(f"Cloud LLM response failed, falling back to rule-based: {e}")
-
+        output.append("  ✓ AI models manager: AVAILABLE")
+        
+        # Check which models are loaded
+        text_models = self.ai_models.available_models.get("text", [])
+        local_text_models = [m for m in text_models if m.get("provider") == "local" and m.get("loaded")]
+        cloud_text_models = [m for m in text_models if m.get("provider") in ["openai", "anthropic"] and m.get("loaded")]
+        
+        output.append(f"  - Local text models: {len(local_text_models)} loaded")
+        for model in local_text_models:
+            output.append(f"    • {model.get('name')} ({model.get('inference_engine', 'unknown')})")
+        
+        output.append(f"  - Cloud text models: {len(cloud_text_models)} available")
+        for model in cloud_text_models:
+            output.append(f"    • {model.get('name')}")
+        
+        output.append("")
+        
+        # Analyze command intent
+        output.append("[INTENT ANALYSIS] Parsing command...")
+        
+        # Generate using AI models manager (handles local models automatically)
+        output.append("[AGENT] Calling AI models manager for text generation...")
+        output.append("[MODEL SELECTION] Manager will select optimal model (prefers LOCAL)")
+        
+        try:
+            # Build Gator-style system prompt
+            system_prompt = """You are Gator, a tough, no-nonsense AI help agent. You're direct, confident, and sometimes intimidating, but ultimately helpful. Keep responses concise (2-3 sentences). Use phrases like "Listen here", "Pay attention"."""
+            
+            full_prompt = f"{system_prompt}\n\nUser: {message}\nGator:"
+            
+            output.append(f"[PROMPT] {full_prompt[:100]}...")
+            output.append("")
+            output.append("[INFERENCE] Generating response...")
+            start_time = datetime.now()
+            
+            llm_response = await self.ai_models.generate_text(full_prompt, max_tokens=200, temperature=0.8)
+            
+            elapsed = (datetime.now() - start_time).total_seconds()
+            
+            output.append(f"[INFERENCE] ✓ Generated in {elapsed:.2f}s")
+            output.append("")
+            output.append("[RESPONSE]")
+            output.append(llm_response)
+            
+            return "\n".join(output)
+            
+        except Exception as e:
+            output.append(f"[INFERENCE] ✗ FAILED: {str(e)}")
+            output.append("")
+            output.append("[FATAL ERROR] AI model generation failed!")
+            output.append("[ERROR DETAILS] " + str(e))
+            output.append("")
+            output.append("[NO FALLBACK] System configured to fail on AI errors for debugging")
+            
+            return "\n".join(output)
+    
+    async def _generate_rule_based_response(
+        self, message: str, context: Optional[Dict] = None, log_output: Optional[List[str]] = None
+    ) -> str:
+        """Generate rule-based response with optional logging."""
+        if log_output is not None:
+            log_output.append("[RULE ENGINE] Analyzing message patterns...")
+        
         # Greeting detection
         if any(word in message for word in ["hello", "hi", "hey", "what's up", "sup"]):
+            if log_output:
+                log_output.append("[RULE ENGINE] Pattern matched: GREETING")
             return random.choice(self.gator_responses["greeting"])
 
         # Goodbye detection
@@ -187,9 +248,11 @@ class GatorAgentService:
             word in message
             for word in ["bye", "goodbye", "thanks", "thank you", "later"]
         ):
+            if log_output:
+                log_output.append("[RULE ENGINE] Pattern matched: GOODBYE")
             return random.choice(self.gator_responses["goodbye"])
 
-        # Help request detection - be more specific about help keywords
+        # Help request detection
         if any(
             phrase in message
             for phrase in [
@@ -202,15 +265,16 @@ class GatorAgentService:
                 "show me",
             ]
         ):
+            if log_output:
+                log_output.append("[RULE ENGINE] Pattern matched: HELP_REQUEST")
             return await self._handle_help_request(message, context)
 
-        # Simple question detection - also handle as help
+        # Simple question detection
         if (
             message.startswith("how ")
             or message.startswith("what ")
             or message.startswith("where ")
         ):
-            # But check if it's actually about our platform
             if any(
                 word in message
                 for word in [
@@ -226,20 +290,56 @@ class GatorAgentService:
                     "config",
                 ]
             ):
+                if log_output:
+                    log_output.append("[RULE ENGINE] Pattern matched: QUESTION (platform-related)")
                 return await self._handle_help_request(message, context)
-            # Otherwise, fall through to default response
 
         # Error/problem detection
         if any(
             word in message
             for word in ["error", "problem", "broken", "not working", "issue", "bug"]
         ):
+            if log_output:
+                log_output.append("[RULE ENGINE] Pattern matched: ERROR_REPORT")
             return await self._handle_error_report(message, context)
 
-        # Default response with some attitude - ensure test keywords are present
+        # Default response
+        if log_output:
+            log_output.append("[RULE ENGINE] No pattern matched - using DEFAULT_RESPONSE")
+        
         gator_start = random.choice(self.gator_phrases)
         confidence_quote = random.choice(self.gator_confidence)
         return f"{gator_start}, I'm not sure what you're asking about. Be more specific - what do you need help with? Personas? Content? DNS? System status? {confidence_quote} - now give me something to work with here."
+    
+    async def _generate_response(
+        self, message: str, context: Optional[Dict] = None
+    ) -> str:
+        """Generate Gator's response based on message analysis."""
+        
+        # Use AI models manager which handles local models
+        if self.models_available and self.ai_models:
+            try:
+                # Build Gator-style system prompt
+                system_prompt = """You are Gator, a tough, no-nonsense AI help agent for the Gator AI Influencer Platform. You're direct, confident, and sometimes intimidating, but ultimately helpful. Keep responses concise (2-3 sentences). Use phrases like "Listen here", "Pay attention"."""
+                
+                full_prompt = f"{system_prompt}\n\nUser: {message}\nGator:"
+                
+                llm_response = await self.ai_models.generate_text(
+                    full_prompt, 
+                    max_tokens=200, 
+                    temperature=0.8
+                )
+                
+                if llm_response:
+                    return llm_response
+                    
+            except Exception as e:
+                logger.error(f"AI model generation failed: {e}")
+                # NO FALLBACK - fail hard for debugging
+                raise Exception(f"AI model generation FAILED: {e}. No fallback configured.")
+        
+        # If no models available, fail hard
+        raise Exception("No AI models available. Cannot generate response without local models.")
 
     async def _handle_help_request(
         self, message: str, context: Optional[Dict] = None
