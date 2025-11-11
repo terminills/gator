@@ -71,22 +71,6 @@ class AIModelManager:
         # Model configurations based on recommendations
         self.local_model_configs = {
             "text": {
-                "demo-mock-model": {
-                    "model_id": "demo/mock-text-model",
-                    "size_gb": 0,
-                    "min_gpu_memory_gb": 0,
-                    "min_ram_gb": 0,
-                    "inference_engine": "mock",
-                    "description": "Mock model for testing without GPU (returns canned responses)",
-                },
-                "gpt2-cpu": {
-                    "model_id": "gpt2",
-                    "size_gb": 0.5,
-                    "min_gpu_memory_gb": 0,
-                    "min_ram_gb": 2,
-                    "inference_engine": "transformers",
-                    "description": "Small CPU-friendly model for testing",
-                },
                 "llama-3.1-70b": {
                     "model_id": "meta-llama/Llama-3.1-70B",
                     "size_gb": 140,
@@ -256,10 +240,6 @@ class AIModelManager:
                     "min_gpu_memory_gb", 0
                 ) and sys_req["ram_gb"] >= config.get("min_ram_gb", 0)
 
-                # Always enable mock model for testing
-                if model_name == "demo-mock-model":
-                    can_run = True
-                
                 if can_run:
                     # Check both model path formats for compatibility
                     # 1. Category subdirectory: ./models/text/model-name/
@@ -282,15 +262,10 @@ class AIModelManager:
 
                     inference_engine = config.get("inference_engine", "transformers")
 
-                    # Mock engine is always available
-                    if inference_engine == "mock":
-                        engine_available = True
-                        is_downloaded = True  # Mock doesn't need downloads
-                    else:
-                        # Check if inference engine is available
-                        engine_available = await self._check_inference_engine(
-                            inference_engine
-                        )
+                    # Check if inference engine is available
+                    engine_available = await self._check_inference_engine(
+                        inference_engine
+                    )
 
                     self.available_models["text"].append(
                         {
@@ -305,7 +280,7 @@ class AIModelManager:
                             "description": config["description"],
                             "device": "cuda" if sys_req["gpu_memory_gb"] > 0 else "cpu",
                             "quant_options": config.get("quant_options", []),
-                            "path": str(model_path) if inference_engine != "mock" else "built-in",
+                            "path": str(model_path),
                         }
                     )
 
@@ -1054,9 +1029,7 @@ class AIModelManager:
             model_name = model["name"]
             inference_engine = model.get("inference_engine", "transformers")
 
-            if inference_engine == "mock":
-                return await self._generate_text_mock(prompt, model, **kwargs)
-            elif inference_engine == "vllm":
+            if inference_engine == "vllm":
                 return await self._generate_text_vllm(prompt, model, **kwargs)
             elif inference_engine == "transformers":
                 return await self._generate_text_transformers(prompt, model, **kwargs)
@@ -1067,42 +1040,6 @@ class AIModelManager:
             logger.error(f"Local text generation failed: {str(e)}")
             # Fallback to placeholder
             return f"[Local text generation failed: {str(e)}]"
-    
-    async def _generate_text_mock(
-        self, prompt: str, model: Dict[str, Any], **kwargs
-    ) -> str:
-        """Mock text generation for testing without GPU."""
-        import time
-        import random
-        
-        # Simulate processing time
-        await asyncio.sleep(random.uniform(0.1, 0.5))
-        
-        # Parse the prompt to give contextual responses
-        prompt_lower = prompt.lower()
-        
-        # Gator-style responses
-        if "gator" in prompt_lower:
-            responses = [
-                "Listen here, I'm Gator and I don't play no games. What do you need help with?",
-                "Alright, pay attention. I'm here to help but I expect you to keep up.",
-                "I'm a peacock, you gotta let me fly! Now what's the problem?",
-                "Don't waste my time with nonsense. Tell me what you need straight up.",
-            ]
-        elif any(word in prompt_lower for word in ["help", "how", "what", "where"]):
-            responses = [
-                "That's a good question. Let me break it down for you - [MOCK RESPONSE: Using demo model without GPU]",
-                "Alright, here's how it works: [MOCK RESPONSE: Local text generation active]",
-                "Pay attention, this is important: [MOCK RESPONSE: Demo mode enabled]",
-            ]
-        else:
-            responses = [
-                f"[MOCK LOCAL TEXT MODEL] Generated response for: {prompt[:50]}...",
-                f"[DEMO MODE] This is a mock response from the local text model",
-                f"[CPU-ONLY MODE] Model is generating text without GPU acceleration",
-            ]
-        
-        return random.choice(responses)
 
     async def _generate_image_local(
         self, prompt: str, model: Dict[str, Any], **kwargs
