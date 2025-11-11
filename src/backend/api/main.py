@@ -320,6 +320,14 @@ def create_app() -> FastAPI:
         if os.path.exists(settings_path):
             return FileResponse(settings_path)
         return {"error": "Settings page not found"}
+    
+    @app.get("/admin/diagnostics", tags=["system"])
+    async def admin_diagnostics():
+        """Serve AI diagnostics page."""
+        diagnostics_path = os.path.join(project_root, "admin_panel", "diagnostics.html")
+        if os.path.exists(diagnostics_path):
+            return FileResponse(diagnostics_path)
+        return {"error": "AI diagnostics page not found"}
 
     @app.get("/ai-models-setup", tags=["system"])
     async def ai_models_setup():
