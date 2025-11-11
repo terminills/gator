@@ -1127,3 +1127,162 @@ async def fix_dependencies() -> Dict[str, Any]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fix dependencies: {str(e)}",
         )
+
+
+@router.get("/inference-engines/status")
+async def get_inference_engines_status() -> Dict[str, Any]:
+    """
+    Get status of all inference engines (vLLM, llama.cpp, ComfyUI, Automatic1111, etc.).
+    
+    Returns information about which inference engines are installed and their versions.
+    This helps users verify that engines installed via setup scripts are properly detected.
+    """
+    try:
+        import sys
+        from pathlib import Path
+        
+        # Add backend utilities to path
+        backend_path = Path(__file__).parent.parent.parent
+        if str(backend_path) not in sys.path:
+            sys.path.insert(0, str(backend_path))
+        
+        from utils.model_detection import get_inference_engines_status
+        
+        # Get project root for base_dir
+        project_root = Path(__file__).parents[4]
+        
+        engines_status = get_inference_engines_status(base_dir=project_root)
+        
+        # Group engines by category
+        by_category = {}
+        for engine_id, engine_info in engines_status.items():
+            category = engine_info.get("category", "other")
+            if category not in by_category:
+                by_category[category] = []
+            by_category[category].append({
+                "id": engine_id,
+                **engine_info
+            })
+        
+        # Count installed vs not installed
+        installed_count = sum(1 for e in engines_status.values() if e.get("status") == "installed")
+        total_count = len(engines_status)
+        
+        return {
+            "success": True,
+            "engines": engines_status,
+            "by_category": by_category,
+            "summary": {
+                "installed": installed_count,
+                "not_installed": total_count - installed_count,
+                "total": total_count
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get inference engines status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get inference engines status: {str(e)}",
+        )
+
+
+class InferenceEngineInstallRequest(BaseModel):
+    """Request to install an inference engine."""
+    
+    engine_name: str = Field(..., description="Engine name (vllm, comfyui, llama-cpp)")
+    install_path: Optional[str] = Field(None, description="Optional custom installation path")
+
+
+@router.post("/inference-engines/install")
+async def install_inference_engine(request: InferenceEngineInstallRequest) -> Dict[str, Any]:
+    """
+    Install an inference engine using the appropriate installation script.
+    
+    Triggers installation of vLLM, ComfyUI, or other inference engines using
+    the scripts in the scripts/ directory.
+    """
+    try:
+        import subprocess
+        import sys
+        from pathlib import Path
+        
+        project_root = Path(__file__).parents[4]
+        scripts_dir = project_root / "scripts"
+        
+        # Map engine names to installation scripts
+        script_map = {
+            "vllm": "install_vllm_rocm.sh",
+            "vllm-rocm": "install_vllm_rocm.sh",
+            "comfyui": "install_comfyui_rocm.sh",
+            "comfyui-rocm": "install_comfyui_rocm.sh",
+        }
+        
+        engine_name = request.engine_name.lower()
+        
+        if engine_name not in script_map:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsupported engine: {engine_name}. Supported engines: {', '.join(script_map.keys())}"
+            )
+        
+        script_name = script_map[engine_name]
+        script_path = scripts_dir / script_name
+        
+        if not script_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Installation script not found: {script_path}"
+            )
+        
+        logger.info(f"Starting installation of {engine_name}...")
+        
+        # Build command
+        cmd = ["bash", str(script_path)]
+        if request.install_path:
+            cmd.append(request.install_path)
+        
+        # Run installation script
+        # This can take a long time (10-30 minutes for compilation)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=1800,  # 30 minutes timeout
+            cwd=str(project_root)
+        )
+        
+        response = {
+            "success": result.returncode == 0,
+            "message": (
+                f"Successfully installed {engine_name}"
+                if result.returncode == 0
+                else f"Installation of {engine_name} failed or partially completed"
+            ),
+            "engine": engine_name,
+            "script": script_name,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "return_code": result.returncode,
+        }
+        
+        if result.returncode == 0:
+            logger.info(f"Inference engine {engine_name} installed successfully")
+        else:
+            logger.warning(f"Inference engine {engine_name} installation failed with code {result.returncode}")
+        
+        return response
+        
+    except subprocess.TimeoutExpired:
+        raise HTTPException(
+            status_code=status.HTTP_408_REQUEST_TIMEOUT,
+            detail=f"Installation of {request.engine_name} timed out (>30 minutes). Check logs for status."
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to install inference engine: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to install inference engine: {str(e)}",
+        )

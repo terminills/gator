@@ -799,24 +799,31 @@ class ModelSetupManager:
                         # Piper TTS installation
                         print(f"   Downloading Piper TTS model...")
                         
-                        # Piper uses a different structure - download specific voice model
-                        # Using en_US-lessac-medium as default
+                        # Piper uses a nested directory structure in the HuggingFace repository
+                        # Repository structure: en/en_US/lessac/medium/en_US-lessac-medium.onnx
+                        # Using en_US-lessac-medium as default (high quality US English voice)
                         voice_model = "en_US-lessac-medium"
+                        voice_path_parts = ["en", "en_US", "lessac", "medium"]
                         
                         try:
-                            # Download model file
+                            # Construct the correct nested path for the model files
+                            model_filename = f"{voice_model}.onnx"
+                            config_filename = f"{voice_model}.onnx.json"
+                            nested_path = "/".join(voice_path_parts)
+                            
+                            # Download model file with correct nested path
                             model_file = hf_hub_download(
                                 repo_id="rhasspy/piper-voices",
-                                filename=f"{voice_model}.onnx",
+                                filename=f"{nested_path}/{model_filename}",
                                 cache_dir=model_path / "cache",
                                 local_dir=model_path,
                                 local_dir_use_symlinks=False
                             )
                             
-                            # Download config file
+                            # Download config file with correct nested path
                             config_file = hf_hub_download(
                                 repo_id="rhasspy/piper-voices",
-                                filename=f"{voice_model}.onnx.json",
+                                filename=f"{nested_path}/{config_filename}",
                                 cache_dir=model_path / "cache",
                                 local_dir=model_path,
                                 local_dir_use_symlinks=False
@@ -828,6 +835,9 @@ class ModelSetupManager:
                                 "model_id": model_config["model_id"],
                                 "model_type": "piper",
                                 "voice": voice_model,
+                                "voice_path": nested_path,
+                                "model_file": model_filename,
+                                "config_file": config_filename,
                                 "description": model_config["description"],
                                 "path": str(model_path)
                             }
@@ -849,7 +859,8 @@ class ModelSetupManager:
                                 "description": model_config["description"],
                                 "path": str(model_path),
                                 "status": "manual_install_required",
-                                "instructions": "Download Piper voices from https://github.com/rhasspy/piper/releases"
+                                "instructions": "Download Piper voices from https://github.com/rhasspy/piper/releases or https://huggingface.co/rhasspy/piper-voices",
+                                "manual_download_url": "https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/lessac/medium"
                             }
                             
                             with open(model_path / "model_config.json", 'w') as f:
@@ -896,11 +907,34 @@ class ModelSetupManager:
             print(f"Missing dependencies for voice models: {str(e)}")
             print(f"Please install: pip install huggingface_hub")
     
+    def get_inference_engines_status(self) -> Dict:
+        """
+        Get status of inference engines using model_detection utilities.
+        
+        Returns:
+            Dictionary with inference engine status information
+        """
+        try:
+            # Try to import the model_detection utilities
+            sys.path.insert(0, str(Path(__file__).parent / "src"))
+            from backend.utils.model_detection import get_inference_engines_status
+            
+            return get_inference_engines_status(base_dir=self.models_dir.parent)
+        except ImportError:
+            # Fallback if utilities not available
+            return {
+                "error": "Model detection utilities not available",
+                "vllm": {"status": "unknown"},
+                "comfyui": {"status": "unknown"},
+                "llama-cpp": {"status": "unknown"},
+            }
+    
     def create_model_config(self) -> None:
         """Create model configuration file."""
         config = {
             "system_info": self.get_system_info(),
             "installed_models": {},
+            "inference_engines": self.get_inference_engines_status(),
             "api_services": {
                 "openai": {
                     "enabled": False,
