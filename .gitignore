@@ -138,3 +138,4 @@ __pycache__/
 *.pyo
 test_content_features.py
 *.bak
+test_settings_fix.py
