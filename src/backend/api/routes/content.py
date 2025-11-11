@@ -175,6 +175,104 @@ async def list_all_content(
         )
 
 
+@router.get("/{content_id}/status", status_code=status.HTTP_200_OK)
+async def get_content_generation_status(
+    content_id: UUID,
+    content_service: ContentGenerationService = Depends(get_content_service),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get real-time generation status for content.
+    
+    Retrieves ACD context to show what AI agents are actually doing
+    during content generation.
+
+    Args:
+        content_id: Unique content identifier
+        content_service: Injected content generation service
+        db: Database session
+
+    Returns:
+        Generation status with ACD context details
+
+    Raises:
+        404: Content not found
+        500: Status retrieval failed
+    """
+    try:
+        # Get content record
+        content = await content_service.get_content(content_id)
+        if not content:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Content not found"
+            )
+        
+        # Extract ACD context ID from generation params
+        acd_context_id = None
+        if content.generation_params and isinstance(content.generation_params, dict):
+            acd_context_id = content.generation_params.get("acd_context_id")
+        
+        # If no ACD context, return basic status
+        if not acd_context_id:
+            return {
+                "status": "completed",
+                "content_id": str(content_id),
+                "message": "Content generation completed (no tracking context)",
+                "has_acd_context": False,
+            }
+        
+        # Get ACD context for detailed status
+        from backend.services.acd_service import ACDService
+        acd_service = ACDService(db)
+        
+        try:
+            from uuid import UUID as UUIDType
+            acd_context_id_uuid = UUIDType(acd_context_id) if isinstance(acd_context_id, str) else acd_context_id
+            acd_context = await acd_service.get_context(acd_context_id_uuid)
+        except Exception as e:
+            logger.warning(f"Failed to parse ACD context ID: {str(e)}")
+            acd_context = None
+        
+        if not acd_context:
+            return {
+                "status": "completed",
+                "content_id": str(content_id),
+                "message": "Content generation completed (context not found)",
+                "has_acd_context": False,
+            }
+        
+        # Return detailed status with ACD context
+        return {
+            "status": "tracked",
+            "content_id": str(content_id),
+            "has_acd_context": True,
+            "acd_context": {
+                "id": str(acd_context.id),
+                "phase": acd_context.ai_phase,
+                "state": acd_context.ai_state,
+                "status": acd_context.ai_status,
+                "confidence": acd_context.ai_confidence,
+                "queue_status": acd_context.ai_queue_status,
+                "queue_priority": acd_context.ai_queue_priority,
+                "note": acd_context.ai_note,
+                "assigned_to": acd_context.ai_assigned_to,
+                "context": acd_context.ai_context,
+                "metadata": acd_context.ai_metadata,
+                "created_at": acd_context.created_at.isoformat() if acd_context.created_at else None,
+                "updated_at": acd_context.updated_at.isoformat() if acd_context.updated_at else None,
+            },
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get content generation status: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve generation status",
+        )
+
+
 @router.delete("/{content_id}", status_code=status.HTTP_200_OK)
 async def delete_content(
     content_id: UUID,
