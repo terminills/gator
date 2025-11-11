@@ -179,7 +179,7 @@ class ContentResponse(BaseModel):
 class GenerationRequest(BaseModel):
     """Request for content generation."""
 
-    persona_id: uuid.UUID
+    persona_id: Optional[uuid.UUID] = None
     content_type: ContentType
     content_rating: ContentRating = ContentRating.SFW
     prompt: Optional[str] = None

@@ -482,17 +482,13 @@
             alert('Tenant switching coming soon! This will allow you to manage multiple tenants.');
         }
         
-        // Load branding on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            loadBranding();
-        });
-
         // Personas Management
         async function loadPersonas() {
             try {
                 const response = await fetch('/api/v1/personas/');
                 const data = await response.json();
-                const personas = data.personas || [];
+                // API returns list directly, not wrapped in object
+                const personas = Array.isArray(data) ? data : (data.personas || []);
                 
                 const container = document.getElementById('personas-container');
                 
@@ -555,6 +551,7 @@
         
         // Load on page load
         document.addEventListener('DOMContentLoaded', () => {
+            loadBranding();
             loadPersonas();
         });
     </script>

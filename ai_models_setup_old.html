@@ -3,23 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Models - Gator AI Admin</title>
+    <title>AI Model Setup - Gator Platform</title>
     <style>
-        :root {
-            --primary: #667eea;
-            --primary-dark: #5568d3;
-            --accent: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --dark-bg: #0f0f1e;
-            --dark-surface: #1a1a2e;
-            --dark-card: #16213e;
-            --text-primary: #ffffff;
-            --text-secondary: #a0a0b0;
-            --sidebar-width: 260px;
-            --border-color: #2a2a3e;
-        }
-        
         * {
             margin: 0;
             padding: 0;
@@ -27,252 +12,72 @@
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
-            background: var(--dark-bg);
-            color: var(--text-primary);
-            display: flex;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            padding: 20px;
         }
         
-        /* Sidebar */
-        .sidebar {
-            width: var(--sidebar-width);
-            background: var(--dark-surface);
-            border-right: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            position: fixed;
-            height: 100vh;
-            overflow-y: auto;
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
         }
         
-        .sidebar-header {
-            padding: 24px 20px;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-        
-        .logo-icon {
-            font-size: 2rem;
-        }
-        
-        .tenant-selector {
-            margin-top: 16px;
-            padding: 12px;
-            background: var(--dark-card);
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .tenant-selector:hover {
-            border-color: var(--primary);
-        }
-        
-        .tenant-name {
-            font-weight: 600;
-            font-size: 0.9rem;
-            margin-bottom: 4px;
-        }
-        
-        .tenant-plan {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-        }
-        
-        .nav-section {
-            padding: 20px 16px 8px;
-        }
-        
-        .nav-section-title {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--text-secondary);
-            font-weight: 600;
-            margin-bottom: 8px;
-            padding: 0 12px;
-        }
-        
-        .nav-menu {
-            list-style: none;
-        }
-        
-        .nav-item {
-            margin-bottom: 4px;
-        }
-        
-        .nav-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 12px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            border-radius: 8px;
-            transition: all 0.2s;
-            font-size: 0.9rem;
-        }
-        
-        .nav-link:hover {
-            background: var(--dark-card);
-            color: var(--text-primary);
-        }
-        
-        .nav-link.active {
-            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
-            color: white;
-            font-weight: 600;
-        }
-        
-        .nav-icon {
-            font-size: 1.3rem;
-            width: 24px;
+        .header {
             text-align: center;
-        }
-        
-        .badge {
-            margin-left: auto;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            background: var(--accent);
             color: white;
+            margin-bottom: 40px;
         }
         
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            margin-left: var(--sidebar-width);
-            display: flex;
-            flex-direction: column;
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
         }
         
-        .topbar {
-            height: 70px;
-            background: var(--dark-surface);
-            border-bottom: 1px solid var(--border-color);
-            padding: 0 32px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
         }
         
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-        
-        .search-box {
-            position: relative;
-        }
-        
-        .search-input {
-            width: 300px;
-            padding: 10px 16px 10px 40px;
-            background: var(--dark-card);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            color: var(--text-primary);
-            font-size: 0.9rem;
-        }
-        
-        .search-icon {
-            position: absolute;
-            left: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-secondary);
-        }
-        
-        .topbar-right {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-        
-        .icon-btn {
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--dark-card);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .icon-btn:hover {
-            border-color: var(--primary);
-        }
-        
-        .content-area {
-            flex: 1;
-            padding: 32px;
-            overflow-y: auto;
-        }
-        
-        /* Section Cards */
-        .section {
-            background: var(--dark-surface);
-            border: 1px solid var(--border-color);
+        .card {
+            background: white;
             border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
-        }
-        
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            padding: 30px;
             margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
         
-        .section-title {
-            font-size: 1.3rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
         }
         
-        /* System Info Grid */
-        .info-grid {
+        .system-info {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 16px;
+            gap: 15px;
             margin-bottom: 20px;
         }
         
-        .info-card {
-            background: var(--dark-card);
-            padding: 16px;
+        .info-item {
+            background: #f8f9fa;
+            padding: 15px;
             border-radius: 8px;
-            border: 1px solid var(--border-color);
+            border-left: 4px solid #667eea;
         }
         
         .info-label {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            margin-bottom: 6px;
+            font-weight: 600;
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
         }
         
         .info-value {
             font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text-primary);
+            color: #333;
         }
         
         .status-badge {
@@ -284,21 +89,20 @@
         }
         
         .status-badge.available {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--accent);
+            background: #d4edda;
+            color: #155724;
         }
         
         .status-badge.unavailable {
-            background: rgba(239, 68, 68, 0.2);
-            color: var(--danger);
+            background: #f8d7da;
+            color: #721c24;
         }
         
         .status-badge.installed {
-            background: rgba(102, 126, 234, 0.2);
-            color: var(--primary);
+            background: #cce5ff;
+            color: #004085;
         }
         
-        /* Models Grid */
         .models-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -307,16 +111,17 @@
         }
         
         .model-card {
-            background: var(--dark-card);
+            background: #f8f9fa;
             border-radius: 8px;
             padding: 20px;
-            border: 1px solid var(--border-color);
+            border: 2px solid #e9ecef;
             transition: all 0.3s;
         }
         
         .model-card:hover {
-            border-color: var(--primary);
+            border-color: #667eea;
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
         }
         
         .model-category {
@@ -330,41 +135,39 @@
         }
         
         .model-category.text {
-            background: rgba(59, 130, 246, 0.2);
-            color: #60a5fa;
+            background: #e3f2fd;
+            color: #1565c0;
         }
         
         .model-category.image {
-            background: rgba(168, 85, 247, 0.2);
-            color: #c084fc;
+            background: #f3e5f5;
+            color: #6a1b9a;
         }
         
         .model-category.voice {
-            background: rgba(251, 146, 60, 0.2);
-            color: #fb923c;
+            background: #fff3e0;
+            color: #e65100;
         }
         
         .model-name {
             font-size: 1.2rem;
             font-weight: 700;
-            color: var(--text-primary);
+            color: #333;
             margin-bottom: 8px;
         }
         
         .model-description {
-            color: var(--text-secondary);
+            color: #666;
             margin-bottom: 12px;
             line-height: 1.5;
-            font-size: 0.9rem;
         }
         
         .model-details {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
+            font-size: 0.9rem;
+            color: #888;
             margin-bottom: 15px;
         }
         
-        /* Buttons */
         .btn {
             display: inline-block;
             padding: 10px 20px;
@@ -374,36 +177,36 @@
             transition: all 0.3s;
             border: none;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 1rem;
         }
         
         .btn-primary {
-            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            background: #667eea;
             color: white;
         }
         
         .btn-primary:hover {
+            background: #5568d3;
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
         
         .btn-secondary {
-            background: var(--dark-card);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
+            background: #6c757d;
+            color: white;
         }
         
         .btn-secondary:hover {
-            border-color: var(--primary);
+            background: #5a6268;
         }
         
         .btn-success {
-            background: var(--accent);
+            background: #28a745;
             color: white;
         }
         
         .btn:disabled {
-            opacity: 0.5;
+            background: #ccc;
             cursor: not-allowed;
             transform: none;
         }
@@ -413,42 +216,39 @@
             width: 100%;
         }
         
-        /* Alert Boxes */
         .alert {
             padding: 15px;
-            border-radius: 8px;
+            border-radius: 6px;
             margin-bottom: 20px;
-            border: 1px solid;
         }
         
         .alert-info {
-            background: rgba(59, 130, 246, 0.1);
-            color: #60a5fa;
-            border-color: rgba(59, 130, 246, 0.3);
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
         }
         
         .alert-warning {
-            background: rgba(251, 191, 36, 0.1);
-            color: #fbbf24;
-            border-color: rgba(251, 191, 36, 0.3);
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
         }
         
         .alert-success {
-            background: rgba(16, 185, 129, 0.1);
-            color: var(--accent);
-            border-color: rgba(16, 185, 129, 0.3);
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
         }
         
-        /* Loading Spinner */
         .loading {
             text-align: center;
             padding: 40px;
-            color: var(--text-secondary);
+            color: #666;
         }
         
         .spinner {
-            border: 4px solid rgba(102, 126, 234, 0.2);
-            border-top: 4px solid var(--primary);
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -461,85 +261,43 @@
             100% { transform: rotate(360deg); }
         }
         
-        /* Actions */
+        .requirements {
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        
+        .requirement-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 5px 0;
+        }
+        
+        .requirement-icon {
+            font-size: 1rem;
+        }
+        
         .actions {
+            margin-top: 30px;
             display: flex;
             gap: 15px;
             flex-wrap: wrap;
         }
         
-        /* Version Table */
-        .version-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        
-        .version-table th,
-        .version-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .version-table th {
-            color: var(--text-secondary);
-            font-weight: 600;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-        }
-        
-        .version-table td {
-            color: var(--text-primary);
-            font-family: 'Courier New', monospace;
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
             font-size: 0.9rem;
+            line-height: 1.4;
         }
         
-        /* GPU Device Cards */
-        .gpu-device {
-            background: var(--dark-card);
-            padding: 16px;
-            border-radius: 8px;
-            border-left: 4px solid var(--primary);
-            margin-bottom: 12px;
-        }
-        
-        .gpu-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        
-        .gpu-name {
-            font-weight: 600;
-            font-size: 1.05rem;
-            color: var(--text-primary);
-        }
-        
-        .gpu-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 12px;
-        }
-        
-        .gpu-stat {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .gpu-stat-label {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            margin-bottom: 4px;
-        }
-        
-        .gpu-stat-value {
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-        
-        /* Modal */
+        /* Modal styles for installation logs */
         .modal {
             display: none;
             position: fixed;
@@ -549,7 +307,7 @@
             width: 100%;
             height: 100%;
             overflow: auto;
-            background-color: rgba(0, 0, 0, 0.8);
+            background-color: rgba(0, 0, 0, 0.6);
             animation: fadeIn 0.3s;
         }
         
@@ -559,13 +317,14 @@
         }
         
         .modal-content {
-            background-color: var(--dark-surface);
+            background-color: #fefefe;
             margin: 5% auto;
             padding: 0;
-            border: 1px solid var(--border-color);
+            border: 1px solid #888;
             border-radius: 12px;
             width: 90%;
             max-width: 900px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
             animation: slideIn 0.3s;
         }
         
@@ -582,8 +341,8 @@
         
         .modal-header {
             padding: 20px 30px;
-            background: var(--dark-card);
-            border-bottom: 1px solid var(--border-color);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             border-radius: 12px 12px 0 0;
             display: flex;
             justify-content: space-between;
@@ -592,12 +351,13 @@
         
         .modal-header h2 {
             margin: 0;
-            color: var(--text-primary);
-            font-size: 1.3rem;
+            color: white;
+            border: none;
+            padding: 0;
         }
         
         .close {
-            color: var(--text-secondary);
+            color: white;
             font-size: 32px;
             font-weight: bold;
             cursor: pointer;
@@ -605,12 +365,12 @@
             border: none;
             padding: 0;
             line-height: 1;
-            transition: all 0.2s;
+            transition: transform 0.2s;
         }
         
-        .close:hover {
-            color: var(--text-primary);
-            transform: scale(1.1);
+        .close:hover,
+        .close:focus {
+            transform: scale(1.2);
         }
         
         .modal-body {
@@ -624,9 +384,9 @@
         }
         
         .log-section h3 {
-            color: var(--text-primary);
+            color: #333;
             margin-bottom: 10px;
-            font-size: 1.05rem;
+            font-size: 1.1rem;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -647,15 +407,15 @@
         }
         
         .log-container.success-log {
-            border-left: 4px solid var(--accent);
+            border-left: 4px solid #28a745;
         }
         
         .log-container.error-log {
-            border-left: 4px solid var(--danger);
+            border-left: 4px solid #dc3545;
         }
         
         .log-container.empty {
-            color: var(--text-secondary);
+            color: #888;
             font-style: italic;
             text-align: center;
             padding: 30px;
@@ -663,221 +423,68 @@
         
         .modal-footer {
             padding: 15px 30px;
-            background: var(--dark-card);
-            border-top: 1px solid var(--border-color);
+            background: #f8f9fa;
             border-radius: 0 0 12px 12px;
             display: flex;
             justify-content: flex-end;
             gap: 10px;
         }
-        
-        @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-                transition: transform 0.3s;
-            }
-            
-            .sidebar.active {
-                transform: translateX(0);
-            }
-            
-            .main-content {
-                margin-left: 0;
-            }
-            
-            .models-grid {
-                grid-template-columns: 1fr;
-            }
-        }
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <div class="logo">
-                <span class="logo-icon" id="brand-icon">🐊</span>
-                <span id="brand-name">AI Content Platform</span>
-            </div>
-            <div class="tenant-selector" onclick="switchTenant()">
-                <div class="tenant-name" id="tenant-name">My AI Platform</div>
-                <div class="tenant-plan">Self-Hosted • GPU Enabled</div>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Model Setup</h1>
+            <p>Install and configure AI models for content generation and messaging</p>
+        </div>
+        
+        <div class="card">
+            <h2>📊 System Information</h2>
+            <div id="system-info" class="system-info">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading system information...
+                </div>
             </div>
         </div>
         
-        <nav class="nav-section">
-            <div class="nav-section-title">Main</div>
-            <ul class="nav-menu">
-                <li class="nav-item">
-                    <a href="/admin" class="nav-link">
-                        <span class="nav-icon">📊</span>
-                        <span>Dashboard</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="/admin/personas" class="nav-link">
-                        <span class="nav-icon">🎭</span>
-                        <span>Personas</span>
-                        <span class="badge" id="persona-count">0</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="/admin/content" class="nav-link">
-                        <span class="nav-icon">🎨</span>
-                        <span>Content</span>
-                    </a>
-                </li>
-            </ul>
-        </nav>
-        
-        <nav class="nav-section">
-            <div class="nav-section-title">Resources</div>
-            <ul class="nav-menu">
-                <li class="nav-item">
-                    <a href="/ai-models-setup" class="nav-link active">
-                        <span class="nav-icon">🤖</span>
-                        <span>AI Models</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="/admin/rss" class="nav-link">
-                        <span class="nav-icon">📡</span>
-                        <span>RSS Feeds</span>
-                    </a>
-                </li>
-            </ul>
-        </nav>
-        
-        <nav class="nav-section">
-            <div class="nav-section-title">Insights</div>
-            <ul class="nav-menu">
-                <li class="nav-item">
-                    <a href="/admin/analytics" class="nav-link">
-                        <span class="nav-icon">📈</span>
-                        <span>Analytics</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="/gallery" class="nav-link">
-                        <span class="nav-icon">🌐</span>
-                        <span>Public View</span>
-                    </a>
-                </li>
-            </ul>
-        </nav>
-        
-        <nav class="nav-section">
-            <div class="nav-section-title">System</div>
-            <ul class="nav-menu">
-                <li class="nav-item">
-                    <a href="/admin/settings" class="nav-link">
-                        <span class="nav-icon">⚙️</span>
-                        <span>Settings</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="/docs" class="nav-link">
-                        <span class="nav-icon">📚</span>
-                        <span>API Docs</span>
-                    </a>
-                </li>
-            </ul>
-        </nav>
-    </aside>
-    
-    <!-- Main Content -->
-    <main class="main-content">
-        <div class="topbar">
-            <div>
-                <h1 class="page-title">AI Models Setup</h1>
-            </div>
-            
-            <div class="topbar-right">
-                <div class="search-box">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" class="search-input" placeholder="Search...">
-                </div>
-                <div class="icon-btn">🔔</div>
-                <div class="icon-btn">👤</div>
-            </div>
-        </div>
-        
-        <div class="content-area">
-            <!-- System Information Section -->
-            <div class="section">
-                <div class="section-header">
-                    <h2 class="section-title">📊 System Information</h2>
-                </div>
-                <div id="system-info">
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        Loading system information...
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Installed Models Section -->
-            <div class="section">
-                <div class="section-header">
-                    <h2 class="section-title">💾 Installed Models</h2>
-                </div>
-                <div id="installed-models">
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        Loading installed models...
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Available Models Section -->
-            <div class="section">
-                <div class="section-header">
-                    <h2 class="section-title">🚀 Available Models for Installation</h2>
-                </div>
-                <div id="available-models">
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        Loading available models...
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Quick Actions Section -->
-            <div class="section">
-                <div class="section-header">
-                    <h2 class="section-title">⚙️ Quick Actions</h2>
-                </div>
-                <div class="actions">
-                    <button class="btn btn-primary" onclick="analyzeSystem()">
-                        🔍 Analyze System Capabilities
-                    </button>
-                    <button class="btn btn-secondary" onclick="openSetupScript()">
-                        🛠️ Run Setup Script
-                    </button>
-                </div>
-                
-                <div id="analysis-output" style="margin-top: 20px; display: none;">
-                    <h3 style="margin-bottom: 10px;">System Analysis Results:</h3>
-                    <div class="log-container" id="analysis-text"></div>
+        <div class="card">
+            <h2>💾 Installed Models</h2>
+            <div id="installed-models">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading installed models...
                 </div>
             </div>
         </div>
-    </main>
-    
-    <!-- Installation Log Modal -->
-    <div id="installLogModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>📋 Installation Log</h2>
-                <button class="close" onclick="closeLogModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="installLogContent">
-                    <!-- Log content will be inserted here -->
+        
+        <div class="card">
+            <h2>🚀 Available Models for Installation</h2>
+            <div id="available-models">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading available models...
                 </div>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeLogModal()">Close</button>
+        </div>
+        
+        <div class="card">
+            <h2>⚙️ Quick Actions</h2>
+            <div class="actions">
+                <button class="btn btn-primary" onclick="analyzeSystem()">
+                    🔍 Analyze System Capabilities
+                </button>
+                <button class="btn btn-secondary" onclick="openSetupScript()">
+                    🛠️ Run Setup Script
+                </button>
+                <a href="/admin" class="btn btn-secondary">
+                    👈 Back to Admin Panel
+                </a>
+            </div>
+            
+            <div id="analysis-output" style="margin-top: 20px; display: none;">
+                <h3>System Analysis Results:</h3>
+                <pre id="analysis-text"></pre>
             </div>
         </div>
     </div>
@@ -885,24 +492,7 @@
     <script>
         const API_BASE = '';
         let currentRecommendations = null;
-        
-        // Load branding configuration
-        async function loadBranding() {
-            try {
-                const response = await fetch('/api/v1/branding');
-                const branding = await response.json();
-                
-                document.getElementById('brand-name').textContent = branding.site_name || 'AI Platform';
-                document.getElementById('brand-icon').textContent = branding.icon || '🐊';
-                document.getElementById('tenant-name').textContent = branding.instance_name || 'My Instance';
-            } catch (e) {
-                console.log('Using default branding');
-            }
-        }
-        
-        function switchTenant() {
-            alert('Tenant switching coming soon! This will allow you to manage multiple tenants.');
-        }
+        let enabledModels = {};
         
         async function loadSystemInfo() {
             try {
@@ -918,17 +508,18 @@
                 // Build version comparison HTML
                 let versionsHTML = '';
                 if (data.installed_versions && data.required_versions) {
-                    versionsHTML = '<div style="margin-top: 20px;"><h3 style="margin-bottom: 15px; color: var(--text-primary); font-size: 1.1rem;">📦 ML Package Versions</h3>';
+                    versionsHTML = '<div style="grid-column: 1 / -1; margin-top: 20px;"><h3 style="margin-bottom: 15px; color: #333;">📦 ML Package Versions</h3>';
                     
                     if (data.compatibility_note) {
                         versionsHTML += `<div class="alert alert-info" style="margin-bottom: 15px;">${data.compatibility_note}</div>`;
                     }
                     
-                    versionsHTML += '<table class="version-table"><thead><tr>';
-                    versionsHTML += '<th>Package</th>';
-                    versionsHTML += '<th>Installed</th>';
-                    versionsHTML += '<th>Required</th>';
-                    versionsHTML += '<th style="text-align: center;">Status</th>';
+                    versionsHTML += '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px;"><table style="width: 100%; border-collapse: collapse;">';
+                    versionsHTML += '<thead><tr style="border-bottom: 2px solid #667eea;">';
+                    versionsHTML += '<th style="padding: 10px; text-align: left;">Package</th>';
+                    versionsHTML += '<th style="padding: 10px; text-align: left;">Installed</th>';
+                    versionsHTML += '<th style="padding: 10px; text-align: left;">Required</th>';
+                    versionsHTML += '<th style="padding: 10px; text-align: center;">Status</th>';
                     versionsHTML += '</tr></thead><tbody>';
                     
                     const packages = Object.keys(data.required_versions);
@@ -937,26 +528,26 @@
                         const installed = data.installed_versions[pkg] || 'Not installed';
                         const required = data.required_versions[pkg];
                         let status = '✓';
-                        let statusColor = 'var(--accent)';
+                        let statusColor = '#28a745';
                         
                         if (installed === 'Not installed') {
                             status = '✗';
-                            statusColor = 'var(--danger)';
+                            statusColor = '#dc3545';
                             hasMissingOrOutdated = true;
                         } else if (pkg === 'torch' || pkg === 'torchvision') {
                             // For exact version requirements
                             if (!installed.includes(required.replace('==', ''))) {
                                 status = '⚠️';
-                                statusColor = 'var(--warning)';
+                                statusColor = '#ffc107';
                                 hasMissingOrOutdated = true;
                             }
                         }
                         
-                        versionsHTML += `<tr>`;
-                        versionsHTML += `<td style="font-weight: 600;">${pkg}</td>`;
-                        versionsHTML += `<td>${installed}</td>`;
-                        versionsHTML += `<td>${required}</td>`;
-                        versionsHTML += `<td style="text-align: center; font-size: 1.2em; color: ${statusColor};">${status}</td>`;
+                        versionsHTML += `<tr style="border-bottom: 1px solid #dee2e6;">`;
+                        versionsHTML += `<td style="padding: 10px; font-weight: 600;">${pkg}</td>`;
+                        versionsHTML += `<td style="padding: 10px; font-family: monospace; font-size: 0.9em;">${installed}</td>`;
+                        versionsHTML += `<td style="padding: 10px; font-family: monospace; font-size: 0.9em;">${required}</td>`;
+                        versionsHTML += `<td style="padding: 10px; text-align: center; font-size: 1.2em; color: ${statusColor};">${status}</td>`;
                         versionsHTML += '</tr>';
                     });
                     
@@ -969,21 +560,21 @@
                                 <button class="btn btn-primary" onclick="fixDependencies()" id="fix-deps-btn">
                                     🔧 Fix Dependencies
                                 </button>
-                                <p style="margin-top: 10px; font-size: 0.9rem; color: var(--text-secondary);">
+                                <p style="margin-top: 10px; font-size: 0.9rem; color: #666;">
                                     This will install/update missing or outdated ML packages. Installation may take several minutes.
                                 </p>
                             </div>
                         `;
                     }
                     
-                    versionsHTML += '</div>';
+                    versionsHTML += '</div></div>';
                 }
                 
                 // Build GPU details HTML
                 let gpuDetailsHTML = '';
                 if (data.system.gpu_available && data.system.gpu_devices && data.system.gpu_devices.length > 0) {
-                    gpuDetailsHTML = '<div style="margin-top: 20px;">';
-                    gpuDetailsHTML += '<h3 style="margin-bottom: 15px; color: var(--text-primary); font-size: 1.1rem;">🎮 GPU Devices</h3>';
+                    gpuDetailsHTML = '<div style="grid-column: 1 / -1; margin-top: 20px;">';
+                    gpuDetailsHTML += '<h3 style="margin-bottom: 15px; color: #333;">🎮 GPU Devices</h3>';
                     
                     // Add ROCm version info if available
                     if (data.system.rocm_version) {
@@ -992,56 +583,61 @@
                         </div>`;
                     }
                     
+                    gpuDetailsHTML += '<div style="display: grid; gap: 15px;">';
                     data.system.gpu_devices.forEach((gpu, index) => {
                         gpuDetailsHTML += `
-                            <div class="gpu-device">
-                                <div class="gpu-header">
-                                    <div class="gpu-name">Device ${gpu.device_id}: ${gpu.name}</div>
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea;">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                                    <div style="font-weight: 600; font-size: 1.1rem; color: #333;">
+                                        Device ${gpu.device_id}: ${gpu.name}
+                                    </div>
                                     <span class="status-badge available">Active</span>
                                 </div>
-                                <div class="gpu-stats">
-                                    <div class="gpu-stat">
-                                        <div class="gpu-stat-label">Memory</div>
-                                        <div class="gpu-stat-value">${gpu.total_memory_gb} GB</div>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 10px;">
+                                    <div>
+                                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 3px;">Memory</div>
+                                        <div style="font-weight: 600; color: #333;">${gpu.total_memory_gb} GB</div>
                                     </div>
                                     ${gpu.compute_capability ? `
-                                    <div class="gpu-stat">
-                                        <div class="gpu-stat-label">Compute</div>
-                                        <div class="gpu-stat-value">${gpu.compute_capability}</div>
+                                    <div>
+                                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 3px;">Compute</div>
+                                        <div style="font-weight: 600; color: #333;">${gpu.compute_capability}</div>
                                     </div>` : ''}
                                     ${gpu.multi_processor_count ? `
-                                    <div class="gpu-stat">
-                                        <div class="gpu-stat-label">MPs</div>
-                                        <div class="gpu-stat-value">${gpu.multi_processor_count}</div>
+                                    <div>
+                                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 3px;">MPs</div>
+                                        <div style="font-weight: 600; color: #333;">${gpu.multi_processor_count}</div>
                                     </div>` : ''}
                                 </div>
-                                ${gpu.error ? `<div style="margin-top: 10px; color: var(--danger); font-size: 0.85rem;">⚠️ ${gpu.error}</div>` : ''}
+                                ${gpu.error ? `<div style="margin-top: 10px; color: #dc3545; font-size: 0.85rem;">⚠️ ${gpu.error}</div>` : ''}
                             </div>
                         `;
                     });
-                    gpuDetailsHTML += '</div>';
+                    gpuDetailsHTML += '</div></div>';
                 }
                 
                 systemInfoDiv.innerHTML = `
-                    <div class="info-grid">
-                        <div class="info-card">
-                            <div class="info-label">GPU Status</div>
-                            <div class="info-value">${gpuStatus}</div>
-                            ${data.system.gpu_count ? `<div style="margin-top: 5px; font-size: 0.9rem; color: var(--text-secondary);">${data.system.gpu_count} device(s) detected</div>` : ''}
-                        </div>
-                        <div class="info-card">
-                            <div class="info-label">Python Version</div>
-                            <div class="info-value">${data.system.python_version.split(' ')[0]}</div>
-                        </div>
-                        <div class="info-card">
-                            <div class="info-label">PyTorch Version</div>
-                            <div class="info-value">${data.system.torch_version || 'Not installed'}</div>
-                            ${data.system.is_rocm_build ? `<div style="margin-top: 5px; font-size: 0.85rem; color: var(--primary);">ROCm Build</div>` : ''}
-                        </div>
-                        <div class="info-card">
-                            <div class="info-label">Platform</div>
-                            <div class="info-value">${data.system.platform}</div>
-                        </div>
+                    <div class="info-item">
+                        <div class="info-label">GPU Status</div>
+                        <div class="info-value">${gpuStatus}</div>
+                        ${data.system.gpu_count ? `<div style="margin-top: 5px; font-size: 0.9rem; color: #666;">${data.system.gpu_count} device(s) detected</div>` : ''}
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Python Version</div>
+                        <div class="info-value">${data.system.python_version.split(' ')[0]}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">PyTorch Version</div>
+                        <div class="info-value">${data.system.torch_version || 'Not installed'}</div>
+                        ${data.system.is_rocm_build ? `<div style="margin-top: 5px; font-size: 0.85rem; color: #667eea;">ROCm Build</div>` : ''}
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Platform</div>
+                        <div class="info-value">${data.system.platform}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Models Directory</div>
+                        <div class="info-value">${data.models_directory || 'Not created yet'}</div>
                     </div>
                     ${gpuDetailsHTML}
                     ${versionsHTML}
@@ -1074,6 +670,7 @@
                 }
                 
                 currentRecommendations = data.recommendations;
+                const systemInfo = data.system_info;
                 
                 // Display installable models with install buttons
                 let html = `
@@ -1085,7 +682,7 @@
                 
                 if (currentRecommendations.installable && currentRecommendations.installable.length > 0) {
                     html += `
-                        <h3 style="color: var(--accent); margin-top: 20px; margin-bottom: 15px; font-size: 1.1rem;">✅ Compatible Models (Can Install)</h3>
+                        <h3 style="color: #155724; margin-top: 20px; margin-bottom: 15px;">✅ Compatible Models (Can Install)</h3>
                         <div class="models-grid">
                             ${currentRecommendations.installable.map(model => `
                                 <div class="model-card">
@@ -1108,7 +705,7 @@
                 
                 if (currentRecommendations.requires_upgrade && currentRecommendations.requires_upgrade.length > 0) {
                     html += `
-                        <h3 style="color: var(--warning); margin-top: 30px; margin-bottom: 15px; font-size: 1.1rem;">⚠️ Models Requiring Hardware Upgrade</h3>
+                        <h3 style="color: #856404; margin-top: 30px; margin-bottom: 15px;">⚠️ Models Requiring Hardware Upgrade</h3>
                         <div class="models-grid">
                             ${currentRecommendations.requires_upgrade.map(model => `
                                 <div class="model-card" style="opacity: 0.7;">
@@ -1135,7 +732,7 @@
                         • Click "Install Model" button to download and configure compatible models<br>
                         • Installation progress will be shown in real-time<br>
                         • You can enable/disable installed models from the "Installed Models" section<br>
-                        • For API-based models (GPT-4, DALL-E), add API keys in the <a href="/admin/settings" style="color: var(--primary);">Settings Page</a>
+                        • For API-based models (GPT-4, DALL-E), add API keys in the <a href="/admin">Admin Panel</a>
                     </div>
                 `;
                 
@@ -1210,6 +807,7 @@
                     btn.classList.add('btn-secondary');
                     
                     // Reload the page after user closes the log modal
+                    // (or after 5 seconds if they don't close it)
                     setTimeout(() => {
                         if (!document.getElementById('installLogModal').style.display || 
                             document.getElementById('installLogModal').style.display === 'none') {
@@ -1280,7 +878,7 @@
             if (data.return_code !== undefined) {
                 logHTML += `
                     <div class="log-section">
-                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 15px;">
+                        <p style="color: #666; font-size: 0.9rem; margin-top: 15px;">
                             Exit code: ${data.return_code}
                         </p>
                     </div>
@@ -1332,7 +930,23 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    console.log(`Model ${modelName} ${enabled ? 'enabled' : 'disabled'}`);
+                    const status = enabled ? 'enabled' : 'disabled';
+                    console.log(`Model ${modelName} ${status}`);
+                    
+                    // Show brief notification
+                    const notification = document.createElement('div');
+                    notification.className = 'alert alert-success';
+                    notification.style.position = 'fixed';
+                    notification.style.top = '20px';
+                    notification.style.right = '20px';
+                    notification.style.zIndex = '9999';
+                    notification.style.maxWidth = '400px';
+                    notification.textContent = `✅ Model ${modelName} ${status} successfully`;
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => {
+                        notification.remove();
+                    }, 3000);
                 } else {
                     // Revert checkbox on failure
                     document.getElementById(`enable-${modelName}`).checked = !enabled;
@@ -1470,7 +1084,7 @@
             if (data.return_code !== undefined) {
                 logHTML += `
                     <div class="log-section">
-                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 15px;">
+                        <p style="color: #666; font-size: 0.9rem; margin-top: 15px;">
                             Exit code: ${data.return_code}
                         </p>
                     </div>
@@ -1483,9 +1097,26 @@
         
         // Load data on page load
         document.addEventListener('DOMContentLoaded', () => {
-            loadBranding();
             loadSystemInfo();
         });
     </script>
+    
+    <!-- Installation Log Modal -->
+    <div id="installLogModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📋 Installation Log</h2>
+                <button class="close" onclick="closeLogModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="installLogContent">
+                    <!-- Log content will be inserted here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeLogModal()">Close</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
