@@ -24,8 +24,8 @@ async def migrate():
         print("✅ Connected to database")
         
         # Create tables
-        from backend.database.connection import Base, engine
-        async with engine.begin() as conn:
+        from backend.database.connection import Base
+        async with database_manager.engine.begin() as conn:
             # Create system_settings table
             await conn.run_sync(Base.metadata.create_all)
             print("✅ System settings table created")

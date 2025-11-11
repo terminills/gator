@@ -554,6 +554,32 @@ async def get_ai_models_status() -> Dict[str, Any]:
         project_root = Path(__file__).parents[4]
         pyproject_path = project_root / "pyproject.toml"
 
+        # Determine numpy requirement based on installed PyTorch version
+        numpy_requirement = ">=1.24.0,<2.0"  # Default/fallback
+        torch_version = system_info.get("torch_version", "")
+        if torch_version and torch_version != "Not installed":
+            try:
+                # Extract major.minor version from torch version string
+                # Examples: "2.9.0+cu128" -> "2.9", "2.3.1+rocm5.7" -> "2.3"
+                torch_ver_parts = torch_version.split("+")[0].split(".")
+                torch_major = int(torch_ver_parts[0])
+                torch_minor = int(torch_ver_parts[1]) if len(torch_ver_parts) > 1 else 0
+                
+                # PyTorch 2.0+ generally requires numpy>=1.21.0
+                # PyTorch 2.9+ is compatible with numpy 1.26.x and 2.x
+                # PyTorch 2.4-2.8 works with numpy 1.24-1.26
+                # PyTorch 2.0-2.3 works with numpy 1.21-1.26
+                if torch_major == 2 and torch_minor >= 9:
+                    numpy_requirement = ">=1.26.0"  # No upper bound for PyTorch 2.9+
+                elif torch_major == 2 and torch_minor >= 4:
+                    numpy_requirement = ">=1.24.0,<2.0"  # PyTorch 2.4-2.8
+                elif torch_major == 2:
+                    numpy_requirement = ">=1.21.0,<2.0"  # PyTorch 2.0-2.3
+                elif torch_major == 1:
+                    numpy_requirement = ">=1.21.0,<1.27"  # PyTorch 1.x
+            except (ValueError, IndexError) as e:
+                logger.warning(f"Could not parse PyTorch version '{torch_version}' for numpy requirement: {e}")
+        
         required_versions = {
             "torch": "2.3.1+rocm5.7 (for AMD GPUs with MI-25)",
             "torchvision": "0.18.1+rocm5.7",
@@ -561,7 +587,7 @@ async def get_ai_models_status() -> Dict[str, Any]:
             "transformers": ">=4.41.0",
             "accelerate": ">=0.29.0",
             "huggingface_hub": ">=0.23.0",
-            "numpy": ">=1.24.0,<2.0",
+            "numpy": numpy_requirement,
         }
 
         # Try to parse actual requirements from pyproject.toml if it exists
