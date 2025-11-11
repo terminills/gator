@@ -188,15 +188,305 @@
             font-size: 0.9em;
             margin-bottom: 20px;
         }
+
+        /* Chat Interface Styles */
+        .chat-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+            margin-bottom: 30px;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #2c5530 0%, #3d7c3d 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-header h2 {
+            margin: 0;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ai-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .ai-status.connected {
+            background: #10b981;
+            color: white;
+        }
+
+        .ai-status.disconnected {
+            background: #ef4444;
+            color: white;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .chat-message {
+            margin-bottom: 16px;
+            max-width: 80%;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .chat-message.user {
+            margin-left: auto;
+        }
+
+        .chat-message.gator {
+            margin-right: auto;
+        }
+
+        .message-author {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .message-content {
+            padding: 12px 16px;
+            border-radius: 16px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .message-content.cli-output {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+            background: #1e1e1e !important;
+            color: #d4d4d4 !important;
+            border: 1px solid #3d7c3d !important;
+            padding: 16px;
+        }
+
+        .chat-message.user .message-content {
+            background: #667eea;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-message.gator .message-content {
+            background: #2c5530;
+            color: white;
+            border-bottom-left-radius: 4px;
+            border: 2px solid #3d7c3d;
+        }
+
+        .message-content.error {
+            background: #ef4444 !important;
+            border-color: #dc2626 !important;
+        }
+
+        .chat-input-area {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            background: white;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .chat-input-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 24px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .chat-input:focus {
+            border-color: #2c5530;
+        }
+
+        .chat-send-btn {
+            background: #2c5530;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .chat-send-btn:hover:not(:disabled) {
+            background: #3d7c3d;
+            transform: translateY(-1px);
+        }
+
+        .chat-send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .activity-triggers {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .activity-btn {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 16px;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .activity-btn:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+
+        .activity-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .typing-indicator {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            color: #666;
+            font-size: 0.9em;
+            font-style: italic;
+        }
+
+        .typing-indicator.active {
+            display: flex;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #2c5530;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out both;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        .typing-dot:nth-child(3) { animation-delay: 0; }
+
+        @keyframes typing {
+            0%, 80%, 100% { 
+                transform: scale(0);
+                opacity: 0.5;
+            } 
+            40% { 
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🤖 AI Activity Diagnostics</h1>
-        <p class="subtitle">Real-time monitoring of AI content generation</p>
+        <p class="subtitle">Real-time monitoring and AI agent interaction</p>
         <p class="timestamp" id="timestamp"></p>
         
         <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
+
+        <!-- AI Chat Interface -->
+        <div class="chat-container">
+            <div class="chat-header">
+                <h2>🐊 Chat with Gator AI Agent</h2>
+                <span class="ai-status" id="ai-status">Checking...</span>
+            </div>
+            
+            <div class="chat-messages" id="chat-messages">
+                <div class="chat-message gator">
+                    <div class="message-author">Gator</div>
+                    <div class="message-content">
+                        Alright, listen up! I'm Gator - your AI diagnostic agent. I don't play games and I expect things to work right. 
+                        Ask me anything about the platform, or use the buttons below to trigger AI activities. 
+                        If something's broken, I'll tell you straight - no sugarcoating.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="typing-indicator" id="typing-indicator">
+                <span>Gator is thinking</span>
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+            
+            <div class="chat-input-area">
+                <div class="activity-triggers">
+                    <button class="activity-btn" onclick="triggerContentGeneration()">🎨 Generate Test Content</button>
+                    <button class="activity-btn" onclick="triggerPersonaCreation()">👤 Create Test Persona</button>
+                    <button class="activity-btn" onclick="checkAIModels()">🤖 Check AI Models</button>
+                    <button class="activity-btn" onclick="testACDContext()">🔄 Test ACD Context</button>
+                    <button class="activity-btn" onclick="runFullDiagnostic()">🔍 Run Full Diagnostic</button>
+                </div>
+                <div style="padding: 10px 0; display: flex; align-items: center; gap: 10px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="verbose-mode" checked style="cursor: pointer;">
+                        <span style="font-size: 0.9em; color: #666;">CLI Mode (Show execution details)</span>
+                    </label>
+                </div>
+                <div class="chat-input-form">
+                    <input 
+                        type="text" 
+                        class="chat-input" 
+                        id="chat-input" 
+                        placeholder="Ask Gator about the platform or AI status..."
+                        onkeypress="if(event.key === 'Enter') sendMessage()"
+                    />
+                    <button class="chat-send-btn" id="send-btn" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
         
         <div id="loading" class="loading">Loading diagnostic data...</div>
         <div id="error" class="error-message" style="display: none;"></div>
@@ -302,6 +592,374 @@
     
     <script>
         const API_BASE = '/api/v1/diagnostics';
+        const GATOR_API = '/gator-agent';
+        
+        // Check AI agent status on load
+        async function checkAIAgentStatus() {
+            try {
+                const response = await fetch(`${GATOR_API}/status`);
+                const status = await response.json();
+                
+                const statusEl = document.getElementById('ai-status');
+                if (response.ok && status.status === 'operational') {
+                    statusEl.textContent = '✅ AI Connected';
+                    statusEl.className = 'ai-status connected';
+                } else {
+                    statusEl.textContent = '❌ AI Unavailable';
+                    statusEl.className = 'ai-status disconnected';
+                }
+            } catch (error) {
+                const statusEl = document.getElementById('ai-status');
+                statusEl.textContent = '❌ Connection Failed';
+                statusEl.className = 'ai-status disconnected';
+                addChatMessage('gator', `ERROR: Cannot connect to AI agent - ${error.message}`, true);
+            }
+        }
+
+        // Send message to Gator
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Check if verbose mode is enabled
+            const verboseMode = document.getElementById('verbose-mode').checked;
+            
+            // Add user message to chat
+            addChatMessage('user', message);
+            input.value = '';
+            
+            // Show typing indicator
+            const typingIndicator = document.getElementById('typing-indicator');
+            typingIndicator.classList.add('active');
+            
+            // Disable send button
+            const sendBtn = document.getElementById('send-btn');
+            sendBtn.disabled = true;
+            
+            try {
+                const response = await fetch(`${GATOR_API}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        context: { page: 'diagnostics', timestamp: new Date().toISOString() },
+                        verbose: verboseMode
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`AI Agent Error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                addChatMessage('gator', data.response, false, verboseMode);
+                
+            } catch (error) {
+                // Show error in chat - NO FALLBACK
+                addChatMessage('gator', `CRITICAL ERROR: AI agent failed - ${error.message}. This is intentional for debugging. Fix the AI service before proceeding.`, true);
+                
+                // Update status
+                const statusEl = document.getElementById('ai-status');
+                statusEl.textContent = '❌ AI Failed';
+                statusEl.className = 'ai-status disconnected';
+            } finally {
+                typingIndicator.classList.remove('active');
+                sendBtn.disabled = false;
+            }
+        }
+
+        // Add message to chat display
+        function addChatMessage(sender, message, isError = false, isCLI = false) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${sender}`;
+            
+            const authorDiv = document.createElement('div');
+            authorDiv.className = 'message-author';
+            authorDiv.textContent = sender === 'user' ? 'You' : 'Gator';
+            
+            const contentDiv = document.createElement('div');
+            let className = 'message-content';
+            if (isError) className += ' error';
+            if (isCLI && sender === 'gator') className += ' cli-output';
+            contentDiv.className = className;
+            contentDiv.textContent = message;
+            
+            messageDiv.appendChild(authorDiv);
+            messageDiv.appendChild(contentDiv);
+            messagesContainer.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Activity trigger functions
+        async function triggerContentGeneration() {
+            addChatMessage('user', 'Trigger test content generation');
+            const typingIndicator = document.getElementById('typing-indicator');
+            typingIndicator.classList.add('active');
+            const verboseMode = document.getElementById('verbose-mode').checked;
+            
+            let log = [];
+            log.push('[ACTIVITY] Content Generation Test');
+            log.push('[TIMESTAMP] ' + new Date().toISOString());
+            log.push('');
+            
+            try {
+                log.push('[STEP 1] Fetching available personas...');
+                const personasResp = await fetch('/api/v1/personas/');
+                const personas = await personasResp.json();
+                
+                if (!personas || personas.length === 0) {
+                    throw new Error('No personas available. Create a persona first.');
+                }
+                
+                const persona = personas[0];
+                log.push(`[STEP 1] ✓ Found ${personas.length} persona(s)`);
+                log.push(`[SELECTED] Persona: ${persona.name} (ID: ${persona.id})`);
+                log.push('');
+                
+                log.push('[STEP 2] Triggering content generation...');
+                log.push('[PARAMS]');
+                log.push(`  - persona_id: ${persona.id}`);
+                log.push(`  - content_type: text`);
+                log.push(`  - prompt: Test diagnostic generation`);
+                log.push(`  - quality: standard`);
+                log.push('');
+                
+                const startTime = Date.now();
+                const response = await fetch('/api/v1/content/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        persona_id: persona.id,
+                        content_type: 'text',
+                        prompt: 'Test diagnostic generation',
+                        quality: 'standard'
+                    })
+                });
+                
+                const elapsed = Date.now() - startTime;
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    log.push(`[STEP 2] ✗ FAILED (${elapsed}ms)`);
+                    log.push(`[ERROR] ${JSON.stringify(error, null, 2)}`);
+                    throw new Error(error.detail || 'Content generation failed');
+                }
+                
+                const result = await response.json();
+                log.push(`[STEP 2] ✓ SUCCESS (${elapsed}ms)`);
+                log.push('[RESULT]');
+                log.push(`  - content_id: ${result.id}`);
+                log.push(`  - status: ${result.status || 'processing'}`);
+                if (result.generation_params) {
+                    log.push(`  - model: ${result.generation_params.model || 'N/A'}`);
+                    log.push(`  - provider: ${result.generation_params.provider || 'N/A'}`);
+                }
+                log.push('');
+                log.push('[COMPLETE] Content generation initiated successfully!');
+                log.push('[ACTION] Refreshing diagnostics data in 2 seconds...');
+                
+                if (verboseMode) {
+                    addChatMessage('gator', log.join('\n'), false, true);
+                } else {
+                    addChatMessage('gator', `✅ Content generation triggered! Content ID: ${result.id}. Check the generation attempts table below.`);
+                }
+                
+                // Refresh data to show new generation
+                setTimeout(loadData, 2000);
+                
+            } catch (error) {
+                log.push('');
+                log.push('[FATAL ERROR] ' + error.message);
+                
+                if (verboseMode) {
+                    addChatMessage('gator', log.join('\n'), true, true);
+                } else {
+                    addChatMessage('gator', `❌ FAILED: ${error.message}. AI content generation is broken!`, true);
+                }
+            } finally {
+                typingIndicator.classList.remove('active');
+            }
+        }
+
+        async function triggerPersonaCreation() {
+            addChatMessage('user', 'Create test persona');
+            const typingIndicator = document.getElementById('typing-indicator');
+            typingIndicator.classList.add('active');
+            
+            try {
+                const timestamp = Date.now();
+                const response = await fetch('/api/v1/personas/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: `Test Persona ${timestamp}`,
+                        appearance: 'Professional business attire, confident demeanor, modern style',
+                        personality: 'Confident, knowledgeable, friendly and approachable',
+                        content_themes: ['technology', 'business', 'innovation'],
+                        style_preferences: { tone: 'professional', format: 'structured' }
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Persona creation failed');
+                }
+                
+                const result = await response.json();
+                addChatMessage('gator', `✅ Test persona created! Name: ${result.name}, ID: ${result.id}`);
+                
+            } catch (error) {
+                addChatMessage('gator', `❌ FAILED: ${error.message}. Persona creation is broken!`, true);
+            } finally {
+                typingIndicator.classList.remove('active');
+            }
+        }
+
+        async function checkAIModels() {
+            addChatMessage('user', 'Check available AI models');
+            const typingIndicator = document.getElementById('typing-indicator');
+            typingIndicator.classList.add('active');
+            
+            try {
+                const response = await fetch('/api/v1/setup/models/status');
+                
+                if (!response.ok) {
+                    throw new Error('Cannot reach AI models endpoint');
+                }
+                
+                const status = await response.json();
+                let message = '🤖 AI Models Status:\n\n';
+                
+                for (const [category, models] of Object.entries(status.models || {})) {
+                    const available = models.filter(m => m.loaded || m.available).length;
+                    message += `${category}: ${available}/${models.length} available\n`;
+                }
+                
+                if (status.errors && status.errors.length > 0) {
+                    message += `\n⚠️ Errors: ${status.errors.join(', ')}`;
+                }
+                
+                addChatMessage('gator', message);
+                
+            } catch (error) {
+                addChatMessage('gator', `❌ FAILED: ${error.message}. Cannot check AI models!`, true);
+            } finally {
+                typingIndicator.classList.remove('active');
+            }
+        }
+
+        async function testACDContext() {
+            addChatMessage('user', 'Test ACD context creation');
+            const typingIndicator = document.getElementById('typing-indicator');
+            typingIndicator.classList.add('active');
+            
+            try {
+                // Get first available persona
+                const personasResp = await fetch('/api/v1/personas/');
+                const personas = await personasResp.json();
+                
+                if (!personas || personas.length === 0) {
+                    throw new Error('No personas available');
+                }
+                
+                const response = await fetch('/api/v1/acd/contexts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        context_type: 'content_generation',
+                        persona_id: personas[0].id,
+                        metadata: { test: true, source: 'diagnostics' }
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'ACD context creation failed');
+                }
+                
+                const result = await response.json();
+                addChatMessage('gator', `✅ ACD context created! ID: ${result.id}, Phase: ${result.ai_phase}, State: ${result.ai_state}`);
+                
+            } catch (error) {
+                addChatMessage('gator', `❌ FAILED: ${error.message}. ACD system is broken!`, true);
+            } finally {
+                typingIndicator.classList.remove('active');
+            }
+        }
+
+        async function runFullDiagnostic() {
+            addChatMessage('user', 'Run full diagnostic check');
+            const typingIndicator = document.getElementById('typing-indicator');
+            typingIndicator.classList.add('active');
+            
+            try {
+                // Check multiple systems
+                const results = {
+                    api: false,
+                    personas: false,
+                    aiModels: false,
+                    acd: false,
+                    gatorAgent: false
+                };
+                
+                // Test API health
+                try {
+                    const healthResp = await fetch('/health');
+                    results.api = healthResp.ok;
+                } catch (e) { /* ignore */ }
+                
+                // Test personas endpoint
+                try {
+                    const personasResp = await fetch('/api/v1/personas/');
+                    results.personas = personasResp.ok;
+                } catch (e) { /* ignore */ }
+                
+                // Test AI models
+                try {
+                    const modelsResp = await fetch('/api/v1/setup/models/status');
+                    results.aiModels = modelsResp.ok;
+                } catch (e) { /* ignore */ }
+                
+                // Test ACD
+                try {
+                    const acdResp = await fetch('/api/v1/acd/contexts?limit=1');
+                    results.acd = acdResp.ok;
+                } catch (e) { /* ignore */ }
+                
+                // Test Gator Agent
+                try {
+                    const gatorResp = await fetch(`${GATOR_API}/status`);
+                    results.gatorAgent = gatorResp.ok;
+                } catch (e) { /* ignore */ }
+                
+                // Build report
+                let report = '🔍 Full Diagnostic Results:\n\n';
+                for (const [system, status] of Object.entries(results)) {
+                    report += `${status ? '✅' : '❌'} ${system}: ${status ? 'OK' : 'FAILED'}\n`;
+                }
+                
+                const allOk = Object.values(results).every(v => v);
+                if (allOk) {
+                    report += '\n✅ All systems operational!';
+                } else {
+                    report += '\n❌ CRITICAL: Some systems are DOWN!';
+                }
+                
+                addChatMessage('gator', report, !allOk);
+                
+            } catch (error) {
+                addChatMessage('gator', `❌ DIAGNOSTIC FAILED: ${error.message}`, true);
+            } finally {
+                typingIndicator.classList.remove('active');
+            }
+        }
         
         async function loadData() {
             document.getElementById('loading').style.display = 'block';
