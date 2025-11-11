@@ -415,6 +415,19 @@ class ContentGenerationService:
         Uses base_image_path for visual consistency when appearance_locked is True.
         Tracks generation context via ACD for learning and debugging.
         """
+        # Log the generation attempt
+        logger.info(
+            f"Starting image generation for persona {persona.name} ({persona.id})",
+            extra={
+                "persona_id": str(persona.id),
+                "persona_name": persona.name,
+                "prompt": request.prompt,
+                "quality": request.quality,
+                "content_rating": request.content_rating.value,
+                "appearance_locked": persona.appearance_locked,
+            }
+        )
+        
         # Determine complexity based on quality and locked appearance
         complexity = AIComplexity.LOW
         if request.quality == "hd":
@@ -517,38 +530,32 @@ class ContentGenerationService:
                 return result_data
 
             except Exception as e:
-                # Mark ACD as failed before fallback
+                # Mark ACD as failed
                 await acd.set_confidence(AIConfidence.UNCERTAIN)
+                await acd.set_state(AIState.FAILED)
                 await acd.set_metadata({
                     **initial_context,
                     "error": str(e),
-                    "using_fallback": True,
+                    "error_type": type(e).__name__,
+                    "failed": True,
                 })
                 
-                # Fallback to placeholder if AI generation fails
-                logger.warning(f"AI image generation failed, using placeholder: {str(e)}")
-                await asyncio.sleep(0.1)  # Simulate processing time
-
-                filename = (
-                    f"image_placeholder_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                # Log the failure comprehensively
+                logger.error(
+                    f"Image generation failed for persona {persona.id}: {str(e)}",
+                    extra={
+                        "persona_id": str(persona.id),
+                        "persona_name": persona.name,
+                        "prompt": request.prompt,
+                        "quality": request.quality,
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                        "acd_context_id": str(acd.context_id),
+                    }
                 )
-                file_path = self.content_dir / "images" / filename
-
-                # Create fallback file with error info
-                error_content = f"# Image generation temporarily unavailable\n# Original prompt: {request.prompt}\n# Error: {str(e)}\n# Note: AI model initialization or API connection required for image generation"
-                file_path.write_text(error_content)
-
-                return {
-                    "file_path": str(file_path),
-                    "file_size": file_path.stat().st_size,
-                    "width": 1024,
-                    "height": 1024,
-                    "format": "TXT",  # Text file format for error placeholder
-                    "content_rating": request.content_rating.value,
-                    "error": str(e),
-                    "fallback": True,
-                    "acd_context_id": acd.context_id,  # Link to ACD context even on fallback
-                }
+                
+                # Re-raise the exception instead of creating placeholder
+                raise ValueError(f"Image generation failed: {str(e)}") from e
 
     async def _generate_video(
         self, persona: PersonaModel, request: GenerationRequest
@@ -564,6 +571,18 @@ class ContentGenerationService:
 
         Q2-Q3 2025 advanced video features implementation.
         """
+        # Log the generation attempt
+        logger.info(
+            f"Starting video generation for persona {persona.name} ({persona.id})",
+            extra={
+                "persona_id": str(persona.id),
+                "persona_name": persona.name,
+                "prompt": request.prompt,
+                "quality": request.quality,
+                "content_rating": request.content_rating.value,
+            }
+        )
+        
         try:
             from backend.services.ai_models import ai_models
             from backend.services.video_processing_service import (
@@ -660,27 +679,21 @@ class ContentGenerationService:
             }
 
         except Exception as e:
-            # Fallback to placeholder if AI generation fails
-            logger.warning(f"AI video generation failed, using placeholder: {str(e)}")
-            await asyncio.sleep(0.2)  # Simulate processing time
-
-            filename = f"video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
-            file_path = self.content_dir / "videos" / filename
-
-            # Create fallback file with error info
-            error_content = f"# Video generation temporarily unavailable\n# Original prompt: {request.prompt}\n# Error: {str(e)}\n# Note: AI model initialization required for video generation"
-            file_path.write_text(error_content)
-
-            return {
-                "file_path": str(file_path),
-                "file_size": file_path.stat().st_size,
-                "duration": 15.0,
-                "resolution": "1920x1080",
-                "format": "MP4",
-                "content_rating": request.content_rating.value,
-                "error": str(e),
-                "fallback": True,
-            }
+            # Log the failure comprehensively
+            logger.error(
+                f"Video generation failed for persona {persona.id}: {str(e)}",
+                extra={
+                    "persona_id": str(persona.id),
+                    "persona_name": persona.name,
+                    "prompt": request.prompt,
+                    "quality": request.quality,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                }
+            )
+            
+            # Re-raise the exception instead of creating placeholder
+            raise ValueError(f"Video generation failed: {str(e)}") from e
 
     async def _generate_audio(
         self, persona: PersonaModel, request: GenerationRequest
@@ -688,27 +701,24 @@ class ContentGenerationService:
         """
         Generate audio content using AI model.
 
-        This is a placeholder implementation. In production, this would
-        integrate with audio generation models like MusicLM or AudioCraft.
+        Requires integration with audio generation models like MusicLM or AudioCraft.
         """
-        # Simulate audio generation
-        await asyncio.sleep(0.3)  # Simulate processing time
-
-        filename = f"audio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3"
-        file_path = self.content_dir / "audio" / filename
-
-        # Create demo audio file stub
-        demo_content = f"# Audio generation feature available\n# Prompt: {request.prompt}\n# Note: Full audio generation requires AI model integration (MusicLM, AudioCraft, or similar)"
-        file_path.write_text(demo_content)
-
-        return {
-            "file_path": str(file_path),
-            "file_size": file_path.stat().st_size,
-            "duration": 30.0,
-            "format": "MP3",
-            "bitrate": "320kbps",
-            "content_rating": request.content_rating.value,
-        }
+        # Log the attempt
+        logger.error(
+            f"Audio generation not implemented for persona {persona.id}",
+            extra={
+                "persona_id": str(persona.id),
+                "persona_name": persona.name,
+                "prompt": request.prompt,
+                "quality": request.quality,
+            }
+        )
+        
+        # Audio generation not yet implemented - fail properly
+        raise NotImplementedError(
+            "Audio generation requires AI model integration (MusicLM, AudioCraft, or similar). "
+            "Please configure audio generation models to use this feature."
+        )
 
     async def _generate_voice(
         self, persona: PersonaModel, request: GenerationRequest
@@ -718,6 +728,21 @@ class ContentGenerationService:
 
         Integrated with real AI models including ElevenLabs and OpenAI TTS.
         """
+        # Log the generation attempt
+        logger.info(
+            f"Starting voice generation for persona {persona.name} ({persona.id})",
+            extra={
+                "persona_id": str(persona.id),
+                "persona_name": persona.name,
+                "text": request.prompt,
+                "quality": request.quality,
+                "voice_settings": {
+                    "voice_id": persona.style_preferences.get("voice_id", "default"),
+                    "voice_style": persona.style_preferences.get("voice_style", "alloy"),
+                },
+            }
+        )
+        
         try:
             from backend.services.ai_models import ai_models
 
@@ -766,37 +791,24 @@ class ContentGenerationService:
             }
 
         except Exception as e:
-            # Fallback to placeholder if AI generation fails
-            logger.warning(f"AI voice generation failed, using placeholder: {str(e)}")
-            await asyncio.sleep(0.4)  # Simulate processing time
-
-            filename = (
-                f"voice_placeholder_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            # Log the failure comprehensively
+            logger.error(
+                f"Voice generation failed for persona {persona.id}: {str(e)}",
+                extra={
+                    "persona_id": str(persona.id),
+                    "persona_name": persona.name,
+                    "text": request.prompt,
+                    "voice_settings": {
+                        "voice_id": persona.style_preferences.get("voice_id", "default"),
+                        "voice_style": persona.style_preferences.get("voice_style", "alloy"),
+                    },
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                }
             )
-            file_path = self.content_dir / "voice" / filename
-
-            # Create fallback file with error info
-            error_content = f"# Voice generation temporarily unavailable\n# Text: {request.prompt}\n# Error: {str(e)}\n# Note: AI model initialization or API connection required for voice synthesis (ElevenLabs, OpenAI TTS)"
-            file_path.write_text(error_content)
-
-            voice_characteristics = {
-                "voice_id": persona.style_preferences.get("voice_id", "default"),
-                "pitch": persona.style_preferences.get("voice_pitch", "medium"),
-                "speed": persona.style_preferences.get("voice_speed", "normal"),
-                "emotion": persona.style_preferences.get("voice_emotion", "neutral"),
-            }
-
-            return {
-                "file_path": str(file_path),
-                "file_size": file_path.stat().st_size,
-                "duration": len(request.prompt.split()) * 0.6,  # Rough estimate
-                "format": "TXT",  # Text file format for error placeholder
-                "sample_rate": "44.1kHz",
-                "voice_characteristics": voice_characteristics,
-                "content_rating": request.content_rating.value,
-                "error": str(e),
-                "fallback": True,
-            }
+            
+            # Re-raise the exception instead of creating placeholder
+            raise ValueError(f"Voice generation failed: {str(e)}") from e
 
     async def _generate_text(
         self, persona: PersonaModel, request: GenerationRequest
@@ -905,24 +917,37 @@ Generate the social media content now:"""
                 }
 
             except Exception as e:
-                # Mark ACD as using fallback
+                # Mark ACD as using fallback (not failed, since we have a working fallback)
                 await acd.set_confidence(AIConfidence.UNCERTAIN)
+                await acd.set_state(AIState.DONE)  # Still completed, just with fallback
                 await acd.set_metadata({
                     **initial_context,
                     "error": str(e),
+                    "error_type": type(e).__name__,
                     "using_fallback": True,
+                    "fallback_method": "template_based",
                 })
                 
                 # Enhanced fallback generation using persona characteristics
                 logger.warning(
-                    f"AI text generation failed, using enhanced fallback: {str(e)}"
+                    f"AI text generation failed, using template-based fallback for persona {persona.id}: {str(e)}",
+                    extra={
+                        "persona_id": str(persona.id),
+                        "persona_name": persona.name,
+                        "prompt": request.prompt,
+                        "quality": request.quality,
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                        "acd_context_id": str(acd.context_id),
+                        "fallback_method": "template_based",
+                    }
                 )
                 await asyncio.sleep(0.05)  # Simulate processing time
 
                 # Create more sophisticated fallback content based on persona and prompt
                 generated_text = await self._create_enhanced_fallback_text(persona, request)
 
-                filename = f"text_enhanced_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                filename = f"text_fallback_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
                 file_path = self.content_dir / "text" / filename
 
                 file_path.write_text(generated_text, encoding="utf-8")
@@ -931,7 +956,9 @@ Generate the social media content now:"""
                 await acd.set_metadata({
                     **initial_context,
                     "error": str(e),
+                    "error_type": type(e).__name__,
                     "using_fallback": True,
+                    "fallback_method": "template_based",
                     "word_count": len(generated_text.split()),
                     "character_count": len(generated_text),
                 })
@@ -949,6 +976,7 @@ Generate the social media content now:"""
                     "content_rating": request.content_rating.value,
                     "full_text": generated_text,
                     "ai_generated": False,
+                    "template_based": True,
                     "fallback": True,
                     "fallback_reason": str(e),
                     "acd_context_id": acd.context_id,  # Link to ACD context even on fallback

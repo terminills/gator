@@ -44,6 +44,7 @@ from backend.api.routes import (
     enhanced_persona,
     branding,
     acd,
+    diagnostics,
     settings as settings_routes,
 )
 from backend.api.websocket import websocket_endpoint
@@ -202,6 +203,7 @@ def create_app() -> FastAPI:
     app.include_router(direct_messaging.router)
     app.include_router(gator_agent.router, prefix="/api/v1")
     app.include_router(analytics.router)
+    app.include_router(diagnostics.router)
     app.include_router(content.router)
     app.include_router(creator.router, prefix="/api/v1")
     app.include_router(feeds.router)
