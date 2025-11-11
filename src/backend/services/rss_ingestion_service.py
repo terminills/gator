@@ -74,9 +74,19 @@ class RSSIngestionService:
             if existing_feed:
                 raise ValueError(f"Feed already exists: {feed_data.url}")
 
+            # Auto-generate name from URL if not provided
+            feed_name = feed_data.name
+            if not feed_name:
+                # Extract domain name from URL as feed name
+                from urllib.parse import urlparse
+                parsed_url = urlparse(str(feed_data.url))
+                feed_name = parsed_url.netloc or str(feed_data.url)
+                # Clean up common prefixes
+                feed_name = feed_name.replace("www.", "").replace("feeds.", "")
+
             # Create feed record
             feed = RSSFeedModel(
-                name=feed_data.name,
+                name=feed_name,
                 url=str(feed_data.url),
                 description=feed_data.description,
                 categories=feed_data.categories,
@@ -102,7 +112,7 @@ class RSSIngestionService:
     async def list_feeds(self, active_only: bool = True) -> List[RSSFeedResponse]:
         """List all RSS feeds."""
         try:
-            query = select(RSSFeedModel)
+            query = select(RSSFeedModel).where(RSSFeedModel.is_deleted == False)
             if active_only:
                 query = query.where(RSSFeedModel.is_active == True)
 
@@ -115,6 +125,83 @@ class RSSIngestionService:
         except Exception as e:
             logger.error(f"Error listing RSS feeds: {str(e)}")
             return []
+
+    async def fetch_feed(self, feed_id: UUID) -> Dict[str, Any]:
+        """
+        Fetch content from a specific feed.
+
+        Args:
+            feed_id: UUID of the feed to fetch
+
+        Returns:
+            Dict with fetch results including count of new items
+
+        Raises:
+            ValueError: If feed not found
+        """
+        try:
+            # Get feed by ID
+            feed = await self._get_feed_by_id(feed_id)
+            if not feed:
+                raise ValueError(f"Feed not found: {feed_id}")
+
+            if not feed.is_active:
+                raise ValueError(f"Feed is not active: {feed_id}")
+
+            # Fetch content
+            count = await self._fetch_feed_content(feed)
+
+            # Update last_fetched timestamp
+            feed.last_fetched = datetime.now(timezone.utc)
+            await self.db.commit()
+
+            logger.info(f"Fetched feed {feed_id}: {count} new items")
+
+            return {
+                "feed_id": str(feed_id),
+                "new_items": count,
+                "last_fetched": feed.last_fetched.isoformat(),
+                "status": "success",
+            }
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching feed {feed_id}: {str(e)}")
+            raise Exception(f"Failed to fetch feed: {str(e)}")
+
+    async def delete_feed(self, feed_id: UUID) -> bool:
+        """
+        Soft delete an RSS feed by marking it as deleted.
+
+        Args:
+            feed_id: UUID of the feed to delete
+
+        Returns:
+            True if successful
+
+        Raises:
+            ValueError: If feed not found
+        """
+        try:
+            # Get feed by ID
+            feed = await self._get_feed_by_id(feed_id)
+            if not feed:
+                raise ValueError(f"Feed not found: {feed_id}")
+
+            # Soft delete - mark as deleted and inactive
+            feed.is_deleted = True
+            feed.is_active = False
+            await self.db.commit()
+
+            logger.info(f"Deleted feed {feed_id}: {feed.name}")
+            return True
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting feed {feed_id}: {str(e)}")
+            raise Exception(f"Failed to delete feed: {str(e)}")
 
     async def fetch_all_feeds(self) -> Dict[str, int]:
         """

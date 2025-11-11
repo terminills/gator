@@ -360,3 +360,140 @@ async def list_feeds_by_topic(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to list feeds by topic",
         )
+
+
+# RSS-specific subrouter for frontend compatibility
+# These endpoints match the frontend expectations at /api/v1/feeds/rss
+@router.get("/rss", response_model=Dict[str, Any])
+async def list_rss_feeds(
+    active_only: bool = Query(default=True, description="Only return active feeds"),
+    rss_service: RSSIngestionService = Depends(get_rss_service),
+):
+    """
+    List all RSS feeds (frontend-compatible endpoint).
+
+    This endpoint wraps the feeds list in a structure expected by the frontend.
+
+    Args:
+        active_only: Filter to only active feeds
+        rss_service: Injected RSS ingestion service
+
+    Returns:
+        Dict containing feeds list
+    """
+    feeds = await rss_service.list_feeds(active_only)
+    return {"feeds": feeds, "total": len(feeds)}
+
+
+@router.post("/rss", response_model=RSSFeedResponse, status_code=status.HTTP_201_CREATED)
+async def add_rss_feed(
+    feed_data: RSSFeedCreate,
+    rss_service: RSSIngestionService = Depends(get_rss_service),
+):
+    """
+    Add new RSS feed (frontend-compatible endpoint).
+
+    This endpoint accepts feed data and adds it to the monitoring system.
+
+    Args:
+        feed_data: RSS feed configuration
+        rss_service: Injected RSS ingestion service
+
+    Returns:
+        RSSFeedResponse: Created feed record
+
+    Raises:
+        400: Invalid feed URL or duplicate feed
+        500: Feed validation or creation failed
+    """
+    try:
+        feed = await rss_service.add_feed(feed_data)
+        logger.info(f"RSS feed added via /rss endpoint {feed.id}: {feed.url}")
+        return feed
+
+    except ValueError as e:
+        logger.warning(f"RSS feed validation error: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"RSS feed creation failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to add RSS feed",
+        )
+
+
+@router.post("/rss/{feed_id}/refresh", response_model=Dict[str, Any])
+async def refresh_rss_feed(
+    feed_id: UUID,
+    rss_service: RSSIngestionService = Depends(get_rss_service),
+):
+    """
+    Refresh a specific RSS feed.
+
+    Triggers immediate fetch of content from the specified RSS feed.
+
+    Args:
+        feed_id: Feed identifier
+        rss_service: Injected RSS ingestion service
+
+    Returns:
+        Dict with refresh results
+
+    Raises:
+        404: Feed not found
+        500: Feed refresh failed
+    """
+    try:
+        result = await rss_service.fetch_feed(feed_id)
+        logger.info(f"RSS feed refreshed {feed_id}: {result['new_items']} new items")
+        return {
+            "status": "success",
+            "message": f"Feed refreshed successfully. {result['new_items']} new items.",
+            "data": result,
+        }
+
+    except ValueError as e:
+        logger.warning(f"RSS feed not found: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        logger.error(f"RSS feed refresh failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to refresh RSS feed",
+        )
+
+
+@router.delete("/rss/{feed_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_rss_feed(
+    feed_id: UUID,
+    rss_service: RSSIngestionService = Depends(get_rss_service),
+):
+    """
+    Delete an RSS feed.
+
+    Soft deletes the feed by marking it as deleted.
+
+    Args:
+        feed_id: Feed identifier
+        rss_service: Injected RSS ingestion service
+
+    Returns:
+        204 No Content on success
+
+    Raises:
+        404: Feed not found
+        500: Feed deletion failed
+    """
+    try:
+        await rss_service.delete_feed(feed_id)
+        logger.info(f"RSS feed deleted {feed_id}")
+
+    except ValueError as e:
+        logger.warning(f"RSS feed not found: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        logger.error(f"RSS feed deletion failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete RSS feed",
+        )
