@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Content - Gator AI Admin</title>
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5568d3;
+            --accent: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark-bg: #0f0f1e;
+            --dark-surface: #1a1a2e;
+            --dark-card: #16213e;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --sidebar-width: 260px;
+            --border-color: #2a2a3e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--dark-surface);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .logo-icon {
+            font-size: 2rem;
+        }
+        
+        .nav-section {
+            padding: 20px 16px 8px;
+        }
+        
+        .nav-section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-bottom: 8px;
+            padding: 0 12px;
+        }
+        
+        .nav-menu {
+            list-style: none;
+        }
+        
+        .nav-item {
+            margin-bottom: 4px;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .nav-link:hover {
+            background: var(--dark-card);
+            color: var(--text-primary);
+        }
+        
+        .nav-link.active {
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            color: white;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.3rem;
+            width: 24px;
+            text-align: center;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .topbar {
+            height: 70px;
+            background: var(--dark-surface);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .back-btn {
+            padding: 8px 16px;
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        
+        .back-btn:hover {
+            border-color: var(--primary);
+        }
+        
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .content-area {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+        }
+        
+        .content-detail {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .content-header {
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+        
+        .content-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        
+        .content-meta {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+        
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .meta-icon {
+            font-size: 1.2rem;
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .status-pending {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+        
+        .status-approved {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent);
+        }
+        
+        .status-rejected {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+        
+        .content-body {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 24px;
+        }
+        
+        .content-main {
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 32px;
+        }
+        
+        .content-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        
+        .info-card {
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+        }
+        
+        .info-card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .info-value {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .content-preview {
+            background: var(--dark-card);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .content-preview img {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        .no-preview {
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .generation-params {
+            background: var(--dark-card);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        
+        .param-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 0.85rem;
+        }
+        
+        .param-label {
+            color: var(--text-secondary);
+        }
+        
+        .param-value {
+            color: var(--text-primary);
+            font-family: 'Courier New', monospace;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 0.9rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: var(--dark-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        
+        .loading-spinner {
+            font-size: 3rem;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 1024px) {
+            .content-body {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-icon" id="brand-icon">🐊</span>
+                <span id="brand-name">AI Platform</span>
+            </div>
+        </div>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Main</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin" class="nav-link">
+                        <span class="nav-icon">📊</span>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/personas" class="nav-link">
+                        <span class="nav-icon">🎭</span>
+                        <span>Personas</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/content" class="nav-link active">
+                        <span class="nav-icon">🎨</span>
+                        <span>Content</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <a href="/admin/content" class="back-btn">← Back to Content</a>
+                <h1 class="page-title">Content Details</h1>
+            </div>
+        </div>
+        
+        <div class="content-area">
+            <div id="loading" class="loading">
+                <div class="loading-spinner">⏳</div>
+                <p style="margin-top: 16px; color: var(--text-secondary);">Loading content...</p>
+            </div>
+            
+            <div id="content-detail" class="content-detail" style="display: none;">
+                <!-- Content will be loaded here -->
+            </div>
+            
+            <div id="error-message" style="display: none; text-align: center; padding: 60px 20px;">
+                <h2 style="color: var(--danger); margin-bottom: 12px;">❌ Error</h2>
+                <p id="error-text" style="color: var(--text-secondary);"></p>
+                <a href="/admin/content" class="btn btn-primary" style="margin-top: 24px;">Back to Content</a>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+        // Load branding configuration
+        async function loadBranding() {
+            try {
+                const response = await fetch('/api/v1/branding');
+                const branding = await response.json();
+                
+                document.getElementById('brand-name').textContent = branding.site_name || 'AI Platform';
+                document.getElementById('brand-icon').textContent = branding.icon || '🐊';
+            } catch (e) {
+                console.log('Using default branding');
+            }
+        }
+        
+        // Get content ID from URL
+        function getContentId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('id');
+        }
+        
+        // Format date
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+        
+        // Format file size
+        function formatFileSize(bytes) {
+            if (!bytes || bytes === 0) return 'N/A';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let size = bytes;
+            let unitIndex = 0;
+            while (size >= 1024 && unitIndex < units.length - 1) {
+                size /= 1024;
+                unitIndex++;
+            }
+            return `${size.toFixed(2)} ${units[unitIndex]}`;
+        }
+        
+        // Get status badge HTML
+        function getStatusBadge(status) {
+            const statusMap = {
+                'pending': { class: 'status-pending', icon: '⏳', text: 'Pending' },
+                'approved': { class: 'status-approved', icon: '✅', text: 'Approved' },
+                'rejected': { class: 'status-rejected', icon: '❌', text: 'Rejected' },
+                'flagged': { class: 'status-pending', icon: '⚠️', text: 'Flagged' }
+            };
+            const s = statusMap[status] || { class: 'status-pending', icon: '❓', text: status };
+            return `<span class="status-badge ${s.class}">${s.icon} ${s.text}</span>`;
+        }
+        
+        // Load and display content
+        async function loadContent() {
+            const contentId = getContentId();
+            
+            if (!contentId) {
+                showError('No content ID provided');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/v1/content/${contentId}`);
+                
+                if (!response.ok) {
+                    throw new Error('Content not found');
+                }
+                
+                const content = await response.json();
+                displayContent(content);
+                
+            } catch (error) {
+                console.error('Failed to load content:', error);
+                showError(error.message || 'Failed to load content');
+            }
+        }
+        
+        // Display content
+        function displayContent(content) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content-detail').style.display = 'block';
+            
+            const container = document.getElementById('content-detail');
+            
+            // Build generation params display
+            let paramsHtml = '';
+            if (content.generation_params && typeof content.generation_params === 'object') {
+                const params = content.generation_params;
+                const keyParams = ['prompt', 'model', 'provider', 'quality', 'width', 'height', 'format', 'generation_time_seconds'];
+                
+                paramsHtml = '<div class="generation-params">';
+                for (const key of keyParams) {
+                    if (params[key] !== undefined && params[key] !== null) {
+                        let value = params[key];
+                        if (key === 'generation_time_seconds') {
+                            value = `${value.toFixed(2)}s`;
+                        }
+                        paramsHtml += `
+                            <div class="param-row">
+                                <span class="param-label">${key}:</span>
+                                <span class="param-value">${value}</span>
+                            </div>
+                        `;
+                    }
+                }
+                paramsHtml += '</div>';
+            }
+            
+            // Build preview
+            let previewHtml = '';
+            if (content.content_type === 'image' && content.file_path) {
+                previewHtml = `
+                    <div class="content-preview">
+                        <img src="/${content.file_path}" alt="${content.title}" onerror="this.parentElement.innerHTML='<div class=no-preview>🖼️<br>Image not available</div>'">
+                    </div>
+                `;
+            } else if (content.content_type === 'video' && content.file_path) {
+                previewHtml = `
+                    <div class="content-preview">
+                        <video controls style="max-width: 100%; border-radius: 8px;">
+                            <source src="/${content.file_path}" type="video/mp4">
+                            Your browser does not support video playback.
+                        </video>
+                    </div>
+                `;
+            } else {
+                previewHtml = `
+                    <div class="content-preview">
+                        <div class="no-preview">
+                            <div style="font-size: 3rem; margin-bottom: 12px;">📄</div>
+                            <p>Preview not available for this content type</p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = `
+                <div class="content-header">
+                    <h1 class="content-title">${content.title || 'Untitled Content'}</h1>
+                    <p style="color: var(--text-secondary); margin-bottom: 16px;">${content.description || 'No description provided'}</p>
+                    
+                    <div class="content-meta">
+                        <div class="meta-item">
+                            <span class="meta-icon">🎨</span>
+                            <span>Type: <strong>${content.content_type}</strong></span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">⭐</span>
+                            <span>Rating: <strong>${content.content_rating}</strong></span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">📊</span>
+                            <span>Quality: <strong>${content.quality_score || 'N/A'}</strong></span>
+                        </div>
+                        <div class="meta-item">
+                            ${getStatusBadge(content.moderation_status)}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="content-body">
+                    <div class="content-main">
+                        <h2 style="font-size: 1.3rem; margin-bottom: 16px;">Preview</h2>
+                        ${previewHtml}
+                        
+                        <h3 style="font-size: 1.1rem; margin-bottom: 12px; margin-top: 24px;">Generation Parameters</h3>
+                        ${paramsHtml || '<p style="color: var(--text-secondary);">No generation parameters available</p>'}
+                        
+                        <div class="action-buttons">
+                            ${content.file_path ? `<a href="/${content.file_path}" download class="btn btn-primary">📥 Download</a>` : ''}
+                            <button class="btn btn-danger" onclick="deleteContent('${content.id}')">🗑️ Delete</button>
+                        </div>
+                    </div>
+                    
+                    <div class="content-sidebar">
+                        <div class="info-card">
+                            <h3 class="info-card-title">Information</h3>
+                            <div class="info-row">
+                                <span class="info-label">Content ID</span>
+                                <span class="info-value" style="font-size: 0.75rem;">${content.id}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Persona ID</span>
+                                <span class="info-value" style="font-size: 0.75rem;">${content.persona_id}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Created</span>
+                                <span class="info-value">${formatDate(content.created_at)}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Updated</span>
+                                <span class="info-value">${formatDate(content.updated_at)}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Published</span>
+                                <span class="info-value">${content.is_published ? '✅ Yes' : '❌ No'}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="info-card">
+                            <h3 class="info-card-title">File Details</h3>
+                            <div class="info-row">
+                                <span class="info-label">File Path</span>
+                                <span class="info-value" style="font-size: 0.75rem; word-break: break-all;">${content.file_path || 'N/A'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">File Size</span>
+                                <span class="info-value">${formatFileSize(content.file_size)}</span>
+                            </div>
+                        </div>
+                        
+                        ${content.moderation_notes ? `
+                        <div class="info-card">
+                            <h3 class="info-card-title">Moderation Notes</h3>
+                            <p style="color: var(--text-secondary); font-size: 0.9rem;">${content.moderation_notes}</p>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Show error
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error-message').style.display = 'block';
+            document.getElementById('error-text').textContent = message;
+        }
+        
+        // Delete content
+        async function deleteContent(id) {
+            if (!confirm('Are you sure you want to delete this content? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/v1/content/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    alert('✅ Content deleted successfully');
+                    window.location.href = '/admin/content';
+                } else {
+                    alert('❌ Failed to delete content');
+                }
+            } catch (error) {
+                alert('❌ Error deleting content');
+            }
+        }
+        
+        // Load on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadBranding();
+            loadContent();
+        });
+    </script>
+</body>
+</html>

@@ -487,6 +487,47 @@
             loadBranding();
         });
 
+        // Format date helper
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = now - date;
+            const seconds = Math.floor(diff / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            
+            if (days > 0) return `${days}d ago`;
+            if (hours > 0) return `${hours}h ago`;
+            if (minutes > 0) return `${minutes}m ago`;
+            return 'Just now';
+        }
+        
+        // Get status badge
+        function getStatusBadge(status) {
+            const statusMap = {
+                'pending': { bg: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', icon: '⏳', text: 'Pending' },
+                'approved': { bg: 'rgba(16, 185, 129, 0.2)', color: '#10b981', icon: '✅', text: 'Approved' },
+                'rejected': { bg: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', icon: '❌', text: 'Rejected' },
+                'flagged': { bg: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', icon: '⚠️', text: 'Flagged' }
+            };
+            const s = statusMap[status] || { bg: 'rgba(160, 160, 176, 0.2)', color: '#a0a0b0', icon: '❓', text: status };
+            return `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; background: ${s.bg}; color: ${s.color};">${s.icon} ${s.text}</span>`;
+        }
+        
+        // Get content type icon
+        function getContentIcon(type) {
+            const iconMap = {
+                'image': '🖼️',
+                'video': '🎬',
+                'audio': '🎵',
+                'voice': '🗣️',
+                'text': '📝'
+            };
+            return iconMap[type] || '📄';
+        }
+        
         // Content Management
         async function loadContent() {
             try {
@@ -509,29 +550,86 @@
                     return;
                 }
                 
-                container.innerHTML = '<div class="grid" id="content-grid"></div>';
-                const grid = document.getElementById('content-grid');
+                // Sort content by created date (newest first)
+                content.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                
+                // Build content queue table
+                let tableHTML = `
+                    <div style="background: var(--dark-surface); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: var(--dark-card); border-bottom: 1px solid var(--border-color);">
+                                    <th style="padding: 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">TYPE</th>
+                                    <th style="padding: 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">TITLE</th>
+                                    <th style="padding: 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">STATUS</th>
+                                    <th style="padding: 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">QUALITY</th>
+                                    <th style="padding: 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">CREATED</th>
+                                    <th style="padding: 16px; text-align: center; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">PUBLISHED</th>
+                                    <th style="padding: 16px; text-align: center; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">ACTIONS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="content-table-body">
+                `;
                 
                 content.forEach(item => {
-                    const card = document.createElement('div');
-                    card.className = 'card';
-                    card.innerHTML = `
-                        <h3 style="margin-bottom: 12px; color: var(--text-primary);">
-                            ${item.title || 'Untitled Content'}
-                        </h3>
-                        <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.9rem;">
-                            Type: ${item.content_type || 'Unknown'}
-                        </p>
-                        <div style="display: flex; gap: 12px; margin-top: 16px;">
-                            <button class="btn btn-secondary" onclick="viewContent('${item.id}')">
-                                👁️ View
-                            </button>
-                        </div>
+                    const qualityColor = item.quality_score >= 80 ? '#10b981' : item.quality_score >= 60 ? '#f59e0b' : '#ef4444';
+                    const qualityDisplay = item.quality_score ? `<span style="color: ${qualityColor}; font-weight: 600;">${Math.round(item.quality_score)}</span>` : '<span style="color: var(--text-secondary);">N/A</span>';
+                    const publishedIcon = item.is_published ? '<span style="color: #10b981; font-size: 1.2rem;">✅</span>' : '<span style="color: var(--text-secondary); font-size: 1.2rem;">⭕</span>';
+                    
+                    tableHTML += `
+                        <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='var(--dark-card)'" onmouseout="this.style.background='transparent'">
+                            <td style="padding: 16px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 1.5rem;">${getContentIcon(item.content_type)}</span>
+                                    <span style="font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">${item.content_type}</span>
+                                </div>
+                            </td>
+                            <td style="padding: 16px;">
+                                <div style="max-width: 300px;">
+                                    <div style="font-weight: 600; margin-bottom: 4px;">${item.title || 'Untitled Content'}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.description || 'No description'}</div>
+                                </div>
+                            </td>
+                            <td style="padding: 16px;">
+                                ${getStatusBadge(item.moderation_status)}
+                            </td>
+                            <td style="padding: 16px; text-align: center; font-size: 1.1rem;">
+                                ${qualityDisplay}
+                            </td>
+                            <td style="padding: 16px;">
+                                <div style="font-size: 0.85rem; color: var(--text-secondary);">${formatDate(item.created_at)}</div>
+                            </td>
+                            <td style="padding: 16px; text-align: center;">
+                                ${publishedIcon}
+                            </td>
+                            <td style="padding: 16px; text-align: center;">
+                                <button class="btn btn-secondary" onclick="viewContent('${item.id}')" style="padding: 8px 16px; font-size: 0.85rem;">
+                                    👁️ View
+                                </button>
+                            </td>
+                        </tr>
                     `;
-                    grid.appendChild(card);
                 });
+                
+                tableHTML += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                container.innerHTML = tableHTML;
+                
             } catch (error) {
                 console.error('Failed to load content:', error);
+                document.getElementById('content-container').innerHTML = `
+                    <div class="empty-state">
+                        <h2 style="color: #ef4444;">❌ Error Loading Content</h2>
+                        <p>${error.message || 'Failed to load content list'}</p>
+                        <button class="btn btn-primary" onclick="loadContent()">
+                            🔄 Retry
+                        </button>
+                    </div>
+                `;
             }
         }
         
@@ -556,7 +654,7 @@
         }
         
         function viewContent(id) {
-            window.location.href = `/api/v1/content/${id}`;
+            window.location.href = `/admin/content/view?id=${id}`;
         }
         
         // Load on page load

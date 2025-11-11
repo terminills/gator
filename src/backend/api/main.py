@@ -287,6 +287,14 @@ def create_app() -> FastAPI:
             return FileResponse(content_path)
         return {"error": "Content management page not found"}
     
+    @app.get("/admin/content/view", tags=["system"])
+    async def admin_content_view():
+        """Serve individual content view page."""
+        content_view_path = os.path.join(project_root, "admin_panel", "content-view.html")
+        if os.path.exists(content_view_path):
+            return FileResponse(content_view_path)
+        return {"error": "Content view page not found"}
+    
     @app.get("/admin/rss", tags=["system"])
     async def admin_rss():
         """Serve RSS feed management page."""
