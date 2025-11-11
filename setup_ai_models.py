@@ -627,9 +627,11 @@ class ModelSetupManager:
                         requirements_check.append(f"Need {model['min_ram_gb']}GB RAM (have {sys_info['ram_gb']:.1f}GB)")
                 
                 if "min_gpu_memory_gb" in model:
-                    if not self.has_gpu or self.gpu_memory < model["min_gpu_memory_gb"]:
-                        meets_requirements = False
-                        requirements_check.append(f"Need {model['min_gpu_memory_gb']}GB GPU memory (have {self.gpu_memory:.1f}GB)")
+                    # Only check GPU requirements if model actually needs GPU (> 0GB)
+                    if model["min_gpu_memory_gb"] > 0:
+                        if not self.has_gpu or self.gpu_memory < model["min_gpu_memory_gb"]:
+                            meets_requirements = False
+                            requirements_check.append(f"Need {model['min_gpu_memory_gb']}GB GPU memory (have {self.gpu_memory:.1f}GB)")
                 
                 if "size_gb" in model:
                     if sys_info["disk_space_gb"] < model["size_gb"] * 2:  # 2x for download + extracted
