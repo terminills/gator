@@ -747,6 +747,153 @@ class ModelSetupManager:
         except ImportError as e:
             print(f"Missing dependencies for image models: {str(e)}")
     
+    def install_voice_models(self, models_to_install: List[str] = None) -> None:
+        """Install voice synthesis/TTS models."""
+        if models_to_install is None:
+            models_to_install = ["piper"]  # Default to lightweight model
+        
+        try:
+            from huggingface_hub import snapshot_download, hf_hub_download
+            import json
+            
+            for model_name in models_to_install:
+                model_config = next((m for m in self.model_configs["voice"] if m["name"] == model_name), None)
+                if not model_config:
+                    print(f"Unknown voice model: {model_name}")
+                    continue
+                
+                print(f"📥 Downloading {model_name} voice model...")
+                model_path = self.models_dir / "voice" / model_name
+                model_path.mkdir(parents=True, exist_ok=True)
+                
+                try:
+                    if model_name == "xtts-v2":
+                        # XTTS-v2 installation
+                        print(f"   Downloading XTTS-v2 from Coqui...")
+                        
+                        # Download the model files from HuggingFace
+                        snapshot_path = snapshot_download(
+                            repo_id=model_config["model_id"],
+                            cache_dir=model_path / "cache",
+                            local_dir=model_path,
+                            local_dir_use_symlinks=False
+                        )
+                        
+                        # Create a simple config file for the model
+                        config_data = {
+                            "model_name": model_name,
+                            "model_id": model_config["model_id"],
+                            "model_type": "xtts",
+                            "description": model_config["description"],
+                            "path": str(model_path)
+                        }
+                        
+                        with open(model_path / "model_config.json", 'w') as f:
+                            json.dump(config_data, f, indent=2)
+                        
+                        print(f"✓ Installed XTTS-v2 at {model_path}")
+                        
+                    elif model_name == "piper":
+                        # Piper TTS installation
+                        print(f"   Downloading Piper TTS model...")
+                        
+                        # Piper uses a different structure - download specific voice model
+                        # Using en_US-lessac-medium as default
+                        voice_model = "en_US-lessac-medium"
+                        
+                        try:
+                            # Download model file
+                            model_file = hf_hub_download(
+                                repo_id="rhasspy/piper-voices",
+                                filename=f"{voice_model}.onnx",
+                                cache_dir=model_path / "cache",
+                                local_dir=model_path,
+                                local_dir_use_symlinks=False
+                            )
+                            
+                            # Download config file
+                            config_file = hf_hub_download(
+                                repo_id="rhasspy/piper-voices",
+                                filename=f"{voice_model}.onnx.json",
+                                cache_dir=model_path / "cache",
+                                local_dir=model_path,
+                                local_dir_use_symlinks=False
+                            )
+                            
+                            # Create model info file
+                            config_data = {
+                                "model_name": model_name,
+                                "model_id": model_config["model_id"],
+                                "model_type": "piper",
+                                "voice": voice_model,
+                                "description": model_config["description"],
+                                "path": str(model_path)
+                            }
+                            
+                            with open(model_path / "model_config.json", 'w') as f:
+                                json.dump(config_data, f, indent=2)
+                            
+                            print(f"✓ Installed Piper TTS ({voice_model}) at {model_path}")
+                            
+                        except Exception as e:
+                            print(f"   Note: Could not download from HuggingFace: {e}")
+                            print(f"   Creating placeholder configuration for manual installation")
+                            
+                            # Create placeholder config for manual setup
+                            config_data = {
+                                "model_name": model_name,
+                                "model_id": model_config["model_id"],
+                                "model_type": "piper",
+                                "description": model_config["description"],
+                                "path": str(model_path),
+                                "status": "manual_install_required",
+                                "instructions": "Download Piper voices from https://github.com/rhasspy/piper/releases"
+                            }
+                            
+                            with open(model_path / "model_config.json", 'w') as f:
+                                json.dump(config_data, f, indent=2)
+                            
+                            print(f"⚠ Created placeholder config for Piper at {model_path}")
+                        
+                    elif model_name == "bark":
+                        # Bark TTS installation
+                        print(f"   Downloading Bark model...")
+                        
+                        # Download Bark model from HuggingFace
+                        snapshot_path = snapshot_download(
+                            repo_id=model_config["model_id"],
+                            cache_dir=model_path / "cache",
+                            local_dir=model_path,
+                            local_dir_use_symlinks=False
+                        )
+                        
+                        # Create config file
+                        config_data = {
+                            "model_name": model_name,
+                            "model_id": model_config["model_id"],
+                            "model_type": "bark",
+                            "description": model_config["description"],
+                            "path": str(model_path)
+                        }
+                        
+                        with open(model_path / "model_config.json", 'w') as f:
+                            json.dump(config_data, f, indent=2)
+                        
+                        print(f"✓ Installed Bark TTS at {model_path}")
+                    
+                    else:
+                        print(f"✗ Unknown voice model type: {model_name}")
+                        continue
+                    
+                except Exception as e:
+                    print(f"✗ Failed to install {model_name}: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    
+        except ImportError as e:
+            print(f"Missing dependencies for voice models: {str(e)}")
+            print(f"Please install: pip install huggingface_hub")
+    
     def create_model_config(self) -> None:
         """Create model configuration file."""
         config = {
@@ -988,8 +1135,7 @@ async def main():
             
             if voice_models:
                 print(f"\n🎤 Installing voice models: {', '.join(voice_models)}")
-                # Voice model installation would go here
-                print(f"   Voice model installation not yet implemented for: {', '.join(voice_models)}")
+                manager.install_voice_models(voice_models)
             
             # Update configuration
             manager.create_model_config()
