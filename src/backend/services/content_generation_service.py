@@ -182,10 +182,18 @@ class ContentGenerationService:
             ValueError: If persona not found or generation fails
         """
         try:
-            # Get persona data
-            persona = await self._get_persona(request.persona_id)
-            if not persona:
-                raise ValueError(f"Persona not found: {request.persona_id}")
+            # Get persona data - if no persona_id provided, use first available persona
+            if request.persona_id is None:
+                persona = await self._get_first_persona()
+                if not persona:
+                    raise ValueError(
+                        "No personas available. Please create a persona first."
+                    )
+                request.persona_id = persona.id
+            else:
+                persona = await self._get_persona(request.persona_id)
+                if not persona:
+                    raise ValueError(f"Persona not found: {request.persona_id}")
 
             # Generate prompt if not provided
             if not request.prompt:
@@ -318,6 +326,17 @@ class ContentGenerationService:
         """Retrieve persona from database."""
         stmt = select(PersonaModel).where(
             PersonaModel.id == persona_id, PersonaModel.is_active == True
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def _get_first_persona(self) -> Optional[PersonaModel]:
+        """Retrieve first available active persona from database."""
+        stmt = (
+            select(PersonaModel)
+            .where(PersonaModel.is_active == True)
+            .order_by(PersonaModel.created_at.asc())
+            .limit(1)
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
