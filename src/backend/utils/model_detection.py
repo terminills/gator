@@ -6,8 +6,10 @@ and installations across the platform.
 """
 
 import os
+import shutil
+import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 
 def find_comfyui_installation(base_dir: Optional[Path] = None) -> Optional[Path]:
@@ -56,32 +58,314 @@ def find_comfyui_installation(base_dir: Optional[Path] = None) -> Optional[Path]
     return None
 
 
+def find_automatic1111_installation(base_dir: Optional[Path] = None) -> Optional[Path]:
+    """
+    Find Automatic1111 (Stable Diffusion WebUI) installation.
+    
+    Args:
+        base_dir: Optional base directory to use for relative paths
+    
+    Returns:
+        Path to Automatic1111 directory if found, None otherwise
+    """
+    # Check environment variable
+    if "A1111_DIR" in os.environ or "SD_WEBUI_DIR" in os.environ:
+        a1111_path = Path(os.environ.get("A1111_DIR", os.environ.get("SD_WEBUI_DIR", "")))
+        if a1111_path.exists() and (a1111_path / "launch.py").exists():
+            return a1111_path
+    
+    # Build list of possible locations
+    possible_locations = []
+    
+    if base_dir:
+        possible_locations.extend([
+            base_dir / "stable-diffusion-webui",
+            base_dir / "automatic1111",
+        ])
+    
+    possible_locations.extend([
+        Path("./stable-diffusion-webui"),
+        Path.cwd() / "stable-diffusion-webui",
+        Path(__file__).parent.parent.parent.parent / "stable-diffusion-webui",
+        Path.home() / "stable-diffusion-webui",
+        Path("./automatic1111"),
+        Path.cwd() / "automatic1111",
+    ])
+    
+    for location in possible_locations:
+        if location.exists() and location.is_dir():
+            launch_py = location / "launch.py"
+            if launch_py.exists() and launch_py.is_file():
+                return location.resolve()
+    
+    return None
+
+
+def find_vllm_installation() -> Optional[Dict[str, Any]]:
+    """
+    Detect vLLM installation and get version info.
+    
+    Returns:
+        Dictionary with vLLM info if installed, None otherwise
+    """
+    try:
+        import vllm
+        version = getattr(vllm, "__version__", "unknown")
+        
+        # Check if it's a ROCm build by looking for hip/rocm in the installation
+        import sys
+        vllm_path = Path(vllm.__file__).parent
+        is_rocm = any([
+            (vllm_path / "rocm").exists(),
+            "rocm" in str(vllm_path).lower(),
+            "hip" in str(vllm_path).lower(),
+        ])
+        
+        return {
+            "installed": True,
+            "version": version,
+            "path": str(vllm_path),
+            "is_rocm_build": is_rocm,
+            "python_package": True,
+        }
+    except ImportError:
+        # Check if vllm source installation exists
+        possible_locations = [
+            Path("./vllm-rocm"),
+            Path.cwd() / "vllm-rocm",
+            Path(__file__).parent.parent.parent.parent / "vllm-rocm",
+            Path.home() / "vllm-rocm",
+            Path("./vllm"),
+            Path.cwd() / "vllm",
+        ]
+        
+        for location in possible_locations:
+            if location.exists() and location.is_dir():
+                setup_py = location / "setup.py"
+                if setup_py.exists():
+                    return {
+                        "installed": True,
+                        "version": "source",
+                        "path": str(location.resolve()),
+                        "is_rocm_build": "rocm" in str(location).lower(),
+                        "python_package": False,
+                        "source_dir": str(location.resolve()),
+                    }
+        
+        return None
+
+
+def find_llama_cpp_installation() -> Optional[Dict[str, Any]]:
+    """
+    Detect llama.cpp or llama-cpp-python installation.
+    
+    Returns:
+        Dictionary with llama.cpp info if installed, None otherwise
+    """
+    # Check for Python bindings first
+    try:
+        import llama_cpp
+        version = getattr(llama_cpp, "__version__", "unknown")
+        
+        # Check if it's a HIP/ROCm build
+        llama_path = Path(llama_cpp.__file__).parent
+        is_hip = any([
+            "hip" in str(llama_path).lower(),
+            "rocm" in str(llama_path).lower(),
+        ])
+        
+        return {
+            "installed": True,
+            "type": "python-bindings",
+            "version": version,
+            "path": str(llama_path),
+            "is_hip_build": is_hip,
+        }
+    except ImportError:
+        pass
+    
+    # Check for standalone llama.cpp binary
+    llama_server = shutil.which("llama-server") or shutil.which("llama-cli")
+    if llama_server:
+        try:
+            result = subprocess.run(
+                [llama_server, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            version_output = result.stdout.strip() if result.returncode == 0 else "unknown"
+            
+            # Check if HIP/ROCm support is compiled in
+            is_hip = "hip" in version_output.lower() or "rocm" in version_output.lower()
+            
+            return {
+                "installed": True,
+                "type": "binary",
+                "version": version_output,
+                "path": llama_server,
+                "is_hip_build": is_hip,
+            }
+        except (subprocess.TimeoutExpired, Exception):
+            pass
+    
+    # Check for source installation
+    possible_locations = [
+        Path("./llama.cpp"),
+        Path.cwd() / "llama.cpp",
+        Path(__file__).parent.parent.parent.parent / "llama.cpp",
+        Path.home() / "llama.cpp",
+    ]
+    
+    for location in possible_locations:
+        if location.exists() and location.is_dir():
+            makefile = location / "Makefile"
+            if makefile.exists():
+                # Check if there's a built server binary
+                server_binary = location / "llama-server"
+                if server_binary.exists():
+                    return {
+                        "installed": True,
+                        "type": "source",
+                        "version": "source-build",
+                        "path": str(location.resolve()),
+                        "is_hip_build": False,  # Would need to check build flags
+                        "source_dir": str(location.resolve()),
+                    }
+    
+    return None
+
+
+def get_inference_engines_status(base_dir: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
+    """
+    Get status of all inference engines.
+    
+    Args:
+        base_dir: Optional base directory for relative path checks
+    
+    Returns:
+        Dictionary mapping engine names to their status information
+    """
+    engines = {}
+    
+    # Text generation engines
+    vllm_info = find_vllm_installation()
+    if vllm_info:
+        engines["vllm"] = {
+            "category": "text",
+            "name": "vLLM",
+            "status": "installed",
+            **vllm_info
+        }
+    else:
+        engines["vllm"] = {
+            "category": "text",
+            "name": "vLLM",
+            "status": "not_installed",
+            "install_script": "scripts/install_vllm_rocm.sh"
+        }
+    
+    llama_cpp_info = find_llama_cpp_installation()
+    if llama_cpp_info:
+        engines["llama-cpp"] = {
+            "category": "text",
+            "name": "llama.cpp",
+            "status": "installed",
+            **llama_cpp_info
+        }
+    else:
+        engines["llama-cpp"] = {
+            "category": "text",
+            "name": "llama.cpp",
+            "status": "not_installed",
+            "install_url": "https://github.com/ggerganov/llama.cpp"
+        }
+    
+    # Image generation engines
+    comfyui_path = find_comfyui_installation(base_dir)
+    if comfyui_path:
+        engines["comfyui"] = {
+            "category": "image",
+            "name": "ComfyUI",
+            "status": "installed",
+            "path": str(comfyui_path),
+            "web_ui": "http://localhost:8188"
+        }
+    else:
+        engines["comfyui"] = {
+            "category": "image",
+            "name": "ComfyUI",
+            "status": "not_installed",
+            "install_script": "scripts/install_comfyui_rocm.sh"
+        }
+    
+    a1111_path = find_automatic1111_installation(base_dir)
+    if a1111_path:
+        engines["automatic1111"] = {
+            "category": "image",
+            "name": "Automatic1111 WebUI",
+            "status": "installed",
+            "path": str(a1111_path),
+            "web_ui": "http://localhost:7860"
+        }
+    else:
+        engines["automatic1111"] = {
+            "category": "image",
+            "name": "Automatic1111 WebUI",
+            "status": "not_installed",
+            "install_url": "https://github.com/AUTOMATIC1111/stable-diffusion-webui"
+        }
+    
+    # Python library inference engines
+    for lib_name, display_name, category in [
+        ("transformers", "Transformers", "text"),
+        ("diffusers", "Diffusers", "image"),
+    ]:
+        try:
+            lib = __import__(lib_name)
+            version = getattr(lib, "__version__", "unknown")
+            engines[lib_name] = {
+                "category": category,
+                "name": display_name,
+                "status": "installed",
+                "version": version,
+                "python_package": True,
+            }
+        except ImportError:
+            engines[lib_name] = {
+                "category": category,
+                "name": display_name,
+                "status": "not_installed",
+                "python_package": True,
+            }
+    
+    return engines
+
+
 def check_inference_engine_available(engine: str, base_dir: Optional[Path] = None) -> bool:
     """
     Check if an inference engine is available.
     
     Args:
-        engine: Name of the inference engine (vllm, comfyui, diffusers, transformers)
+        engine: Name of the inference engine (vllm, comfyui, diffusers, transformers, llama-cpp)
         base_dir: Optional base directory for relative path checks
     
     Returns:
         True if the engine is available, False otherwise
     """
-    try:
-        if engine == "vllm":
-            import vllm
+    if engine == "vllm":
+        return find_vllm_installation() is not None
+    elif engine == "comfyui":
+        return find_comfyui_installation(base_dir) is not None
+    elif engine == "automatic1111":
+        return find_automatic1111_installation(base_dir) is not None
+    elif engine == "llama-cpp":
+        return find_llama_cpp_installation() is not None
+    elif engine in ["diffusers", "transformers"]:
+        try:
+            __import__(engine)
             return True
-        elif engine == "comfyui":
-            # Use comprehensive ComfyUI detection
-            comfyui_path = find_comfyui_installation(base_dir)
-            return comfyui_path is not None
-        elif engine == "diffusers":
-            import diffusers
-            return True
-        elif engine == "transformers":
-            import transformers
-            return True
-        else:
+        except ImportError:
             return False
-    except ImportError:
+    else:
         return False
