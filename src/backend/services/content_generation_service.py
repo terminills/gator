@@ -657,11 +657,11 @@ class ContentGenerationService:
             # Move/copy generated video to content directory
             import shutil
 
-            if Path(video_result["file_path"]).exists():
-                shutil.copy2(video_result["file_path"], file_path)
-            else:
-                # Create placeholder if generation failed
-                file_path.write_text("# Video generation placeholder")
+            if not Path(video_result["file_path"]).exists():
+                # Fail if video file doesn't exist - no placeholders!
+                raise ValueError(f"Video generation failed: output file not found at {video_result['file_path']}")
+            
+            shutil.copy2(video_result["file_path"], file_path)
 
             return {
                 "file_path": str(file_path),
