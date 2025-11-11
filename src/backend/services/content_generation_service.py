@@ -30,7 +30,7 @@ from backend.models.content import (
 from backend.services.template_service import TemplateService
 from backend.config.logging import get_logger
 from backend.utils.acd_integration import ACDContextManager
-from backend.models.acd import AIComplexity, AIConfidence, AIState
+from backend.models.acd import AIComplexity, AIConfidence, AIState, ACDContextModel
 from backend.services.acd_service import ACDService
 
 logger = get_logger(__name__)
@@ -431,6 +431,8 @@ class ContentGenerationService:
             "appearance_locked": persona.appearance_locked,
         }
         
+        # Note: content_id will be None here since content doesn't exist yet
+        # We'll link it after content creation
         async with ACDContextManager(
             self.db,
             phase="IMAGE_GENERATION",
@@ -1033,7 +1035,7 @@ Generate the social media content now:"""
         content_data: Dict[str, Any],
         platform_adaptations: Dict[str, Any],
     ) -> ContentResponse:
-        """Save content record to database."""
+        """Save content record to database and link ACD context."""
         # Convert any UUID objects to strings for JSON serialization
         serializable_content_data = {}
         for key, value in content_data.items():
@@ -1065,6 +1067,41 @@ Generate the social media content now:"""
         self.db.add(content)
         await self.db.commit()
         await self.db.refresh(content)
+        
+        # Link ACD context back to content now that content exists
+        acd_context_id = content_data.get("acd_context_id")
+        if acd_context_id:
+            try:
+                from backend.services.acd_service import ACDService
+                from backend.models.acd import ACDContextUpdate
+                
+                acd_service = ACDService(self.db)
+                
+                # Convert string to UUID if needed
+                if isinstance(acd_context_id, str):
+                    from uuid import UUID as UUIDType
+                    acd_context_id = UUIDType(acd_context_id)
+                
+                # Update ACD context with content_id
+                await acd_service.update_context(
+                    acd_context_id,
+                    ACDContextUpdate(
+                        ai_note=f"Content created: {content.id}"
+                    )
+                )
+                
+                # Also update the content_id field in ACD context directly
+                stmt = select(ACDContextModel).where(ACDContextModel.id == acd_context_id)
+                result = await self.db.execute(stmt)
+                acd_context = result.scalar_one_or_none()
+                if acd_context:
+                    acd_context.content_id = content.id
+                    await self.db.commit()
+                    logger.info(f"Linked ACD context {acd_context_id} to content {content.id}")
+                    
+            except Exception as e:
+                logger.warning(f"Failed to link ACD context to content: {str(e)}")
+                # Don't fail content creation if ACD linking fails
 
         return ContentResponse.model_validate(content)
 

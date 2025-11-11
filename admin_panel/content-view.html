@@ -374,8 +374,138 @@
             to { transform: rotate(360deg); }
         }
         
+        /* Agent Status Styles */
+        .agent-status-card {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(16, 185, 129, 0.1));
+            border: 1px solid var(--primary);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .agent-status-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .agent-status-icon {
+            font-size: 2rem;
+        }
+        
+        .agent-status-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        
+        .agent-state {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-left: auto;
+        }
+        
+        .state-processing {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .state-done {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent);
+        }
+        
+        .state-failed {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+        
+        .state-ready, .state-blocked, .state-paused {
+            background: rgba(102, 126, 234, 0.2);
+            color: var(--primary);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .agent-info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .agent-info-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+        }
+        
+        .agent-info-label {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+        
+        .agent-info-value {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .refresh-button {
+            margin-top: 12px;
+            padding: 8px 16px;
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        
+        .refresh-button:hover {
+            border-color: var(--primary);
+            background: rgba(102, 126, 234, 0.1);
+        }
+        
+        .auto-refresh-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            margin-left: 8px;
+        }
+        
+        .auto-refresh-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            animation: blink 2s ease-in-out infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
         @media (max-width: 1024px) {
             .content-body {
+                grid-template-columns: 1fr;
+            }
+            
+            .agent-info-grid {
                 grid-template-columns: 1fr;
             }
         }
@@ -514,10 +644,291 @@
                 const content = await response.json();
                 displayContent(content);
                 
+                // Load generation status
+                await loadGenerationStatus(contentId);
+                
             } catch (error) {
                 console.error('Failed to load content:', error);
                 showError(error.message || 'Failed to load content');
             }
+        }
+        
+        // Load generation status
+        let statusRefreshInterval = null;
+        
+        async function loadGenerationStatus(contentId) {
+            try {
+                const response = await fetch(`/api/v1/content/${contentId}/status`);
+                
+                if (!response.ok) {
+                    console.warn('Failed to load generation status');
+                    return;
+                }
+                
+                const status = await response.json();
+                displayGenerationStatus(status);
+                
+                // Auto-refresh if still processing
+                if (status.has_acd_context && status.acd_context) {
+                    const state = status.acd_context.state;
+                    if (state === 'PROCESSING' || state === 'READY' || state === 'BLOCKED') {
+                        // Clear existing interval if any
+                        if (statusRefreshInterval) {
+                            clearInterval(statusRefreshInterval);
+                        }
+                        // Refresh every 3 seconds
+                        statusRefreshInterval = setInterval(() => loadGenerationStatus(contentId), 3000);
+                    } else {
+                        // Clear interval when done
+                        if (statusRefreshInterval) {
+                            clearInterval(statusRefreshInterval);
+                            statusRefreshInterval = null;
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Failed to load generation status:', error);
+            }
+        }
+        
+        // Display generation status
+        function displayGenerationStatus(status) {
+            const container = document.getElementById('agent-status-container');
+            if (!container) return;
+            
+            if (!status.has_acd_context) {
+                container.innerHTML = `
+                    <div class="info-card">
+                        <h3 class="info-card-title">⚠️ Generation Status</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                            No agent tracking information available for this content.
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const acd = status.acd_context;
+            const stateClass = `state-${acd.state.toLowerCase()}`;
+            const stateIcon = getStateIcon(acd.state);
+            
+            // Determine if auto-refreshing
+            const isActive = ['PROCESSING', 'READY', 'BLOCKED'].includes(acd.state);
+            const autoRefreshHtml = isActive ? `
+                <span class="auto-refresh-indicator">
+                    <span class="auto-refresh-dot"></span>
+                    Auto-refreshing
+                </span>
+            ` : '';
+            
+            // Extract error information from context
+            let errorHtml = '';
+            if (acd.state === 'FAILED' && acd.context) {
+                const error = acd.context.error || '';
+                const usingFallback = acd.context.using_fallback;
+                const errorDetails = extractErrorDetails(error);
+                
+                errorHtml = `
+                    <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); border-radius: 8px; padding: 16px; margin-top: 16px;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <span style="font-size: 1.2rem;">❌</span>
+                            <strong style="color: var(--danger);">Generation Failed</strong>
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 8px;">
+                            <strong>Reason:</strong> ${errorDetails.reason}
+                        </div>
+                        ${errorDetails.suggestion ? `
+                        <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 8px;">
+                            <strong>💡 Suggestion:</strong> ${errorDetails.suggestion}
+                        </div>
+                        ` : ''}
+                        ${usingFallback ? `
+                        <div style="color: var(--warning); font-size: 0.85rem;">
+                            ⚠️ Using fallback method - content was still created but may be lower quality
+                        </div>
+                        ` : ''}
+                        <details style="margin-top: 12px;">
+                            <summary style="cursor: pointer; color: var(--text-secondary); font-size: 0.8rem;">
+                                View Technical Details
+                            </summary>
+                            <pre style="background: rgba(0,0,0,0.5); padding: 12px; border-radius: 6px; font-size: 0.7rem; overflow-x: auto; margin-top: 8px; color: #ff6b6b;">${error}</pre>
+                        </details>
+                    </div>
+                `;
+            }
+            
+            // Check for warnings in context even if not failed
+            let warningHtml = '';
+            if (acd.context && acd.context.using_fallback && acd.state !== 'FAILED') {
+                warningHtml = `
+                    <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid var(--warning); border-radius: 8px; padding: 12px; margin-top: 16px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span>⚠️</span>
+                            <span style="color: var(--warning); font-size: 0.85rem;">
+                                AI model unavailable - using fallback generation method
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = `
+                <div class="agent-status-card">
+                    <div class="agent-status-header">
+                        <span class="agent-status-icon">🤖</span>
+                        <h3 class="agent-status-title">AI Agent Status</h3>
+                        <span class="agent-state ${stateClass}">${stateIcon} ${acd.state}</span>
+                    </div>
+                    
+                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 12px;">
+                        ${acd.note || 'Processing content generation...'}
+                    </div>
+                    
+                    ${errorHtml}
+                    ${warningHtml}
+                    
+                    <div class="agent-info-grid">
+                        <div class="agent-info-item">
+                            <div class="agent-info-label">Phase</div>
+                            <div class="agent-info-value">${acd.phase}</div>
+                        </div>
+                        <div class="agent-info-item">
+                            <div class="agent-info-label">Queue Status</div>
+                            <div class="agent-info-value">${acd.queue_status || 'N/A'}</div>
+                        </div>
+                        <div class="agent-info-item">
+                            <div class="agent-info-label">Confidence</div>
+                            <div class="agent-info-value">${getConfidenceBadge(acd.confidence)}</div>
+                        </div>
+                        <div class="agent-info-item">
+                            <div class="agent-info-label">Priority</div>
+                            <div class="agent-info-value">${acd.queue_priority || 'N/A'}</div>
+                        </div>
+                        ${acd.assigned_to ? `
+                        <div class="agent-info-item" style="grid-column: span 2;">
+                            <div class="agent-info-label">Assigned Agent</div>
+                            <div class="agent-info-value">${acd.assigned_to}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    ${acd.context && Object.keys(acd.context).length > 0 ? `
+                    <details style="margin-top: 16px;">
+                        <summary style="cursor: pointer; color: var(--text-secondary); font-size: 0.85rem; padding: 8px 0;">
+                            View Full Context Details
+                        </summary>
+                        <pre style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; font-size: 0.75rem; overflow-x: auto; margin-top: 8px;">${JSON.stringify(acd.context, null, 2)}</pre>
+                    </details>
+                    ` : ''}
+                    
+                    <button class="refresh-button" onclick="loadGenerationStatus('${status.content_id}')">
+                        🔄 Refresh Status ${autoRefreshHtml}
+                    </button>
+                    
+                    <div style="margin-top: 12px; font-size: 0.75rem; color: var(--text-secondary);">
+                        Last updated: ${formatDate(acd.updated_at)}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Extract error details and provide helpful suggestions
+        function extractErrorDetails(error) {
+            const errorStr = String(error || '').toLowerCase();
+            
+            // Check for common error patterns
+            if (errorStr.includes('no module named') || errorStr.includes('modulenotfounderror')) {
+                const moduleName = error.match(/['"]([^'"]+)['"]/)?.[1] || 'required module';
+                return {
+                    reason: `Missing Python module: ${moduleName}`,
+                    suggestion: `Install the missing module with: pip install ${moduleName}`
+                };
+            }
+            
+            if (errorStr.includes('models_loaded') || errorStr.includes('model') && errorStr.includes('not') && errorStr.includes('initialized')) {
+                return {
+                    reason: 'AI models are not initialized',
+                    suggestion: 'AI models need to be set up. Go to Settings > AI Models Setup to configure and install required models (Stable Diffusion, DALL-E, etc.)'
+                };
+            }
+            
+            if (errorStr.includes('api') && (errorStr.includes('key') || errorStr.includes('token'))) {
+                return {
+                    reason: 'Missing API credentials',
+                    suggestion: 'Configure API keys in your .env file (OPENAI_API_KEY, HUGGING_FACE_TOKEN, etc.)'
+                };
+            }
+            
+            if (errorStr.includes('connection') || errorStr.includes('timeout') || errorStr.includes('network')) {
+                return {
+                    reason: 'Network connection issue',
+                    suggestion: 'Check your internet connection and API endpoint availability'
+                };
+            }
+            
+            if (errorStr.includes('cuda') || errorStr.includes('gpu')) {
+                return {
+                    reason: 'GPU/CUDA issue',
+                    suggestion: 'Ensure CUDA is properly installed or switch to CPU mode in AI model settings'
+                };
+            }
+            
+            if (errorStr.includes('memory') || errorStr.includes('oom')) {
+                return {
+                    reason: 'Out of memory',
+                    suggestion: 'Reduce batch size, use lower quality settings, or allocate more RAM/VRAM'
+                };
+            }
+            
+            if (errorStr.includes('permission') || errorStr.includes('access denied')) {
+                return {
+                    reason: 'Permission denied',
+                    suggestion: 'Check file/directory permissions or run with appropriate access rights'
+                };
+            }
+            
+            if (errorStr.includes('not found') || errorStr.includes('404')) {
+                return {
+                    reason: 'Resource not found',
+                    suggestion: 'Verify that all required files and resources are present'
+                };
+            }
+            
+            // Generic error
+            return {
+                reason: error || 'Unknown error occurred',
+                suggestion: 'Check the technical details below and server logs for more information'
+            };
+        }
+        
+        // Get confidence badge with color
+        function getConfidenceBadge(confidence) {
+            if (!confidence) return 'N/A';
+            
+            const badges = {
+                'CONFIDENT': '<span style="color: var(--accent);">✅ Confident</span>',
+                'UNCERTAIN': '<span style="color: var(--warning);">⚠️ Uncertain</span>',
+                'HYPOTHESIS': '<span style="color: var(--primary);">💭 Hypothesis</span>',
+                'VALIDATED': '<span style="color: var(--accent);">✓ Validated</span>',
+                'EXPERIMENTAL': '<span style="color: var(--warning);">🧪 Experimental</span>'
+            };
+            
+            return badges[confidence] || confidence;
+        }
+        
+        // Get state icon
+        function getStateIcon(state) {
+            const icons = {
+                'PROCESSING': '⏳',
+                'DONE': '✅',
+                'FAILED': '❌',
+                'READY': '🟢',
+                'BLOCKED': '🚫',
+                'PAUSED': '⏸️',
+                'CANCELLED': '🛑'
+            };
+            return icons[state] || '❓';
         }
         
         // Display content
@@ -618,6 +1029,10 @@
                     </div>
                     
                     <div class="content-sidebar">
+                        <div id="agent-status-container">
+                            <!-- Agent status will be loaded here -->
+                        </div>
+                        
                         <div class="info-card">
                             <h3 class="info-card-title">Information</h3>
                             <div class="info-row">
