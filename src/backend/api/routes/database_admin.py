@@ -158,9 +158,11 @@ async def optimize_database(
     result = await service.optimize_database()
     
     if not result["success"]:
+        # Sanitize error message to avoid exposing stack traces
+        logger.error(f"Database optimization failed: {result.get('message', 'Unknown error')}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=result.get("message", "Database optimization failed"),
+            detail="Database optimization failed. Check server logs for details.",
         )
     
     return result

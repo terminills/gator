@@ -567,29 +567,56 @@
             }
             
             try {
-                const config = {};
-                if (openaiKey) config.openai_api_key = openaiKey;
-                if (hfToken) config.huggingface_token = hfToken;
+                const settings = {};
+                if (openaiKey) settings.openai_api_key = openaiKey;
+                if (hfToken) settings.hugging_face_token = hfToken;
                 
-                const response = await fetch('/api/v1/setup/config', {
+                const response = await fetch('/api/v1/settings/bulk-update', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(config)
+                    body: JSON.stringify(settings)
                 });
                 
                 const result = await response.json();
                 
                 if (response.ok && result.success) {
-                    alert('✅ API keys saved successfully!\n\n' + result.message);
+                    alert('✅ API keys saved successfully to database!\n\nUpdated: ' + result.results.updated.join(', ') + '\n\nNo application restart required.');
                     // Clear password fields for security
                     document.getElementById('openai-key').value = '';
                     document.getElementById('hf-token').value = '';
+                    loadAPIKeys(); // Reload to show saved values
                 } else {
                     alert('❌ Failed to save API keys:\n' + (result.message || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error saving API keys:', error);
                 alert('❌ Failed to save API keys: ' + error.message);
+            }
+        }
+        
+        async function loadAPIKeys() {
+            try {
+                // Load OpenAI key
+                const openaiResponse = await fetch('/api/v1/settings/openai_api_key');
+                if (openaiResponse.ok) {
+                    const openai = await openaiResponse.json();
+                    // Show masked value if exists
+                    if (openai.value) {
+                        document.getElementById('openai-key').placeholder = '••••••••' + openai.value.slice(-4);
+                    }
+                }
+                
+                // Load HF token
+                const hfResponse = await fetch('/api/v1/settings/hugging_face_token');
+                if (hfResponse.ok) {
+                    const hf = await hfResponse.json();
+                    // Show masked value if exists
+                    if (hf.value) {
+                        document.getElementById('hf-token').placeholder = '••••••••' + hf.value.slice(-4);
+                    }
+                }
+            } catch (error) {
+                console.log('No saved API keys found');
             }
         }
         
@@ -662,6 +689,7 @@
         // Load on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadSettings();
+            loadAPIKeys();
         });
     </script>
 </body>
