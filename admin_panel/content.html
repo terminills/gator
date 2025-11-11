@@ -516,6 +516,32 @@
             return `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; background: ${s.bg}; color: ${s.color};">${s.icon} ${s.text}</span>`;
         }
         
+        // Get agent status badge
+        function getAgentStatusBadge(acdContext) {
+            if (!acdContext) {
+                return `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; background: rgba(160, 160, 176, 0.1); color: var(--text-secondary);">⚪ No Tracking</span>`;
+            }
+            
+            const stateMap = {
+                'PENDING': { icon: '⏳', text: 'Pending', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.2)' },
+                'READY': { icon: '🟢', text: 'Ready', color: '#10b981', bg: 'rgba(16, 185, 129, 0.2)' },
+                'PROCESSING': { icon: '⚙️', text: 'Processing', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.2)' },
+                'BLOCKED': { icon: '🔴', text: 'Blocked', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.2)' },
+                'COMPLETED': { icon: '✅', text: 'Completed', color: '#10b981', bg: 'rgba(16, 185, 129, 0.2)' },
+                'DONE': { icon: '✅', text: 'Completed', color: '#10b981', bg: 'rgba(16, 185, 129, 0.2)' },
+                'FAILED': { icon: '❌', text: 'Failed', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.2)' }
+            };
+            
+            const state = acdContext.state || 'PENDING';
+            const s = stateMap[state] || stateMap['PENDING'];
+            
+            let tooltip = `Phase: ${acdContext.phase || 'unknown'}\nState: ${state}`;
+            if (acdContext.note) tooltip += `\nNote: ${acdContext.note}`;
+            if (acdContext.assigned_to) tooltip += `\nAssigned: ${acdContext.assigned_to}`;
+            
+            return `<span title="${tooltip}" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; background: ${s.bg}; color: ${s.color};">${s.icon} ${s.text}</span>`;
+        }
+        
         // Get content type icon
         function getContentIcon(type) {
             const iconMap = {
@@ -526,6 +552,29 @@
                 'text': '📝'
             };
             return iconMap[type] || '📄';
+        }
+        
+        // Load agent status for a specific content item
+        async function loadAgentStatus(contentId) {
+            try {
+                const response = await fetch(`/api/v1/content/${contentId}/status`);
+                const status = await response.json();
+                
+                const cell = document.getElementById(`agent-status-${contentId}`);
+                if (!cell) return; // Cell might not exist if table was reloaded
+                
+                if (status.has_acd_context && status.acd_context) {
+                    cell.innerHTML = getAgentStatusBadge(status.acd_context);
+                } else {
+                    cell.innerHTML = getAgentStatusBadge(null);
+                }
+            } catch (error) {
+                console.error(`Failed to load agent status for ${contentId}:`, error);
+                const cell = document.getElementById(`agent-status-${contentId}`);
+                if (cell) {
+                    cell.innerHTML = `<span style="color: var(--text-secondary); font-size: 0.85rem;">❌ Error</span>`;
+                }
+            }
         }
         
         // Content Management
@@ -561,7 +610,8 @@
                                 <tr style="background: var(--dark-card); border-bottom: 1px solid var(--border-color);">
                                     <th style="padding: 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">TYPE</th>
                                     <th style="padding: 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">TITLE</th>
-                                    <th style="padding: 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">STATUS</th>
+                                    <th style="padding: 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">MODERATION</th>
+                                    <th style="padding: 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">AGENT STATUS</th>
                                     <th style="padding: 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">QUALITY</th>
                                     <th style="padding: 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">CREATED</th>
                                     <th style="padding: 16px; text-align: center; font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">PUBLISHED</th>
@@ -577,7 +627,7 @@
                     const publishedIcon = item.is_published ? '<span style="color: #10b981; font-size: 1.2rem;">✅</span>' : '<span style="color: var(--text-secondary); font-size: 1.2rem;">⭕</span>';
                     
                     tableHTML += `
-                        <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='var(--dark-card)'" onmouseout="this.style.background='transparent'">
+                        <tr id="content-row-${item.id}" style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='var(--dark-card)'" onmouseout="this.style.background='transparent'">
                             <td style="padding: 16px;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <span style="font-size: 1.5rem;">${getContentIcon(item.content_type)}</span>
@@ -592,6 +642,9 @@
                             </td>
                             <td style="padding: 16px;">
                                 ${getStatusBadge(item.moderation_status)}
+                            </td>
+                            <td id="agent-status-${item.id}" style="padding: 16px;">
+                                <span style="color: var(--text-secondary); font-size: 0.85rem;">⏳ Loading...</span>
                             </td>
                             <td style="padding: 16px; text-align: center; font-size: 1.1rem;">
                                 ${qualityDisplay}
@@ -609,6 +662,9 @@
                             </td>
                         </tr>
                     `;
+                    
+                    // Load agent status asynchronously
+                    loadAgentStatus(item.id);
                 });
                 
                 tableHTML += `
