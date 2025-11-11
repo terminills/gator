@@ -665,14 +665,15 @@
                 // Personas
                 const personasResp = await fetch('/api/v1/personas/');
                 const personasData = await personasResp.json();
-                const personaCount = personasData.personas?.length || 0;
+                const personaCount = Array.isArray(personasData) ? personasData.length : (personasData.personas?.length || 0);
                 document.getElementById('stat-personas').textContent = personaCount;
                 document.getElementById('persona-badge').textContent = personaCount;
                 
                 // Content
                 const contentResp = await fetch('/api/v1/content/');
                 const contentData = await contentResp.json();
-                document.getElementById('stat-content').textContent = contentData.content?.length || 0;
+                const contentCount = contentData.content?.length || 0;
+                document.getElementById('stat-content').textContent = contentCount;
                 
                 // Models
                 try {
