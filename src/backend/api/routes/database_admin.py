@@ -165,9 +165,10 @@ async def optimize_database(
             detail="Database optimization failed. Check server logs for details.",
         )
     
-    # Return sanitized success response
+    # Return sanitized success response without any data from service
+    from datetime import datetime
     return {
         "success": True,
         "message": "Database optimized successfully",
-        "timestamp": result.get("timestamp")
+        "timestamp": datetime.now().isoformat()
     }
