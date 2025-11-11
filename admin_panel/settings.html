@@ -558,15 +558,105 @@
         }
         
         async function saveAPIKeys() {
-            alert('💡 API keys will be saved securely. This feature is coming soon!');
+            const openaiKey = document.getElementById('openai-key').value;
+            const hfToken = document.getElementById('hf-token').value;
+            
+            if (!openaiKey && !hfToken) {
+                alert('⚠️ Please enter at least one API key');
+                return;
+            }
+            
+            try {
+                const config = {};
+                if (openaiKey) config.openai_api_key = openaiKey;
+                if (hfToken) config.huggingface_token = hfToken;
+                
+                const response = await fetch('/api/v1/setup/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    alert('✅ API keys saved successfully!\n\n' + result.message);
+                    // Clear password fields for security
+                    document.getElementById('openai-key').value = '';
+                    document.getElementById('hf-token').value = '';
+                } else {
+                    alert('❌ Failed to save API keys:\n' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving API keys:', error);
+                alert('❌ Failed to save API keys: ' + error.message);
+            }
         }
         
-        function backupDatabase() {
-            alert('💾 Database backup will be created. This feature is coming soon!');
+        async function backupDatabase() {
+            // Show loading state
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '⏳ Creating backup...';
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/api/v1/admin/database/backup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    alert(`✅ Database backup created successfully!\n\nFilename: ${result.filename}\nSize: ${formatBytes(result.size)}\nPath: ${result.path}`);
+                } else {
+                    alert('❌ Failed to create backup:\n' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error creating backup:', error);
+                alert('❌ Failed to create backup: ' + error.message);
+            } finally {
+                button.textContent = originalText;
+                button.disabled = false;
+            }
         }
         
-        function optimizeDatabase() {
-            alert('⚡ Database optimization will be performed. This feature is coming soon!');
+        async function optimizeDatabase() {
+            // Show loading state
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '⏳ Optimizing...';
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/api/v1/admin/database/optimize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    alert(`✅ Database optimized successfully!\n\n${result.message}`);
+                } else {
+                    alert('❌ Failed to optimize database:\n' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error optimizing database:', error);
+                alert('❌ Failed to optimize database: ' + error.message);
+            } finally {
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        }
+        
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
         }
         
         // Load on page load
