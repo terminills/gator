@@ -54,7 +54,19 @@ class SettingsService:
             setting = result.scalar_one_or_none()
 
             if setting:
-                return SettingResponse.model_validate(setting)
+                # Convert UUID to string for Pydantic validation
+                setting_dict = {
+                    "id": str(setting.id),
+                    "key": setting.key,
+                    "category": setting.category,
+                    "value": setting.value,
+                    "description": setting.description,
+                    "is_sensitive": setting.is_sensitive,
+                    "is_active": setting.is_active,
+                    "created_at": setting.created_at,
+                    "updated_at": setting.updated_at,
+                }
+                return SettingResponse.model_validate(setting_dict)
             return None
 
         except Exception as e:
@@ -82,7 +94,21 @@ class SettingsService:
             result = await self.db.execute(stmt)
             settings = result.scalars().all()
 
-            return [SettingResponse.model_validate(s) for s in settings]
+            # Convert UUID to string for Pydantic validation
+            return [
+                SettingResponse.model_validate({
+                    "id": str(s.id),
+                    "key": s.key,
+                    "category": s.category,
+                    "value": s.value,
+                    "description": s.description,
+                    "is_sensitive": s.is_sensitive,
+                    "is_active": s.is_active,
+                    "created_at": s.created_at,
+                    "updated_at": s.updated_at,
+                })
+                for s in settings
+            ]
 
         except Exception as e:
             logger.error(f"Error getting settings for category {category}: {e}")
@@ -103,7 +129,21 @@ class SettingsService:
             result = await self.db.execute(stmt)
             settings = result.scalars().all()
 
-            return [SettingResponse.model_validate(s) for s in settings]
+            # Convert UUID to string for Pydantic validation
+            return [
+                SettingResponse.model_validate({
+                    "id": str(s.id),
+                    "key": s.key,
+                    "category": s.category,
+                    "value": s.value,
+                    "description": s.description,
+                    "is_sensitive": s.is_sensitive,
+                    "is_active": s.is_active,
+                    "created_at": s.created_at,
+                    "updated_at": s.updated_at,
+                })
+                for s in settings
+            ]
 
         except Exception as e:
             logger.error(f"Error listing all settings: {e}")
@@ -133,7 +173,18 @@ class SettingsService:
             await self.db.refresh(db_setting)
 
             logger.info(f"Created setting: {setting_data.key}")
-            return SettingResponse.model_validate(db_setting)
+            # Convert UUID to string for Pydantic validation
+            return SettingResponse.model_validate({
+                "id": str(db_setting.id),
+                "key": db_setting.key,
+                "category": db_setting.category,
+                "value": db_setting.value,
+                "description": db_setting.description,
+                "is_sensitive": db_setting.is_sensitive,
+                "is_active": db_setting.is_active,
+                "created_at": db_setting.created_at,
+                "updated_at": db_setting.updated_at,
+            })
 
         except IntegrityError:
             await self.db.rollback()
@@ -184,7 +235,18 @@ class SettingsService:
             updated_setting = result.scalar_one_or_none()
             if updated_setting:
                 logger.info(f"Updated setting: {key}")
-                return SettingResponse.model_validate(updated_setting)
+                # Convert UUID to string for Pydantic validation
+                return SettingResponse.model_validate({
+                    "id": str(updated_setting.id),
+                    "key": updated_setting.key,
+                    "category": updated_setting.category,
+                    "value": updated_setting.value,
+                    "description": updated_setting.description,
+                    "is_sensitive": updated_setting.is_sensitive,
+                    "is_active": updated_setting.is_active,
+                    "created_at": updated_setting.created_at,
+                    "updated_at": updated_setting.updated_at,
+                })
 
             return None
 
