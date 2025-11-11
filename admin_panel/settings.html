@@ -558,20 +558,138 @@
         }
         
         async function saveAPIKeys() {
-            alert('💡 API keys will be saved securely. This feature is coming soon!');
+            const openaiKey = document.getElementById('openai-key').value;
+            const hfToken = document.getElementById('hf-token').value;
+            
+            if (!openaiKey && !hfToken) {
+                alert('⚠️ Please enter at least one API key');
+                return;
+            }
+            
+            try {
+                const settings = {};
+                if (openaiKey) settings.openai_api_key = openaiKey;
+                if (hfToken) settings.hugging_face_token = hfToken;
+                
+                const response = await fetch('/api/v1/settings/bulk-update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    alert('✅ API keys saved successfully to database!\n\nUpdated: ' + result.results.updated.join(', ') + '\n\nNo application restart required.');
+                    // Clear password fields for security
+                    document.getElementById('openai-key').value = '';
+                    document.getElementById('hf-token').value = '';
+                    loadAPIKeys(); // Reload to show saved values
+                } else {
+                    alert('❌ Failed to save API keys:\n' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving API keys:', error);
+                alert('❌ Failed to save API keys: ' + error.message);
+            }
         }
         
-        function backupDatabase() {
-            alert('💾 Database backup will be created. This feature is coming soon!');
+        async function loadAPIKeys() {
+            try {
+                // Load OpenAI key
+                const openaiResponse = await fetch('/api/v1/settings/openai_api_key');
+                if (openaiResponse.ok) {
+                    const openai = await openaiResponse.json();
+                    // Show masked value if exists
+                    if (openai.value) {
+                        document.getElementById('openai-key').placeholder = '••••••••' + openai.value.slice(-4);
+                    }
+                }
+                
+                // Load HF token
+                const hfResponse = await fetch('/api/v1/settings/hugging_face_token');
+                if (hfResponse.ok) {
+                    const hf = await hfResponse.json();
+                    // Show masked value if exists
+                    if (hf.value) {
+                        document.getElementById('hf-token').placeholder = '••••••••' + hf.value.slice(-4);
+                    }
+                }
+            } catch (error) {
+                console.log('No saved API keys found');
+            }
         }
         
-        function optimizeDatabase() {
-            alert('⚡ Database optimization will be performed. This feature is coming soon!');
+        async function backupDatabase() {
+            // Show loading state
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '⏳ Creating backup...';
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/api/v1/admin/database/backup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    alert(`✅ Database backup created successfully!\n\nFilename: ${result.filename}\nSize: ${formatBytes(result.size)}\nPath: ${result.path}`);
+                } else {
+                    alert('❌ Failed to create backup:\n' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error creating backup:', error);
+                alert('❌ Failed to create backup: ' + error.message);
+            } finally {
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        }
+        
+        async function optimizeDatabase() {
+            // Show loading state
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '⏳ Optimizing...';
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/api/v1/admin/database/optimize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    alert(`✅ Database optimized successfully!\n\n${result.message}`);
+                } else {
+                    alert('❌ Failed to optimize database:\n' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error optimizing database:', error);
+                alert('❌ Failed to optimize database: ' + error.message);
+            } finally {
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        }
+        
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
         }
         
         // Load on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadSettings();
+            loadAPIKeys();
         });
     </script>
 </body>

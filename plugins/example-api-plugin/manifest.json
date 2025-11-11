@@ -1,0 +1,42 @@
+{
+  "name": "Example API Integration Plugin",
+  "version": "1.0.0",
+  "author": "Gator Team",
+  "description": "Example plugin demonstrating how to use GatorAPI to interact with the platform",
+  "plugin_type": "content_generator",
+  "homepage": "https://github.com/terminills/gator",
+  "repository": "https://github.com/terminills/gator",
+  "license": "MIT",
+  "tags": ["example", "api", "integration", "demo"],
+  "permissions": [
+    "content:read",
+    "content:write",
+    "persona:read",
+    "social:publish"
+  ],
+  "dependencies": {},
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "api_key": {
+        "type": "string",
+        "description": "API key for authentication"
+      },
+      "auto_publish": {
+        "type": "boolean",
+        "description": "Automatically publish generated content",
+        "default": false
+      },
+      "target_platforms": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["instagram", "facebook", "twitter", "tiktok", "linkedin"]
+        },
+        "description": "Target platforms for auto-publishing",
+        "default": ["twitter"]
+      }
+    },
+    "required": ["api_key"]
+  }
+}

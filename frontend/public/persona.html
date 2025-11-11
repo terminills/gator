@@ -329,6 +329,155 @@
             font-weight: 500;
         }
         
+        /* Content Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: #2a2a2a;
+            border-radius: 16px;
+            max-width: 900px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            margin: 20px;
+        }
+        
+        .modal-header {
+            padding: 30px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #ffffff;
+            font-size: 1.5rem;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255,107,107,0.3);
+            color: #ff6b6b;
+        }
+        
+        .modal-title {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        
+        .modal-meta {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            color: #999;
+            font-size: 0.9rem;
+        }
+        
+        .modal-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .modal-body {
+            padding: 30px;
+        }
+        
+        .modal-media {
+            width: 100%;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            background: #1a1a1a;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-media img {
+            width: 100%;
+            border-radius: 12px;
+        }
+        
+        .modal-media-placeholder {
+            font-size: 4rem;
+            opacity: 0.5;
+        }
+        
+        .modal-description {
+            color: #cccccc;
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }
+        
+        .modal-details {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .modal-detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .modal-detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .modal-detail-label {
+            color: #999;
+            font-weight: 500;
+        }
+        
+        .modal-detail-value {
+            color: #ffffff;
+        }
+        
+        .modal-loading {
+            text-align: center;
+            padding: 60px;
+            color: #999;
+        }
+        
+        .modal-error {
+            text-align: center;
+            padding: 60px;
+            color: #ff6b6b;
+        }
+        
         @media (max-width: 768px) {
             .persona-name {
                 font-size: 2rem;
@@ -352,6 +501,16 @@
                 padding: 8px 16px;
                 font-size: 0.9rem;
             }
+            
+            .modal-content {
+                width: 95%;
+                margin: 10px;
+            }
+            
+            .modal-header,
+            .modal-body {
+                padding: 20px;
+            }
         }
     </style>
 </head>
@@ -370,6 +529,23 @@
         <div class="loading" style="height: 400px; font-size: 1.2rem;">
             <div class="spinner"></div>
             Loading creator profile...
+        </div>
+    </div>
+    
+    <!-- Content Viewing Modal -->
+    <div id="content-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button class="modal-close" onclick="closeContentModal()">×</button>
+                <h2 class="modal-title" id="modal-title">Loading...</h2>
+                <div class="modal-meta" id="modal-meta"></div>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <div class="modal-loading">
+                    <div style="font-size: 2rem; margin-bottom: 10px;">⏳</div>
+                    Loading content...
+                </div>
+            </div>
         </div>
     </div>
     
@@ -558,10 +734,178 @@
             });
         }
         
-        function viewContent(contentId) {
-            // For now, just show an alert. In a real app, this would open a modal or detail page
-            alert(`Viewing content ${contentId}. In a full implementation, this would show the actual content.`);
+        async function viewContent(contentId) {
+            // Open modal
+            const modal = document.getElementById('content-modal');
+            modal.classList.add('active');
+            
+            // Show loading state
+            document.getElementById('modal-title').textContent = 'Loading...';
+            document.getElementById('modal-meta').innerHTML = '';
+            document.getElementById('modal-body').innerHTML = `
+                <div class="modal-loading">
+                    <div style="font-size: 2rem; margin-bottom: 10px;">⏳</div>
+                    Loading content...
+                </div>
+            `;
+            
+            try {
+                // Fetch content details from API
+                const response = await fetch(`/api/v1/content/${contentId}`);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load content');
+                }
+                
+                const content = await response.json();
+                
+                // Update modal with content details
+                document.getElementById('modal-title').textContent = content.title || 'Untitled Creation';
+                
+                // Update meta information
+                const metaHTML = `
+                    <div class="modal-meta-item">
+                        <span>📅</span>
+                        <span>${formatDate(content.created_at)}</span>
+                    </div>
+                    <div class="modal-meta-item">
+                        <span>🎨</span>
+                        <span>${content.content_type}</span>
+                    </div>
+                    <div class="modal-meta-item">
+                        <span>⭐</span>
+                        <span>${content.content_rating || 'SFW'}</span>
+                    </div>
+                `;
+                document.getElementById('modal-meta').innerHTML = metaHTML;
+                
+                // Build modal body
+                let bodyHTML = '';
+                
+                // Show content media if available
+                if (content.file_path) {
+                    if (content.content_type === 'image') {
+                        bodyHTML += `
+                            <div class="modal-media">
+                                <img src="${content.file_path}" alt="${content.title || 'Content'}" 
+                                     onerror="this.parentElement.innerHTML='<div class=\\'modal-media-placeholder\\'>${getContentIcon(content.content_type)}</div>'">
+                            </div>
+                        `;
+                    } else if (content.content_type === 'video') {
+                        bodyHTML += `
+                            <div class="modal-media">
+                                <video controls style="width: 100%; border-radius: 12px;">
+                                    <source src="${content.file_path}" type="video/mp4">
+                                    Your browser does not support video playback.
+                                </video>
+                            </div>
+                        `;
+                    } else {
+                        bodyHTML += `
+                            <div class="modal-media">
+                                <div class="modal-media-placeholder">${getContentIcon(content.content_type)}</div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    bodyHTML += `
+                        <div class="modal-media">
+                            <div class="modal-media-placeholder">${getContentIcon(content.content_type)}</div>
+                        </div>
+                    `;
+                }
+                
+                // Show description
+                if (content.description) {
+                    bodyHTML += `
+                        <div class="modal-description">
+                            ${content.description}
+                        </div>
+                    `;
+                }
+                
+                // Show generation details
+                const params = content.generation_params || {};
+                bodyHTML += `
+                    <div class="modal-details">
+                        <h3 style="margin-bottom: 15px; color: #ff6b6b;">Generation Details</h3>
+                        ${params.prompt ? `
+                            <div class="modal-detail-row">
+                                <span class="modal-detail-label">Prompt</span>
+                                <span class="modal-detail-value">${params.prompt}</span>
+                            </div>
+                        ` : ''}
+                        ${params.quality ? `
+                            <div class="modal-detail-row">
+                                <span class="modal-detail-label">Quality</span>
+                                <span class="modal-detail-value">${params.quality}</span>
+                            </div>
+                        ` : ''}
+                        ${params.model ? `
+                            <div class="modal-detail-row">
+                                <span class="modal-detail-label">Model</span>
+                                <span class="modal-detail-value">${params.model}</span>
+                            </div>
+                        ` : ''}
+                        ${content.quality_score ? `
+                            <div class="modal-detail-row">
+                                <span class="modal-detail-label">Quality Score</span>
+                                <span class="modal-detail-value">${content.quality_score}/100</span>
+                            </div>
+                        ` : ''}
+                        <div class="modal-detail-row">
+                            <span class="modal-detail-label">Status</span>
+                            <span class="modal-detail-value">${content.moderation_status || 'Pending'}</span>
+                        </div>
+                        ${content.file_size ? `
+                            <div class="modal-detail-row">
+                                <span class="modal-detail-label">File Size</span>
+                                <span class="modal-detail-value">${formatFileSize(content.file_size)}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                document.getElementById('modal-body').innerHTML = bodyHTML;
+                
+            } catch (error) {
+                console.error('Error loading content:', error);
+                document.getElementById('modal-body').innerHTML = `
+                    <div class="modal-error">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">❌</div>
+                        Failed to load content. Please try again.
+                    </div>
+                `;
+            }
         }
+        
+        function closeContentModal() {
+            const modal = document.getElementById('content-modal');
+            modal.classList.remove('active');
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+        
+        // Close modal when clicking outside
+        document.addEventListener('click', (e) => {
+            const modal = document.getElementById('content-modal');
+            if (e.target === modal) {
+                closeContentModal();
+            }
+        });
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeContentModal();
+            }
+        });
         
         // Load persona when page loads
         document.addEventListener('DOMContentLoaded', loadPersona);

@@ -11,6 +11,8 @@ from enum import Enum
 from pydantic import BaseModel, Field
 import jsonschema
 from jsonschema import ValidationError as JSONSchemaValidationError
+from uuid import UUID
+import httpx
 
 
 class PluginType(str, Enum):
@@ -65,15 +67,20 @@ class GatorAPI:
     Provides authenticated access to platform features and data.
     """
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, base_url: Optional[str] = None):
         """
         Initialize API client.
 
         Args:
             api_key: Plugin API key for authentication
+            base_url: Base URL for the Gator API (default: http://localhost:8000)
         """
         self.api_key = api_key
-        self._base_url = None  # Will be set by plugin manager
+        self._base_url = base_url or "http://localhost:8000"
+        self._http_client = httpx.AsyncClient(
+            timeout=30.0,
+            headers={"X-API-Key": self.api_key, "Content-Type": "application/json"}
+        )
 
     async def generate_content(
         self,
@@ -88,18 +95,56 @@ class GatorAPI:
         Args:
             persona_id: Persona UUID
             prompt: Content generation prompt
-            content_type: Type of content to generate
+            content_type: Type of content to generate (text, image, video, audio, voice)
             **kwargs: Additional generation parameters
+                - content_rating: Content rating (sfw, moderate, nsfw)
+                - target_platforms: List of target platforms
+                - style_override: Style preferences override
 
         Returns:
-            Generated content data
+            Generated content data with keys:
+                - id: Content UUID
+                - persona_id: Associated persona UUID
+                - content_type: Type of content
+                - prompt: Generation prompt
+                - file_path: Path to generated file
+                - metadata: Additional content metadata
 
         Raises:
-            NotImplementedError: This is a stub for plugin development
+            httpx.HTTPError: If API request fails
+            ValueError: If parameters are invalid
         """
-        raise NotImplementedError(
-            "API client methods will be implemented by plugin manager"
-        )
+        try:
+            # Prepare request payload
+            payload = {
+                "persona_id": persona_id,
+                "prompt": prompt,
+                "content_type": content_type,
+                "content_rating": kwargs.get("content_rating", "sfw"),
+                "target_platforms": kwargs.get("target_platforms", []),
+            }
+            
+            # Add optional parameters if provided
+            if "style_override" in kwargs:
+                payload["style_override"] = kwargs["style_override"]
+            
+            # Make API request to content generation endpoint
+            response = await self._http_client.post(
+                f"{self._base_url}/api/v1/content/generate",
+                json=payload
+            )
+            response.raise_for_status()
+            
+            return response.json()
+            
+        except httpx.HTTPError as e:
+            raise httpx.HTTPError(
+                f"Failed to generate content: {str(e)}"
+            ) from e
+        except Exception as e:
+            raise ValueError(
+                f"Content generation request failed: {str(e)}"
+            ) from e
 
     async def get_persona(self, persona_id: str) -> Dict[str, Any]:
         """
@@ -109,14 +154,38 @@ class GatorAPI:
             persona_id: Persona UUID
 
         Returns:
-            Persona data dictionary
+            Persona data dictionary with keys:
+                - id: Persona UUID
+                - name: Persona name
+                - appearance: Appearance description
+                - personality: Personality traits
+                - content_themes: List of content themes
+                - style_preferences: Style preference dictionary
+                - stats: Usage statistics
 
         Raises:
-            NotImplementedError: This is a stub for plugin development
+            httpx.HTTPError: If API request fails
+            ValueError: If persona not found
         """
-        raise NotImplementedError(
-            "API client methods will be implemented by plugin manager"
-        )
+        try:
+            # Make API request to get persona
+            response = await self._http_client.get(
+                f"{self._base_url}/api/v1/personas/{persona_id}"
+            )
+            response.raise_for_status()
+            
+            return response.json()
+            
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                raise ValueError(f"Persona not found: {persona_id}") from e
+            raise httpx.HTTPError(
+                f"Failed to fetch persona: {str(e)}"
+            ) from e
+        except Exception as e:
+            raise ValueError(
+                f"Persona fetch request failed: {str(e)}"
+            ) from e
 
     async def publish_content(
         self,
@@ -129,18 +198,59 @@ class GatorAPI:
 
         Args:
             content_id: Content UUID
-            platforms: List of platform names
+            platforms: List of platform names (instagram, facebook, twitter, tiktok, linkedin)
             **kwargs: Platform-specific parameters
+                - caption: Post caption/description
+                - hashtags: List of hashtags
+                - schedule_time: Optional scheduled publish time (ISO format)
+                - platform_specific: Dict of platform-specific settings
 
         Returns:
-            Publishing results
+            Publishing results dictionary with keys:
+                - content_id: Content UUID
+                - results: List of platform-specific results
+                    - platform: Platform name
+                    - status: Success/failure status
+                    - post_id: Platform post ID (if successful)
+                    - url: Published post URL (if available)
+                    - error: Error message (if failed)
 
         Raises:
-            NotImplementedError: This is a stub for plugin development
+            httpx.HTTPError: If API request fails
+            ValueError: If parameters are invalid
         """
-        raise NotImplementedError(
-            "API client methods will be implemented by plugin manager"
-        )
+        try:
+            # Prepare request payload
+            payload = {
+                "content_id": content_id,
+                "platforms": platforms,
+                "caption": kwargs.get("caption"),
+                "hashtags": kwargs.get("hashtags", []),
+                "schedule_time": kwargs.get("schedule_time"),
+                "platform_specific": kwargs.get("platform_specific", {}),
+            }
+            
+            # Make API request to publish content
+            response = await self._http_client.post(
+                f"{self._base_url}/api/v1/social/publish",
+                json=payload
+            )
+            response.raise_for_status()
+            
+            return response.json()
+            
+        except httpx.HTTPError as e:
+            raise httpx.HTTPError(
+                f"Failed to publish content: {str(e)}"
+            ) from e
+        except Exception as e:
+            raise ValueError(
+                f"Content publishing request failed: {str(e)}"
+            ) from e
+    
+    async def close(self):
+        """Close the HTTP client connection."""
+        await self._http_client.aclose()
 
 
 class GatorPlugin(ABC):

@@ -140,3 +140,35 @@ async def download_backup(
         filename=filename,
         media_type="application/octet-stream",
     )
+
+
+@router.post("/optimize")
+async def optimize_database(
+    service: DatabaseAdminService = Depends(get_database_admin_service),
+) -> Dict[str, Any]:
+    """
+    Optimize the database for better performance.
+    
+    For SQLite: Runs VACUUM and ANALYZE commands
+    For PostgreSQL: Runs VACUUM ANALYZE
+    
+    Returns:
+        Dict with optimization result including success status and message
+    """
+    result = await service.optimize_database()
+    
+    if not result["success"]:
+        # Sanitize error message to avoid exposing stack traces
+        logger.error(f"Database optimization failed: {result.get('message', 'Unknown error')}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database optimization failed. Check server logs for details.",
+        )
+    
+    # Return sanitized success response without any data from service
+    from datetime import datetime
+    return {
+        "success": True,
+        "message": "Database optimized successfully",
+        "timestamp": datetime.now().isoformat()
+    }

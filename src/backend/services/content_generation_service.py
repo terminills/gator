@@ -1034,6 +1034,14 @@ Generate the social media content now:"""
         platform_adaptations: Dict[str, Any],
     ) -> ContentResponse:
         """Save content record to database."""
+        # Convert any UUID objects to strings for JSON serialization
+        serializable_content_data = {}
+        for key, value in content_data.items():
+            if isinstance(value, UUID):
+                serializable_content_data[key] = str(value)
+            else:
+                serializable_content_data[key] = value
+        
         content = ContentModel(
             persona_id=persona.id,
             content_type=request.content_type.value,
@@ -1047,7 +1055,7 @@ Generate the social media content now:"""
                 "quality": request.quality,
                 "style_override": request.style_override,
                 "target_platforms": request.target_platforms,
-                **content_data,
+                **serializable_content_data,
             },
             platform_adaptations=platform_adaptations,
             quality_score=85,  # Placeholder scoring

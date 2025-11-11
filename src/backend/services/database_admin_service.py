@@ -379,6 +379,57 @@ class DatabaseAdminService:
                 "message": "Failed to get database info",
             }
 
+    async def optimize_database(self) -> Dict[str, Any]:
+        """
+        Optimize the database for better performance.
+        
+        For SQLite: Runs VACUUM and ANALYZE commands
+        For PostgreSQL: Runs VACUUM ANALYZE
+        
+        Returns:
+            Dict with optimization result
+        """
+        try:
+            async with database_manager.get_session() as session:
+                if self.is_sqlite:
+                    # SQLite optimization
+                    await session.execute(text("VACUUM"))
+                    await session.execute(text("ANALYZE"))
+                    await session.commit()
+                    
+                    message = "Database optimized: VACUUM and ANALYZE completed"
+                    logger.info(message)
+                    
+                else:
+                    # PostgreSQL optimization
+                    # Note: VACUUM cannot run inside a transaction
+                    await session.execute(text("VACUUM ANALYZE"))
+                    await session.commit()
+                    
+                    message = "Database optimized: VACUUM ANALYZE completed"
+                    logger.info(message)
+                
+                return {
+                    "success": True,
+                    "message": message,
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+        except SQLAlchemyError as e:
+            error_msg = f"Database optimization failed: {str(e)}"
+            logger.error(error_msg)
+            return {
+                "success": False,
+                "message": error_msg
+            }
+        except Exception as e:
+            error_msg = f"Unexpected error during optimization: {str(e)}"
+            logger.error(error_msg)
+            return {
+                "success": False,
+                "message": error_msg
+            }
+
 
 # Global instance
 _database_admin_service: Optional[DatabaseAdminService] = None
