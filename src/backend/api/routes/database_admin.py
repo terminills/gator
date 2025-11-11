@@ -165,4 +165,9 @@ async def optimize_database(
             detail="Database optimization failed. Check server logs for details.",
         )
     
-    return result
+    # Return sanitized success response
+    return {
+        "success": True,
+        "message": "Database optimized successfully",
+        "timestamp": result.get("timestamp")
+    }
