@@ -385,7 +385,9 @@ async def list_rss_feeds(
     return {"feeds": feeds, "total": len(feeds)}
 
 
-@router.post("/rss", response_model=RSSFeedResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/rss", response_model=RSSFeedResponse, status_code=status.HTTP_201_CREATED
+)
 async def add_rss_feed(
     feed_data: RSSFeedCreate,
     rss_service: RSSIngestionService = Depends(get_rss_service),

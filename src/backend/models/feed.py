@@ -168,7 +168,12 @@ class FeedItemModel(Base):
 class RSSFeedCreate(BaseModel):
     """API model for creating new RSS feed."""
 
-    name: Optional[str] = Field(default=None, min_length=1, max_length=255, description="Feed name (auto-generated from URL if not provided)")
+    name: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+        description="Feed name (auto-generated from URL if not provided)",
+    )
     url: HttpUrl = Field(description="RSS feed URL")
     description: Optional[str] = Field(default=None, description="Feed description")
     categories: Optional[List[str]] = Field(default=[], description="Feed categories")

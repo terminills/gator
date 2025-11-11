@@ -79,6 +79,7 @@ class RSSIngestionService:
             if not feed_name:
                 # Extract domain name from URL as feed name
                 from urllib.parse import urlparse
+
                 parsed_url = urlparse(str(feed_data.url))
                 feed_name = parsed_url.netloc or str(feed_data.url)
                 # Clean up common prefixes
