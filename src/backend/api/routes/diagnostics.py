@@ -134,11 +134,17 @@ async def get_ai_activity(
             
             # Determine if successful, failed, or fallback
             gen_params = content.generation_params or {}
-            if gen_params.get("error"):
-                if gen_params.get("fallback"):
-                    fallback += 1
-                else:
-                    failed += 1
+            
+            # Check if this used a fallback (template-based generation)
+            is_fallback = gen_params.get("fallback", False) or gen_params.get("template_based", False)
+            
+            # Check if there was an error (but fallback succeeded)
+            has_error = gen_params.get("error") or gen_params.get("fallback_reason")
+            
+            if is_fallback:
+                fallback += 1
+            elif has_error:
+                failed += 1
             else:
                 successful += 1
         
