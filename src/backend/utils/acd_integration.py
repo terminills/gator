@@ -180,6 +180,17 @@ class ACDContextManager:
             except Exception as e:
                 logger.error(f"Failed to set confidence: {str(e)}")
 
+    async def set_state(self, state: AIState):
+        """Set state for the context."""
+        if self.context_id and self.acd_service:
+            try:
+                await self.acd_service.update_context(
+                    self.context_id,
+                    ACDContextUpdate(ai_state=state),
+                )
+            except Exception as e:
+                logger.error(f"Failed to set state: {str(e)}")
+
     async def set_metadata(self, metadata: Dict[str, Any]):
         """Update context metadata."""
         if self.context_id and self.acd_service:
