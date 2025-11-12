@@ -574,6 +574,8 @@ async def approve_seed_image(
 async def generate_sample_images(
     appearance: str = Query(..., description="Appearance description for image generation"),
     personality: Optional[str] = Query(None, description="Personality context for image generation"),
+    resolution: Optional[str] = Query("1024x1024", description="Image resolution (e.g., '1024x1024', '720x1280', '1920x1080')"),
+    quality: Optional[str] = Query("standard", description="Generation quality: draft, standard, high, premium"),
     persona_service: PersonaService = Depends(get_persona_service),
 ) -> Dict[str, Any]:
     """
@@ -587,6 +589,8 @@ async def generate_sample_images(
     Args:
         appearance: Physical appearance description
         personality: Optional personality traits
+        resolution: Image resolution in format "widthxheight" (e.g., "1024x1024", "720x1280", "1920x1080")
+        quality: Generation quality preset (draft, standard, high, premium)
         persona_service: Injected persona service
         
     Returns:
@@ -625,7 +629,37 @@ async def generate_sample_images(
                 detail="No image generation models available. Configure OPENAI_API_KEY or install local models.",
             )
         
+        # Parse resolution
+        try:
+            width, height = map(int, resolution.split('x'))
+            if width < 256 or width > 4096 or height < 256 or height > 4096:
+                raise ValueError("Resolution dimensions must be between 256 and 4096")
+        except (ValueError, AttributeError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid resolution format. Use 'widthxheight' (e.g., '1024x1024', '720x1280', '1920x1080')",
+            )
+        
+        # Map quality to DALL-E quality setting
+        dalle_quality_map = {
+            "draft": "standard",
+            "standard": "standard",
+            "high": "hd",
+            "premium": "hd"
+        }
+        dalle_quality = dalle_quality_map.get(quality.lower(), "standard")
+        
+        # Map quality to local generation steps
+        quality_steps_map = {
+            "draft": 20,
+            "standard": 30,
+            "high": 50,
+            "premium": 80
+        }
+        num_steps = quality_steps_map.get(quality.lower(), 30)
+        
         logger.info(f"Generating 4 sample images with appearance: {appearance[:50]}...")
+        logger.info(f"Resolution: {width}x{height}, Quality: {quality}")
         
         # Generate 4 images concurrently (or sequentially if API rate limited)
         images = []
@@ -639,8 +673,8 @@ async def generate_sample_images(
                     result = await ai_manager._generate_reference_image_openai(
                         appearance_prompt=appearance,
                         personality_context=personality[:200] if personality else None,
-                        quality="standard",  # Use standard for faster generation
-                        size="512x512",  # Smaller size for preview
+                        quality=dalle_quality,
+                        size=f"{width}x{height}",
                     )
                     
                     # Convert to base64 data URL
@@ -668,9 +702,9 @@ async def generate_sample_images(
                         appearance_prompt=appearance,
                         personality_context=personality[:200] if personality else None,
                         reference_image_path=None,
-                        width=512,
-                        height=512,
-                        num_inference_steps=30,  # Fewer steps for faster generation
+                        width=width,
+                        height=height,
+                        num_inference_steps=num_steps,
                     )
                 )
             
