@@ -2045,6 +2045,36 @@ class AIModelManager:
 
             pipe = self._loaded_pipelines[pipeline_key]
 
+            # Validate pipeline components are properly loaded
+            if is_sdxl:
+                # SDXL requires both text encoders
+                if pipe.text_encoder is None or pipe.text_encoder_2 is None:
+                    error_msg = f"SDXL pipeline has None text encoders: text_encoder={pipe.text_encoder is not None}, text_encoder_2={pipe.text_encoder_2 is not None}"
+                    logger.error(error_msg)
+                    # Remove broken pipeline from cache
+                    del self._loaded_pipelines[pipeline_key]
+                    raise ValueError(error_msg)
+                if pipe.tokenizer is None or pipe.tokenizer_2 is None:
+                    error_msg = f"SDXL pipeline has None tokenizers: tokenizer={pipe.tokenizer is not None}, tokenizer_2={pipe.tokenizer_2 is not None}"
+                    logger.error(error_msg)
+                    # Remove broken pipeline from cache
+                    del self._loaded_pipelines[pipeline_key]
+                    raise ValueError(error_msg)
+            else:
+                # SD 1.5/2.x requires single text encoder
+                if pipe.text_encoder is None:
+                    error_msg = f"SD pipeline has None text_encoder"
+                    logger.error(error_msg)
+                    # Remove broken pipeline from cache
+                    del self._loaded_pipelines[pipeline_key]
+                    raise ValueError(error_msg)
+                if pipe.tokenizer is None:
+                    error_msg = f"SD pipeline has None tokenizer"
+                    logger.error(error_msg)
+                    # Remove broken pipeline from cache
+                    del self._loaded_pipelines[pipeline_key]
+                    raise ValueError(error_msg)
+
             # Get generation parameters
             num_inference_steps = kwargs.get("num_inference_steps", 25)
             guidance_scale = kwargs.get("guidance_scale", 7.5)
