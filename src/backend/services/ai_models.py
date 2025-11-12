@@ -447,7 +447,7 @@ class AIModelManager:
                 )
                 # Check if model has sufficient RAM (for CPU fallback)
                 has_ram = sys_req["ram_gb"] >= config.get("min_ram_gb", 0)
-                
+
                 # Image models can run on CPU if inference engine is available,
                 # even without GPU (though slower)
                 can_run = has_gpu_memory and has_ram
@@ -480,7 +480,7 @@ class AIModelManager:
 
                     # Determine if model can be loaded (either on GPU or CPU)
                     can_load = (can_run or can_run_cpu) and engine_available
-                    
+
                     self.available_models["image"].append(
                         {
                             "name": model_name,
@@ -1917,7 +1917,9 @@ class AIModelManager:
                     logger.info(f"Loading model from local path: {model_path}")
                     pipe = StableDiffusionPipeline.from_pretrained(
                         str(model_path),
-                        torch_dtype=(torch.float16 if "cuda" in device else torch.float32),
+                        torch_dtype=(
+                            torch.float16 if "cuda" in device else torch.float32
+                        ),
                         safety_checker=None,  # Disable for performance
                         requires_safety_checker=False,  # Suppress warning
                     )
@@ -1925,7 +1927,9 @@ class AIModelManager:
                     logger.info(f"Loading model from HuggingFace Hub: {model_id}")
                     pipe = StableDiffusionPipeline.from_pretrained(
                         model_id,
-                        torch_dtype=(torch.float16 if "cuda" in device else torch.float32),
+                        torch_dtype=(
+                            torch.float16 if "cuda" in device else torch.float32
+                        ),
                         safety_checker=None,  # Disable for performance
                         requires_safety_checker=False,  # Suppress warning
                     )
