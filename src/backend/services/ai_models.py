@@ -446,12 +446,24 @@ class AIModelManager:
                     "min_gpu_memory_gb", 0
                 )
                 # Check if model has sufficient RAM (for CPU fallback)
-                has_ram = sys_req["ram_gb"] >= config.get("min_ram_gb", 0)
+                # Allow 10% tolerance below minimum requirements to account for:
+                # - Conservative RAM estimates in model configs
+                # - System's ability to use swap space
+                # - Real-world usage often works below stated minimums
+                min_ram_required = config.get("min_ram_gb", 0)
+                ram_tolerance = 0.90  # Allow models with 90% of stated minimum
+                has_ram = sys_req["ram_gb"] >= (min_ram_required * ram_tolerance)
 
                 # Image models can run on CPU if inference engine is available,
                 # even without GPU (though slower)
                 can_run = has_gpu_memory and has_ram
                 can_run_cpu = has_ram  # Allow CPU fallback if RAM is sufficient
+                
+                # Track if model is running below optimal RAM
+                below_optimal_ram = (
+                    has_ram and 
+                    sys_req["ram_gb"] < min_ram_required
+                )
 
                 if can_run or can_run_cpu:
                     # Check both model path formats for compatibility
@@ -494,13 +506,19 @@ class AIModelManager:
                             "description": config["description"],
                             "device": "cuda" if sys_req["gpu_memory_gb"] > 0 else "cpu",
                             "path": str(model_path),
+                            "below_optimal_ram": below_optimal_ram,
                         }
                     )
 
                     if is_downloaded and engine_available:
                         device_type = "GPU" if has_gpu_memory else "CPU"
+                        ram_warning = (
+                            f" (RAM: {sys_req['ram_gb']:.1f}GB < {min_ram_required}GB recommended)"
+                            if below_optimal_ram
+                            else ""
+                        )
                         logger.info(
-                            f"Local image model {model_name} ready at {model_path} ({device_type})"
+                            f"Local image model {model_name} ready at {model_path} ({device_type}){ram_warning}"
                         )
                     elif is_downloaded and not engine_available:
                         logger.warning(
@@ -508,8 +526,13 @@ class AIModelManager:
                         )
                     elif not is_downloaded and engine_available and can_run_cpu:
                         device_type = "GPU" if has_gpu_memory else "CPU"
+                        ram_warning = (
+                            f" (RAM: {sys_req['ram_gb']:.1f}GB < {min_ram_required}GB recommended)"
+                            if below_optimal_ram
+                            else ""
+                        )
                         logger.info(
-                            f"Image model {model_name} can be downloaded and run on {device_type}"
+                            f"Image model {model_name} can be downloaded and run on {device_type}{ram_warning}"
                         )
 
         except Exception as e:
@@ -1892,6 +1915,15 @@ class AIModelManager:
             # Get device ID if specified for multi-GPU support
             device_id = kwargs.get("device_id", None)
 
+            # Determine device (must be done before caching check to avoid UnboundLocalError)
+            if torch.cuda.is_available():
+                if device_id is not None:
+                    device = f"cuda:{device_id}"
+                else:
+                    device = "cuda"
+            else:
+                device = "cpu"
+
             # Load or get cached pipeline (with device-specific caching for multi-GPU)
             if device_id is not None:
                 pipeline_key = f"diffusers_{model_name}_gpu{device_id}"
@@ -1902,15 +1934,6 @@ class AIModelManager:
                 logger.info(
                     f"Loading diffusion model: {model_name} on device {device_id if device_id is not None else 'default'}"
                 )
-
-                # Determine device
-                if torch.cuda.is_available():
-                    if device_id is not None:
-                        device = f"cuda:{device_id}"
-                    else:
-                        device = "cuda"
-                else:
-                    device = "cpu"
 
                 # Try to load from local path first, fallback to HuggingFace Hub
                 if model_path.exists():
