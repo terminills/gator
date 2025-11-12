@@ -33,6 +33,18 @@ from backend.utils.acd_integration import ACDContextManager
 from backend.models.acd import AIComplexity, AIConfidence, AIState, ACDContextModel
 from backend.services.acd_service import ACDService
 
+# --- MODULE-LEVEL IMPORTS TO PREVENT SCOPED FAILURE ---
+# These imports are moved up from within the generation methods to ensure
+# that any ImportError due to missing dependencies manifests immediately
+# at application startup, rather than being silently caught and masked as
+# a generic content generation failure at runtime.
+from backend.services.ai_models import ai_models
+from backend.services.video_processing_service import (
+    VideoQuality,
+    TransitionType,
+)
+# --------------------------------------------------------
+
 logger = get_logger(__name__)
 
 
@@ -454,8 +466,6 @@ class ContentGenerationService:
             initial_context=initial_context,
         ) as acd:
             try:
-                from backend.services.ai_models import ai_models
-
                 # Ensure AI models are initialized
                 if not ai_models.models_loaded:
                     await ai_models.initialize_models()
@@ -584,12 +594,6 @@ class ContentGenerationService:
         )
         
         try:
-            from backend.services.ai_models import ai_models
-            from backend.services.video_processing_service import (
-                VideoQuality,
-                TransitionType,
-            )
-
             # Ensure AI models are initialized
             if not ai_models.models_loaded:
                 await ai_models.initialize_models()
@@ -744,8 +748,6 @@ class ContentGenerationService:
         )
         
         try:
-            from backend.services.ai_models import ai_models
-
             # Ensure AI models are initialized
             if not ai_models.models_loaded:
                 await ai_models.initialize_models()
@@ -844,8 +846,6 @@ class ContentGenerationService:
             initial_context=initial_context,
         ) as acd:
             try:
-                from backend.services.ai_models import ai_models
-
                 # Ensure AI models are initialized
                 if not ai_models.models_loaded:
                     await ai_models.initialize_models()

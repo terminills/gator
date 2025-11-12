@@ -421,6 +421,9 @@ async def get_ai_models_status() -> Dict[str, Any]:
 
     Returns information about installed models, available models,
     system hardware capabilities, and required dependency versions.
+    
+    This endpoint now integrates with the AIModelManager to properly
+    detect and report loaded models.
     """
     try:
         import sys
@@ -620,41 +623,82 @@ async def get_ai_models_status() -> Dict[str, Any]:
             except Exception as e:
                 logger.warning(f"Could not parse pyproject.toml: {e}")
 
-        # Check models directory
-        models_dir = Path("./models")
-        models_exist = models_dir.exists()
-
+        # Get models from AIModelManager (which was initialized at startup)
         installed_models = []
-        if models_exist:
-            # Check for installed models in all categories
+        loaded_models_count = 0
+        total_models_count = 0
+        
+        try:
+            from backend.services.ai_models import ai_models
+            
+            # Get all available models from AIModelManager
             for category in ["text", "image", "voice", "video", "audio"]:
-                category_path = models_dir / category
-                if category_path.exists():
-                    for model_path in category_path.iterdir():
-                        if model_path.is_dir():
-                            # Get model size
-                            try:
-                                total_size = sum(f.stat().st_size for f in model_path.rglob('*') if f.is_file())
-                                size_gb = round(total_size / (1024 ** 3), 2)
-                            except Exception:
-                                size_gb = 0
-                            
-                            # Check if model has required files
-                            has_config = (model_path / "config.json").exists()
-                            has_model_files = any(model_path.glob("*.safetensors")) or any(model_path.glob("*.bin")) or any(model_path.glob("*.pt"))
-                            is_valid = has_config or has_model_files
-                            
-                            installed_models.append(
-                                {
-                                    "name": model_path.name,
-                                    "category": category,
-                                    "path": str(model_path),
-                                    "size_gb": size_gb,
-                                    "is_valid": is_valid,
-                                    "has_config": has_config,
-                                    "has_model_files": has_model_files,
-                                }
-                            )
+                category_models = ai_models.available_models.get(category, [])
+                total_models_count += len(category_models)
+                
+                for model in category_models:
+                    is_loaded = model.get("loaded", False)
+                    if is_loaded:
+                        loaded_models_count += 1
+                    
+                    # Add to installed models list with detailed info
+                    installed_models.append({
+                        "name": model.get("name"),
+                        "category": category,
+                        "provider": model.get("provider", "unknown"),
+                        "type": model.get("type", "unknown"),
+                        "loaded": is_loaded,
+                        "can_load": model.get("can_load", False),
+                        "size_gb": model.get("size_gb", 0),
+                        "description": model.get("description", ""),
+                        "path": model.get("path", ""),
+                        "inference_engine": model.get("inference_engine", ""),
+                        "device": model.get("device", "cpu"),
+                    })
+            
+            logger.info(f"Retrieved {loaded_models_count}/{total_models_count} loaded models from AIModelManager")
+            
+        except Exception as e:
+            logger.warning(f"Could not get models from AIModelManager: {e}")
+            # Fallback to filesystem detection
+            models_dir = Path("./models")
+            models_exist = models_dir.exists()
+
+            if models_exist:
+                # Check for installed models in all categories
+                for category in ["text", "image", "voice", "video", "audio"]:
+                    category_path = models_dir / category
+                    if category_path.exists():
+                        for model_path in category_path.iterdir():
+                            if model_path.is_dir():
+                                # Get model size
+                                try:
+                                    total_size = sum(f.stat().st_size for f in model_path.rglob('*') if f.is_file())
+                                    size_gb = round(total_size / (1024 ** 3), 2)
+                                except Exception:
+                                    size_gb = 0
+                                
+                                # Check if model has required files
+                                has_config = (model_path / "config.json").exists()
+                                has_model_files = any(model_path.glob("*.safetensors")) or any(model_path.glob("*.bin")) or any(model_path.glob("*.pt"))
+                                is_valid = has_config or has_model_files
+                                
+                                total_models_count += 1
+                                if is_valid:
+                                    loaded_models_count += 1
+                                
+                                installed_models.append(
+                                    {
+                                        "name": model_path.name,
+                                        "category": category,
+                                        "path": str(model_path),
+                                        "size_gb": size_gb,
+                                        "loaded": is_valid,
+                                        "is_valid": is_valid,
+                                        "has_config": has_config,
+                                        "has_model_files": has_model_files,
+                                    }
+                                )
 
         # Available models for installation
         available_models = [
@@ -694,14 +738,19 @@ async def get_ai_models_status() -> Dict[str, Any]:
         # Path calculation: __file__ -> routes/ -> api/ -> backend/ -> src/ -> project_root
         project_root = Path(__file__).parents[4]
         setup_script = project_root / "setup_ai_models.py"
+        
+        # Check models directory for backward compatibility
+        models_dir = Path("./models")
 
         return {
             "system": system_info,
             "installed_versions": installed_versions,
             "required_versions": required_versions,
             "compatibility_note": "PyTorch 2.3.1 is the latest version compatible with AMD MI-25 GPUs (ROCm 5.7)",
-            "models_directory": str(models_dir.absolute()) if models_exist else None,
+            "models_directory": str(models_dir.absolute()) if models_dir.exists() else None,
             "installed_models": installed_models,
+            "loaded_models_count": loaded_models_count,
+            "total_models_count": total_models_count,
             "available_models": available_models,
             "setup_script_available": setup_script.exists(),
         }
