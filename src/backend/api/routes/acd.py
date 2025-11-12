@@ -28,6 +28,31 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/acd", tags=["acd"])
 
 
+@router.get("/contexts", response_model=List[ACDContextResponse])
+async def list_contexts(
+    limit: int = Query(10, ge=1, le=100, description="Maximum number of contexts to return"),
+    offset: int = Query(0, ge=0, description="Number of contexts to skip"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    List ACD contexts with pagination.
+
+    Args:
+        limit: Maximum number of contexts to return (1-100)
+        offset: Number of contexts to skip
+
+    Returns:
+        List of context records
+    """
+    try:
+        service = ACDService(db)
+        contexts = await service.list_contexts(limit=limit, offset=offset)
+        return contexts
+    except Exception as e:
+        logger.error(f"Failed to list ACD contexts: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/contexts/", response_model=ACDContextResponse, status_code=201)
 async def create_context(
     context_data: ACDContextCreate,

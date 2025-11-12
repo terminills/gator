@@ -414,6 +414,7 @@ async def get_configuration_template() -> Dict[str, Any]:
 
 
 @router.get("/ai-models/status")
+@router.get("/models/status")  # Alias for backward compatibility
 async def get_ai_models_status() -> Dict[str, Any]:
     """
     Get AI model installation status and system capabilities.
