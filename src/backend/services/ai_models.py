@@ -34,6 +34,48 @@ from backend.utils.model_detection import (
 logger = get_logger(__name__)
 
 
+async def download_model_from_huggingface(
+    model_id: str,
+    model_path: Path,
+    model_type: str = "text"
+) -> bool:
+    """
+    Download a model from Hugging Face Hub.
+    
+    Args:
+        model_id: Hugging Face model ID (e.g., "meta-llama/Llama-3.1-8B-Instruct")
+        model_path: Local path where model should be downloaded
+        model_type: Type of model (text, image, voice)
+        
+    Returns:
+        bool: True if download successful, False otherwise
+    """
+    try:
+        from huggingface_hub import snapshot_download
+        
+        logger.info(f"📥 Downloading model {model_id}...")
+        logger.info(f"   Target path: {model_path}")
+        logger.info(f"   This may take several minutes depending on model size...")
+        
+        # Create parent directory
+        model_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Download model
+        downloaded_path = snapshot_download(
+            repo_id=model_id,
+            local_dir=str(model_path),
+            local_dir_use_symlinks=False,
+            resume_download=True,
+        )
+        
+        logger.info(f"✅ Model downloaded successfully to {downloaded_path}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to download model {model_id}: {str(e)}")
+        return False
+
+
 class AIModelManager:
     """
     Manager for AI model integrations.
@@ -119,7 +161,8 @@ class AIModelManager:
                     "size_gb": 16,
                     "min_gpu_memory_gb": 8,
                     "min_ram_gb": 16,
-                    "inference_engine": "vllm",
+                    "inference_engine": "llama.cpp",  # Changed from vllm to llama.cpp
+                    "fallback_engines": ["vllm", "transformers"],  # Fallback order
                     "description": "Snappy persona worker for fast mode",
                 },
             },
@@ -1366,25 +1409,61 @@ class AIModelManager:
     async def _generate_text_local(
         self, prompt: str, model: Dict[str, Any], **kwargs
     ) -> str:
-        """Generate text using local models with raw engine output streaming."""
-        try:
-            model_name = model["name"]
-            inference_engine = model.get("inference_engine", "transformers")
-
-            logger.info(f"   Using inference engine: {inference_engine}")
-
-            if inference_engine == "vllm":
-                return await self._generate_text_vllm(prompt, model, **kwargs)
-            elif inference_engine == "transformers":
-                return await self._generate_text_transformers(prompt, model, **kwargs)
-            elif inference_engine == "llama.cpp":
-                return await self._generate_text_llamacpp(prompt, model, **kwargs)
-            else:
-                raise ValueError(f"Unsupported inference engine: {inference_engine}")
-
-        except Exception as e:
-            logger.error(f"   ❌ Local text generation failed: {str(e)}")
-            raise
+        """Generate text using local models with raw engine output streaming and intelligent fallback."""
+        model_name = model["name"]
+        inference_engine = model.get("inference_engine", "transformers")
+        fallback_engines = model.get("fallback_engines", [])
+        
+        # Build priority list: primary engine + fallbacks
+        engines_to_try = [inference_engine] + fallback_engines
+        
+        last_error = None
+        for engine in engines_to_try:
+            try:
+                logger.info(f"   Trying inference engine: {engine}")
+                
+                # Check if model is downloaded, download if needed
+                model_path = Path(model.get("path", ""))
+                if not model_path.exists():
+                    logger.warning(f"   Model not found at {model_path}")
+                    
+                    # Attempt to download model
+                    model_id = model.get("model_id")
+                    if model_id:
+                        logger.info(f"   Attempting to download model {model_id}...")
+                        success = await download_model_from_huggingface(
+                            model_id=model_id,
+                            model_path=model_path,
+                            model_type="text"
+                        )
+                        if not success:
+                            logger.warning(f"   Failed to download model, trying next engine...")
+                            continue
+                    else:
+                        logger.warning(f"   No model_id available for download")
+                        continue
+                
+                # Try generation with this engine
+                if engine == "llama.cpp":
+                    return await self._generate_text_llamacpp(prompt, model, **kwargs)
+                elif engine == "vllm":
+                    return await self._generate_text_vllm(prompt, model, **kwargs)
+                elif engine == "transformers":
+                    return await self._generate_text_transformers(prompt, model, **kwargs)
+                else:
+                    logger.warning(f"   Unknown inference engine: {engine}")
+                    continue
+                    
+            except Exception as e:
+                last_error = e
+                logger.warning(f"   {engine} failed: {str(e)}")
+                logger.info(f"   Trying next fallback engine...")
+                continue
+        
+        # All engines failed
+        error_msg = f"All inference engines failed for {model_name}. Last error: {str(last_error)}"
+        logger.error(f"   ❌ {error_msg}")
+        raise ValueError(error_msg)
 
     async def _generate_text_llamacpp(
         self, prompt: str, model: Dict[str, Any], **kwargs
@@ -1501,69 +1580,62 @@ class AIModelManager:
         self, prompt: str, model: Dict[str, Any], **kwargs
     ) -> str:
         """Generate text using vLLM for high-performance inference."""
+        logger.info(f"   🔧 Starting vLLM engine for {model['name']}...")
+        logger.info(f"   " + "=" * 76)
+        logger.info(f"   RAW vLLM ENGINE OUTPUT:")
+        logger.info(f"   " + "=" * 76)
+
+        # Check if vLLM server is running
+        vllm_url = os.environ.get("VLLM_API_URL", "http://localhost:8001")
+
         try:
-            logger.info(f"   🔧 Starting vLLM engine for {model['name']}...")
-            logger.info(f"   " + "=" * 76)
-            logger.info(f"   RAW vLLM ENGINE OUTPUT:")
-            logger.info(f"   " + "=" * 76)
+            # Try to use vLLM API if available
+            response = await self.http_client.post(
+                f"{vllm_url}/v1/completions",
+                json={
+                    "model": model.get("model_id", model["name"]),
+                    "prompt": prompt,
+                    "max_tokens": kwargs.get("max_tokens", 1000),
+                    "temperature": kwargs.get("temperature", 0.7),
+                    "stream": False,
+                },
+                timeout=300.0,
+            )
 
-            # Check if vLLM server is running
-            vllm_url = os.environ.get("VLLM_API_URL", "http://localhost:8001")
+            if response.status_code == 200:
+                result = response.json()
+                generated_text = result["choices"][0]["text"]
 
-            try:
-                # Try to use vLLM API if available
-                response = await self.http_client.post(
-                    f"{vllm_url}/v1/completions",
-                    json={
-                        "model": model.get("model_id", model["name"]),
-                        "prompt": prompt,
-                        "max_tokens": kwargs.get("max_tokens", 1000),
-                        "temperature": kwargs.get("temperature", 0.7),
-                        "stream": False,
-                    },
-                    timeout=300.0,
+                # Log raw vLLM stats
+                logger.info(f"   vLLM Stats:")
+                logger.info(f"   - Model: {model['name']}")
+                logger.info(
+                    f"   - Tokens generated: {result.get('usage', {}).get('completion_tokens', 'N/A')}"
                 )
+                logger.info(
+                    f"   - Total tokens: {result.get('usage', {}).get('total_tokens', 'N/A')}"
+                )
+                logger.info(f"   " + "-" * 76)
+                logger.info(f"   GENERATED TEXT:")
+                for line in generated_text.split("\n"):
+                    logger.info(f"   | {line}")
+                logger.info(f"   " + "=" * 76)
 
-                if response.status_code == 200:
-                    result = response.json()
-                    generated_text = result["choices"][0]["text"]
+                return generated_text
+            else:
+                error_msg = f"vLLM server returned status {response.status_code}"
+                logger.warning(f"   ⚠️  {error_msg}")
+                raise ValueError(error_msg)
 
-                    # Log raw vLLM stats
-                    logger.info(f"   vLLM Stats:")
-                    logger.info(f"   - Model: {model['name']}")
-                    logger.info(
-                        f"   - Tokens generated: {result.get('usage', {}).get('completion_tokens', 'N/A')}"
-                    )
-                    logger.info(
-                        f"   - Total tokens: {result.get('usage', {}).get('total_tokens', 'N/A')}"
-                    )
-                    logger.info(f"   " + "-" * 76)
-                    logger.info(f"   GENERATED TEXT:")
-                    for line in generated_text.split("\n"):
-                        logger.info(f"   | {line}")
-                    logger.info(f"   " + "=" * 76)
-
-                    return generated_text
-                else:
-                    logger.warning(
-                        f"   ⚠️  vLLM server not responding (status {response.status_code})"
-                    )
-
-            except Exception as vllm_error:
-                logger.warning(f"   ⚠️  vLLM not available: {str(vllm_error)}")
-
-            # Fallback: Return placeholder with detailed info
+        except Exception as vllm_error:
+            logger.warning(f"   ⚠️  vLLM not available: {str(vllm_error)}")
             logger.info(f"   ℹ️  vLLM engine not configured or not running")
             logger.info(
-                f"   To enable: Set VLLM_API_URL or install model at {model.get('path')}"
+                f"   To enable: Set VLLM_API_URL or start vLLM server at {vllm_url}"
             )
             logger.info(f"   " + "=" * 76)
-
-            return f"[vLLM generation with {model['name']}: {prompt[:100]}...]"
-
-        except Exception as e:
-            logger.error(f"   ❌ vLLM generation failed: {str(e)}")
-            raise
+            # Raise error to trigger fallback to other engines
+            raise ValueError(f"vLLM not available: {str(vllm_error)}")
 
     async def _generate_text_transformers(
         self, prompt: str, model: Dict[str, Any], **kwargs

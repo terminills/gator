@@ -548,3 +548,199 @@ class ACDService:
             logger.error(f"Failed to assign context {context_id}: {str(e)}")
             await self.db.rollback()
             raise
+
+    async def process_queued_contexts(
+        self, max_contexts: int = 10, phase_filter: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Process queued ACD contexts and trigger actual content generation.
+        
+        This is the missing functionality - ACD contexts are created and logged,
+        but this method actually triggers the content generation based on those contexts.
+        
+        Args:
+            max_contexts: Maximum number of contexts to process in this batch
+            phase_filter: Optional filter for specific phase (e.g., "IMAGE_GENERATION")
+            
+        Returns:
+            Dict with processing results including successes and failures
+        """
+        try:
+            logger.info(f"🔄 Processing queued ACD contexts (max: {max_contexts})")
+            
+            # Query for contexts that are queued and ready to process
+            stmt = (
+                select(ACDContextModel)
+                .where(
+                    and_(
+                        ACDContextModel.ai_queue_status.in_([
+                            AIQueueStatus.QUEUED.value,
+                            AIQueueStatus.ASSIGNED.value,
+                        ]),
+                        ACDContextModel.ai_state.in_([
+                            AIState.READY.value,
+                            AIState.PROCESSING.value,
+                        ])
+                    )
+                )
+                .order_by(
+                    # Priority order: CRITICAL > HIGH > NORMAL > LOW > DEFERRED
+                    ACDContextModel.ai_queue_priority.desc(),
+                    ACDContextModel.created_at.asc()
+                )
+                .limit(max_contexts)
+            )
+            
+            if phase_filter:
+                stmt = stmt.where(ACDContextModel.ai_phase == phase_filter)
+            
+            result = await self.db.execute(stmt)
+            contexts = result.scalars().all()
+            
+            if not contexts:
+                logger.info("   No queued contexts found to process")
+                return {
+                    "processed": 0,
+                    "successful": 0,
+                    "failed": 0,
+                    "results": []
+                }
+            
+            logger.info(f"   Found {len(contexts)} queued contexts to process")
+            
+            # Import content generation service here to avoid circular imports
+            from backend.services.content_generation_service import (
+                ContentGenerationService,
+                GenerationRequest,
+            )
+            from backend.models.content import ContentType, ContentRating
+            
+            content_service = ContentGenerationService(self.db)
+            
+            results = []
+            successful = 0
+            failed = 0
+            
+            for context in contexts:
+                try:
+                    logger.info(f"\n   📋 Processing context {context.id}")
+                    logger.info(f"      Phase: {context.ai_phase}")
+                    logger.info(f"      Priority: {context.ai_queue_priority}")
+                    
+                    # Update status to IN_PROGRESS
+                    await self.update_context(
+                        context.id,
+                        ACDContextUpdate(
+                            ai_state=AIState.PROCESSING,
+                            ai_queue_status=AIQueueStatus.IN_PROGRESS,
+                            ai_started=datetime.now(timezone.utc),
+                        )
+                    )
+                    
+                    # Extract parameters from ACD context
+                    ai_context = context.ai_context or {}
+                    persona_id = ai_context.get("persona_id") or context.content_id
+                    prompt = ai_context.get("prompt", "")
+                    
+                    # Map phase to content type
+                    content_type_map = {
+                        "IMAGE_GENERATION": ContentType.IMAGE,
+                        "TEXT_GENERATION": ContentType.TEXT,
+                        "VIDEO_GENERATION": ContentType.VIDEO,
+                        "AUDIO_GENERATION": ContentType.AUDIO,
+                        "VOICE_GENERATION": ContentType.VOICE,
+                    }
+                    
+                    content_type = content_type_map.get(
+                        context.ai_phase,
+                        ContentType.TEXT  # Default fallback
+                    )
+                    
+                    # Create generation request
+                    gen_request = GenerationRequest(
+                        persona_id=persona_id,
+                        content_type=content_type,
+                        prompt=prompt or f"Generate content for {context.ai_phase}",
+                        content_rating=ContentRating.SFW,  # Default, can be overridden
+                        quality=ai_context.get("quality", "standard"),
+                    )
+                    
+                    logger.info(f"      🎯 Triggering {content_type.value} generation...")
+                    
+                    # Actually generate the content
+                    content_result = await content_service.generate_content(gen_request)
+                    
+                    # Update context with success
+                    await self.update_context(
+                        context.id,
+                        ACDContextUpdate(
+                            ai_state=AIState.DONE,
+                            ai_queue_status=AIQueueStatus.COMPLETED,
+                            content_id=content_result.id if content_result else None,
+                        )
+                    )
+                    
+                    logger.info(f"      ✅ Generation successful: {content_result.id if content_result else 'N/A'}")
+                    
+                    successful += 1
+                    results.append({
+                        "context_id": str(context.id),
+                        "status": "success",
+                        "content_id": str(content_result.id) if content_result else None,
+                        "phase": context.ai_phase,
+                    })
+                    
+                except Exception as gen_error:
+                    logger.error(f"      ❌ Generation failed: {str(gen_error)}")
+                    
+                    # Create trace artifact for the error
+                    try:
+                        await self.create_trace_artifact(
+                            ACDTraceArtifactCreate(
+                                session_id=str(context.id),
+                                event_type="generation_error",
+                                error_message=str(gen_error),
+                                acd_context_id=context.id,
+                                environment={"phase": context.ai_phase},
+                            )
+                        )
+                    except Exception as trace_error:
+                        logger.error(f"      Failed to create trace artifact: {str(trace_error)}")
+                    
+                    # Update context with failure
+                    try:
+                        await self.update_context(
+                            context.id,
+                            ACDContextUpdate(
+                                ai_state=AIState.FAILED,
+                                ai_queue_status=AIQueueStatus.ABANDONED,
+                            )
+                        )
+                    except Exception as update_error:
+                        logger.error(f"      Failed to update context: {str(update_error)}")
+                    
+                    failed += 1
+                    results.append({
+                        "context_id": str(context.id),
+                        "status": "failed",
+                        "error": str(gen_error),
+                        "phase": context.ai_phase,
+                    })
+            
+            summary = {
+                "processed": len(contexts),
+                "successful": successful,
+                "failed": failed,
+                "results": results,
+            }
+            
+            logger.info(f"\n✅ Batch processing complete:")
+            logger.info(f"   Total processed: {summary['processed']}")
+            logger.info(f"   Successful: {summary['successful']}")
+            logger.info(f"   Failed: {summary['failed']}")
+            
+            return summary
+            
+        except Exception as e:
+            logger.error(f"Failed to process queued contexts: {str(e)}")
+            raise
