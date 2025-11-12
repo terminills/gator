@@ -6,7 +6,7 @@ This script demonstrates that the AI model detection improvements work correctly
 It checks that:
 1. The AIModelManager is properly initialized and accessible
 2. Model status endpoint returns accurate counts
-3. Imports fail early at startup if dependencies are missing (not during generation)
+3. Imports fail early at startup if dependencies are missing (not during generation).
 """
 
 import sys
