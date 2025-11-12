@@ -1018,53 +1018,109 @@ class AIModelManager:
                 logger.error(f"❌ No image generation models available")
                 raise ValueError("No image generation models available")
 
-            # Use intelligent model selection
-            model = await self._select_optimal_model(
-                prompt=prompt,
-                content_type="image",
-                available_models=available_models,
-                **kwargs,
-            )
+            # Try models with fallback on failure
+            # This handles cases where a model is marked as available but has incomplete components
+            failed_models = []
+            last_error = None
+            current_model = None
+            
+            for attempt in range(len(available_models)):
+                try:
+                    # Use intelligent model selection, excluding previously failed models
+                    remaining_models = [m for m in available_models if m['name'] not in failed_models]
+                    if not remaining_models:
+                        break
+                    
+                    model = await self._select_optimal_model(
+                        prompt=prompt,
+                        content_type="image",
+                        available_models=remaining_models,
+                        **kwargs,
+                    )
+                    current_model = model  # Store for error handling
 
-            logger.info(
-                f"✓ Model selected: {model['name']} ({model.get('provider', 'unknown')})"
-            )
+                    logger.info(
+                        f"✓ Model selected: {model['name']} ({model.get('provider', 'unknown')})"
+                    )
 
-            # Record model selection reasoning for benchmark
-            selection_reasoning = (
-                model.get("selection_reason")
-                or f"Selected based on quality={kwargs.get('quality', 'standard')}"
-            )
+                    # Record model selection reasoning for benchmark
+                    selection_reasoning = (
+                        model.get("selection_reason")
+                        or f"Selected based on quality={kwargs.get('quality', 'standard')}"
+                    )
 
-            # Perform generation
-            logger.info(f"⚙️  Generating image with {model['name']}...")
-            generation_start = time.time()
-            if model.get("provider") == "openai":
-                result = await self._generate_image_openai(prompt, **kwargs)
-            elif model.get("provider") == "local":
-                result = await self._generate_image_local(prompt, model, **kwargs)
+                    # Perform generation
+                    logger.info(f"⚙️  Generating image with {model['name']}...")
+                    generation_start = time.time()
+                    if model.get("provider") == "openai":
+                        result = await self._generate_image_openai(prompt, **kwargs)
+                    elif model.get("provider") == "local":
+                        result = await self._generate_image_local(prompt, model, **kwargs)
+                    else:
+                        raise ValueError(f"Unsupported image model: {model['name']}")
+
+                    generation_time = time.time() - generation_start
+                    total_time = time.time() - start_time
+
+                    # Add timing info to result
+                    result["generation_time_seconds"] = generation_time
+                    result["total_time_seconds"] = total_time
+                    result["benchmark_data"] = {
+                        "model_selected": model["name"],
+                        "model_provider": model.get("provider", "unknown"),
+                        "selection_reasoning": selection_reasoning,
+                        "available_models": [m["name"] for m in available_models],
+                        "failed_models": failed_models,
+                    }
+
+                    logger.info(f"✅ IMAGE GENERATION COMPLETE in {total_time:.2f}s")
+                    logger.info(f"   Model: {model['name']}")
+                    logger.info(f"   Size: {result.get('width', 0)}x{result.get('height', 0)}")
+                    logger.info(f"   Generation time: {generation_time:.2f}s")
+                    if failed_models:
+                        logger.info(f"   Note: Succeeded after {len(failed_models)} failed attempt(s)")
+
+                    return result
+                    
+                except Exception as e:
+                    last_error = e
+                    # Only add to failed models if we have a current model
+                    if current_model:
+                        failed_models.append(current_model['name'])
+                        logger.warning(
+                            f"⚠️  Model {current_model['name']} failed: {str(e)}"
+                        )
+                    else:
+                        logger.warning(f"⚠️  Model selection failed: {str(e)}")
+                    
+                    # For incomplete model errors, log additional context
+                    error_str = str(e)
+                    if "None text encoder" in error_str or "None tokenizer" in error_str:
+                        logger.warning(
+                            f"   Model appears to have incomplete or corrupted files."
+                        )
+                        logger.warning(
+                            f"   Consider re-downloading the model or using a different model."
+                        )
+                    
+                    # If there are more models to try, continue
+                    if len(failed_models) < len(available_models):
+                        logger.info(
+                            f"   Trying next available model ({len(available_models) - len(failed_models)} remaining)..."
+                        )
+                        continue
+                    else:
+                        # All models failed, raise the last error
+                        logger.error(
+                            f"❌ All {len(available_models)} available models failed"
+                        )
+                        raise
+            
+            # If we get here, all models failed
+            if last_error:
+                raise last_error
             else:
-                raise ValueError(f"Unsupported image model: {model['name']}")
-
-            generation_time = time.time() - generation_start
-            total_time = time.time() - start_time
-
-            # Add timing info to result
-            result["generation_time_seconds"] = generation_time
-            result["total_time_seconds"] = total_time
-            result["benchmark_data"] = {
-                "model_selected": model["name"],
-                "model_provider": model.get("provider", "unknown"),
-                "selection_reasoning": selection_reasoning,
-                "available_models": [m["name"] for m in available_models],
-            }
-
-            logger.info(f"✅ IMAGE GENERATION COMPLETE in {total_time:.2f}s")
-            logger.info(f"   Model: {model['name']}")
-            logger.info(f"   Size: {result.get('width', 0)}x{result.get('height', 0)}")
-            logger.info(f"   Generation time: {generation_time:.2f}s")
-
-            return result
+                raise ValueError("No models available to try")
 
         except Exception as e:
             had_errors = True
