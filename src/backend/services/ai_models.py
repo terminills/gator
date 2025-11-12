@@ -1902,6 +1902,7 @@ class AIModelManager:
                         str(model_path),
                         dtype=(torch.float16 if "cuda" in device else torch.float32),
                         safety_checker=None,  # Disable for performance
+                        requires_safety_checker=False,  # Suppress warning
                     )
                 else:
                     logger.info(f"Loading model from HuggingFace Hub: {model_id}")
@@ -1909,6 +1910,7 @@ class AIModelManager:
                         model_id,
                         dtype=(torch.float16 if "cuda" in device else torch.float32),
                         safety_checker=None,  # Disable for performance
+                        requires_safety_checker=False,  # Suppress warning
                     )
                     # Save to local path for future use
                     if not model_path.exists():
