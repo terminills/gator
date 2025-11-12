@@ -8,6 +8,37 @@ Image generation was failing with the error:
 
 This occurred when trying to generate images with SDXL models.
 
+## Enhanced Diagnostics
+The fix now includes comprehensive logging to help diagnose issues on real hardware. When image generation is attempted, you'll see:
+
+```
+============================================================
+DIFFUSERS GENERATION - DIAGNOSTIC INFO
+============================================================
+Model: sdxl-1.0 (SDXL=True)
+Pipeline class: StableDiffusionXLPipeline
+Device: cuda:0
+Pipeline components:
+  - vae: AutoencoderKL
+  - text_encoder: CLIPTextModel
+  - text_encoder_2: CLIPTextModelWithProjection
+  - tokenizer: CLIPTokenizer
+  - tokenizer_2: CLIPTokenizer
+  - unet: UNet2DConditionModel
+  - scheduler: DPMSolverMultistepScheduler
+Generation parameters:
+  - prompt: A serene mountain landscape at sunset, digital art
+  - negative_prompt: ugly, blurry, low quality, distorted
+  - num_inference_steps: 20
+  - guidance_scale: 7.5
+  - width: 512
+  - height: 512
+  - seed: None
+============================================================
+```
+
+If any component is None, it will be clearly shown in the logs.
+
 ## Root Cause
 The code was passing `safety_checker=None` and `requires_safety_checker=False` parameters to **all** Stable Diffusion models when loading from Diffusers:
 
