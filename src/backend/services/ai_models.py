@@ -1341,26 +1341,15 @@ class AIModelManager:
         self, prompt: str, model: Dict[str, Any], **kwargs
     ) -> Dict[str, Any]:
         """Generate image using local models."""
-        try:
-            model_name = model["name"]
-            inference_engine = model.get("inference_engine", "diffusers")
+        model_name = model["name"]
+        inference_engine = model.get("inference_engine", "diffusers")
 
-            if inference_engine == "comfyui":
-                return await self._generate_image_comfyui(prompt, model, **kwargs)
-            elif inference_engine == "diffusers":
-                return await self._generate_image_diffusers(prompt, model, **kwargs)
-            else:
-                raise ValueError(f"Unsupported inference engine: {inference_engine}")
-
-        except Exception as e:
-            logger.error(f"Local image generation failed: {str(e)}")
-            # Return placeholder
-            return {
-                "image_data": b"",
-                "format": "PNG",
-                "model": model_name,
-                "error": str(e),
-            }
+        if inference_engine == "comfyui":
+            return await self._generate_image_comfyui(prompt, model, **kwargs)
+        elif inference_engine == "diffusers":
+            return await self._generate_image_diffusers(prompt, model, **kwargs)
+        else:
+            raise ValueError(f"Unsupported inference engine: {inference_engine}")
 
     async def _generate_voice_local(
         self, text: str, model: Dict[str, Any], **kwargs
