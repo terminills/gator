@@ -126,6 +126,10 @@ checkpoints/
 experiments/
 wandb/
 
+# Third party dependencies (built from source)
+third_party/llama.cpp/build/
+third_party/llama.cpp/.git/
+
 # Large files that should use Git LFS
 *.zip
 *.tar.gz
