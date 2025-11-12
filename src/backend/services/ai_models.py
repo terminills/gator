@@ -1958,9 +1958,12 @@ class AIModelManager:
                         "torch_dtype": (
                             torch.float16 if "cuda" in device else torch.float32
                         ),
-                        "safety_checker": None,  # Disable for performance
-                        "requires_safety_checker": False,  # Suppress warning
                     }
+
+                    # Only add safety_checker params for SD 1.5 models (not SDXL)
+                    if not is_sdxl:
+                        load_args["safety_checker"] = None  # Disable for performance
+                        load_args["requires_safety_checker"] = False  # Suppress warning
 
                     # Try to load with fp16 variant first for SDXL models
                     # If variant files are not available, fallback to default loading
@@ -1990,9 +1993,12 @@ class AIModelManager:
                         "torch_dtype": (
                             torch.float16 if "cuda" in device else torch.float32
                         ),
-                        "safety_checker": None,  # Disable for performance
-                        "requires_safety_checker": False,  # Suppress warning
                     }
+
+                    # Only add safety_checker params for SD 1.5 models (not SDXL)
+                    if not is_sdxl:
+                        load_args["safety_checker"] = None  # Disable for performance
+                        load_args["requires_safety_checker"] = False  # Suppress warning
 
                     # Try to load with fp16 variant first for SDXL models
                     # If variant files are not available, fallback to default loading
@@ -2039,6 +2045,36 @@ class AIModelManager:
 
             pipe = self._loaded_pipelines[pipeline_key]
 
+            # Validate pipeline components are properly loaded
+            if is_sdxl:
+                # SDXL requires both text encoders
+                if pipe.text_encoder is None or pipe.text_encoder_2 is None:
+                    error_msg = f"SDXL pipeline has None text encoders: text_encoder={pipe.text_encoder is not None}, text_encoder_2={pipe.text_encoder_2 is not None}"
+                    logger.error(error_msg)
+                    # Remove broken pipeline from cache
+                    del self._loaded_pipelines[pipeline_key]
+                    raise ValueError(error_msg)
+                if pipe.tokenizer is None or pipe.tokenizer_2 is None:
+                    error_msg = f"SDXL pipeline has None tokenizers: tokenizer={pipe.tokenizer is not None}, tokenizer_2={pipe.tokenizer_2 is not None}"
+                    logger.error(error_msg)
+                    # Remove broken pipeline from cache
+                    del self._loaded_pipelines[pipeline_key]
+                    raise ValueError(error_msg)
+            else:
+                # SD 1.5/2.x requires single text encoder
+                if pipe.text_encoder is None:
+                    error_msg = f"SD pipeline has None text_encoder"
+                    logger.error(error_msg)
+                    # Remove broken pipeline from cache
+                    del self._loaded_pipelines[pipeline_key]
+                    raise ValueError(error_msg)
+                if pipe.tokenizer is None:
+                    error_msg = f"SD pipeline has None tokenizer"
+                    logger.error(error_msg)
+                    # Remove broken pipeline from cache
+                    del self._loaded_pipelines[pipeline_key]
+                    raise ValueError(error_msg)
+
             # Get generation parameters
             num_inference_steps = kwargs.get("num_inference_steps", 25)
             guidance_scale = kwargs.get("guidance_scale", 7.5)
@@ -2071,22 +2107,68 @@ class AIModelManager:
                 # For now, we enhance the prompt with consistency instructions
                 prompt = f"maintaining consistent appearance from reference, {prompt}"
 
-            logger.info(f"Generating image with prompt: {prompt[:100]}...")
+            # Log detailed diagnostics before generation
+            logger.info("=" * 60)
+            logger.info("DIFFUSERS GENERATION - DIAGNOSTIC INFO")
+            logger.info("=" * 60)
+            logger.info(f"Model: {model_name} (SDXL={is_sdxl})")
+            logger.info(f"Pipeline class: {type(pipe).__name__}")
+            logger.info(f"Device: {device}")
+            logger.info(f"Pipeline components:")
+            logger.info(f"  - vae: {type(pipe.vae).__name__ if pipe.vae else 'None'}")
+            logger.info(
+                f"  - text_encoder: {type(pipe.text_encoder).__name__ if pipe.text_encoder else 'None'}"
+            )
+            if is_sdxl:
+                logger.info(
+                    f"  - text_encoder_2: {type(pipe.text_encoder_2).__name__ if pipe.text_encoder_2 else 'None'}"
+                )
+            logger.info(
+                f"  - tokenizer: {type(pipe.tokenizer).__name__ if pipe.tokenizer else 'None'}"
+            )
+            if is_sdxl:
+                logger.info(
+                    f"  - tokenizer_2: {type(pipe.tokenizer_2).__name__ if pipe.tokenizer_2 else 'None'}"
+                )
+            logger.info(
+                f"  - unet: {type(pipe.unet).__name__ if pipe.unet else 'None'}"
+            )
+            logger.info(
+                f"  - scheduler: {type(pipe.scheduler).__name__ if pipe.scheduler else 'None'}"
+            )
+            logger.info(f"Generation parameters:")
+            logger.info(f"  - prompt: {prompt}")
+            logger.info(f"  - negative_prompt: {negative_prompt}")
+            logger.info(f"  - num_inference_steps: {num_inference_steps}")
+            logger.info(f"  - guidance_scale: {guidance_scale}")
+            logger.info(f"  - width: {width}")
+            logger.info(f"  - height: {height}")
+            logger.info(f"  - seed: {seed}")
+            logger.info("=" * 60)
 
             # Generate image (run in thread pool to avoid blocking)
-            loop = asyncio.get_event_loop()
-            image = await loop.run_in_executor(
-                None,
-                lambda: pipe(
-                    prompt=prompt,
-                    negative_prompt=negative_prompt,
-                    num_inference_steps=num_inference_steps,
-                    guidance_scale=guidance_scale,
-                    width=width,
-                    height=height,
-                    generator=generator,
-                ).images[0],
-            )
+            try:
+                loop = asyncio.get_event_loop()
+                image = await loop.run_in_executor(
+                    None,
+                    lambda: pipe(
+                        prompt=prompt,
+                        negative_prompt=negative_prompt,
+                        num_inference_steps=num_inference_steps,
+                        guidance_scale=guidance_scale,
+                        width=width,
+                        height=height,
+                        generator=generator,
+                    ).images[0],
+                )
+                logger.info("✓ Image generated successfully")
+            except Exception as e:
+                logger.error(f"Diffusers generation failed: {str(e)}")
+                logger.error(f"Error type: {type(e).__name__}")
+                import traceback
+
+                logger.error(f"Full traceback:\n{traceback.format_exc()}")
+                raise
 
             # Convert PIL Image to bytes
             img_byte_arr = io.BytesIO()
