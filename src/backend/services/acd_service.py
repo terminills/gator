@@ -107,6 +107,35 @@ class ACDService:
             await self.db.rollback()
             raise
 
+    async def list_contexts(
+        self, limit: int = 10, offset: int = 0
+    ) -> List[ACDContextResponse]:
+        """
+        List ACD contexts with pagination.
+
+        Args:
+            limit: Maximum number of contexts to return
+            offset: Number of contexts to skip
+
+        Returns:
+            List of context records
+        """
+        try:
+            stmt = (
+                select(ACDContextModel)
+                .order_by(ACDContextModel.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+            result = await self.db.execute(stmt)
+            contexts = result.scalars().all()
+
+            return [ACDContextResponse.model_validate(c) for c in contexts]
+
+        except Exception as e:
+            logger.error(f"Failed to list ACD contexts: {str(e)}")
+            return []
+
     async def get_context(self, context_id: UUID) -> Optional[ACDContextResponse]:
         """
         Get an ACD context by ID.

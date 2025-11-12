@@ -376,6 +376,29 @@ def create_app() -> FastAPI:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
+    @app.get("/gator-agent/status", tags=["gator-agent"])
+    async def gator_agent_status_alias():
+        """Alias for Gator agent status endpoint (backward compatibility)."""
+        from backend.services.gator_agent_service import gator_agent
+        
+        history = gator_agent.get_conversation_history()
+        
+        return {
+            "status": "operational",
+            "agent": "Gator from The Other Guys",
+            "attitude": "No-nonsense, direct, helpful but tough",
+            "conversation_count": len(history),
+            "last_interaction": history[-1]["timestamp"] if history else None,
+            "available_topics": [
+                "Personas",
+                "Content Generation",
+                "DNS Management",
+                "System Status",
+                "GoDaddy Integration",
+                "Troubleshooting",
+            ],
+        }
+
     @app.exception_handler(404)
     async def not_found_handler(request: Request, exc) -> Response:
         """Custom 404 handler."""
