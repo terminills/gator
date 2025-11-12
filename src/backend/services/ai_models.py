@@ -1958,9 +1958,12 @@ class AIModelManager:
                         "torch_dtype": (
                             torch.float16 if "cuda" in device else torch.float32
                         ),
-                        "safety_checker": None,  # Disable for performance
-                        "requires_safety_checker": False,  # Suppress warning
                     }
+                    
+                    # Only add safety_checker params for SD 1.5 models (not SDXL)
+                    if not is_sdxl:
+                        load_args["safety_checker"] = None  # Disable for performance
+                        load_args["requires_safety_checker"] = False  # Suppress warning
 
                     # Try to load with fp16 variant first for SDXL models
                     # If variant files are not available, fallback to default loading
@@ -1990,9 +1993,12 @@ class AIModelManager:
                         "torch_dtype": (
                             torch.float16 if "cuda" in device else torch.float32
                         ),
-                        "safety_checker": None,  # Disable for performance
-                        "requires_safety_checker": False,  # Suppress warning
                     }
+                    
+                    # Only add safety_checker params for SD 1.5 models (not SDXL)
+                    if not is_sdxl:
+                        load_args["safety_checker"] = None  # Disable for performance
+                        load_args["requires_safety_checker"] = False  # Suppress warning
 
                     # Try to load with fp16 variant first for SDXL models
                     # If variant files are not available, fallback to default loading
