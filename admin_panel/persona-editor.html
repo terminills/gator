@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persona Editor - Gator AI Admin</title>
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5568d3;
+            --accent: #10b981;
+            --danger: #ef4444;
+            --dark-bg: #0f0f1e;
+            --dark-surface: #1a1a2e;
+            --dark-card: #16213e;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --sidebar-width: 260px;
+            --border-color: #2a2a3e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--dark-surface);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .logo-icon {
+            font-size: 2rem;
+        }
+        
+        .tenant-selector {
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--dark-card);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tenant-selector:hover {
+            border-color: var(--primary);
+        }
+        
+        .tenant-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+        
+        .tenant-plan {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        .nav-section {
+            padding: 20px 16px 8px;
+        }
+        
+        .nav-section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-bottom: 8px;
+            padding: 0 12px;
+        }
+        
+        .nav-menu {
+            list-style: none;
+        }
+        
+        .nav-item {
+            margin-bottom: 4px;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .nav-link:hover {
+            background: var(--dark-card);
+            color: var(--text-primary);
+        }
+        
+        .nav-link.active {
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            color: white;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.3rem;
+            width: 24px;
+            text-align: center;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .topbar {
+            height: 70px;
+            background: var(--dark-surface);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .back-btn {
+            padding: 8px 16px;
+            background: var(--dark-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        
+        .back-btn:hover {
+            border-color: var(--primary);
+        }
+        
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .content-area {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+        }
+        
+        .form-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .section {
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-description {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+        
+        .form-label .required {
+            color: var(--danger);
+        }
+        
+        .form-help {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        textarea.form-input {
+            min-height: 120px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        
+        .tag-input-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px;
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            min-height: 46px;
+        }
+        
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--primary);
+            color: white;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .tag-remove {
+            cursor: pointer;
+            font-weight: bold;
+            opacity: 0.8;
+        }
+        
+        .tag-remove:hover {
+            opacity: 1;
+        }
+        
+        .tag-input {
+            flex: 1;
+            min-width: 150px;
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            padding: 6px;
+            outline: none;
+        }
+        
+        .key-value-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .key-value-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .key-value-row input {
+            flex: 1;
+        }
+        
+        .remove-btn {
+            padding: 10px;
+            background: var(--danger);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        
+        .remove-btn:hover {
+            background: #dc2626;
+        }
+        
+        .add-btn {
+            padding: 10px 16px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .add-btn:hover {
+            background: #059669;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 10px;
+            background: var(--dark-card);
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        
+        .checkbox-label:hover {
+            background: var(--dark-surface);
+        }
+        
+        .checkbox-label input {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .radio-group {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .radio-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 10px 16px;
+            background: var(--dark-card);
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        
+        .radio-label:hover {
+            background: var(--dark-surface);
+        }
+        
+        .radio-label input {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 0.9rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-secondary {
+            background: var(--dark-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--primary);
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .alert {
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alert.show {
+            display: block;
+        }
+        
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+        
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .image-upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .image-upload-area:hover {
+            border-color: var(--primary);
+            background: var(--dark-card);
+        }
+        
+        .image-preview {
+            max-width: 300px;
+            max-height: 300px;
+            margin: 16px auto;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .image-preview.show {
+            display: block;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .badge-success {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .badge-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .badge-info {
+            background: var(--primary);
+            color: white;
+        }
+        
+        /* Sample Image Gallery */
+        .image-gallery {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-top: 20px;
+        }
+        
+        .image-card {
+            background: var(--dark-card);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .image-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        
+        .image-card.selected {
+            border-color: var(--accent);
+            border-width: 3px;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+        
+        .image-card img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            display: block;
+        }
+        
+        .image-card-label {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        .image-card.selected .image-card-label {
+            color: var(--accent);
+            font-weight: 600;
+        }
+        
+        .selected-badge {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: var(--accent);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: none;
+        }
+        
+        .image-card.selected .selected-badge {
+            display: block;
+        }
+        
+        .generate-images-section {
+            background: var(--dark-card);
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .generate-images-section h3 {
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+        
+        .generate-images-section p {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+        
+        .btn-generate {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-generate:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-generate:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .generation-progress {
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .generation-progress.show {
+            display: block;
+        }
+        
+        .progress-text {
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+        
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: var(--dark-surface);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-icon" id="brand-icon">🐊</span>
+                <span id="brand-name">AI Platform</span>
+            </div>
+            
+            <div class="tenant-selector" onclick="switchTenant()">
+                <div class="tenant-name" id="tenant-name">My Instance</div>
+                <div class="tenant-plan"><span id="tenant-plan-text">Self-Hosted</span> • GPU Enabled</div>
+            </div>
+        </div>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Main</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin" class="nav-link">
+                        <span class="nav-icon">📊</span>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/personas" class="nav-link active">
+                        <span class="nav-icon">🎭</span>
+                        <span>Personas</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/content" class="nav-link">
+                        <span class="nav-icon">🎨</span>
+                        <span>Content</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Resources</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/ai-models-setup" class="nav-link">
+                        <span class="nav-icon">🤖</span>
+                        <span>AI Models</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/rss" class="nav-link">
+                        <span class="nav-icon">📡</span>
+                        <span>RSS Feeds</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Insights</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin/analytics" class="nav-link">
+                        <span class="nav-icon">📈</span>
+                        <span>Analytics</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/diagnostics" class="nav-link">
+                        <span class="nav-icon">🤖</span>
+                        <span>AI Diagnostics</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/gallery" class="nav-link">
+                        <span class="nav-icon">🌐</span>
+                        <span>Public View</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section" style="margin-top: auto;">
+            <div class="nav-section-title">System</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin/settings" class="nav-link">
+                        <span class="nav-icon">⚙️</span>
+                        <span>Settings</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/docs" class="nav-link">
+                        <span class="nav-icon">📚</span>
+                        <span>API Docs</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <a href="/admin/personas" class="back-btn">
+                    ← Back to Personas
+                </a>
+                <h1 class="page-title" id="page-title">Create Persona</h1>
+            </div>
+            
+            <div class="topbar-right">
+                <span id="status-badge"></span>
+            </div>
+        </div>
+        
+        <div class="content-area">
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Loading persona data...</p>
+            </div>
+            
+            <div class="form-container" id="form-container" style="display: none;">
+                <div id="alert-container"></div>
+                
+                <form id="persona-form">
+                    <!-- Basic Information -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>📝</span>
+                                Basic Information
+                            </h2>
+                        </div>
+                        <p class="section-description">Core details that define your AI persona's identity.</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Name <span class="required">*</span>
+                            </label>
+                            <span class="form-help">The display name for your AI persona (2-100 characters)</span>
+                            <input type="text" class="form-input" id="name" name="name" required minlength="2" maxlength="100" placeholder="e.g., Tech Innovator Sarah">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Appearance <span class="required">*</span>
+                            </label>
+                            <span class="form-help">Physical appearance description for image generation (10-2000 characters)</span>
+                            <textarea class="form-input" id="appearance" name="appearance" required minlength="10" maxlength="2000" placeholder="Professional woman in her 30s with short dark hair, wearing modern business attire. Confident posture and intelligent eyes behind stylish glasses."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Personality <span class="required">*</span>
+                            </label>
+                            <span class="form-help">Personality traits and characteristics (10-2000 characters)</span>
+                            <textarea class="form-input" id="personality" name="personality" required minlength="10" maxlength="2000" placeholder="Innovative, analytical, forward-thinking tech leader. Passionate about AI and emerging technologies. Clear communicator who makes complex topics accessible."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Content Configuration -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>🎨</span>
+                                Content Configuration
+                            </h2>
+                        </div>
+                        <p class="section-description">Define content themes and style preferences for your persona.</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Content Themes
+                            </label>
+                            <span class="form-help">Topics this persona specializes in (max 10). Press Enter to add.</span>
+                            <div class="tag-input-container" id="themes-container">
+                                <input type="text" class="tag-input" id="theme-input" placeholder="Type a theme and press Enter...">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Style Preferences
+                            </label>
+                            <span class="form-help">Visual style and aesthetic preferences (key-value pairs)</span>
+                            <div class="key-value-container" id="style-container">
+                                <!-- Will be populated dynamically -->
+                            </div>
+                            <button type="button" class="add-btn" onclick="addStylePreference()">
+                                + Add Style Preference
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Content Rating & Platform Settings -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>🔒</span>
+                                Content Rating & Platform Settings
+                            </h2>
+                        </div>
+                        <p class="section-description">Control content ratings and platform-specific restrictions.</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Default Content Rating <span class="required">*</span>
+                            </label>
+                            <span class="form-help">The default content rating for generated content</span>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="default_content_rating" value="sfw" checked>
+                                    <span>SFW (Safe for Work)</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="default_content_rating" value="moderate">
+                                    <span>Moderate</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="default_content_rating" value="nsfw">
+                                    <span>NSFW (Not Safe for Work)</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Allowed Content Ratings <span class="required">*</span>
+                            </label>
+                            <span class="form-help">Content ratings this persona is allowed to generate</span>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="allowed_ratings" value="sfw" checked>
+                                    <span>SFW (Safe for Work)</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="allowed_ratings" value="moderate">
+                                    <span>Moderate</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="allowed_ratings" value="nsfw">
+                                    <span>NSFW (Not Safe for Work)</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Platform Restrictions
+                            </label>
+                            <span class="form-help">Platform-specific content restrictions (e.g., instagram: sfw_only)</span>
+                            <div class="key-value-container" id="platform-container">
+                                <!-- Will be populated dynamically -->
+                            </div>
+                            <button type="button" class="add-btn" onclick="addPlatformRestriction()">
+                                + Add Platform Restriction
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Appearance & Visual Consistency -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>🖼️</span>
+                                Appearance & Visual Consistency
+                            </h2>
+                        </div>
+                        <p class="section-description">Configure baseline appearance and reference images for consistent visual generation.</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Base Appearance Description
+                            </label>
+                            <span class="form-help">Detailed baseline appearance for visual consistency (optional, max 5000 characters)</span>
+                            <textarea class="form-input" id="base_appearance_description" name="base_appearance_description" maxlength="5000" placeholder="Detailed physical features, facial structure, body type, distinctive characteristics..."></textarea>
+                        </div>
+                        
+                        <!-- Sample Image Generation (Create Mode Only) -->
+                        <div class="form-group" id="sample-images-section" style="display: none;">
+                            <label class="form-label">
+                                Generate Sample Images
+                            </label>
+                            <span class="form-help">Generate 4 different sample images to choose as your base image. The selected image will be locked for visual consistency.</span>
+                            
+                            <div class="generate-images-section" id="generate-prompt">
+                                <h3>🎨 Generate Sample Images</h3>
+                                <p>Click below to generate 4 sample images based on your appearance description. This helps establish a consistent look for your persona.</p>
+                                <button type="button" class="btn-generate" id="generate-images-btn" onclick="generateSampleImages()">
+                                    <span>✨</span>
+                                    <span>Generate 4 Sample Images</span>
+                                </button>
+                                
+                                <div class="generation-progress" id="generation-progress">
+                                    <div class="progress-text" id="progress-text">Generating images... 0/4</div>
+                                    <div class="progress-bar-container">
+                                        <div class="progress-bar" id="progress-bar"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="image-gallery" id="image-gallery" style="display: none;">
+                                <!-- Sample images will be inserted here -->
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Appearance Locked
+                            </label>
+                            <span class="form-help">When enabled, locks appearance and enables visual consistency features</span>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="appearance_locked" name="appearance_locked">
+                                <span>Lock appearance for consistency</span>
+                            </label>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Base Image Status
+                            </label>
+                            <span class="form-help">Current status of the base reference image</span>
+                            <select class="form-input" id="base_image_status" name="base_image_status">
+                                <option value="pending_upload">Pending Upload</option>
+                                <option value="draft">Draft</option>
+                                <option value="approved">Approved</option>
+                                <option value="rejected">Rejected</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Base Image Path
+                            </label>
+                            <span class="form-help">Path to reference image (will be set via image upload/generation endpoints)</span>
+                            <input type="text" class="form-input" id="base_image_path" name="base_image_path" readonly placeholder="/models/base_images/persona_ref.jpg">
+                        </div>
+                    </div>
+                    
+                    <!-- Status -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>⚡</span>
+                                Status
+                            </h2>
+                        </div>
+                        <p class="section-description">Control whether this persona is active and available for content generation.</p>
+                        
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="is_active" name="is_active" checked>
+                                <span>Persona is active and available for content generation</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Form Actions -->
+                    <div class="form-actions">
+                        <a href="/admin/personas" class="btn btn-secondary">Cancel</a>
+                        <button type="button" class="btn btn-danger" id="delete-btn" style="display: none;" onclick="deletePersona()">
+                            Delete Persona
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="submit-btn">
+                            <span id="submit-text">Create Persona</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+        // Global state
+        let editorMode = 'create'; // 'create' or 'edit'
+        let personaId = null;
+        let themes = [];
+        let stylePreferences = {};
+        let platformRestrictions = {};
+        let sampleImages = []; // Generated sample images
+        let selectedImageData = null; // Selected image for base
+        
+        // Load branding configuration
+        async function loadBranding() {
+            try {
+                const response = await fetch('/api/v1/branding');
+                const branding = await response.json();
+                
+                document.getElementById('brand-name').textContent = branding.site_name || 'AI Platform';
+                document.getElementById('brand-icon').textContent = branding.icon || '🐊';
+                document.getElementById('tenant-name').textContent = branding.instance_name || 'My Instance';
+            } catch (e) {
+                console.log('Using default branding');
+            }
+        }
+        
+        function switchTenant() {
+            alert('Tenant switching coming soon!');
+        }
+        
+        // Parse URL parameters
+        function parseUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            const action = params.get('action');
+            const id = params.get('id');
+            
+            if (action === 'edit' && id) {
+                editorMode = 'edit';
+                personaId = id;
+                document.getElementById('page-title').textContent = 'Edit Persona';
+                document.getElementById('submit-text').textContent = 'Update Persona';
+                document.getElementById('delete-btn').style.display = 'inline-block';
+                // Hide sample images section in edit mode
+                document.getElementById('sample-images-section').style.display = 'none';
+            } else {
+                editorMode = 'create';
+                document.getElementById('page-title').textContent = 'Create Persona';
+                document.getElementById('submit-text').textContent = 'Create Persona';
+                // Show sample images section in create mode
+                document.getElementById('sample-images-section').style.display = 'block';
+            }
+        }
+        
+        // Show alert
+        function showAlert(message, type = 'success') {
+            const container = document.getElementById('alert-container');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} show`;
+            alert.textContent = message;
+            container.innerHTML = '';
+            container.appendChild(alert);
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 5000);
+        }
+        
+        // Load persona data for editing
+        async function loadPersonaData() {
+            if (editorMode !== 'edit' || !personaId) {
+                document.getElementById('loading').classList.remove('show');
+                document.getElementById('form-container').style.display = 'block';
+                return;
+            }
+            
+            document.getElementById('loading').classList.add('show');
+            
+            try {
+                const response = await fetch(`/api/v1/personas/${personaId}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load persona');
+                }
+                
+                const persona = await response.json();
+                
+                // Populate basic fields
+                document.getElementById('name').value = persona.name || '';
+                document.getElementById('appearance').value = persona.appearance || '';
+                document.getElementById('personality').value = persona.personality || '';
+                
+                // Populate themes
+                themes = persona.content_themes || [];
+                renderThemes();
+                
+                // Populate style preferences
+                stylePreferences = persona.style_preferences || {};
+                renderStylePreferences();
+                
+                // Populate content rating
+                const defaultRating = persona.default_content_rating || 'sfw';
+                document.querySelector(`input[name="default_content_rating"][value="${defaultRating}"]`).checked = true;
+                
+                // Populate allowed ratings
+                const allowedRatings = persona.allowed_content_ratings || ['sfw'];
+                document.querySelectorAll('input[name="allowed_ratings"]').forEach(checkbox => {
+                    checkbox.checked = allowedRatings.includes(checkbox.value);
+                });
+                
+                // Populate platform restrictions
+                platformRestrictions = persona.platform_restrictions || {};
+                renderPlatformRestrictions();
+                
+                // Populate appearance fields
+                document.getElementById('base_appearance_description').value = persona.base_appearance_description || '';
+                document.getElementById('appearance_locked').checked = persona.appearance_locked || false;
+                document.getElementById('base_image_status').value = persona.base_image_status || 'pending_upload';
+                document.getElementById('base_image_path').value = persona.base_image_path || '';
+                
+                // Populate status
+                document.getElementById('is_active').checked = persona.is_active !== false;
+                
+                // Show status badge
+                const badge = document.getElementById('status-badge');
+                if (persona.generation_count > 0) {
+                    badge.innerHTML = `<span class="badge badge-info">${persona.generation_count} generations</span>`;
+                }
+                
+                document.getElementById('loading').classList.remove('show');
+                document.getElementById('form-container').style.display = 'block';
+            } catch (error) {
+                console.error('Failed to load persona:', error);
+                showAlert('Failed to load persona data. Please try again.', 'error');
+                setTimeout(() => {
+                    window.location.href = '/admin/personas';
+                }, 2000);
+            }
+        }
+        
+        // Theme management
+        function renderThemes() {
+            const container = document.getElementById('themes-container');
+            const input = document.getElementById('theme-input');
+            
+            // Clear existing tags (except input)
+            container.querySelectorAll('.tag').forEach(tag => tag.remove());
+            
+            // Add tags
+            themes.forEach((theme, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'tag';
+                tag.innerHTML = `
+                    ${theme}
+                    <span class="tag-remove" onclick="removeTheme(${index})">×</span>
+                `;
+                container.insertBefore(tag, input);
+            });
+        }
+        
+        function addTheme(theme) {
+            theme = theme.trim();
+            if (theme && !themes.includes(theme) && themes.length < 10) {
+                themes.push(theme);
+                renderThemes();
+            }
+        }
+        
+        function removeTheme(index) {
+            themes.splice(index, 1);
+            renderThemes();
+        }
+        
+        // Style preferences management
+        function renderStylePreferences() {
+            const container = document.getElementById('style-container');
+            container.innerHTML = '';
+            
+            Object.entries(stylePreferences).forEach(([key, value]) => {
+                const row = document.createElement('div');
+                row.className = 'key-value-row';
+                row.innerHTML = `
+                    <input type="text" class="form-input" value="${key}" placeholder="Key (e.g., aesthetic)" onchange="updateStyleKey(this, '${key}')">
+                    <input type="text" class="form-input" value="${value}" placeholder="Value (e.g., professional)" onchange="updateStyleValue('${key}', this.value)">
+                    <button type="button" class="remove-btn" onclick="removeStylePreference('${key}')">×</button>
+                `;
+                container.appendChild(row);
+            });
+        }
+        
+        function addStylePreference() {
+            const newKey = `style_${Object.keys(stylePreferences).length + 1}`;
+            stylePreferences[newKey] = '';
+            renderStylePreferences();
+        }
+        
+        function updateStyleKey(input, oldKey) {
+            const newKey = input.value.trim();
+            if (newKey && newKey !== oldKey && !stylePreferences.hasOwnProperty(newKey)) {
+                stylePreferences[newKey] = stylePreferences[oldKey];
+                delete stylePreferences[oldKey];
+                renderStylePreferences();
+            }
+        }
+        
+        function updateStyleValue(key, value) {
+            stylePreferences[key] = value.trim();
+        }
+        
+        function removeStylePreference(key) {
+            delete stylePreferences[key];
+            renderStylePreferences();
+        }
+        
+        // Platform restrictions management
+        function renderPlatformRestrictions() {
+            const container = document.getElementById('platform-container');
+            container.innerHTML = '';
+            
+            Object.entries(platformRestrictions).forEach(([platform, restriction]) => {
+                const row = document.createElement('div');
+                row.className = 'key-value-row';
+                row.innerHTML = `
+                    <input type="text" class="form-input" value="${platform}" placeholder="Platform (e.g., instagram)" onchange="updatePlatformKey(this, '${platform}')">
+                    <select class="form-input" onchange="updatePlatformValue('${platform}', this.value)">
+                        <option value="sfw_only" ${restriction === 'sfw_only' ? 'selected' : ''}>SFW Only</option>
+                        <option value="moderate_allowed" ${restriction === 'moderate_allowed' ? 'selected' : ''}>Moderate Allowed</option>
+                        <option value="both" ${restriction === 'both' ? 'selected' : ''}>Both (SFW & NSFW)</option>
+                        <option value="all" ${restriction === 'all' ? 'selected' : ''}>All</option>
+                    </select>
+                    <button type="button" class="remove-btn" onclick="removePlatformRestriction('${platform}')">×</button>
+                `;
+                container.appendChild(row);
+            });
+        }
+        
+        function addPlatformRestriction() {
+            const newPlatform = `platform_${Object.keys(platformRestrictions).length + 1}`;
+            platformRestrictions[newPlatform] = 'sfw_only';
+            renderPlatformRestrictions();
+        }
+        
+        function updatePlatformKey(input, oldKey) {
+            const newKey = input.value.trim();
+            if (newKey && newKey !== oldKey && !platformRestrictions.hasOwnProperty(newKey)) {
+                platformRestrictions[newKey] = platformRestrictions[oldKey];
+                delete platformRestrictions[oldKey];
+                renderPlatformRestrictions();
+            }
+        }
+        
+        function updatePlatformValue(platform, value) {
+            platformRestrictions[platform] = value;
+        }
+        
+        function removePlatformRestriction(platform) {
+            delete platformRestrictions[platform];
+            renderPlatformRestrictions();
+        }
+        
+        // Sample image generation
+        async function generateSampleImages() {
+            const appearance = document.getElementById('appearance').value.trim();
+            const personality = document.getElementById('personality').value.trim();
+            
+            if (!appearance || appearance.length < 10) {
+                showAlert('Please enter an appearance description (at least 10 characters) before generating images.', 'error');
+                return;
+            }
+            
+            const generateBtn = document.getElementById('generate-images-btn');
+            const progress = document.getElementById('generation-progress');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const gallery = document.getElementById('image-gallery');
+            
+            // Disable button and show progress
+            generateBtn.disabled = true;
+            generateBtn.textContent = 'Generating...';
+            progress.classList.add('show');
+            gallery.style.display = 'none';
+            sampleImages = [];
+            
+            try {
+                // Call API to generate sample images
+                progressText.textContent = 'Generating 4 sample images... This may take 1-2 minutes.';
+                progressBar.style.width = '25%';
+                
+                const response = await fetch('/api/v1/personas/generate-sample-images?' + new URLSearchParams({
+                    appearance: appearance,
+                    personality: personality || ''
+                }), {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to generate images');
+                }
+                
+                const result = await response.json();
+                sampleImages = result.images || [];
+                
+                progressBar.style.width = '100%';
+                progressText.textContent = `Generated ${sampleImages.length} images successfully!`;
+                
+                // Display images
+                if (sampleImages.length > 0) {
+                    displaySampleImages();
+                    setTimeout(() => {
+                        progress.classList.remove('show');
+                    }, 1500);
+                } else {
+                    showAlert('No images were generated. Please try again.', 'error');
+                    progress.classList.remove('show');
+                }
+                
+            } catch (error) {
+                console.error('Failed to generate images:', error);
+                showAlert(error.message || 'Failed to generate images. Please try again.', 'error');
+                progress.classList.remove('show');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '<span>✨</span><span>Generate 4 Sample Images</span>';
+            }
+        }
+        
+        function displaySampleImages() {
+            const gallery = document.getElementById('image-gallery');
+            gallery.innerHTML = '';
+            gallery.style.display = 'grid';
+            
+            sampleImages.forEach((image, index) => {
+                const card = document.createElement('div');
+                card.className = 'image-card';
+                card.id = `image-card-${image.id}`;
+                card.onclick = () => selectSampleImage(image.id);
+                
+                card.innerHTML = `
+                    <span class="selected-badge">✓ Selected</span>
+                    <img src="${image.data_url}" alt="Sample ${index + 1}">
+                    <div class="image-card-label">Sample ${index + 1}</div>
+                `;
+                
+                gallery.appendChild(card);
+            });
+            
+            // Show instruction
+            showAlert('Select one image to set as your persona\'s base image. The selected image will be locked for consistency.', 'info');
+        }
+        
+        function selectSampleImage(imageId) {
+            // Remove previous selection
+            document.querySelectorAll('.image-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Mark new selection
+            const card = document.getElementById(`image-card-${imageId}`);
+            if (card) {
+                card.classList.add('selected');
+            }
+            
+            // Store selected image data
+            const image = sampleImages.find(img => img.id === imageId);
+            if (image) {
+                selectedImageData = image.data_url;
+                
+                // Update form fields to indicate image is selected
+                document.getElementById('base_image_status').value = 'approved';
+                document.getElementById('appearance_locked').checked = true;
+                document.getElementById('base_image_path').value = `Will be set after persona creation`;
+                
+                showAlert('Image selected! This will be set as your base image when you create the persona.', 'success');
+            }
+        }
+        
+        // Form submission
+        document.getElementById('persona-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            document.getElementById('submit-text').textContent = editorMode === 'create' ? 'Creating...' : 'Updating...';
+            
+            try {
+                // Collect form data
+                const formData = {
+                    name: document.getElementById('name').value.trim(),
+                    appearance: document.getElementById('appearance').value.trim(),
+                    personality: document.getElementById('personality').value.trim(),
+                    content_themes: themes,
+                    style_preferences: stylePreferences,
+                    default_content_rating: document.querySelector('input[name="default_content_rating"]:checked').value,
+                    allowed_content_ratings: Array.from(document.querySelectorAll('input[name="allowed_ratings"]:checked')).map(cb => cb.value),
+                    platform_restrictions: platformRestrictions,
+                    base_appearance_description: document.getElementById('base_appearance_description').value.trim() || null,
+                    appearance_locked: document.getElementById('appearance_locked').checked,
+                    base_image_status: document.getElementById('base_image_status').value,
+                    base_image_path: document.getElementById('base_image_path').value.trim() || null,
+                    is_active: document.getElementById('is_active').checked
+                };
+                
+                // Validate at least one allowed rating
+                if (formData.allowed_content_ratings.length === 0) {
+                    showAlert('Please select at least one allowed content rating.', 'error');
+                    submitBtn.disabled = false;
+                    document.getElementById('submit-text').textContent = editorMode === 'create' ? 'Create Persona' : 'Update Persona';
+                    return;
+                }
+                
+                // Make API request
+                const url = editorMode === 'create' ? '/api/v1/personas/' : `/api/v1/personas/${personaId}`;
+                const method = editorMode === 'create' ? 'POST' : 'PUT';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to save persona');
+                }
+                
+                const result = await response.json();
+                
+                // If in create mode and user selected a sample image, set it as base image
+                if (editorMode === 'create' && selectedImageData) {
+                    try {
+                        document.getElementById('submit-text').textContent = 'Setting base image...';
+                        
+                        const imageResponse = await fetch(`/api/v1/personas/${result.id}/set-base-image?image_data=${encodeURIComponent(selectedImageData)}`, {
+                            method: 'POST'
+                        });
+                        
+                        if (!imageResponse.ok) {
+                            console.error('Failed to set base image, but persona was created');
+                        }
+                    } catch (imageError) {
+                        console.error('Failed to set base image:', imageError);
+                        // Don't fail the whole operation if image setting fails
+                    }
+                }
+                
+                showAlert(`Persona ${editorMode === 'create' ? 'created' : 'updated'} successfully!`, 'success');
+                
+                // Redirect after a short delay
+                setTimeout(() => {
+                    window.location.href = '/admin/personas';
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Failed to save persona:', error);
+                showAlert(error.message || 'Failed to save persona. Please try again.', 'error');
+                submitBtn.disabled = false;
+                document.getElementById('submit-text').textContent = editorMode === 'create' ? 'Create Persona' : 'Update Persona';
+            }
+        });
+        
+        // Delete persona
+        async function deletePersona() {
+            if (!confirm('Are you sure you want to delete this persona? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/v1/personas/${personaId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to delete persona');
+                }
+                
+                showAlert('Persona deleted successfully!', 'success');
+                
+                setTimeout(() => {
+                    window.location.href = '/admin/personas';
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Failed to delete persona:', error);
+                showAlert('Failed to delete persona. Please try again.', 'error');
+            }
+        }
+        
+        // Theme input handler
+        document.getElementById('theme-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const input = e.target;
+                addTheme(input.value);
+                input.value = '';
+            }
+        });
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            loadBranding();
+            parseUrlParams();
+            loadPersonaData();
+        });
+    </script>
+</body>
+</html>

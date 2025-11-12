@@ -270,8 +270,18 @@ def create_app() -> FastAPI:
         return {"error": "Admin dashboard not found"}
     
     @app.get("/admin/personas", tags=["system"])
-    async def admin_personas():
-        """Serve persona management page."""
+    async def admin_personas(request: Request):
+        """Serve persona management page or persona editor based on query params."""
+        # Check if action parameter is present (create or edit)
+        action = request.query_params.get("action")
+        
+        if action in ["create", "edit"]:
+            # Serve the persona editor
+            editor_path = os.path.join(project_root, "admin_panel", "persona-editor.html")
+            if os.path.exists(editor_path):
+                return FileResponse(editor_path)
+        
+        # Default: serve the personas list page
         personas_path = os.path.join(project_root, "admin_panel", "personas.html")
         if os.path.exists(personas_path):
             return FileResponse(personas_path)
