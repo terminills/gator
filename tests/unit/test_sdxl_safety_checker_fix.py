@@ -57,14 +57,14 @@ class TestSDXLSafetyCheckerFix:
 
         # Verify from_pretrained was called
         assert mock_pipeline_class.from_pretrained.called
-        
+
         # Get the kwargs passed to from_pretrained
         call_kwargs = mock_pipeline_class.from_pretrained.call_args[1]
-        
+
         # Verify safety_checker params are NOT in the kwargs for SDXL
         assert "safety_checker" not in call_kwargs
         assert "requires_safety_checker" not in call_kwargs
-        
+
         # Verify torch_dtype is still present
         assert "torch_dtype" in call_kwargs
 
@@ -92,8 +92,10 @@ class TestSDXLSafetyCheckerFix:
         }
 
         # Mock path.exists to return False (model not downloaded yet)
-        with patch("pathlib.Path.exists", return_value=False), \
-             patch("pathlib.Path.mkdir"):
+        with (
+            patch("pathlib.Path.exists", return_value=False),
+            patch("pathlib.Path.mkdir"),
+        ):
             try:
                 await model_manager._generate_image_diffusers(
                     "test prompt", model, width=512, height=512
@@ -104,15 +106,15 @@ class TestSDXLSafetyCheckerFix:
 
         # Verify from_pretrained was called
         assert mock_pipeline_class.from_pretrained.called
-        
+
         # Get the kwargs passed to from_pretrained (may be called twice due to fp16 fallback)
         # Check the last call (fallback without variant)
         call_kwargs = mock_pipeline_class.from_pretrained.call_args[1]
-        
+
         # Verify safety_checker params are NOT in the kwargs for SDXL
         assert "safety_checker" not in call_kwargs
         assert "requires_safety_checker" not in call_kwargs
-        
+
         # Verify torch_dtype is still present
         assert "torch_dtype" in call_kwargs
 
@@ -150,15 +152,15 @@ class TestSDXLSafetyCheckerFix:
 
         # Verify from_pretrained was called
         assert mock_pipeline_class.from_pretrained.called
-        
+
         # Get the kwargs passed to from_pretrained
         call_kwargs = mock_pipeline_class.from_pretrained.call_args[1]
-        
+
         # Verify safety_checker params ARE in the kwargs for SD 1.5
         assert "safety_checker" in call_kwargs
         assert call_kwargs["safety_checker"] is None
         assert "requires_safety_checker" in call_kwargs
         assert call_kwargs["requires_safety_checker"] is False
-        
+
         # Verify torch_dtype is still present
         assert "torch_dtype" in call_kwargs

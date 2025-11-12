@@ -1959,7 +1959,7 @@ class AIModelManager:
                             torch.float16 if "cuda" in device else torch.float32
                         ),
                     }
-                    
+
                     # Only add safety_checker params for SD 1.5 models (not SDXL)
                     if not is_sdxl:
                         load_args["safety_checker"] = None  # Disable for performance
@@ -1994,7 +1994,7 @@ class AIModelManager:
                             torch.float16 if "cuda" in device else torch.float32
                         ),
                     }
-                    
+
                     # Only add safety_checker params for SD 1.5 models (not SDXL)
                     if not is_sdxl:
                         load_args["safety_checker"] = None  # Disable for performance
