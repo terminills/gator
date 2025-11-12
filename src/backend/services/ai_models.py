@@ -1900,7 +1900,7 @@ class AIModelManager:
                     logger.info(f"Loading model from local path: {model_path}")
                     pipe = StableDiffusionPipeline.from_pretrained(
                         str(model_path),
-                        dtype=(torch.float16 if "cuda" in device else torch.float32),
+                        torch_dtype=(torch.float16 if "cuda" in device else torch.float32),
                         safety_checker=None,  # Disable for performance
                         requires_safety_checker=False,  # Suppress warning
                     )
@@ -1908,7 +1908,7 @@ class AIModelManager:
                     logger.info(f"Loading model from HuggingFace Hub: {model_id}")
                     pipe = StableDiffusionPipeline.from_pretrained(
                         model_id,
-                        dtype=(torch.float16 if "cuda" in device else torch.float32),
+                        torch_dtype=(torch.float16 if "cuda" in device else torch.float32),
                         safety_checker=None,  # Disable for performance
                         requires_safety_checker=False,  # Suppress warning
                     )
