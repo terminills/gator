@@ -798,7 +798,7 @@ class ModelSetupManager:
                     # Download and save pipeline
                     pipeline = StableDiffusionPipeline.from_pretrained(
                         model_config["model_id"],
-                        dtype=torch.float16 if self.has_gpu else torch.float32,
+                        torch_dtype=torch.float16 if self.has_gpu else torch.float32,
                     )
                     pipeline.save_pretrained(model_path)
 

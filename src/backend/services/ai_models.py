@@ -1558,7 +1558,7 @@ class AIModelManager:
                 tokenizer = AutoTokenizer.from_pretrained(str(model_path))
                 loaded_model = AutoModelForCausalLM.from_pretrained(
                     str(model_path),
-                    dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
                     device_map="auto" if torch.cuda.is_available() else "cpu",
                 )
 
