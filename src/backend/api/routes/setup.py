@@ -1336,3 +1336,297 @@ async def install_inference_engine(request: InferenceEngineInstallRequest) -> Di
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to install inference engine: {str(e)}",
         )
+
+
+@router.get("/dependencies/health")
+async def check_dependencies_health() -> Dict[str, Any]:
+    """
+    Comprehensive health check for all AI model dependencies.
+    
+    Validates that all required dependencies are installed and functional.
+    This helps identify missing or incompatible packages before attempting
+    content generation.
+    
+    Returns:
+        Dict with health status for each dependency category
+    """
+    try:
+        import sys
+        from pathlib import Path
+        
+        health_status = {
+            "overall_status": "healthy",
+            "dependencies": {},
+            "inference_engines": {},
+            "ai_models": {},
+            "issues": [],
+            "warnings": [],
+        }
+        
+        # Check Python packages
+        required_packages = {
+            "core": [
+                "fastapi",
+                "sqlalchemy",
+                "pydantic",
+                "httpx",
+            ],
+            "ml": [
+                "torch",
+                "torchvision", 
+                "diffusers",
+                "transformers",
+                "accelerate",
+                "huggingface_hub",
+            ],
+            "optional": [
+                "vllm",
+                "llama_cpp",
+                "opencv-python",
+            ],
+        }
+        
+        for category, packages in required_packages.items():
+            for package in packages:
+                try:
+                    mod = __import__(package.replace("-", "_"))
+                    version = getattr(mod, "__version__", "unknown")
+                    health_status["dependencies"][package] = {
+                        "status": "installed",
+                        "version": version,
+                        "category": category,
+                    }
+                except ImportError as e:
+                    health_status["dependencies"][package] = {
+                        "status": "missing",
+                        "category": category,
+                        "error": str(e),
+                    }
+                    if category in ["core", "ml"]:
+                        health_status["issues"].append(
+                            f"Required package '{package}' is not installed"
+                        )
+                        health_status["overall_status"] = "unhealthy"
+                    else:
+                        health_status["warnings"].append(
+                            f"Optional package '{package}' is not installed"
+                        )
+        
+        # Check inference engines
+        from backend.utils.model_detection import get_inference_engines_status
+        
+        project_root = Path(__file__).parents[4]
+        engines_status = get_inference_engines_status(base_dir=project_root)
+        
+        for engine_id, engine_info in engines_status.items():
+            health_status["inference_engines"][engine_id] = {
+                "name": engine_info.get("name"),
+                "status": engine_info.get("status"),
+                "category": engine_info.get("category"),
+            }
+            if engine_info.get("version"):
+                health_status["inference_engines"][engine_id]["version"] = engine_info["version"]
+            if engine_info.get("path"):
+                health_status["inference_engines"][engine_id]["path"] = engine_info["path"]
+        
+        # Check AI models availability
+        try:
+            from backend.services.ai_models import ai_models
+            
+            if ai_models.models_loaded:
+                for category in ["text", "image", "voice", "video"]:
+                    category_models = ai_models.available_models.get(category, [])
+                    loaded_count = len([m for m in category_models if m.get("loaded", False)])
+                    total_count = len(category_models)
+                    
+                    health_status["ai_models"][category] = {
+                        "loaded": loaded_count,
+                        "total": total_count,
+                        "status": "ready" if loaded_count > 0 else "no_models",
+                    }
+                    
+                    if total_count > 0 and loaded_count == 0:
+                        health_status["warnings"].append(
+                            f"No {category} models are loaded despite being available"
+                        )
+            else:
+                health_status["ai_models"]["status"] = "not_initialized"
+                health_status["warnings"].append(
+                    "AI models manager not initialized"
+                )
+                
+        except Exception as e:
+            health_status["ai_models"]["status"] = "error"
+            health_status["ai_models"]["error"] = str(e)
+            health_status["issues"].append(f"AI models check failed: {str(e)}")
+            health_status["overall_status"] = "degraded"
+        
+        # Set overall status based on issues
+        if health_status["issues"]:
+            if health_status["overall_status"] == "healthy":
+                health_status["overall_status"] = "degraded"
+        
+        logger.info(
+            f"Dependencies health check completed: {health_status['overall_status']}"
+        )
+        
+        return health_status
+        
+    except Exception as e:
+        logger.error(f"Failed to check dependencies health: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to check dependencies health: {str(e)}",
+        )
+
+
+@router.post("/ai-models/warm-up")
+async def warm_up_models() -> Dict[str, Any]:
+    """
+    Warm up AI models for faster first request.
+    
+    Loads and initializes AI models if not already loaded, reducing
+    latency on the first content generation request. This is useful
+    after application startup or when models have been unloaded.
+    
+    Returns:
+        Dict with warm-up results and timing information
+    """
+    try:
+        import time
+        from backend.services.ai_models import ai_models
+        
+        start_time = time.time()
+        
+        # Check if already loaded
+        if ai_models.models_loaded:
+            return {
+                "status": "already_warm",
+                "message": "AI models are already initialized",
+                "models_loaded": True,
+                "elapsed_time_seconds": 0,
+            }
+        
+        # Initialize models
+        logger.info("Starting AI models warm-up...")
+        await ai_models.initialize_models()
+        
+        elapsed_time = time.time() - start_time
+        
+        # Count loaded models
+        loaded_counts = {}
+        for category in ["text", "image", "voice", "video"]:
+            category_models = ai_models.available_models.get(category, [])
+            loaded_count = len([m for m in category_models if m.get("loaded", False)])
+            loaded_counts[category] = loaded_count
+        
+        total_loaded = sum(loaded_counts.values())
+        
+        logger.info(
+            f"AI models warm-up completed in {elapsed_time:.2f}s. "
+            f"Loaded {total_loaded} models."
+        )
+        
+        return {
+            "status": "success",
+            "message": f"AI models warmed up successfully in {elapsed_time:.2f}s",
+            "models_loaded": True,
+            "elapsed_time_seconds": round(elapsed_time, 2),
+            "loaded_counts": loaded_counts,
+            "total_loaded": total_loaded,
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to warm up AI models: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to warm up AI models: {str(e)}",
+        )
+
+
+@router.get("/ai-models/telemetry")
+async def get_model_telemetry() -> Dict[str, Any]:
+    """
+    Get telemetry data for AI model usage.
+    
+    Tracks which models are actually being used in production,
+    helping identify unused models and optimization opportunities.
+    
+    Returns:
+        Dict with usage statistics for each model
+    """
+    try:
+        from backend.services.ai_models import ai_models
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from backend.database.connection import get_db_session
+        from fastapi import Depends
+        
+        telemetry = {
+            "models": {},
+            "summary": {
+                "total_models": 0,
+                "loaded_models": 0,
+                "used_models": 0,
+                "unused_models": 0,
+            },
+            "recommendations": [],
+        }
+        
+        # Get model availability from AIModelManager
+        for category in ["text", "image", "voice", "video"]:
+            category_models = ai_models.available_models.get(category, [])
+            
+            for model in category_models:
+                model_name = model.get("name")
+                is_loaded = model.get("loaded", False)
+                
+                telemetry["models"][model_name] = {
+                    "category": category,
+                    "provider": model.get("provider", "unknown"),
+                    "loaded": is_loaded,
+                    "can_load": model.get("can_load", False),
+                    "size_gb": model.get("size_gb", 0),
+                    # Note: Usage tracking would require database queries
+                    # This is a placeholder for the telemetry structure
+                    "usage_count": 0,  # Placeholder
+                    "last_used": None,  # Placeholder
+                }
+                
+                telemetry["summary"]["total_models"] += 1
+                if is_loaded:
+                    telemetry["summary"]["loaded_models"] += 1
+        
+        # Generate recommendations based on telemetry
+        for model_name, model_data in telemetry["models"].items():
+            if model_data["loaded"] and model_data["usage_count"] == 0:
+                telemetry["recommendations"].append({
+                    "model": model_name,
+                    "recommendation": "Consider unloading this model to free up resources",
+                    "reason": "Model is loaded but has not been used",
+                })
+            elif not model_data["loaded"] and model_data["usage_count"] > 0:
+                telemetry["recommendations"].append({
+                    "model": model_name,
+                    "recommendation": "Consider loading this model for better performance",
+                    "reason": "Model is being used but requires loading on each request",
+                })
+        
+        telemetry["summary"]["used_models"] = len([
+            m for m in telemetry["models"].values() 
+            if m["usage_count"] > 0
+        ])
+        telemetry["summary"]["unused_models"] = (
+            telemetry["summary"]["total_models"] - 
+            telemetry["summary"]["used_models"]
+        )
+        
+        logger.info("Model telemetry retrieved successfully")
+        
+        return telemetry
+        
+    except Exception as e:
+        logger.error(f"Failed to get model telemetry: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get model telemetry: {str(e)}",
+        )

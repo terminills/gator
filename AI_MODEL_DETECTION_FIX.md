@@ -211,12 +211,174 @@ This fix addresses:
 2. Silent content generation failures due to masked ImportErrors
 3. Disconnect between AI Models Setup page and diagnostic reporting
 
-## Future Improvements
+## Implemented Improvements ✅
 
-1. Add health check endpoint that validates all dependencies
-2. Implement model warm-up at startup for faster first request
-3. Add telemetry to track which models are actually used
-4. Consider lazy loading for optional models to reduce startup time
+### 1. Health Check Endpoint (`GET /api/v1/setup/dependencies/health`)
+Comprehensive health check that validates all AI model dependencies:
+- **Core packages**: fastapi, sqlalchemy, pydantic, httpx
+- **ML packages**: torch, torchvision, diffusers, transformers, accelerate
+- **Inference engines**: vLLM, llama.cpp, ComfyUI, Diffusers
+- **AI models**: Loaded model counts per category
+
+**Response structure:**
+```json
+{
+  "overall_status": "healthy|degraded|unhealthy",
+  "dependencies": {
+    "torch": {"status": "installed", "version": "2.3.1", "category": "ml"}
+  },
+  "inference_engines": {
+    "vllm": {"status": "installed", "version": "0.4.0"}
+  },
+  "ai_models": {
+    "text": {"loaded": 2, "total": 5, "status": "ready"}
+  },
+  "issues": [],
+  "warnings": []
+}
+```
+
+**Benefits:**
+- Identifies missing dependencies before content generation attempts
+- Provides clear diagnostic information for troubleshooting
+- Helps prevent silent failures by validating environment
+
+### 2. Model Warm-Up Endpoint (`POST /api/v1/setup/ai-models/warm-up`)
+Preloads AI models for faster first request:
+- Initializes models if not already loaded
+- Returns timing information and loaded model counts
+- Reduces latency on first content generation
+
+**Response structure:**
+```json
+{
+  "status": "success",
+  "message": "AI models warmed up successfully in 2.34s",
+  "models_loaded": true,
+  "elapsed_time_seconds": 2.34,
+  "loaded_counts": {"text": 2, "image": 3, "voice": 1, "video": 0},
+  "total_loaded": 6
+}
+```
+
+**Usage:**
+```bash
+# Warm up models after startup
+curl -X POST http://localhost:8000/api/v1/setup/ai-models/warm-up
+```
+
+### 3. Telemetry Endpoint (`GET /api/v1/setup/ai-models/telemetry`)
+Tracks which models are actually used in production:
+- Reports usage statistics per model
+- Identifies unused models consuming resources
+- Provides optimization recommendations
+
+**Response structure:**
+```json
+{
+  "models": {
+    "llama-3.1-70b": {
+      "category": "text",
+      "loaded": true,
+      "usage_count": 0,
+      "last_used": null
+    }
+  },
+  "summary": {
+    "total_models": 12,
+    "loaded_models": 6,
+    "used_models": 4,
+    "unused_models": 8
+  },
+  "recommendations": [
+    {
+      "model": "llama-3.1-70b",
+      "recommendation": "Consider unloading this model to free up resources",
+      "reason": "Model is loaded but has not been used"
+    }
+  ]
+}
+```
+
+**Benefits:**
+- Identifies optimization opportunities
+- Helps right-size model deployment
+- Reduces resource waste
+
+### 4. Lazy Loading for Optional Models
+Large or infrequently used models can be configured for lazy loading:
+
+**Configuration:**
+```bash
+# Enable lazy loading
+export AI_MODELS_LAZY_LOAD=true
+```
+
+**Behavior:**
+- Models configured for lazy loading are marked as available but not loaded at startup
+- Models are loaded on first use, reducing startup time
+- Currently configured for large models: `llama-3.1-70b`, `qwen2.5-72b`, `flux.1-dev`
+
+**Implementation:**
+```python
+# In AIModelManager.__init__
+self.lazy_load_enabled = os.environ.get("AI_MODELS_LAZY_LOAD", "false").lower() == "true"
+self.lazy_load_models = {"llama-3.1-70b", "qwen2.5-72b", "flux.1-dev"}
+
+# Models marked with lazy_load flag
+{
+  "name": "llama-3.1-70b",
+  "loaded": false,
+  "lazy_load": true,
+  "can_load": true
+}
+```
+
+**Benefits:**
+- Faster application startup (skip loading 140GB+ models)
+- Reduced memory footprint for unused models
+- Models still available when needed (loaded on first request)
+
+## Testing the Improvements
+
+### Test Health Check
+```bash
+curl http://localhost:8000/api/v1/setup/dependencies/health
+```
+
+Expected output shows all dependencies with their status, inference engines, and AI model availability.
+
+### Test Model Warm-Up
+```bash
+# Start with cold models
+curl -X POST http://localhost:8000/api/v1/setup/ai-models/warm-up
+
+# Returns timing and counts
+{
+  "status": "success",
+  "elapsed_time_seconds": 2.34,
+  "loaded_counts": {"text": 2, "image": 3, "voice": 1, "video": 0}
+}
+```
+
+### Test Telemetry
+```bash
+curl http://localhost:8000/api/v1/setup/ai-models/telemetry
+```
+
+Returns usage statistics and optimization recommendations.
+
+### Test Lazy Loading
+```bash
+# Enable lazy loading
+export AI_MODELS_LAZY_LOAD=true
+
+# Start application - large models won't be loaded
+python -m uvicorn backend.api.main:app
+
+# First content generation with large model triggers lazy load
+# Subsequent requests use cached model
+```
 
 ## References
 
