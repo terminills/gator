@@ -107,8 +107,16 @@ async def test_acd_endpoints():
             print(f"      Completed contexts: {stats.completed_contexts}")
             print(f"      Failed contexts: {stats.failed_contexts}")
             
-            # Test 7: Assign to agent
-            print("\n7. Testing: Assign to agent")
+            # Test 7: List contexts with pagination
+            print("\n7. Testing: List contexts with pagination")
+            contexts_list = await acd_service.list_contexts(limit=10, offset=0)
+            print(f"   ✅ Listed {len(contexts_list)} context(s)")
+            if contexts_list:
+                print(f"      First context: {contexts_list[0].id}")
+                print(f"      Phase: {contexts_list[0].ai_phase}")
+            
+            # Test 8: Assign to agent
+            print("\n8. Testing: Assign to agent")
             assigned_context = await acd_service.assign_to_agent(
                 context.id,
                 "test_agent_001",
@@ -118,8 +126,8 @@ async def test_acd_endpoints():
             print(f"      Agent: {assigned_context.ai_assigned_to}")
             print(f"      Reason: {assigned_context.ai_assignment_reason}")
             
-            # Test 8: Validation report
-            print("\n8. Testing: Generate validation report")
+            # Test 9: Validation report
+            print("\n9. Testing: Generate validation report")
             report = await acd_service.generate_validation_report()
             print(f"   ✅ Generated validation report:")
             print(f"      Metadata: {report.metadata}")

@@ -109,6 +109,19 @@ class TestSetupAPI:
             data["setup_script_available"] is True
         ), "setup_ai_models.py should be found in repository root"
 
+    def test_ai_models_status_alias(self, test_client):
+        """Test that the models/status alias works for backward compatibility."""
+        response = test_client.get("/api/v1/setup/models/status")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Should have the same structure as ai-models/status
+        assert "system" in data
+        assert "models_directory" in data
+        assert "installed_models" in data
+        assert "available_models" in data
+
     def test_ai_models_status_version_info(self, test_client):
         """Test that AI models status includes version information for PyTorch 2.3.1 compatibility."""
         response = test_client.get("/api/v1/setup/ai-models/status")
