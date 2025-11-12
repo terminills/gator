@@ -67,20 +67,24 @@ class AIModelManager:
 
         # Cache for loaded diffusion pipelines
         self._loaded_pipelines = {}
-        
+
         # Lazy loading configuration
         # Models marked as lazy will only be loaded when first requested
-        self.lazy_load_enabled = os.environ.get("AI_MODELS_LAZY_LOAD", "false").lower() == "true"
+        self.lazy_load_enabled = (
+            os.environ.get("AI_MODELS_LAZY_LOAD", "false").lower() == "true"
+        )
         self.lazy_load_models = set()  # Models configured for lazy loading
-        
+
         # Configure which models should use lazy loading
         # Typically large models or those used infrequently
         if self.lazy_load_enabled:
-            self.lazy_load_models.update([
-                "llama-3.1-70b",  # 140GB - very large
-                "qwen2.5-72b",    # 144GB - very large
-                "flux.1-dev",     # 12GB - less frequently used
-            ])
+            self.lazy_load_models.update(
+                [
+                    "llama-3.1-70b",  # 140GB - very large
+                    "qwen2.5-72b",  # 144GB - very large
+                    "flux.1-dev",  # 12GB - less frequently used
+                ]
+            )
 
         # Model configurations based on recommendations
         self.local_model_configs = {
@@ -217,32 +221,32 @@ class AIModelManager:
     def _should_lazy_load(self, model_name: str) -> bool:
         """
         Determine if a model should be lazy loaded.
-        
+
         Args:
             model_name: Name of the model to check
-            
+
         Returns:
             True if model should be lazy loaded, False otherwise
         """
         if not self.lazy_load_enabled:
             return False
-        
+
         return model_name in self.lazy_load_models
-    
+
     async def _lazy_load_model(self, model_name: str, category: str) -> bool:
         """
         Load a specific model on-demand.
-        
+
         Args:
             model_name: Name of the model to load
             category: Category of the model (text, image, voice, video)
-            
+
         Returns:
             True if model loaded successfully, False otherwise
         """
         try:
             logger.info(f"Lazy loading model: {model_name} (category: {category})")
-            
+
             # Find the model in available models
             category_models = self.available_models.get(category, [])
             model_index = None
@@ -250,19 +254,19 @@ class AIModelManager:
                 if model.get("name") == model_name:
                     model_index = i
                     break
-            
+
             if model_index is None:
                 logger.warning(f"Model {model_name} not found in {category} models")
                 return False
-            
+
             # Load the model based on its inference engine
             # This would trigger actual model loading logic
             # For now, we mark it as loaded
             self.available_models[category][model_index]["loaded"] = True
             logger.info(f"Successfully lazy loaded model: {model_name}")
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to lazy load model {model_name}: {e}")
             return False
@@ -270,18 +274,22 @@ class AIModelManager:
     async def initialize_models(self) -> None:
         """
         Initialize and load AI models based on available hardware and configuration.
-        
+
         With lazy loading enabled (AI_MODELS_LAZY_LOAD=true), large or infrequently
         used models will be marked as available but not loaded until first use,
         reducing startup time and memory usage.
         """
         try:
             sys_req = self._get_system_requirements()
-            
+
             logger.info("🤖 AI MODEL INITIALIZATION")
-            logger.info(f"   Hardware: {sys_req['gpu_type'].upper()}, {sys_req['gpu_memory_gb']:.1f}GB VRAM, {sys_req['ram_gb']:.1f}GB RAM")
-            logger.info(f"   CPU cores: {sys_req['cpu_cores']}, Platform: {sys_req['platform']}")
-            
+            logger.info(
+                f"   Hardware: {sys_req['gpu_type'].upper()}, {sys_req['gpu_memory_gb']:.1f}GB VRAM, {sys_req['ram_gb']:.1f}GB RAM"
+            )
+            logger.info(
+                f"   CPU cores: {sys_req['cpu_cores']}, Platform: {sys_req['platform']}"
+            )
+
             if self.lazy_load_enabled:
                 logger.info(
                     f"   Lazy loading enabled for: {', '.join(self.lazy_load_models)}"
@@ -303,25 +311,35 @@ class AIModelManager:
             await self._initialize_video_models()
 
             self.models_loaded = True
-            
+
             # Count loaded models
-            text_loaded = len([m for m in self.available_models.get("text", []) if m.get("loaded")])
-            image_loaded = len([m for m in self.available_models.get("image", []) if m.get("loaded")])
-            voice_loaded = len([m for m in self.available_models.get("voice", []) if m.get("loaded")])
-            video_loaded = len([m for m in self.available_models.get("video", []) if m.get("loaded")])
-            
+            text_loaded = len(
+                [m for m in self.available_models.get("text", []) if m.get("loaded")]
+            )
+            image_loaded = len(
+                [m for m in self.available_models.get("image", []) if m.get("loaded")]
+            )
+            voice_loaded = len(
+                [m for m in self.available_models.get("voice", []) if m.get("loaded")]
+            )
+            video_loaded = len(
+                [m for m in self.available_models.get("video", []) if m.get("loaded")]
+            )
+
             logger.info("✅ AI MODEL INITIALIZATION COMPLETE")
             logger.info(f"   Text models: {text_loaded} loaded")
             logger.info(f"   Image models: {image_loaded} loaded")
             logger.info(f"   Voice models: {voice_loaded} loaded")
             logger.info(f"   Video models: {video_loaded} loaded")
-            
+
             # Detailed model listing
             for category, models in self.available_models.items():
                 for model in models:
                     if model.get("loaded"):
                         provider = model.get("provider", "unknown")
-                        logger.info(f"   ✓ {category.upper()}: {model['name']} ({provider})")
+                        logger.info(
+                            f"   ✓ {category.upper()}: {model['name']} ({provider})"
+                        )
 
         except Exception as e:
             logger.error(f"❌ Failed to initialize AI models: {str(e)}")
@@ -364,10 +382,10 @@ class AIModelManager:
                     engine_available = await self._check_inference_engine(
                         inference_engine
                     )
-                    
+
                     # Check if this model should be lazy loaded
                     should_lazy_load = self._should_lazy_load(model_name)
-                    
+
                     # If lazy loading, mark as not loaded initially even if available
                     if should_lazy_load and is_downloaded and engine_available:
                         is_actually_loaded = False
@@ -545,14 +563,18 @@ class AIModelManager:
         """Initialize cloud-based text generation models - DISABLED BY DEFAULT."""
         try:
             # Cloud APIs are disabled by default - only enable if explicitly requested
-            enable_cloud_apis = os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
-            
+            enable_cloud_apis = (
+                os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            )
+
             if not enable_cloud_apis:
-                logger.info("   Cloud APIs disabled by default (use ENABLE_CLOUD_APIS=true to enable)")
+                logger.info(
+                    "   Cloud APIs disabled by default (use ENABLE_CLOUD_APIS=true to enable)"
+                )
                 return
-            
+
             logger.info("   Cloud APIs explicitly enabled via ENABLE_CLOUD_APIS")
-            
+
             # Add OpenAI GPT as API option (only if explicitly enabled)
             if (
                 hasattr(self.settings, "openai_api_key")
@@ -604,11 +626,13 @@ class AIModelManager:
         """Initialize cloud-based image generation models - DISABLED BY DEFAULT."""
         try:
             # Cloud APIs are disabled by default - only enable if explicitly requested
-            enable_cloud_apis = os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
-            
+            enable_cloud_apis = (
+                os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            )
+
             if not enable_cloud_apis:
                 return
-            
+
             # Add OpenAI DALL-E only if explicitly enabled
             if (
                 hasattr(self.settings, "openai_api_key")
@@ -632,11 +656,13 @@ class AIModelManager:
         """Initialize cloud-based voice synthesis models - DISABLED BY DEFAULT."""
         try:
             # Cloud APIs are disabled by default - only enable if explicitly requested
-            enable_cloud_apis = os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
-            
+            enable_cloud_apis = (
+                os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            )
+
             if not enable_cloud_apis:
                 return
-            
+
             # Check for ElevenLabs API (only if explicitly enabled)
             if (
                 hasattr(self.settings, "elevenlabs_api_key")
@@ -823,7 +849,9 @@ class AIModelManager:
                 # Prefer SD 1.5 for speed
                 for model in available_models:
                     if "v1-5" in model["name"] or "1.5" in model["name"]:
-                        logger.info(f"🎯 Model selection: {model['name']} (reason: speed optimization)")
+                        logger.info(
+                            f"🎯 Model selection: {model['name']} (reason: speed optimization)"
+                        )
                         return model
 
             # Default: prefer local models by size (larger = better quality typically)
@@ -880,7 +908,9 @@ class AIModelManager:
                         return model
 
         # Default: return first available model
-        logger.info(f"🎯 Model selection: {available_models[0]['name']} (reason: default/first available)")
+        logger.info(
+            f"🎯 Model selection: {available_models[0]['name']} (reason: default/first available)"
+        )
         return available_models[0]
 
     async def generate_image(self, prompt: str, **kwargs) -> Dict[str, Any]:
@@ -895,7 +925,9 @@ class AIModelManager:
         logger.info(f"🎨 AI IMAGE GENERATION STARTED")
         logger.info(f"   Prompt: {prompt[:100]}{'...' if len(prompt) > 100 else ''}")
         logger.info(f"   Quality: {kwargs.get('quality', 'standard')}")
-        logger.info(f"   Parameters: {', '.join(f'{k}={v}' for k, v in kwargs.items() if k != 'reference_image_path')}")
+        logger.info(
+            f"   Parameters: {', '.join(f'{k}={v}' for k, v in kwargs.items() if k != 'reference_image_path')}"
+        )
 
         try:
             # Find best available image model - LOCAL ONLY by default
@@ -904,26 +936,31 @@ class AIModelManager:
                 for m in self.available_models["image"]
                 if m.get("provider") == "local" and m.get("can_load", False)
             ]
-            
+
             # Check ComfyUI availability for models that require it
             comfyui_url = os.environ.get("COMFYUI_API_URL", "http://127.0.0.1:8188")
             comfyui_available = False
             try:
-                response = await self.http_client.get(f"{comfyui_url}/system_stats", timeout=2.0)
+                response = await self.http_client.get(
+                    f"{comfyui_url}/system_stats", timeout=2.0
+                )
                 comfyui_available = response.status_code == 200
             except Exception:
                 pass
-            
+
             # Filter out ComfyUI models if ComfyUI is not running
             if not comfyui_available:
                 local_models = [
-                    m for m in local_models 
-                    if m.get("inference_engine") != "comfyui"
+                    m for m in local_models if m.get("inference_engine") != "comfyui"
                 ]
-                logger.info(f"ComfyUI not available, filtering to diffusers-only models")
-            
+                logger.info(
+                    f"ComfyUI not available, filtering to diffusers-only models"
+                )
+
             # Only consider cloud models if explicitly enabled
-            enable_cloud_apis = os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            enable_cloud_apis = (
+                os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            )
             if enable_cloud_apis:
                 cloud_models = [
                     m
@@ -935,8 +972,10 @@ class AIModelManager:
 
             # LOCAL FIRST - cloud only as explicit fallback
             available_models = local_models + cloud_models
-            
-            logger.info(f"🤖 Available models: {len(local_models)} local, {len(cloud_models)} cloud")
+
+            logger.info(
+                f"🤖 Available models: {len(local_models)} local, {len(cloud_models)} cloud"
+            )
 
             if not available_models:
                 logger.error(f"❌ No image generation models available")
@@ -949,8 +988,10 @@ class AIModelManager:
                 available_models=available_models,
                 **kwargs,
             )
-            
-            logger.info(f"✓ Model selected: {model['name']} ({model.get('provider', 'unknown')})")
+
+            logger.info(
+                f"✓ Model selected: {model['name']} ({model.get('provider', 'unknown')})"
+            )
 
             # Record model selection reasoning for benchmark
             selection_reasoning = (
@@ -980,7 +1021,7 @@ class AIModelManager:
                 "selection_reasoning": selection_reasoning,
                 "available_models": [m["name"] for m in available_models],
             }
-            
+
             logger.info(f"✅ IMAGE GENERATION COMPLETE in {total_time:.2f}s")
             logger.info(f"   Model: {model['name']}")
             logger.info(f"   Size: {result.get('width', 0)}x{result.get('height', 0)}")
@@ -1123,13 +1164,13 @@ class AIModelManager:
     async def generate_text(self, prompt: str, **kwargs) -> str:
         """Generate text from prompt using intelligently selected optimal model."""
         start_time = time.time()
-        
+
         # Log generation start
         logger.info(f"📝 AI TEXT GENERATION STARTED")
         logger.info(f"   Prompt: {prompt[:100]}{'...' if len(prompt) > 100 else ''}")
         logger.info(f"   Max tokens: {kwargs.get('max_tokens', 1000)}")
         logger.info(f"   Temperature: {kwargs.get('temperature', 0.7)}")
-        
+
         try:
             # Find best available text model - LOCAL ONLY by default
             local_models = [
@@ -1137,9 +1178,11 @@ class AIModelManager:
                 for m in self.available_models["text"]
                 if m.get("provider") == "local" and m.get("loaded", False)
             ]
-            
+
             # Only consider cloud models if explicitly enabled
-            enable_cloud_apis = os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            enable_cloud_apis = (
+                os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            )
             if enable_cloud_apis:
                 cloud_models = [
                     m
@@ -1152,8 +1195,10 @@ class AIModelManager:
 
             # LOCAL FIRST - cloud only as explicit fallback
             available_models = local_models + cloud_models
-            
-            logger.info(f"🤖 Available models: {len(local_models)} local, {len(cloud_models)} cloud")
+
+            logger.info(
+                f"🤖 Available models: {len(local_models)} local, {len(cloud_models)} cloud"
+            )
 
             if not available_models:
                 logger.error(f"❌ No text generation models available")
@@ -1166,28 +1211,34 @@ class AIModelManager:
                 available_models=available_models,
                 **kwargs,
             )
-            
-            logger.info(f"✓ Model selected: {model['name']} ({model.get('provider', 'unknown')})")
+
+            logger.info(
+                f"✓ Model selected: {model['name']} ({model.get('provider', 'unknown')})"
+            )
             logger.info(f"⚙️  Generating text with {model['name']}...")
 
             generation_start = time.time()
             if model.get("provider") == "openai":
-                result = await self._generate_text_openai(prompt, model["name"], **kwargs)
+                result = await self._generate_text_openai(
+                    prompt, model["name"], **kwargs
+                )
             elif model.get("provider") == "anthropic":
                 result = await self._generate_text_anthropic(prompt, **kwargs)
             elif model.get("provider") == "local":
                 result = await self._generate_text_local(prompt, model, **kwargs)
             else:
                 raise ValueError(f"Unsupported text model: {model['name']}")
-            
+
             generation_time = time.time() - generation_start
             total_time = time.time() - start_time
-            
+
             logger.info(f"✅ TEXT GENERATION COMPLETE in {total_time:.2f}s")
             logger.info(f"   Model: {model['name']}")
-            logger.info(f"   Output length: {len(result)} characters, {len(result.split())} words")
+            logger.info(
+                f"   Output length: {len(result)} characters, {len(result.split())} words"
+            )
             logger.info(f"   Generation time: {generation_time:.2f}s")
-            
+
             return result
 
         except Exception as e:
@@ -1199,12 +1250,14 @@ class AIModelManager:
     async def generate_voice(self, text: str, **kwargs) -> Dict[str, Any]:
         """Generate voice from text using best available model."""
         start_time = time.time()
-        
+
         # Log generation start
         logger.info(f"🎙️ AI VOICE GENERATION STARTED")
         logger.info(f"   Text: {text[:100]}{'...' if len(text) > 100 else ''}")
-        logger.info(f"   Voice settings: {kwargs.get('voice', 'default')}, {kwargs.get('voice_id', 'default')}")
-        
+        logger.info(
+            f"   Voice settings: {kwargs.get('voice', 'default')}, {kwargs.get('voice_id', 'default')}"
+        )
+
         try:
             # Find best available voice model - LOCAL ONLY by default
             local_models = [
@@ -1212,9 +1265,11 @@ class AIModelManager:
                 for m in self.available_models["voice"]
                 if m.get("provider") == "local" and m.get("loaded", False)
             ]
-            
+
             # Only consider cloud models if explicitly enabled
-            enable_cloud_apis = os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            enable_cloud_apis = (
+                os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            )
             if enable_cloud_apis:
                 cloud_models = [
                     m
@@ -1227,16 +1282,20 @@ class AIModelManager:
 
             # LOCAL FIRST - cloud only as explicit fallback
             available_models = local_models + cloud_models
-            
-            logger.info(f"🤖 Available models: {len(local_models)} local, {len(cloud_models)} cloud")
+
+            logger.info(
+                f"🤖 Available models: {len(local_models)} local, {len(cloud_models)} cloud"
+            )
 
             if not available_models:
                 logger.error(f"❌ No voice generation models available")
                 raise ValueError("No voice generation models available")
 
             model = available_models[0]
-            
-            logger.info(f"✓ Model selected: {model['name']} ({model.get('provider', 'unknown')})")
+
+            logger.info(
+                f"✓ Model selected: {model['name']} ({model.get('provider', 'unknown')})"
+            )
             logger.info(f"⚙️  Generating voice with {model['name']}...")
 
             generation_start = time.time()
@@ -1248,16 +1307,16 @@ class AIModelManager:
                 result = await self._generate_voice_local(text, model, **kwargs)
             else:
                 raise ValueError(f"Unsupported voice model: {model['name']}")
-            
+
             generation_time = time.time() - generation_start
             total_time = time.time() - start_time
-            
+
             logger.info(f"✅ VOICE GENERATION COMPLETE in {total_time:.2f}s")
             logger.info(f"   Model: {model['name']}")
             logger.info(f"   Audio size: {len(result.get('audio_data', b''))} bytes")
             logger.info(f"   Format: {result.get('format', 'unknown')}")
             logger.info(f"   Generation time: {generation_time:.2f}s")
-            
+
             return result
 
         except Exception as e:
@@ -1274,7 +1333,7 @@ class AIModelManager:
         try:
             model_name = model["name"]
             inference_engine = model.get("inference_engine", "transformers")
-            
+
             logger.info(f"   Using inference engine: {inference_engine}")
 
             if inference_engine == "vllm":
@@ -1289,7 +1348,7 @@ class AIModelManager:
         except Exception as e:
             logger.error(f"   ❌ Local text generation failed: {str(e)}")
             raise
-    
+
     async def _generate_text_llamacpp(
         self, prompt: str, model: Dict[str, Any], **kwargs
     ) -> str:
@@ -1297,35 +1356,42 @@ class AIModelManager:
         try:
             logger.info(f"   🦙 Starting llama.cpp engine for {model['name']}...")
             logger.info(f"   Model path: {model.get('path', 'Not specified')}")
-            
+
             # Check for llama.cpp binary
             llamacpp_binary = shutil.which("llama-cli") or shutil.which("main")
             if not llamacpp_binary:
                 logger.warning(f"   ⚠️  llama.cpp not found in PATH")
-                logger.warning(f"   Install llama.cpp and ensure 'llama-cli' or 'main' is in PATH")
+                logger.warning(
+                    f"   Install llama.cpp and ensure 'llama-cli' or 'main' is in PATH"
+                )
                 raise ValueError("llama.cpp not found")
-            
-            model_file = model.get('path')
+
+            model_file = model.get("path")
             if not Path(model_file).exists():
                 logger.warning(f"   ⚠️  Model file not found: {model_file}")
                 raise ValueError(f"Model file not found: {model_file}")
-            
+
             logger.info(f"   ✓ Found llama.cpp at: {llamacpp_binary}")
-            logger.info(f"   " + "="*76)
+            logger.info(f"   " + "=" * 76)
             logger.info(f"   RAW LLAMA.CPP ENGINE OUTPUT (LIVE):")
-            logger.info(f"   " + "="*76)
-            
+            logger.info(f"   " + "=" * 76)
+
             # Build llama.cpp command
             cmd = [
                 llamacpp_binary,
-                "-m", str(model_file),
-                "-p", prompt,
-                "-n", str(kwargs.get('max_tokens', 1000)),
-                "--temp", str(kwargs.get('temperature', 0.7)),
-                "-c", "4096",  # context size
+                "-m",
+                str(model_file),
+                "-p",
+                prompt,
+                "-n",
+                str(kwargs.get("max_tokens", 1000)),
+                "--temp",
+                str(kwargs.get("temperature", 0.7)),
+                "-c",
+                "4096",  # context size
                 "--log-disable",  # Disable file logging
             ]
-            
+
             # Run subprocess and stream output in real-time
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -1333,23 +1399,25 @@ class AIModelManager:
                 stderr=asyncio.subprocess.STDOUT,
                 cwd=str(Path(model_file).parent),
             )
-            
+
             generated_text = []
             async for line in process.stdout:
-                line_text = line.decode('utf-8', errors='ignore').rstrip()
+                line_text = line.decode("utf-8", errors="ignore").rstrip()
                 if line_text:
                     # Print raw llama.cpp output
                     logger.info(f"   {line_text}")
                     generated_text.append(line_text)
-            
+
             await process.wait()
-            
-            logger.info(f"   " + "="*76)
-            logger.info(f"   ✓ llama.cpp generation complete (exit code: {process.returncode})")
-            
-            full_output = '\n'.join(generated_text)
+
+            logger.info(f"   " + "=" * 76)
+            logger.info(
+                f"   ✓ llama.cpp generation complete (exit code: {process.returncode})"
+            )
+
+            full_output = "\n".join(generated_text)
             return full_output
-            
+
         except Exception as e:
             logger.error(f"   ❌ llama.cpp generation failed: {str(e)}")
             raise
@@ -1398,13 +1466,13 @@ class AIModelManager:
         """Generate text using vLLM for high-performance inference."""
         try:
             logger.info(f"   🔧 Starting vLLM engine for {model['name']}...")
-            logger.info(f"   " + "="*76)
+            logger.info(f"   " + "=" * 76)
             logger.info(f"   RAW vLLM ENGINE OUTPUT:")
-            logger.info(f"   " + "="*76)
-            
+            logger.info(f"   " + "=" * 76)
+
             # Check if vLLM server is running
             vllm_url = os.environ.get("VLLM_API_URL", "http://localhost:8001")
-            
+
             try:
                 # Try to use vLLM API if available
                 response = await self.http_client.post(
@@ -1418,36 +1486,44 @@ class AIModelManager:
                     },
                     timeout=300.0,
                 )
-                
+
                 if response.status_code == 200:
                     result = response.json()
                     generated_text = result["choices"][0]["text"]
-                    
+
                     # Log raw vLLM stats
                     logger.info(f"   vLLM Stats:")
                     logger.info(f"   - Model: {model['name']}")
-                    logger.info(f"   - Tokens generated: {result.get('usage', {}).get('completion_tokens', 'N/A')}")
-                    logger.info(f"   - Total tokens: {result.get('usage', {}).get('total_tokens', 'N/A')}")
-                    logger.info(f"   " + "-"*76)
+                    logger.info(
+                        f"   - Tokens generated: {result.get('usage', {}).get('completion_tokens', 'N/A')}"
+                    )
+                    logger.info(
+                        f"   - Total tokens: {result.get('usage', {}).get('total_tokens', 'N/A')}"
+                    )
+                    logger.info(f"   " + "-" * 76)
                     logger.info(f"   GENERATED TEXT:")
-                    for line in generated_text.split('\n'):
+                    for line in generated_text.split("\n"):
                         logger.info(f"   | {line}")
-                    logger.info(f"   " + "="*76)
-                    
+                    logger.info(f"   " + "=" * 76)
+
                     return generated_text
                 else:
-                    logger.warning(f"   ⚠️  vLLM server not responding (status {response.status_code})")
-                    
+                    logger.warning(
+                        f"   ⚠️  vLLM server not responding (status {response.status_code})"
+                    )
+
             except Exception as vllm_error:
                 logger.warning(f"   ⚠️  vLLM not available: {str(vllm_error)}")
-            
+
             # Fallback: Return placeholder with detailed info
             logger.info(f"   ℹ️  vLLM engine not configured or not running")
-            logger.info(f"   To enable: Set VLLM_API_URL or install model at {model.get('path')}")
-            logger.info(f"   " + "="*76)
-            
+            logger.info(
+                f"   To enable: Set VLLM_API_URL or install model at {model.get('path')}"
+            )
+            logger.info(f"   " + "=" * 76)
+
             return f"[vLLM generation with {model['name']}: {prompt[:100]}...]"
-            
+
         except Exception as e:
             logger.error(f"   ❌ vLLM generation failed: {str(e)}")
             raise
@@ -1459,60 +1535,64 @@ class AIModelManager:
         try:
             logger.info(f"   🔧 Starting Transformers engine for {model['name']}...")
             logger.info(f"   Model path: {model.get('path', 'Not specified')}")
-            logger.info(f"   " + "="*76)
+            logger.info(f"   " + "=" * 76)
             logger.info(f"   RAW TRANSFORMERS ENGINE OUTPUT:")
-            logger.info(f"   " + "="*76)
-            
+            logger.info(f"   " + "=" * 76)
+
             # Check if model is actually available locally
-            model_path = Path(model.get('path', ''))
+            model_path = Path(model.get("path", ""))
             if not model_path.exists():
                 logger.warning(f"   ⚠️  Model not found at {model_path}")
                 logger.warning(f"   To use this model, download it first:")
-                logger.warning(f"   huggingface-cli download {model.get('model_id', 'unknown')}")
+                logger.warning(
+                    f"   huggingface-cli download {model.get('model_id', 'unknown')}"
+                )
                 raise ValueError(f"Model not found: {model['name']}")
-            
+
             # Try to load and use transformers
             try:
                 from transformers import AutoModelForCausalLM, AutoTokenizer
                 import torch
-                
+
                 logger.info(f"   Loading model from {model_path}...")
                 tokenizer = AutoTokenizer.from_pretrained(str(model_path))
                 loaded_model = AutoModelForCausalLM.from_pretrained(
                     str(model_path),
-                    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                    dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
                     device_map="auto" if torch.cuda.is_available() else "cpu",
                 )
-                
+
                 logger.info(f"   ✓ Model loaded, tokenizing prompt...")
                 inputs = tokenizer(prompt, return_tensors="pt").to(loaded_model.device)
-                
-                logger.info(f"   ⚙️  Generating (max_tokens={kwargs.get('max_tokens', 1000)})...")
-                logger.info(f"   " + "-"*76)
-                
+
+                logger.info(
+                    f"   ⚙️  Generating (max_tokens={kwargs.get('max_tokens', 1000)})..."
+                )
+                logger.info(f"   " + "-" * 76)
+
                 outputs = loaded_model.generate(
                     **inputs,
-                    max_new_tokens=kwargs.get('max_tokens', 1000),
-                    temperature=kwargs.get('temperature', 0.7),
+                    max_new_tokens=kwargs.get("max_tokens", 1000),
+                    temperature=kwargs.get("temperature", 0.7),
                     do_sample=True,
                     pad_token_id=tokenizer.eos_token_id,
                 )
-                
+
                 generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-                
+
                 # Log the raw output
                 logger.info(f"   GENERATED TEXT:")
-                for line in generated_text.split('\n'):
+                for line in generated_text.split("\n"):
                     logger.info(f"   | {line}")
-                logger.info(f"   " + "="*76)
-                
+                logger.info(f"   " + "=" * 76)
+
                 return generated_text
-                
+
             except ImportError:
                 logger.warning(f"   ⚠️  Transformers library not available")
                 logger.warning(f"   Install with: pip install transformers torch")
                 raise ValueError("Transformers library not installed")
-                
+
         except Exception as e:
             logger.error(f"   ❌ Transformers generation failed: {str(e)}")
             raise
@@ -1523,42 +1603,46 @@ class AIModelManager:
     ) -> Dict[str, Any]:
         """
         Generate image using ComfyUI workflow API.
-        
+
         ComfyUI provides a REST API for submitting workflows and retrieving generated images.
         This implementation uses a basic text-to-image workflow compatible with FLUX models.
-        
+
         Args:
             prompt: Text prompt for image generation
             model: Model configuration dict with model_id and path
             **kwargs: Additional parameters (width, height, steps, guidance_scale, seed)
-        
+
         Returns:
             Dict with image_data, format, width, height, and metadata
-        
+
         Raises:
             Exception: If ComfyUI is not available or generation fails
         """
         try:
             import uuid as uuid_lib
-            
+
             # Get ComfyUI API URL from environment or use default
             comfyui_url = os.environ.get("COMFYUI_API_URL", "http://127.0.0.1:8188")
-            
+
             # Check if ComfyUI is available
             comfyui_path = find_comfyui_installation(self.models_dir.parent)
-            
+
             if not comfyui_path:
                 logger.warning(
                     f"ComfyUI installation not found. "
                     f"Model {model['name']} requires ComfyUI setup. "
                     f"Attempting to use ComfyUI API at {comfyui_url}"
                 )
-            
+
             # Try to connect to ComfyUI API
             try:
-                response = await self.http_client.get(f"{comfyui_url}/system_stats", timeout=5.0)
+                response = await self.http_client.get(
+                    f"{comfyui_url}/system_stats", timeout=5.0
+                )
                 if response.status_code != 200:
-                    raise ConnectionError(f"ComfyUI API not responding (status {response.status_code})")
+                    raise ConnectionError(
+                        f"ComfyUI API not responding (status {response.status_code})"
+                    )
                 logger.info(f"✓ Connected to ComfyUI at {comfyui_url}")
             except Exception as conn_error:
                 logger.warning(
@@ -1568,47 +1652,36 @@ class AIModelManager:
                 )
                 # Fallback to diffusers if available
                 return await self._fallback_to_diffusers(prompt, **kwargs)
-            
+
             # Get generation parameters
             width = kwargs.get("width", 1024)
             height = kwargs.get("height", 1024)
             num_inference_steps = kwargs.get("num_inference_steps", 20)
-            guidance_scale = kwargs.get("guidance_scale", 3.5)  # FLUX uses lower guidance
+            guidance_scale = kwargs.get(
+                "guidance_scale", 3.5
+            )  # FLUX uses lower guidance
             seed = kwargs.get("seed", None)
             if seed is None:
                 seed = int(time.time() * 1000) % (2**32)
-            
+
             # Create a basic FLUX workflow for text-to-image
             # This is a simplified workflow compatible with FLUX.1-dev
             workflow = {
                 "3": {  # CLIPTextEncode for positive prompt
-                    "inputs": {
-                        "text": prompt,
-                        "clip": ["11", 0]
-                    },
-                    "class_type": "CLIPTextEncode"
+                    "inputs": {"text": prompt, "clip": ["11", 0]},
+                    "class_type": "CLIPTextEncode",
                 },
                 "4": {  # Empty latent image
-                    "inputs": {
-                        "width": width,
-                        "height": height,
-                        "batch_size": 1
-                    },
-                    "class_type": "EmptyLatentImage"
+                    "inputs": {"width": width, "height": height, "batch_size": 1},
+                    "class_type": "EmptyLatentImage",
                 },
                 "8": {  # VAEDecode
-                    "inputs": {
-                        "samples": ["10", 0],
-                        "vae": ["11", 2]
-                    },
-                    "class_type": "VAEDecode"
+                    "inputs": {"samples": ["10", 0], "vae": ["11", 2]},
+                    "class_type": "VAEDecode",
                 },
                 "9": {  # SaveImage
-                    "inputs": {
-                        "filename_prefix": "gator_comfyui",
-                        "images": ["8", 0]
-                    },
-                    "class_type": "SaveImage"
+                    "inputs": {"filename_prefix": "gator_comfyui", "images": ["8", 0]},
+                    "class_type": "SaveImage",
                 },
                 "10": {  # KSampler
                     "inputs": {
@@ -1621,61 +1694,57 @@ class AIModelManager:
                         "model": ["11", 0],
                         "positive": ["3", 0],
                         "negative": ["3", 0],  # FLUX uses same for negative
-                        "latent_image": ["4", 0]
+                        "latent_image": ["4", 0],
                     },
-                    "class_type": "KSampler"
+                    "class_type": "KSampler",
                 },
                 "11": {  # CheckpointLoaderSimple
                     "inputs": {
                         "ckpt_name": model.get("model_id", "flux1-dev.safetensors")
                     },
-                    "class_type": "CheckpointLoaderSimple"
-                }
+                    "class_type": "CheckpointLoaderSimple",
+                },
             }
-            
+
             # Generate a unique prompt ID
             prompt_id = str(uuid_lib.uuid4())
-            
+
             # Submit workflow to ComfyUI
             logger.info(f"Submitting workflow to ComfyUI: {prompt[:100]}...")
             queue_response = await self.http_client.post(
                 f"{comfyui_url}/prompt",
-                json={
-                    "prompt": workflow,
-                    "client_id": prompt_id
-                },
-                timeout=10.0
+                json={"prompt": workflow, "client_id": prompt_id},
+                timeout=10.0,
             )
-            
+
             if queue_response.status_code != 200:
                 raise Exception(f"Failed to queue prompt: {queue_response.text}")
-            
+
             queue_result = queue_response.json()
             prompt_execution_id = queue_result.get("prompt_id")
-            
+
             logger.info(f"Workflow queued with ID: {prompt_execution_id}")
-            
+
             # Poll for completion
             max_wait_time = 300  # 5 minutes max
             poll_interval = 2  # Check every 2 seconds
             elapsed_time = 0
-            
+
             while elapsed_time < max_wait_time:
                 await asyncio.sleep(poll_interval)
                 elapsed_time += poll_interval
-                
+
                 # Check queue status
                 history_response = await self.http_client.get(
-                    f"{comfyui_url}/history/{prompt_execution_id}",
-                    timeout=5.0
+                    f"{comfyui_url}/history/{prompt_execution_id}", timeout=5.0
                 )
-                
+
                 if history_response.status_code == 200:
                     history_data = history_response.json()
                     if prompt_execution_id in history_data:
                         # Generation completed
                         result_data = history_data[prompt_execution_id]
-                        
+
                         # Extract output image information
                         outputs = result_data.get("outputs", {})
                         for node_id, node_output in outputs.items():
@@ -1687,26 +1756,26 @@ class AIModelManager:
                                     filename = image_info["filename"]
                                     subfolder = image_info.get("subfolder", "")
                                     image_type = image_info.get("type", "output")
-                                    
+
                                     # Download the generated image
                                     image_url = f"{comfyui_url}/view"
                                     params = {
                                         "filename": filename,
                                         "subfolder": subfolder,
-                                        "type": image_type
+                                        "type": image_type,
                                     }
-                                    
+
                                     image_response = await self.http_client.get(
-                                        image_url,
-                                        params=params,
-                                        timeout=30.0
+                                        image_url, params=params, timeout=30.0
                                     )
-                                    
+
                                     if image_response.status_code == 200:
                                         image_data = image_response.content
-                                        
-                                        logger.info(f"✓ Image generated successfully via ComfyUI: {len(image_data)} bytes")
-                                        
+
+                                        logger.info(
+                                            f"✓ Image generated successfully via ComfyUI: {len(image_data)} bytes"
+                                        )
+
                                         return {
                                             "image_data": image_data,
                                             "format": "PNG",
@@ -1721,61 +1790,66 @@ class AIModelManager:
                                             "seed": seed,
                                             "status": "success",
                                         }
-            
+
             # Timeout reached
-            raise TimeoutError(f"ComfyUI generation timed out after {max_wait_time} seconds")
-            
+            raise TimeoutError(
+                f"ComfyUI generation timed out after {max_wait_time} seconds"
+            )
+
         except (ConnectionError, TimeoutError) as e:
-            logger.warning(f"ComfyUI generation failed: {str(e)}, attempting fallback to diffusers")
+            logger.warning(
+                f"ComfyUI generation failed: {str(e)}, attempting fallback to diffusers"
+            )
             # Fallback to diffusers if ComfyUI fails
             return await self._fallback_to_diffusers(prompt, **kwargs)
         except Exception as e:
             logger.error(f"ComfyUI generation failed: {str(e)}")
             # Fallback to diffusers for any other errors
             return await self._fallback_to_diffusers(prompt, **kwargs)
-    
+
     async def _fallback_to_diffusers(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """
         Fallback to diffusers-based image generation when ComfyUI is unavailable.
-        
+
         Selects the best available diffusers model (SDXL or SD 1.5) and generates
         the image using the local diffusers pipeline.
-        
+
         Args:
             prompt: Text prompt for generation
             **kwargs: Generation parameters
-        
+
         Returns:
             Dict with generated image data
         """
         try:
             # Find available diffusers models
             diffusers_models = [
-                m for m in self.available_models["image"]
-                if m.get("inference_engine") == "diffusers" 
+                m
+                for m in self.available_models["image"]
+                if m.get("inference_engine") == "diffusers"
                 and m.get("provider") == "local"
                 and (m.get("loaded") or m.get("can_load"))
             ]
-            
+
             if not diffusers_models:
                 logger.error("No diffusers models available for fallback")
                 raise ValueError("No image generation models available")
-            
+
             # Prefer SDXL for quality, fallback to SD 1.5 for speed
             model = None
             for m in diffusers_models:
                 if "xl" in m["name"].lower():
                     model = m
                     break
-            
+
             if not model:
                 model = diffusers_models[0]
-            
+
             logger.info(f"Using fallback model: {model['name']}")
-            
+
             # Generate using diffusers
             return await self._generate_image_diffusers(prompt, model, **kwargs)
-            
+
         except Exception as e:
             logger.error(f"Fallback to diffusers failed: {str(e)}")
             raise
@@ -1826,18 +1900,14 @@ class AIModelManager:
                     logger.info(f"Loading model from local path: {model_path}")
                     pipe = StableDiffusionPipeline.from_pretrained(
                         str(model_path),
-                        torch_dtype=(
-                            torch.float16 if "cuda" in device else torch.float32
-                        ),
+                        dtype=(torch.float16 if "cuda" in device else torch.float32),
                         safety_checker=None,  # Disable for performance
                     )
                 else:
                     logger.info(f"Loading model from HuggingFace Hub: {model_id}")
                     pipe = StableDiffusionPipeline.from_pretrained(
                         model_id,
-                        torch_dtype=(
-                            torch.float16 if "cuda" in device else torch.float32
-                        ),
+                        dtype=(torch.float16 if "cuda" in device else torch.float32),
                         safety_checker=None,  # Disable for performance
                     )
                     # Save to local path for future use
@@ -2068,8 +2138,10 @@ class AIModelManager:
         """Generate text using OpenAI models."""
         try:
             logger.info(f"   📡 Calling OpenAI API ({model})...")
-            logger.info(f"   Request: max_tokens={kwargs.get('max_tokens', 1000)}, temp={kwargs.get('temperature', 0.7)}")
-            
+            logger.info(
+                f"   Request: max_tokens={kwargs.get('max_tokens', 1000)}, temp={kwargs.get('temperature', 0.7)}"
+            )
+
             response = await self.http_client.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers={
@@ -2091,15 +2163,17 @@ class AIModelManager:
 
             result = response.json()
             generated_text = result["choices"][0]["message"]["content"].strip()
-            
+
             # Log the actual AI output
             logger.info(f"   📄 AI OUTPUT (OpenAI {model}):")
-            logger.info(f"   " + "-"*76)
-            for line in generated_text.split('\n'):
+            logger.info(f"   " + "-" * 76)
+            for line in generated_text.split("\n"):
                 logger.info(f"   {line}")
-            logger.info(f"   " + "-"*76)
-            logger.info(f"   Tokens used: {result.get('usage', {}).get('total_tokens', 'unknown')}")
-            
+            logger.info(f"   " + "-" * 76)
+            logger.info(
+                f"   Tokens used: {result.get('usage', {}).get('total_tokens', 'unknown')}"
+            )
+
             return generated_text
 
         except Exception as e:
