@@ -1915,6 +1915,15 @@ class AIModelManager:
             # Get device ID if specified for multi-GPU support
             device_id = kwargs.get("device_id", None)
 
+            # Determine device (must be done before caching check to avoid UnboundLocalError)
+            if torch.cuda.is_available():
+                if device_id is not None:
+                    device = f"cuda:{device_id}"
+                else:
+                    device = "cuda"
+            else:
+                device = "cpu"
+
             # Load or get cached pipeline (with device-specific caching for multi-GPU)
             if device_id is not None:
                 pipeline_key = f"diffusers_{model_name}_gpu{device_id}"
@@ -1925,15 +1934,6 @@ class AIModelManager:
                 logger.info(
                     f"Loading diffusion model: {model_name} on device {device_id if device_id is not None else 'default'}"
                 )
-
-                # Determine device
-                if torch.cuda.is_available():
-                    if device_id is not None:
-                        device = f"cuda:{device_id}"
-                    else:
-                        device = "cuda"
-                else:
-                    device = "cpu"
 
                 # Try to load from local path first, fallback to HuggingFace Hub
                 if model_path.exists():
