@@ -1953,24 +1953,40 @@ class AIModelManager:
                 # Try to load from local path first, fallback to HuggingFace Hub
                 if model_path.exists():
                     logger.info(f"Loading model from local path: {model_path}")
-                    pipe = PipelineClass.from_pretrained(
-                        str(model_path),
-                        torch_dtype=(
+                    # Prepare loading arguments
+                    load_args = {
+                        "torch_dtype": (
                             torch.float16 if "cuda" in device else torch.float32
                         ),
-                        safety_checker=None,  # Disable for performance
-                        requires_safety_checker=False,  # Suppress warning
-                    )
+                        "safety_checker": None,  # Disable for performance
+                        "requires_safety_checker": False,  # Suppress warning
+                    }
+
+                    # Add SDXL-specific parameters for fp16 variant loading
+                    # This ensures tokenizer and all components load correctly
+                    if is_sdxl and "cuda" in device:
+                        load_args["variant"] = "fp16"
+                        load_args["use_safetensors"] = True
+
+                    pipe = PipelineClass.from_pretrained(str(model_path), **load_args)
                 else:
                     logger.info(f"Loading model from HuggingFace Hub: {model_id}")
-                    pipe = PipelineClass.from_pretrained(
-                        model_id,
-                        torch_dtype=(
+                    # Prepare loading arguments
+                    load_args = {
+                        "torch_dtype": (
                             torch.float16 if "cuda" in device else torch.float32
                         ),
-                        safety_checker=None,  # Disable for performance
-                        requires_safety_checker=False,  # Suppress warning
-                    )
+                        "safety_checker": None,  # Disable for performance
+                        "requires_safety_checker": False,  # Suppress warning
+                    }
+
+                    # Add SDXL-specific parameters for fp16 variant loading
+                    # This ensures tokenizer and all components load correctly
+                    if is_sdxl and "cuda" in device:
+                        load_args["variant"] = "fp16"
+                        load_args["use_safetensors"] = True
+
+                    pipe = PipelineClass.from_pretrained(model_id, **load_args)
                     # Save to local path for future use
                     if not model_path.exists():
                         model_path.mkdir(parents=True, exist_ok=True)
