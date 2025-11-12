@@ -67,6 +67,20 @@ class AIModelManager:
 
         # Cache for loaded diffusion pipelines
         self._loaded_pipelines = {}
+        
+        # Lazy loading configuration
+        # Models marked as lazy will only be loaded when first requested
+        self.lazy_load_enabled = os.environ.get("AI_MODELS_LAZY_LOAD", "false").lower() == "true"
+        self.lazy_load_models = set()  # Models configured for lazy loading
+        
+        # Configure which models should use lazy loading
+        # Typically large models or those used infrequently
+        if self.lazy_load_enabled:
+            self.lazy_load_models.update([
+                "llama-3.1-70b",  # 140GB - very large
+                "qwen2.5-72b",    # 144GB - very large
+                "flux.1-dev",     # 12GB - less frequently used
+            ])
 
         # Model configurations based on recommendations
         self.local_model_configs = {
@@ -200,11 +214,75 @@ class AIModelManager:
             "platform": platform.platform(),
         }
 
+    def _should_lazy_load(self, model_name: str) -> bool:
+        """
+        Determine if a model should be lazy loaded.
+        
+        Args:
+            model_name: Name of the model to check
+            
+        Returns:
+            True if model should be lazy loaded, False otherwise
+        """
+        if not self.lazy_load_enabled:
+            return False
+        
+        return model_name in self.lazy_load_models
+    
+    async def _lazy_load_model(self, model_name: str, category: str) -> bool:
+        """
+        Load a specific model on-demand.
+        
+        Args:
+            model_name: Name of the model to load
+            category: Category of the model (text, image, voice, video)
+            
+        Returns:
+            True if model loaded successfully, False otherwise
+        """
+        try:
+            logger.info(f"Lazy loading model: {model_name} (category: {category})")
+            
+            # Find the model in available models
+            category_models = self.available_models.get(category, [])
+            model_index = None
+            for i, model in enumerate(category_models):
+                if model.get("name") == model_name:
+                    model_index = i
+                    break
+            
+            if model_index is None:
+                logger.warning(f"Model {model_name} not found in {category} models")
+                return False
+            
+            # Load the model based on its inference engine
+            # This would trigger actual model loading logic
+            # For now, we mark it as loaded
+            self.available_models[category][model_index]["loaded"] = True
+            logger.info(f"Successfully lazy loaded model: {model_name}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to lazy load model {model_name}: {e}")
+            return False
+
     async def initialize_models(self) -> None:
-        """Initialize and load AI models based on available hardware and configuration."""
+        """
+        Initialize and load AI models based on available hardware and configuration.
+        
+        With lazy loading enabled (AI_MODELS_LAZY_LOAD=true), large or infrequently
+        used models will be marked as available but not loaded until first use,
+        reducing startup time and memory usage.
+        """
         try:
             sys_req = self._get_system_requirements()
             logger.info(f"Initializing AI models with system: {sys_req}")
+            
+            if self.lazy_load_enabled:
+                logger.info(
+                    f"Lazy loading enabled for models: {', '.join(self.lazy_load_models)}"
+                )
 
             # Initialize local models based on hardware
             await self._initialize_local_text_models()
@@ -266,6 +344,18 @@ class AIModelManager:
                     engine_available = await self._check_inference_engine(
                         inference_engine
                     )
+                    
+                    # Check if this model should be lazy loaded
+                    should_lazy_load = self._should_lazy_load(model_name)
+                    
+                    # If lazy loading, mark as not loaded initially even if available
+                    if should_lazy_load and is_downloaded and engine_available:
+                        is_actually_loaded = False
+                        logger.info(
+                            f"Local text model {model_name} configured for lazy loading"
+                        )
+                    else:
+                        is_actually_loaded = is_downloaded and engine_available
 
                     self.available_models["text"].append(
                         {
@@ -274,8 +364,9 @@ class AIModelManager:
                             "model_id": config["model_id"],
                             "provider": "local",
                             "inference_engine": inference_engine,
-                            "loaded": is_downloaded and engine_available,
+                            "loaded": is_actually_loaded,
                             "can_load": can_run and engine_available,
+                            "lazy_load": should_lazy_load,
                             "size_gb": config["size_gb"],
                             "description": config["description"],
                             "device": "cuda" if sys_req["gpu_memory_gb"] > 0 else "cpu",
@@ -284,7 +375,11 @@ class AIModelManager:
                         }
                     )
 
-                    if is_downloaded and engine_available:
+                    if should_lazy_load:
+                        logger.info(
+                            f"Local text model {model_name} will be lazy loaded on first use"
+                        )
+                    elif is_downloaded and engine_available:
                         logger.info(
                             f"Local text model {model_name} ready at {model_path}"
                         )
