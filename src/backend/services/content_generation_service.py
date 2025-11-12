@@ -41,7 +41,6 @@ from backend.services.acd_service import ACDService
 from backend.services.ai_models import ai_models
 from backend.services.video_processing_service import (
     VideoQuality,
-    TransitionType,
 )
 # --------------------------------------------------------
 
