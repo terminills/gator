@@ -569,6 +569,18 @@ class ACDService:
             logger.info(f"🔄 Processing queued ACD contexts (max: {max_contexts})")
             
             # Query for contexts that are queued and ready to process
+            # Define priority order with CASE for proper sorting
+            from sqlalchemy import case
+            
+            priority_order = case(
+                (ACDContextModel.ai_queue_priority == "CRITICAL", 1),
+                (ACDContextModel.ai_queue_priority == "HIGH", 2),
+                (ACDContextModel.ai_queue_priority == "NORMAL", 3),
+                (ACDContextModel.ai_queue_priority == "LOW", 4),
+                (ACDContextModel.ai_queue_priority == "DEFERRED", 5),
+                else_=6
+            )
+            
             stmt = (
                 select(ACDContextModel)
                 .where(
@@ -584,8 +596,8 @@ class ACDService:
                     )
                 )
                 .order_by(
-                    # Priority order: CRITICAL > HIGH > NORMAL > LOW > DEFERRED
-                    ACDContextModel.ai_queue_priority.desc(),
+                    # Priority order: CRITICAL (1) > HIGH (2) > NORMAL (3) > LOW (4) > DEFERRED (5)
+                    priority_order,
                     ACDContextModel.created_at.asc()
                 )
                 .limit(max_contexts)
