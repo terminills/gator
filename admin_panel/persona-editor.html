@@ -575,6 +575,144 @@
             background: var(--primary);
             color: white;
         }
+        
+        /* Sample Image Gallery */
+        .image-gallery {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-top: 20px;
+        }
+        
+        .image-card {
+            background: var(--dark-card);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .image-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        
+        .image-card.selected {
+            border-color: var(--accent);
+            border-width: 3px;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+        
+        .image-card img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            display: block;
+        }
+        
+        .image-card-label {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        .image-card.selected .image-card-label {
+            color: var(--accent);
+            font-weight: 600;
+        }
+        
+        .selected-badge {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: var(--accent);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: none;
+        }
+        
+        .image-card.selected .selected-badge {
+            display: block;
+        }
+        
+        .generate-images-section {
+            background: var(--dark-card);
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .generate-images-section h3 {
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+        
+        .generate-images-section p {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+        
+        .btn-generate {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-generate:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-generate:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .generation-progress {
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .generation-progress.show {
+            display: block;
+        }
+        
+        .progress-text {
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+        
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: var(--dark-surface);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            width: 0%;
+            transition: width 0.3s;
+        }
     </style>
 </head>
 <body>
@@ -855,6 +993,34 @@
                             <textarea class="form-input" id="base_appearance_description" name="base_appearance_description" maxlength="5000" placeholder="Detailed physical features, facial structure, body type, distinctive characteristics..."></textarea>
                         </div>
                         
+                        <!-- Sample Image Generation (Create Mode Only) -->
+                        <div class="form-group" id="sample-images-section" style="display: none;">
+                            <label class="form-label">
+                                Generate Sample Images
+                            </label>
+                            <span class="form-help">Generate 4 different sample images to choose as your base image. The selected image will be locked for visual consistency.</span>
+                            
+                            <div class="generate-images-section" id="generate-prompt">
+                                <h3>🎨 Generate Sample Images</h3>
+                                <p>Click below to generate 4 sample images based on your appearance description. This helps establish a consistent look for your persona.</p>
+                                <button type="button" class="btn-generate" id="generate-images-btn" onclick="generateSampleImages()">
+                                    <span>✨</span>
+                                    <span>Generate 4 Sample Images</span>
+                                </button>
+                                
+                                <div class="generation-progress" id="generation-progress">
+                                    <div class="progress-text" id="progress-text">Generating images... 0/4</div>
+                                    <div class="progress-bar-container">
+                                        <div class="progress-bar" id="progress-bar"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="image-gallery" id="image-gallery" style="display: none;">
+                                <!-- Sample images will be inserted here -->
+                            </div>
+                        </div>
+                        
                         <div class="form-group">
                             <label class="form-label">
                                 Appearance Locked
@@ -928,6 +1094,8 @@
         let themes = [];
         let stylePreferences = {};
         let platformRestrictions = {};
+        let sampleImages = []; // Generated sample images
+        let selectedImageData = null; // Selected image for base
         
         // Load branding configuration
         async function loadBranding() {
@@ -959,10 +1127,14 @@
                 document.getElementById('page-title').textContent = 'Edit Persona';
                 document.getElementById('submit-text').textContent = 'Update Persona';
                 document.getElementById('delete-btn').style.display = 'inline-block';
+                // Hide sample images section in edit mode
+                document.getElementById('sample-images-section').style.display = 'none';
             } else {
                 editorMode = 'create';
                 document.getElementById('page-title').textContent = 'Create Persona';
                 document.getElementById('submit-text').textContent = 'Create Persona';
+                // Show sample images section in create mode
+                document.getElementById('sample-images-section').style.display = 'block';
             }
         }
         
@@ -1172,6 +1344,123 @@
             renderPlatformRestrictions();
         }
         
+        // Sample image generation
+        async function generateSampleImages() {
+            const appearance = document.getElementById('appearance').value.trim();
+            const personality = document.getElementById('personality').value.trim();
+            
+            if (!appearance || appearance.length < 10) {
+                showAlert('Please enter an appearance description (at least 10 characters) before generating images.', 'error');
+                return;
+            }
+            
+            const generateBtn = document.getElementById('generate-images-btn');
+            const progress = document.getElementById('generation-progress');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const gallery = document.getElementById('image-gallery');
+            
+            // Disable button and show progress
+            generateBtn.disabled = true;
+            generateBtn.textContent = 'Generating...';
+            progress.classList.add('show');
+            gallery.style.display = 'none';
+            sampleImages = [];
+            
+            try {
+                // Call API to generate sample images
+                progressText.textContent = 'Generating 4 sample images... This may take 1-2 minutes.';
+                progressBar.style.width = '25%';
+                
+                const response = await fetch('/api/v1/personas/generate-sample-images?' + new URLSearchParams({
+                    appearance: appearance,
+                    personality: personality || ''
+                }), {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to generate images');
+                }
+                
+                const result = await response.json();
+                sampleImages = result.images || [];
+                
+                progressBar.style.width = '100%';
+                progressText.textContent = `Generated ${sampleImages.length} images successfully!`;
+                
+                // Display images
+                if (sampleImages.length > 0) {
+                    displaySampleImages();
+                    setTimeout(() => {
+                        progress.classList.remove('show');
+                    }, 1500);
+                } else {
+                    showAlert('No images were generated. Please try again.', 'error');
+                    progress.classList.remove('show');
+                }
+                
+            } catch (error) {
+                console.error('Failed to generate images:', error);
+                showAlert(error.message || 'Failed to generate images. Please try again.', 'error');
+                progress.classList.remove('show');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '<span>✨</span><span>Generate 4 Sample Images</span>';
+            }
+        }
+        
+        function displaySampleImages() {
+            const gallery = document.getElementById('image-gallery');
+            gallery.innerHTML = '';
+            gallery.style.display = 'grid';
+            
+            sampleImages.forEach((image, index) => {
+                const card = document.createElement('div');
+                card.className = 'image-card';
+                card.id = `image-card-${image.id}`;
+                card.onclick = () => selectSampleImage(image.id);
+                
+                card.innerHTML = `
+                    <span class="selected-badge">✓ Selected</span>
+                    <img src="${image.data_url}" alt="Sample ${index + 1}">
+                    <div class="image-card-label">Sample ${index + 1}</div>
+                `;
+                
+                gallery.appendChild(card);
+            });
+            
+            // Show instruction
+            showAlert('Select one image to set as your persona\'s base image. The selected image will be locked for consistency.', 'info');
+        }
+        
+        function selectSampleImage(imageId) {
+            // Remove previous selection
+            document.querySelectorAll('.image-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Mark new selection
+            const card = document.getElementById(`image-card-${imageId}`);
+            if (card) {
+                card.classList.add('selected');
+            }
+            
+            // Store selected image data
+            const image = sampleImages.find(img => img.id === imageId);
+            if (image) {
+                selectedImageData = image.data_url;
+                
+                // Update form fields to indicate image is selected
+                document.getElementById('base_image_status').value = 'approved';
+                document.getElementById('appearance_locked').checked = true;
+                document.getElementById('base_image_path').value = `Will be set after persona creation`;
+                
+                showAlert('Image selected! This will be set as your base image when you create the persona.', 'success');
+            }
+        }
+        
         // Form submission
         document.getElementById('persona-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1224,6 +1513,24 @@
                 }
                 
                 const result = await response.json();
+                
+                // If in create mode and user selected a sample image, set it as base image
+                if (editorMode === 'create' && selectedImageData) {
+                    try {
+                        document.getElementById('submit-text').textContent = 'Setting base image...';
+                        
+                        const imageResponse = await fetch(`/api/v1/personas/${result.id}/set-base-image?image_data=${encodeURIComponent(selectedImageData)}`, {
+                            method: 'POST'
+                        });
+                        
+                        if (!imageResponse.ok) {
+                            console.error('Failed to set base image, but persona was created');
+                        }
+                    } catch (imageError) {
+                        console.error('Failed to set base image:', imageError);
+                        // Don't fail the whole operation if image setting fails
+                    }
+                }
                 
                 showAlert(`Persona ${editorMode === 'create' ? 'created' : 'updated'} successfully!`, 'success');
                 

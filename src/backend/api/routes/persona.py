@@ -4,9 +4,11 @@ Persona Management API Routes
 Handles AI persona creation, management, and configuration.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from uuid import UUID
 import os
+import base64
+import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -565,4 +567,240 @@ async def approve_seed_image(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
+        )
+
+
+@router.post("/generate-sample-images")
+async def generate_sample_images(
+    appearance: str = Query(..., description="Appearance description for image generation"),
+    personality: Optional[str] = Query(None, description="Personality context for image generation"),
+    persona_service: PersonaService = Depends(get_persona_service),
+) -> Dict[str, Any]:
+    """
+    Generate 4 sample images for persona creation.
+    
+    This endpoint generates 4 different sample images based on the appearance
+    and personality descriptions. Returns base64-encoded images for immediate
+    display in the UI. Used during persona creation to let users choose their
+    preferred base image.
+    
+    Args:
+        appearance: Physical appearance description
+        personality: Optional personality traits
+        persona_service: Injected persona service
+        
+    Returns:
+        Dict with 'images' array containing objects with 'id', 'data_url', and 'path'
+        
+    Raises:
+        400: Missing appearance or no image generation available
+        500: Generation error
+    """
+    try:
+        if not appearance or len(appearance.strip()) < 10:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Appearance description must be at least 10 characters",
+            )
+        
+        # Initialize AI model manager
+        ai_manager = AIModelManager()
+        await ai_manager.initialize_models()
+        
+        # Check what's available - prefer cloud for quality, fallback to local
+        dalle_available = any(
+            m.get("name") == "dall-e-3" and m.get("provider") == "openai"
+            for m in ai_manager.available_models.get("image", [])
+        )
+        
+        local_models = [
+            m
+            for m in ai_manager.available_models.get("image", [])
+            if m.get("provider") == "local" and m.get("loaded")
+        ]
+        
+        if not dalle_available and not local_models:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No image generation models available. Configure OPENAI_API_KEY or install local models.",
+            )
+        
+        logger.info(f"Generating 4 sample images with appearance: {appearance[:50]}...")
+        
+        # Generate 4 images concurrently (or sequentially if API rate limited)
+        images = []
+        
+        # For DALL-E, we can generate multiple but need to manage rate limits
+        # For local, we can generate in parallel
+        if dalle_available:
+            # Generate 4 images sequentially to avoid rate limits
+            for i in range(4):
+                try:
+                    result = await ai_manager._generate_reference_image_openai(
+                        appearance_prompt=appearance,
+                        personality_context=personality[:200] if personality else None,
+                        quality="standard",  # Use standard for faster generation
+                        size="512x512",  # Smaller size for preview
+                    )
+                    
+                    # Convert to base64 data URL
+                    base64_image = base64.b64encode(result["image_data"]).decode('utf-8')
+                    data_url = f"data:image/png;base64,{base64_image}"
+                    
+                    images.append({
+                        "id": f"sample_{i+1}",
+                        "data_url": data_url,
+                        "size": len(result["image_data"])
+                    })
+                    
+                    logger.info(f"Generated sample image {i+1}/4")
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to generate image {i+1}: {str(e)}")
+                    # Continue with other images even if one fails
+                    
+        elif local_models:
+            # Generate with local models (can be done in parallel)
+            tasks = []
+            for i in range(4):
+                tasks.append(
+                    ai_manager._generate_reference_image_local(
+                        appearance_prompt=appearance,
+                        personality_context=personality[:200] if personality else None,
+                        reference_image_path=None,
+                        width=512,
+                        height=512,
+                        num_inference_steps=30,  # Fewer steps for faster generation
+                    )
+                )
+            
+            # Execute in parallel
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.warning(f"Failed to generate image {i+1}: {str(result)}")
+                    continue
+                    
+                try:
+                    # Convert to base64 data URL
+                    base64_image = base64.b64encode(result["image_data"]).decode('utf-8')
+                    data_url = f"data:image/png;base64,{base64_image}"
+                    
+                    images.append({
+                        "id": f"sample_{i+1}",
+                        "data_url": data_url,
+                        "size": len(result["image_data"])
+                    })
+                except Exception as e:
+                    logger.warning(f"Failed to process image {i+1}: {str(e)}")
+        
+        # Clean up
+        await ai_manager.close()
+        
+        if len(images) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate any sample images",
+            )
+        
+        logger.info(f"Successfully generated {len(images)} sample images")
+        
+        return {
+            "images": images,
+            "count": len(images)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate sample images: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate images: {str(e)}",
+        )
+
+
+@router.post("/{persona_id}/set-base-image")
+async def set_base_image_from_sample(
+    persona_id: str,
+    image_data: str = Query(..., description="Base64 encoded image data"),
+    persona_service: PersonaService = Depends(get_persona_service),
+) -> PersonaResponse:
+    """
+    Set a persona's base image from a generated sample.
+    
+    Takes a base64-encoded image (from the sample generation) and sets it
+    as the persona's base image, then locks the appearance.
+    
+    Args:
+        persona_id: The persona to update
+        image_data: Base64 encoded image data (with or without data URL prefix)
+        persona_service: Injected persona service
+        
+    Returns:
+        PersonaResponse: Updated persona with locked base image
+        
+    Raises:
+        404: Persona not found
+        400: Invalid image data
+        500: Internal server error
+    """
+    try:
+        # Get the persona
+        persona = await persona_service.get_persona(persona_id)
+        if not persona:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Persona {persona_id} not found",
+            )
+        
+        # Remove data URL prefix if present
+        if image_data.startswith('data:image'):
+            image_data = image_data.split(',', 1)[1]
+        
+        # Decode base64
+        try:
+            decoded_image = base64.b64decode(image_data)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid base64 image data: {str(e)}",
+            )
+        
+        # Validate size
+        max_size = 10 * 1024 * 1024  # 10MB
+        if len(decoded_image) > max_size:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Image too large. Maximum size is 10MB",
+            )
+        
+        # Save image to disk
+        image_path = await persona_service._save_image_to_disk(
+            persona_id=persona_id,
+            image_data=decoded_image,
+            filename=f"persona_{persona_id}_base.png",
+        )
+        
+        # Update persona with image path, approve it, and lock appearance
+        from backend.models.persona import PersonaUpdate
+        
+        updates = PersonaUpdate(
+            base_image_path=image_path,
+            base_image_status=BaseImageStatus.APPROVED,
+            appearance_locked=True,
+        )
+        updated_persona = await persona_service.update_persona(persona_id, updates)
+        
+        logger.info(f"Set and locked base image for persona {persona_id}")
+        return updated_persona
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to set base image for persona {persona_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to set base image: {str(e)}",
         )
