@@ -79,6 +79,7 @@ class TestImageGeneration:
                 "name": "test-model",
                 "provider": "local",
                 "loaded": True,
+                "can_load": True,
                 "inference_engine": "diffusers",
             }
         ]
@@ -172,12 +173,14 @@ class TestImageGeneration:
                 "name": "local-model",
                 "provider": "local",
                 "loaded": True,
+                "can_load": True,
                 "inference_engine": "diffusers",
             },
             {
                 "name": "openai-dalle",
                 "provider": "openai",
                 "loaded": True,
+                "can_load": True,
             },
         ]
 
@@ -213,6 +216,7 @@ class TestImageGeneration:
             "name": "test-model",
             "provider": "local",
             "loaded": True,
+            "can_load": True,
             "inference_engine": "diffusers",
             "model_id": "test/model",
         }

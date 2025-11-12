@@ -902,7 +902,7 @@ class AIModelManager:
             local_models = [
                 m
                 for m in self.available_models["image"]
-                if m.get("provider") == "local" and m.get("loaded", False)
+                if m.get("provider") == "local" and m.get("can_load", False)
             ]
             
             # Only consider cloud models if explicitly enabled
@@ -911,7 +911,7 @@ class AIModelManager:
                 cloud_models = [
                     m
                     for m in self.available_models["image"]
-                    if m.get("provider") in ["openai"] and m.get("loaded", False)
+                    if m.get("provider") in ["openai"] and m.get("can_load", False)
                 ]
             else:
                 cloud_models = []
