@@ -277,19 +277,24 @@ class AIModelManager:
         """
         try:
             sys_req = self._get_system_requirements()
-            logger.info(f"Initializing AI models with system: {sys_req}")
+            
+            logger.info("🤖 AI MODEL INITIALIZATION")
+            logger.info(f"   Hardware: {sys_req['gpu_type'].upper()}, {sys_req['gpu_memory_gb']:.1f}GB VRAM, {sys_req['ram_gb']:.1f}GB RAM")
+            logger.info(f"   CPU cores: {sys_req['cpu_cores']}, Platform: {sys_req['platform']}")
             
             if self.lazy_load_enabled:
                 logger.info(
-                    f"Lazy loading enabled for models: {', '.join(self.lazy_load_models)}"
+                    f"   Lazy loading enabled for: {', '.join(self.lazy_load_models)}"
                 )
 
             # Initialize local models based on hardware
+            logger.info("   Detecting local AI models...")
             await self._initialize_local_text_models()
             await self._initialize_local_image_models()
             await self._initialize_local_voice_models()
 
             # Initialize cloud API models as fallbacks
+            logger.info("   Checking cloud API credentials...")
             await self._initialize_cloud_text_models()
             await self._initialize_cloud_image_models()
             await self._initialize_cloud_voice_models()
@@ -298,13 +303,28 @@ class AIModelManager:
             await self._initialize_video_models()
 
             self.models_loaded = True
-            logger.info(
-                f"AI model initialization complete",
-                extra={"available_models": self.available_models},
-            )
+            
+            # Count loaded models
+            text_loaded = len([m for m in self.available_models.get("text", []) if m.get("loaded")])
+            image_loaded = len([m for m in self.available_models.get("image", []) if m.get("loaded")])
+            voice_loaded = len([m for m in self.available_models.get("voice", []) if m.get("loaded")])
+            video_loaded = len([m for m in self.available_models.get("video", []) if m.get("loaded")])
+            
+            logger.info("✅ AI MODEL INITIALIZATION COMPLETE")
+            logger.info(f"   Text models: {text_loaded} loaded")
+            logger.info(f"   Image models: {image_loaded} loaded")
+            logger.info(f"   Voice models: {voice_loaded} loaded")
+            logger.info(f"   Video models: {video_loaded} loaded")
+            
+            # Detailed model listing
+            for category, models in self.available_models.items():
+                for model in models:
+                    if model.get("loaded"):
+                        provider = model.get("provider", "unknown")
+                        logger.info(f"   ✓ {category.upper()}: {model['name']} ({provider})")
 
         except Exception as e:
-            logger.error(f"Failed to initialize AI models: {str(e)}")
+            logger.error(f"❌ Failed to initialize AI models: {str(e)}")
             raise
 
     async def _initialize_local_text_models(self) -> None:
@@ -522,9 +542,18 @@ class AIModelManager:
         return check_inference_engine_available(engine, base_dir=self.models_dir.parent)
 
     async def _initialize_cloud_text_models(self) -> None:
-        """Initialize cloud-based text generation models."""
+        """Initialize cloud-based text generation models - DISABLED BY DEFAULT."""
         try:
-            # Add OpenAI GPT as API option
+            # Cloud APIs are disabled by default - only enable if explicitly requested
+            enable_cloud_apis = os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            
+            if not enable_cloud_apis:
+                logger.info("   Cloud APIs disabled by default (use ENABLE_CLOUD_APIS=true to enable)")
+                return
+            
+            logger.info("   Cloud APIs explicitly enabled via ENABLE_CLOUD_APIS")
+            
+            # Add OpenAI GPT as API option (only if explicitly enabled)
             if (
                 hasattr(self.settings, "openai_api_key")
                 and self.settings.openai_api_key
@@ -537,7 +566,7 @@ class AIModelManager:
                             "provider": "openai",
                             "loaded": True,
                             "max_tokens": 4096,
-                            "description": "OpenAI GPT-4 cloud API",
+                            "description": "OpenAI GPT-4 cloud API (PAID)",
                         },
                         {
                             "name": "gpt-3.5-turbo",
@@ -545,13 +574,13 @@ class AIModelManager:
                             "provider": "openai",
                             "loaded": True,
                             "max_tokens": 4096,
-                            "description": "OpenAI GPT-3.5 Turbo cloud API",
+                            "description": "OpenAI GPT-3.5 Turbo cloud API (PAID)",
                         },
                     ]
                 )
-                logger.info("OpenAI text models available")
+                logger.info("   ⚠️  OpenAI text models available (PAID API)")
 
-            # Add Anthropic Claude as option
+            # Add Anthropic Claude as option (only if explicitly enabled)
             if (
                 hasattr(self.settings, "anthropic_api_key")
                 and self.settings.anthropic_api_key
@@ -563,18 +592,24 @@ class AIModelManager:
                         "provider": "anthropic",
                         "loaded": True,
                         "max_tokens": 4096,
-                        "description": "Anthropic Claude-3 Sonnet cloud API",
+                        "description": "Anthropic Claude-3 Sonnet cloud API (PAID)",
                     }
                 )
-                logger.info("Anthropic Claude available")
+                logger.info("   ⚠️  Anthropic Claude available (PAID API)")
 
         except Exception as e:
             logger.error(f"Failed to initialize cloud text models: {str(e)}")
 
     async def _initialize_cloud_image_models(self) -> None:
-        """Initialize cloud-based image generation models."""
+        """Initialize cloud-based image generation models - DISABLED BY DEFAULT."""
         try:
-            # Add OpenAI DALL-E as fallback if API key available
+            # Cloud APIs are disabled by default - only enable if explicitly requested
+            enable_cloud_apis = os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            
+            if not enable_cloud_apis:
+                return
+            
+            # Add OpenAI DALL-E only if explicitly enabled
             if (
                 hasattr(self.settings, "openai_api_key")
                 and self.settings.openai_api_key
@@ -585,18 +620,24 @@ class AIModelManager:
                         "type": "text-to-image",
                         "provider": "openai",
                         "loaded": True,
-                        "description": "OpenAI DALL-E 3 cloud API",
+                        "description": "OpenAI DALL-E 3 cloud API (PAID)",
                     }
                 )
-                logger.info("OpenAI DALL-E 3 API available")
+                logger.info("   ⚠️  OpenAI DALL-E 3 API available (PAID API)")
 
         except Exception as e:
             logger.error(f"Failed to initialize cloud image models: {str(e)}")
 
     async def _initialize_cloud_voice_models(self) -> None:
-        """Initialize cloud-based voice synthesis models."""
+        """Initialize cloud-based voice synthesis models - DISABLED BY DEFAULT."""
         try:
-            # Check for ElevenLabs API
+            # Cloud APIs are disabled by default - only enable if explicitly requested
+            enable_cloud_apis = os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            
+            if not enable_cloud_apis:
+                return
+            
+            # Check for ElevenLabs API (only if explicitly enabled)
             if (
                 hasattr(self.settings, "elevenlabs_api_key")
                 and self.settings.elevenlabs_api_key
@@ -607,12 +648,12 @@ class AIModelManager:
                         "type": "text-to-speech",
                         "provider": "elevenlabs",
                         "loaded": True,
-                        "description": "ElevenLabs voice synthesis cloud API",
+                        "description": "ElevenLabs voice synthesis cloud API (PAID)",
                     }
                 )
-                logger.info("ElevenLabs voice synthesis available")
+                logger.info("   ⚠️  ElevenLabs voice synthesis available (PAID API)")
 
-            # Check for OpenAI TTS
+            # Check for OpenAI TTS (only if explicitly enabled)
             if (
                 hasattr(self.settings, "openai_api_key")
                 and self.settings.openai_api_key
@@ -623,10 +664,10 @@ class AIModelManager:
                         "type": "text-to-speech",
                         "provider": "openai",
                         "loaded": True,
-                        "description": "OpenAI TTS cloud API",
+                        "description": "OpenAI TTS cloud API (PAID)",
                     }
                 )
-                logger.info("OpenAI TTS available")
+                logger.info("   ⚠️  OpenAI TTS available (PAID API)")
 
         except Exception as e:
             logger.error(f"Failed to initialize cloud voice models: {str(e)}")
@@ -774,7 +815,7 @@ class AIModelManager:
                 for model in available_models:
                     if "xl" in model["name"].lower() or "flux" in model["name"].lower():
                         logger.info(
-                            f"Selected {model['name']} for high-quality generation"
+                            f"🎯 Model selection: {model['name']} (reason: high-quality keywords detected)"
                         )
                         return model
 
@@ -782,7 +823,7 @@ class AIModelManager:
                 # Prefer SD 1.5 for speed
                 for model in available_models:
                     if "v1-5" in model["name"] or "1.5" in model["name"]:
-                        logger.info(f"Selected {model['name']} for fast generation")
+                        logger.info(f"🎯 Model selection: {model['name']} (reason: speed optimization)")
                         return model
 
             # Default: prefer local models by size (larger = better quality typically)
@@ -798,7 +839,7 @@ class AIModelManager:
                         local_models, key=lambda x: x.get("size_gb", 0), reverse=True
                     )
                 logger.info(
-                    f"Selected {sorted_models[0]['name']} based on size optimization"
+                    f"🎯 Model selection: {sorted_models[0]['name']} (reason: size-based optimization)"
                 )
                 return sorted_models[0]
 
@@ -826,7 +867,7 @@ class AIModelManager:
                 for model in available_models:
                     if "70b" in model["name"].lower() or "72b" in model["name"].lower():
                         logger.info(
-                            f"Selected {model['name']} for complex text generation"
+                            f"🎯 Model selection: {model['name']} (reason: complex task detected)"
                         )
                         return model
             else:
@@ -834,12 +875,12 @@ class AIModelManager:
                 for model in available_models:
                     if "8b" in model["name"].lower():
                         logger.info(
-                            f"Selected {model['name']} for fast text generation"
+                            f"🎯 Model selection: {model['name']} (reason: simple task, optimizing for speed)"
                         )
                         return model
 
         # Default: return first available model
-        logger.info(f"Using default model selection: {available_models[0]['name']}")
+        logger.info(f"🎯 Model selection: {available_models[0]['name']} (reason: default/first available)")
         return available_models[0]
 
     async def generate_image(self, prompt: str, **kwargs) -> Dict[str, Any]:
@@ -850,23 +891,38 @@ class AIModelManager:
         had_errors = False
         error_message = None
 
+        # Log generation start
+        logger.info(f"🎨 AI IMAGE GENERATION STARTED")
+        logger.info(f"   Prompt: {prompt[:100]}{'...' if len(prompt) > 100 else ''}")
+        logger.info(f"   Quality: {kwargs.get('quality', 'standard')}")
+        logger.info(f"   Parameters: {', '.join(f'{k}={v}' for k, v in kwargs.items() if k != 'reference_image_path')}")
+
         try:
-            # Find best available image model (prefer local first)
+            # Find best available image model - LOCAL ONLY by default
             local_models = [
                 m
                 for m in self.available_models["image"]
                 if m.get("provider") == "local" and m.get("loaded", False)
             ]
-            cloud_models = [
-                m
-                for m in self.available_models["image"]
-                if m.get("provider") in ["openai"] and m.get("loaded", False)
-            ]
+            
+            # Only consider cloud models if explicitly enabled
+            enable_cloud_apis = os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            if enable_cloud_apis:
+                cloud_models = [
+                    m
+                    for m in self.available_models["image"]
+                    if m.get("provider") in ["openai"] and m.get("loaded", False)
+                ]
+            else:
+                cloud_models = []
 
-            # Prefer local models, fallback to cloud
+            # LOCAL FIRST - cloud only as explicit fallback
             available_models = local_models + cloud_models
+            
+            logger.info(f"🤖 Available models: {len(local_models)} local, {len(cloud_models)} cloud")
 
             if not available_models:
+                logger.error(f"❌ No image generation models available")
                 raise ValueError("No image generation models available")
 
             # Use intelligent model selection
@@ -876,6 +932,8 @@ class AIModelManager:
                 available_models=available_models,
                 **kwargs,
             )
+            
+            logger.info(f"✓ Model selected: {model['name']} ({model.get('provider', 'unknown')})")
 
             # Record model selection reasoning for benchmark
             selection_reasoning = (
@@ -884,6 +942,7 @@ class AIModelManager:
             )
 
             # Perform generation
+            logger.info(f"⚙️  Generating image with {model['name']}...")
             generation_start = time.time()
             if model.get("provider") == "openai":
                 result = await self._generate_image_openai(prompt, **kwargs)
@@ -904,13 +963,22 @@ class AIModelManager:
                 "selection_reasoning": selection_reasoning,
                 "available_models": [m["name"] for m in available_models],
             }
+            
+            logger.info(f"✅ IMAGE GENERATION COMPLETE in {total_time:.2f}s")
+            logger.info(f"   Model: {model['name']}")
+            logger.info(f"   Size: {result.get('width', 0)}x{result.get('height', 0)}")
+            logger.info(f"   Generation time: {generation_time:.2f}s")
 
             return result
 
         except Exception as e:
             had_errors = True
             error_message = str(e)
-            logger.error(f"Image generation failed: {str(e)}")
+            total_time = time.time() - start_time
+            logger.error(f"❌ IMAGE GENERATION FAILED after {total_time:.2f}s")
+            logger.error(f"   Error: {str(e)}")
+            if model:
+                logger.error(f"   Model attempted: {model.get('name', 'unknown')}")
             raise
 
     async def generate_images_batch(
@@ -1037,24 +1105,41 @@ class AIModelManager:
 
     async def generate_text(self, prompt: str, **kwargs) -> str:
         """Generate text from prompt using intelligently selected optimal model."""
+        start_time = time.time()
+        
+        # Log generation start
+        logger.info(f"📝 AI TEXT GENERATION STARTED")
+        logger.info(f"   Prompt: {prompt[:100]}{'...' if len(prompt) > 100 else ''}")
+        logger.info(f"   Max tokens: {kwargs.get('max_tokens', 1000)}")
+        logger.info(f"   Temperature: {kwargs.get('temperature', 0.7)}")
+        
         try:
-            # Find best available text model (prefer local first for privacy/speed)
+            # Find best available text model - LOCAL ONLY by default
             local_models = [
                 m
                 for m in self.available_models["text"]
                 if m.get("provider") == "local" and m.get("loaded", False)
             ]
-            cloud_models = [
-                m
-                for m in self.available_models["text"]
-                if m.get("provider") in ["openai", "anthropic"]
-                and m.get("loaded", False)
-            ]
+            
+            # Only consider cloud models if explicitly enabled
+            enable_cloud_apis = os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            if enable_cloud_apis:
+                cloud_models = [
+                    m
+                    for m in self.available_models["text"]
+                    if m.get("provider") in ["openai", "anthropic"]
+                    and m.get("loaded", False)
+                ]
+            else:
+                cloud_models = []
 
-            # Prefer local models, fallback to cloud
+            # LOCAL FIRST - cloud only as explicit fallback
             available_models = local_models + cloud_models
+            
+            logger.info(f"🤖 Available models: {len(local_models)} local, {len(cloud_models)} cloud")
 
             if not available_models:
+                logger.error(f"❌ No text generation models available")
                 raise ValueError("No text generation models available")
 
             # Use intelligent model selection
@@ -1064,77 +1149,193 @@ class AIModelManager:
                 available_models=available_models,
                 **kwargs,
             )
+            
+            logger.info(f"✓ Model selected: {model['name']} ({model.get('provider', 'unknown')})")
+            logger.info(f"⚙️  Generating text with {model['name']}...")
 
+            generation_start = time.time()
             if model.get("provider") == "openai":
-                return await self._generate_text_openai(prompt, model["name"], **kwargs)
+                result = await self._generate_text_openai(prompt, model["name"], **kwargs)
             elif model.get("provider") == "anthropic":
-                return await self._generate_text_anthropic(prompt, **kwargs)
+                result = await self._generate_text_anthropic(prompt, **kwargs)
             elif model.get("provider") == "local":
-                return await self._generate_text_local(prompt, model, **kwargs)
+                result = await self._generate_text_local(prompt, model, **kwargs)
             else:
                 raise ValueError(f"Unsupported text model: {model['name']}")
+            
+            generation_time = time.time() - generation_start
+            total_time = time.time() - start_time
+            
+            logger.info(f"✅ TEXT GENERATION COMPLETE in {total_time:.2f}s")
+            logger.info(f"   Model: {model['name']}")
+            logger.info(f"   Output length: {len(result)} characters, {len(result.split())} words")
+            logger.info(f"   Generation time: {generation_time:.2f}s")
+            
+            return result
 
         except Exception as e:
-            logger.error(f"Text generation failed: {str(e)}")
+            total_time = time.time() - start_time
+            logger.error(f"❌ TEXT GENERATION FAILED after {total_time:.2f}s")
+            logger.error(f"   Error: {str(e)}")
             raise
 
     async def generate_voice(self, text: str, **kwargs) -> Dict[str, Any]:
         """Generate voice from text using best available model."""
+        start_time = time.time()
+        
+        # Log generation start
+        logger.info(f"🎙️ AI VOICE GENERATION STARTED")
+        logger.info(f"   Text: {text[:100]}{'...' if len(text) > 100 else ''}")
+        logger.info(f"   Voice settings: {kwargs.get('voice', 'default')}, {kwargs.get('voice_id', 'default')}")
+        
         try:
-            # Find best available voice model (prefer local for privacy)
+            # Find best available voice model - LOCAL ONLY by default
             local_models = [
                 m
                 for m in self.available_models["voice"]
                 if m.get("provider") == "local" and m.get("loaded", False)
             ]
-            cloud_models = [
-                m
-                for m in self.available_models["voice"]
-                if m.get("provider") in ["elevenlabs", "openai"]
-                and m.get("loaded", False)
-            ]
+            
+            # Only consider cloud models if explicitly enabled
+            enable_cloud_apis = os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
+            if enable_cloud_apis:
+                cloud_models = [
+                    m
+                    for m in self.available_models["voice"]
+                    if m.get("provider") in ["elevenlabs", "openai"]
+                    and m.get("loaded", False)
+                ]
+            else:
+                cloud_models = []
 
-            # Prefer local models, fallback to cloud
+            # LOCAL FIRST - cloud only as explicit fallback
             available_models = local_models + cloud_models
+            
+            logger.info(f"🤖 Available models: {len(local_models)} local, {len(cloud_models)} cloud")
 
             if not available_models:
+                logger.error(f"❌ No voice generation models available")
                 raise ValueError("No voice generation models available")
 
             model = available_models[0]
+            
+            logger.info(f"✓ Model selected: {model['name']} ({model.get('provider', 'unknown')})")
+            logger.info(f"⚙️  Generating voice with {model['name']}...")
 
+            generation_start = time.time()
             if model.get("provider") == "elevenlabs":
-                return await self._generate_voice_elevenlabs(text, **kwargs)
+                result = await self._generate_voice_elevenlabs(text, **kwargs)
             elif model.get("provider") == "openai":
-                return await self._generate_voice_openai(text, **kwargs)
+                result = await self._generate_voice_openai(text, **kwargs)
             elif model.get("provider") == "local":
-                return await self._generate_voice_local(text, model, **kwargs)
+                result = await self._generate_voice_local(text, model, **kwargs)
             else:
                 raise ValueError(f"Unsupported voice model: {model['name']}")
+            
+            generation_time = time.time() - generation_start
+            total_time = time.time() - start_time
+            
+            logger.info(f"✅ VOICE GENERATION COMPLETE in {total_time:.2f}s")
+            logger.info(f"   Model: {model['name']}")
+            logger.info(f"   Audio size: {len(result.get('audio_data', b''))} bytes")
+            logger.info(f"   Format: {result.get('format', 'unknown')}")
+            logger.info(f"   Generation time: {generation_time:.2f}s")
+            
+            return result
 
         except Exception as e:
-            logger.error(f"Voice generation failed: {str(e)}")
+            total_time = time.time() - start_time
+            logger.error(f"❌ VOICE GENERATION FAILED after {total_time:.2f}s")
+            logger.error(f"   Error: {str(e)}")
             raise
 
     # Local model generation methods
     async def _generate_text_local(
         self, prompt: str, model: Dict[str, Any], **kwargs
     ) -> str:
-        """Generate text using local models."""
+        """Generate text using local models with raw engine output streaming."""
         try:
             model_name = model["name"]
             inference_engine = model.get("inference_engine", "transformers")
+            
+            logger.info(f"   Using inference engine: {inference_engine}")
 
             if inference_engine == "vllm":
                 return await self._generate_text_vllm(prompt, model, **kwargs)
             elif inference_engine == "transformers":
                 return await self._generate_text_transformers(prompt, model, **kwargs)
+            elif inference_engine == "llama.cpp":
+                return await self._generate_text_llamacpp(prompt, model, **kwargs)
             else:
                 raise ValueError(f"Unsupported inference engine: {inference_engine}")
 
         except Exception as e:
-            logger.error(f"Local text generation failed: {str(e)}")
-            # Fallback to placeholder
-            return f"[Local text generation failed: {str(e)}]"
+            logger.error(f"   ❌ Local text generation failed: {str(e)}")
+            raise
+    
+    async def _generate_text_llamacpp(
+        self, prompt: str, model: Dict[str, Any], **kwargs
+    ) -> str:
+        """Generate text using llama.cpp with full raw output streaming."""
+        try:
+            logger.info(f"   🦙 Starting llama.cpp engine for {model['name']}...")
+            logger.info(f"   Model path: {model.get('path', 'Not specified')}")
+            
+            # Check for llama.cpp binary
+            llamacpp_binary = shutil.which("llama-cli") or shutil.which("main")
+            if not llamacpp_binary:
+                logger.warning(f"   ⚠️  llama.cpp not found in PATH")
+                logger.warning(f"   Install llama.cpp and ensure 'llama-cli' or 'main' is in PATH")
+                raise ValueError("llama.cpp not found")
+            
+            model_file = model.get('path')
+            if not Path(model_file).exists():
+                logger.warning(f"   ⚠️  Model file not found: {model_file}")
+                raise ValueError(f"Model file not found: {model_file}")
+            
+            logger.info(f"   ✓ Found llama.cpp at: {llamacpp_binary}")
+            logger.info(f"   " + "="*76)
+            logger.info(f"   RAW LLAMA.CPP ENGINE OUTPUT (LIVE):")
+            logger.info(f"   " + "="*76)
+            
+            # Build llama.cpp command
+            cmd = [
+                llamacpp_binary,
+                "-m", str(model_file),
+                "-p", prompt,
+                "-n", str(kwargs.get('max_tokens', 1000)),
+                "--temp", str(kwargs.get('temperature', 0.7)),
+                "-c", "4096",  # context size
+                "--log-disable",  # Disable file logging
+            ]
+            
+            # Run subprocess and stream output in real-time
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+                cwd=str(Path(model_file).parent),
+            )
+            
+            generated_text = []
+            async for line in process.stdout:
+                line_text = line.decode('utf-8', errors='ignore').rstrip()
+                if line_text:
+                    # Print raw llama.cpp output
+                    logger.info(f"   {line_text}")
+                    generated_text.append(line_text)
+            
+            await process.wait()
+            
+            logger.info(f"   " + "="*76)
+            logger.info(f"   ✓ llama.cpp generation complete (exit code: {process.returncode})")
+            
+            full_output = '\n'.join(generated_text)
+            return full_output
+            
+        except Exception as e:
+            logger.error(f"   ❌ llama.cpp generation failed: {str(e)}")
+            raise
 
     async def _generate_image_local(
         self, prompt: str, model: Dict[str, Any], **kwargs
@@ -1190,22 +1391,124 @@ class AIModelManager:
     ) -> str:
         """Generate text using vLLM for high-performance inference."""
         try:
-            # This would integrate with vLLM in production
-            # For now, return a placeholder indicating the capability
+            logger.info(f"   🔧 Starting vLLM engine for {model['name']}...")
+            logger.info(f"   " + "="*76)
+            logger.info(f"   RAW vLLM ENGINE OUTPUT:")
+            logger.info(f"   " + "="*76)
+            
+            # Check if vLLM server is running
+            vllm_url = os.environ.get("VLLM_API_URL", "http://localhost:8001")
+            
+            try:
+                # Try to use vLLM API if available
+                response = await self.http_client.post(
+                    f"{vllm_url}/v1/completions",
+                    json={
+                        "model": model.get("model_id", model["name"]),
+                        "prompt": prompt,
+                        "max_tokens": kwargs.get("max_tokens", 1000),
+                        "temperature": kwargs.get("temperature", 0.7),
+                        "stream": False,
+                    },
+                    timeout=300.0,
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    generated_text = result["choices"][0]["text"]
+                    
+                    # Log raw vLLM stats
+                    logger.info(f"   vLLM Stats:")
+                    logger.info(f"   - Model: {model['name']}")
+                    logger.info(f"   - Tokens generated: {result.get('usage', {}).get('completion_tokens', 'N/A')}")
+                    logger.info(f"   - Total tokens: {result.get('usage', {}).get('total_tokens', 'N/A')}")
+                    logger.info(f"   " + "-"*76)
+                    logger.info(f"   GENERATED TEXT:")
+                    for line in generated_text.split('\n'):
+                        logger.info(f"   | {line}")
+                    logger.info(f"   " + "="*76)
+                    
+                    return generated_text
+                else:
+                    logger.warning(f"   ⚠️  vLLM server not responding (status {response.status_code})")
+                    
+            except Exception as vllm_error:
+                logger.warning(f"   ⚠️  vLLM not available: {str(vllm_error)}")
+            
+            # Fallback: Return placeholder with detailed info
+            logger.info(f"   ℹ️  vLLM engine not configured or not running")
+            logger.info(f"   To enable: Set VLLM_API_URL or install model at {model.get('path')}")
+            logger.info(f"   " + "="*76)
+            
             return f"[vLLM generation with {model['name']}: {prompt[:100]}...]"
+            
         except Exception as e:
-            logger.error(f"vLLM generation failed: {str(e)}")
+            logger.error(f"   ❌ vLLM generation failed: {str(e)}")
             raise
 
     async def _generate_text_transformers(
         self, prompt: str, model: Dict[str, Any], **kwargs
     ) -> str:
-        """Generate text using Transformers library."""
+        """Generate text using Transformers library with raw output streaming."""
         try:
-            # This would integrate with transformers in production
-            return f"[Transformers generation with {model['name']}: {prompt[:100]}...]"
+            logger.info(f"   🔧 Starting Transformers engine for {model['name']}...")
+            logger.info(f"   Model path: {model.get('path', 'Not specified')}")
+            logger.info(f"   " + "="*76)
+            logger.info(f"   RAW TRANSFORMERS ENGINE OUTPUT:")
+            logger.info(f"   " + "="*76)
+            
+            # Check if model is actually available locally
+            model_path = Path(model.get('path', ''))
+            if not model_path.exists():
+                logger.warning(f"   ⚠️  Model not found at {model_path}")
+                logger.warning(f"   To use this model, download it first:")
+                logger.warning(f"   huggingface-cli download {model.get('model_id', 'unknown')}")
+                raise ValueError(f"Model not found: {model['name']}")
+            
+            # Try to load and use transformers
+            try:
+                from transformers import AutoModelForCausalLM, AutoTokenizer
+                import torch
+                
+                logger.info(f"   Loading model from {model_path}...")
+                tokenizer = AutoTokenizer.from_pretrained(str(model_path))
+                loaded_model = AutoModelForCausalLM.from_pretrained(
+                    str(model_path),
+                    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                    device_map="auto" if torch.cuda.is_available() else "cpu",
+                )
+                
+                logger.info(f"   ✓ Model loaded, tokenizing prompt...")
+                inputs = tokenizer(prompt, return_tensors="pt").to(loaded_model.device)
+                
+                logger.info(f"   ⚙️  Generating (max_tokens={kwargs.get('max_tokens', 1000)})...")
+                logger.info(f"   " + "-"*76)
+                
+                outputs = loaded_model.generate(
+                    **inputs,
+                    max_new_tokens=kwargs.get('max_tokens', 1000),
+                    temperature=kwargs.get('temperature', 0.7),
+                    do_sample=True,
+                    pad_token_id=tokenizer.eos_token_id,
+                )
+                
+                generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+                
+                # Log the raw output
+                logger.info(f"   GENERATED TEXT:")
+                for line in generated_text.split('\n'):
+                    logger.info(f"   | {line}")
+                logger.info(f"   " + "="*76)
+                
+                return generated_text
+                
+            except ImportError:
+                logger.warning(f"   ⚠️  Transformers library not available")
+                logger.warning(f"   Install with: pip install transformers torch")
+                raise ValueError("Transformers library not installed")
+                
         except Exception as e:
-            logger.error(f"Transformers generation failed: {str(e)}")
+            logger.error(f"   ❌ Transformers generation failed: {str(e)}")
             raise
 
     # ComfyUI integration
@@ -1521,6 +1824,9 @@ class AIModelManager:
     async def _generate_text_openai(self, prompt: str, model: str, **kwargs) -> str:
         """Generate text using OpenAI models."""
         try:
+            logger.info(f"   📡 Calling OpenAI API ({model})...")
+            logger.info(f"   Request: max_tokens={kwargs.get('max_tokens', 1000)}, temp={kwargs.get('temperature', 0.7)}")
+            
             response = await self.http_client.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers={
@@ -1536,13 +1842,25 @@ class AIModelManager:
             )
 
             if response.status_code != 200:
+                logger.error(f"   ❌ OpenAI API returned error: {response.status_code}")
+                logger.error(f"   Response: {response.text[:200]}")
                 raise Exception(f"OpenAI API error: {response.text}")
 
             result = response.json()
-            return result["choices"][0]["message"]["content"].strip()
+            generated_text = result["choices"][0]["message"]["content"].strip()
+            
+            # Log the actual AI output
+            logger.info(f"   📄 AI OUTPUT (OpenAI {model}):")
+            logger.info(f"   " + "-"*76)
+            for line in generated_text.split('\n'):
+                logger.info(f"   {line}")
+            logger.info(f"   " + "-"*76)
+            logger.info(f"   Tokens used: {result.get('usage', {}).get('total_tokens', 'unknown')}")
+            
+            return generated_text
 
         except Exception as e:
-            logger.error(f"OpenAI text generation failed: {str(e)}")
+            logger.error(f"   ❌ OpenAI text generation failed: {str(e)}")
             raise
 
     async def _generate_text_anthropic(self, prompt: str, **kwargs) -> str:

@@ -192,28 +192,43 @@ class ContentGenerationService:
         Raises:
             ValueError: If persona not found or generation fails
         """
+        logger.info("="*80)
+        logger.info(f"🚀 CONTENT GENERATION REQUEST RECEIVED")
+        logger.info(f"   Content type: {request.content_type.value}")
+        logger.info(f"   Quality: {request.quality}")
+        logger.info(f"   Rating: {request.content_rating.value}")
+        
         try:
             # Get persona data - if no persona_id provided, use first available persona
             if request.persona_id is None:
+                logger.info("   No persona specified, searching for default...")
                 persona = await self._get_first_persona()
                 if not persona:
+                    logger.error("   ❌ No personas available in database")
                     raise ValueError(
                         "No personas available. Please create a persona first."
                     )
                 request.persona_id = persona.id
+                logger.info(f"   ✓ Using default persona: {persona.name} ({persona.id})")
             else:
+                logger.info(f"   Loading persona: {request.persona_id}")
                 persona = await self._get_persona(request.persona_id)
                 if not persona:
+                    logger.error(f"   ❌ Persona not found: {request.persona_id}")
                     raise ValueError(f"Persona not found: {request.persona_id}")
+                logger.info(f"   ✓ Persona loaded: {persona.name}")
 
             # Generate prompt if not provided
             if not request.prompt:
+                logger.info("   Generating AI prompt based on persona...")
                 request.prompt = await self._generate_prompt(
                     persona, request.content_type, request.content_rating
                 )
+                logger.info(f"   ✓ Generated prompt: {request.prompt[:80]}...")
 
             # Validate content rating against persona settings
             if not await self._validate_content_rating(persona, request.content_rating):
+                logger.error(f"   ❌ Content rating {request.content_rating} not allowed for persona {persona.name}")
                 raise ValueError(
                     f"Content rating {request.content_rating} not allowed for persona {persona.name}"
                 )
@@ -224,10 +239,11 @@ class ContentGenerationService:
             )
             if analyzed_rating != request.content_rating:
                 logger.info(
-                    f"Content rating adjusted from {request.content_rating} to {analyzed_rating}"
+                    f"   📊 Content rating adjusted from {request.content_rating} to {analyzed_rating}"
                 )
                 request.content_rating = analyzed_rating
 
+            logger.info("-"*80)
             # Generate content based on type
             if request.content_type == ContentType.IMAGE:
                 content_data = await self._generate_image(persona, request)
@@ -242,6 +258,9 @@ class ContentGenerationService:
             else:
                 raise ValueError(f"Unsupported content type: {request.content_type}")
 
+            logger.info("-"*80)
+            logger.info("   💾 Saving content record to database...")
+            
             # Apply platform-specific adaptations
             platform_adaptations = await self._create_platform_adaptations(
                 persona,
@@ -249,25 +268,35 @@ class ContentGenerationService:
                 request.content_rating,
                 request.target_platforms or [],
             )
+            
+            if request.target_platforms:
+                logger.info(f"   ✓ Platform adaptations: {', '.join(request.target_platforms)}")
 
             # Store content metadata in database
             content_record = await self._save_content_record(
                 persona, request, content_data, platform_adaptations
             )
+            logger.info(f"   ✓ Content saved with ID: {content_record.id}")
 
             # Update persona generation count
             await self._increment_persona_count(persona.id)
 
-            logger.info(
-                f"Content generated successfully content_id={content_record.id}"
-            )
+            logger.info("="*80)
+            logger.info(f"✅ CONTENT GENERATION COMPLETE")
+            logger.info(f"   Content ID: {content_record.id}")
+            logger.info(f"   Type: {request.content_type.value}")
+            logger.info(f"   Persona: {persona.name}")
+            logger.info("="*80)
 
             return content_record
 
         except Exception as e:
-            logger.error(
-                f"Content generation failed error={str(e)} persona_id={request.persona_id} content_type={request.content_type}"
-            )
+            logger.error("="*80)
+            logger.error(f"❌ CONTENT GENERATION FAILED")
+            logger.error(f"   Error: {str(e)}")
+            logger.error(f"   Persona ID: {request.persona_id}")
+            logger.error(f"   Content type: {request.content_type}")
+            logger.error("="*80)
             raise ValueError(f"Content generation failed: {str(e)}")
 
     async def get_content(self, content_id: UUID) -> Optional[ContentResponse]:
@@ -928,23 +957,16 @@ Generate the social media content now:"""
                 })
                 
                 # Enhanced fallback generation using persona characteristics
-                logger.warning(
-                    f"AI text generation failed, using template-based fallback for persona {persona.id}: {str(e)}",
-                    extra={
-                        "persona_id": str(persona.id),
-                        "persona_name": persona.name,
-                        "prompt": request.prompt,
-                        "quality": request.quality,
-                        "error": str(e),
-                        "error_type": type(e).__name__,
-                        "acd_context_id": str(acd.context_id),
-                        "fallback_method": "template_based",
-                    }
-                )
+                logger.warning("⚠️  AI text generation unavailable, using fallback method")
+                logger.warning(f"   Reason: {str(e)}")
+                logger.warning(f"   Fallback: Template-based generation")
+                logger.info("   🔄 Generating content using template fallback...")
+                
                 await asyncio.sleep(0.05)  # Simulate processing time
 
                 # Create more sophisticated fallback content based on persona and prompt
                 generated_text = await self._create_enhanced_fallback_text(persona, request)
+                logger.info(f"   ✓ Fallback content generated: {len(generated_text)} characters")
 
                 filename = f"text_fallback_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
                 file_path = self.content_dir / "text" / filename

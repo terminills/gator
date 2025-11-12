@@ -85,7 +85,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         from backend.services.ai_models import ai_models
 
-        print("Initializing AI models...")
+        print("\n" + "="*80)
+        print("🤖 Initializing AI models...")
+        print("="*80)
         await ai_models.initialize_models()
 
         # Log available models
@@ -120,17 +122,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             ),
         }
 
-        print(f"AI models initialized:")
+        print("="*80)
+        print(f"✅ AI models initialized:")
         print(f"  - Text models loaded: {available_counts['text']}")
         print(f"  - Image models loaded: {available_counts['image']}")
         print(f"  - Voice models loaded: {available_counts['voice']}")
         print(f"  - Video models loaded: {available_counts['video']}")
+        print("="*80)
 
         if sum(available_counts.values()) == 0:
             print("  ⚠️  No local models found. Using cloud APIs if configured.")
+        
+        print("\n")
 
     except Exception as e:
-        print(f"Warning: Failed to initialize AI models: {str(e)}")
+        print(f"⚠️  Warning: Failed to initialize AI models: {str(e)}")
         print("  Content generation may use fallback mechanisms.")
 
     yield
