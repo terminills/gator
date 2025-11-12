@@ -313,3 +313,37 @@ async def get_validation_report(
     except Exception as e:
         logger.error(f"Failed to generate validation report: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/process-queue/", status_code=202)
+async def process_queue(
+    max_contexts: int = Query(10, ge=1, le=100, description="Maximum contexts to process"),
+    phase: Optional[str] = Query(None, description="Filter by phase"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Process queued ACD contexts and trigger content generation.
+    
+    This endpoint actually triggers content generation for queued ACD contexts,
+    fixing the issue where ACD only logged to database without generating content.
+    
+    Args:
+        max_contexts: Maximum number of contexts to process (1-100)
+        phase: Optional phase filter (e.g., "IMAGE_GENERATION", "TEXT_GENERATION")
+        
+    Returns:
+        Processing results with success/failure counts
+    """
+    try:
+        service = ACDService(db)
+        results = await service.process_queued_contexts(
+            max_contexts=max_contexts,
+            phase_filter=phase
+        )
+        return {
+            "status": "processing_complete",
+            "summary": results,
+        }
+    except Exception as e:
+        logger.error(f"Failed to process queue: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
