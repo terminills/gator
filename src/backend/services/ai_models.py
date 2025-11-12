@@ -1962,13 +1962,27 @@ class AIModelManager:
                         "requires_safety_checker": False,  # Suppress warning
                     }
 
-                    # Add SDXL-specific parameters for fp16 variant loading
-                    # This ensures tokenizer and all components load correctly
+                    # Try to load with fp16 variant first for SDXL models
+                    # If variant files are not available, fallback to default loading
                     if is_sdxl and "cuda" in device:
-                        load_args["variant"] = "fp16"
-                        load_args["use_safetensors"] = True
-
-                    pipe = PipelineClass.from_pretrained(str(model_path), **load_args)
+                        load_args_fp16 = load_args.copy()
+                        load_args_fp16["variant"] = "fp16"
+                        load_args_fp16["use_safetensors"] = True
+                        try:
+                            pipe = PipelineClass.from_pretrained(
+                                str(model_path), **load_args_fp16
+                            )
+                        except (ValueError, OSError) as e:
+                            logger.warning(
+                                f"fp16 variant not available, loading without variant: {e}"
+                            )
+                            pipe = PipelineClass.from_pretrained(
+                                str(model_path), **load_args
+                            )
+                    else:
+                        pipe = PipelineClass.from_pretrained(
+                            str(model_path), **load_args
+                        )
                 else:
                     logger.info(f"Loading model from HuggingFace Hub: {model_id}")
                     # Prepare loading arguments
@@ -1980,13 +1994,23 @@ class AIModelManager:
                         "requires_safety_checker": False,  # Suppress warning
                     }
 
-                    # Add SDXL-specific parameters for fp16 variant loading
-                    # This ensures tokenizer and all components load correctly
+                    # Try to load with fp16 variant first for SDXL models
+                    # If variant files are not available, fallback to default loading
                     if is_sdxl and "cuda" in device:
-                        load_args["variant"] = "fp16"
-                        load_args["use_safetensors"] = True
-
-                    pipe = PipelineClass.from_pretrained(model_id, **load_args)
+                        load_args_fp16 = load_args.copy()
+                        load_args_fp16["variant"] = "fp16"
+                        load_args_fp16["use_safetensors"] = True
+                        try:
+                            pipe = PipelineClass.from_pretrained(
+                                model_id, **load_args_fp16
+                            )
+                        except (ValueError, OSError) as e:
+                            logger.warning(
+                                f"fp16 variant not available, loading without variant: {e}"
+                            )
+                            pipe = PipelineClass.from_pretrained(model_id, **load_args)
+                    else:
+                        pipe = PipelineClass.from_pretrained(model_id, **load_args)
                     # Save to local path for future use
                     if not model_path.exists():
                         model_path.mkdir(parents=True, exist_ok=True)
