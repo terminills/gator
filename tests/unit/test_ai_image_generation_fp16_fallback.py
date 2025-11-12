@@ -3,9 +3,7 @@ Unit tests for AI Model Manager - Image Generation fp16 Variant Fallback
 """
 
 import pytest
-import asyncio
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock
 import io
 
 from backend.services.ai_models import AIModelManager
@@ -47,7 +45,8 @@ class TestImageGenerationFp16Fallback:
         # First call with fp16 should fail, second call without variant should succeed
         mock_pipeline.from_pretrained.side_effect = [
             ValueError(
-                "You are trying to load the model files of the `variant=fp16`, but no such modeling files are available."
+                "You are trying to load the model files of the `variant=fp16`, "
+                "but no such modeling files are available."
             ),
             mock_pipe_instance,  # Second call succeeds
         ]
@@ -162,7 +161,8 @@ class TestImageGenerationFp16Fallback:
         # First call with fp16 should fail, second call without variant should succeed
         mock_pipeline.from_pretrained.side_effect = [
             ValueError(
-                "You are trying to load the model files of the `variant=fp16`, but no such modeling files are available."
+                "You are trying to load the model files of the `variant=fp16`, "
+                "but no such modeling files are available."
             ),
             mock_pipe_instance,
         ]
