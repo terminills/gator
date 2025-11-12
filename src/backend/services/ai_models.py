@@ -458,12 +458,9 @@ class AIModelManager:
                 # even without GPU (though slower)
                 can_run = has_gpu_memory and has_ram
                 can_run_cpu = has_ram  # Allow CPU fallback if RAM is sufficient
-                
+
                 # Track if model is running below optimal RAM
-                below_optimal_ram = (
-                    has_ram and 
-                    sys_req["ram_gb"] < min_ram_required
-                )
+                below_optimal_ram = has_ram and sys_req["ram_gb"] < min_ram_required
 
                 if can_run or can_run_cpu:
                     # Check both model path formats for compatibility
@@ -1899,10 +1896,17 @@ class AIModelManager:
     ) -> Dict[str, Any]:
         """Generate image using Diffusers library with optional reference image for consistency."""
         try:
-            from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
+            from diffusers import (
+                StableDiffusionPipeline,
+                StableDiffusionXLPipeline,
+                DPMSolverMultistepScheduler,
+            )
 
             model_name = model["name"]
             model_id = model["model_id"]
+
+            # Determine if this is an SDXL model
+            is_sdxl = "xl" in model_name.lower() or "xl" in model_id.lower()
             # Use the path from model info if available (handles both formats)
             model_path = Path(
                 model.get("path", str(self.models_dir / "image" / model_name))
@@ -1935,10 +1939,21 @@ class AIModelManager:
                     f"Loading diffusion model: {model_name} on device {device_id if device_id is not None else 'default'}"
                 )
 
+                # Select the appropriate pipeline class
+                PipelineClass = (
+                    StableDiffusionXLPipeline if is_sdxl else StableDiffusionPipeline
+                )
+                pipeline_type = (
+                    "StableDiffusionXLPipeline"
+                    if is_sdxl
+                    else "StableDiffusionPipeline"
+                )
+                logger.info(f"Using pipeline: {pipeline_type} for model {model_name}")
+
                 # Try to load from local path first, fallback to HuggingFace Hub
                 if model_path.exists():
                     logger.info(f"Loading model from local path: {model_path}")
-                    pipe = StableDiffusionPipeline.from_pretrained(
+                    pipe = PipelineClass.from_pretrained(
                         str(model_path),
                         torch_dtype=(
                             torch.float16 if "cuda" in device else torch.float32
@@ -1948,7 +1963,7 @@ class AIModelManager:
                     )
                 else:
                     logger.info(f"Loading model from HuggingFace Hub: {model_id}")
-                    pipe = StableDiffusionPipeline.from_pretrained(
+                    pipe = PipelineClass.from_pretrained(
                         model_id,
                         torch_dtype=(
                             torch.float16 if "cuda" in device else torch.float32
