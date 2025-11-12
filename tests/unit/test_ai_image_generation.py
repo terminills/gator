@@ -152,24 +152,28 @@ class TestImageGeneration:
 
     @pytest.mark.asyncio
     @patch("backend.services.ai_models.AIModelManager._fallback_to_diffusers")
-    async def test_comfyui_fallback_when_unavailable(self, mock_fallback, model_manager):
+    async def test_comfyui_fallback_when_unavailable(
+        self, mock_fallback, model_manager
+    ):
         """Test that ComfyUI falls back to diffusers when unavailable."""
         test_model = {
             "name": "test-comfyui-model",
             "model_id": "test/comfyui",
         }
-        
+
         # Mock fallback response
         mock_fallback.return_value = {
             "image_data": b"fallback_image",
             "format": "PNG",
             "model": "fallback-model",
-            "status": "success"
+            "status": "success",
         }
-        
+
         # Mock http_client to simulate ComfyUI not available
         model_manager.http_client = AsyncMock()
-        model_manager.http_client.get = AsyncMock(side_effect=Exception("Connection refused"))
+        model_manager.http_client.get = AsyncMock(
+            side_effect=Exception("Connection refused")
+        )
 
         result = await model_manager._generate_image_comfyui("test prompt", test_model)
 
@@ -177,68 +181,71 @@ class TestImageGeneration:
         mock_fallback.assert_called_once()
         assert result["image_data"] == b"fallback_image"
         assert result["model"] == "fallback-model"
-    
+
     @pytest.mark.asyncio
     @patch("backend.utils.model_detection.find_comfyui_installation")
     async def test_comfyui_integration_with_api(self, mock_comfyui_find, model_manager):
         """Test that ComfyUI integration works when API is available."""
         # Mock ComfyUI installation found
         mock_comfyui_find.return_value = Path("/fake/comfyui/path")
-        
+
         test_model = {
             "name": "flux.1-dev",
             "model_id": "flux1-dev.safetensors",
         }
-        
+
         # Mock http_client for successful ComfyUI interaction
         model_manager.http_client = AsyncMock()
-        
+
         # Mock system_stats call (ComfyUI available)
         stats_response = AsyncMock()
         stats_response.status_code = 200
-        
+
         # Mock prompt submission
         queue_response = AsyncMock()
         queue_response.status_code = 200
         queue_response.json = Mock(return_value={"prompt_id": "test-prompt-123"})
-        
+
         # Mock history check (completed)
         history_response = AsyncMock()
         history_response.status_code = 200
-        history_response.json = Mock(return_value={
-            "test-prompt-123": {
-                "outputs": {
-                    "9": {
-                        "images": [{
-                            "filename": "test_image.png",
-                            "subfolder": "",
-                            "type": "output"
-                        }]
+        history_response.json = Mock(
+            return_value={
+                "test-prompt-123": {
+                    "outputs": {
+                        "9": {
+                            "images": [
+                                {
+                                    "filename": "test_image.png",
+                                    "subfolder": "",
+                                    "type": "output",
+                                }
+                            ]
+                        }
                     }
                 }
             }
-        })
-        
+        )
+
         # Mock image download
         image_response = AsyncMock()
         image_response.status_code = 200
         image_response.content = b"fake_comfyui_image_data"
-        
+
         # Setup mock responses
-        model_manager.http_client.get = AsyncMock(side_effect=[
-            stats_response,  # First call: system_stats
-            history_response,  # Second call: history check
-            image_response,  # Third call: image download
-        ])
-        model_manager.http_client.post = AsyncMock(return_value=queue_response)
-        
-        result = await model_manager._generate_image_comfyui(
-            "test prompt", 
-            test_model,
-            width=1024,
-            height=1024
+        model_manager.http_client.get = AsyncMock(
+            side_effect=[
+                stats_response,  # First call: system_stats
+                history_response,  # Second call: history check
+                image_response,  # Third call: image download
+            ]
         )
-        
+        model_manager.http_client.post = AsyncMock(return_value=queue_response)
+
+        result = await model_manager._generate_image_comfyui(
+            "test prompt", test_model, width=1024, height=1024
+        )
+
         # Verify successful generation
         assert result["status"] == "success"
         assert result["image_data"] == b"fake_comfyui_image_data"
@@ -342,7 +349,7 @@ class TestImageGeneration:
         mock_cuda.return_value = True
         # Mock path to NOT exist so it loads from HuggingFace Hub
         mock_path_exists.return_value = False
-        
+
         mock_pipe_instance = MagicMock()
         mock_pipe_instance.to.return_value = mock_pipe_instance
         mock_pipe_instance.scheduler = MagicMock()
@@ -372,13 +379,21 @@ class TestImageGeneration:
             # Verify pipeline was loaded with correct parameters
             mock_pipeline.from_pretrained.assert_called_once()
             call_args = mock_pipeline.from_pretrained.call_args
-            
+
             # Check that variant and use_safetensors are present
-            assert "variant" in call_args[1], "variant parameter should be present for SDXL"
-            assert call_args[1]["variant"] == "fp16", "variant should be 'fp16' for SDXL on CUDA"
-            assert "use_safetensors" in call_args[1], "use_safetensors should be present"
-            assert call_args[1]["use_safetensors"] is True, "use_safetensors should be True"
-            
+            assert (
+                "variant" in call_args[1]
+            ), "variant parameter should be present for SDXL"
+            assert (
+                call_args[1]["variant"] == "fp16"
+            ), "variant should be 'fp16' for SDXL on CUDA"
+            assert (
+                "use_safetensors" in call_args[1]
+            ), "use_safetensors should be present"
+            assert (
+                call_args[1]["use_safetensors"] is True
+            ), "use_safetensors should be True"
+
             assert "image_data" in result
             assert result["format"] == "PNG"
         except Exception as e:
