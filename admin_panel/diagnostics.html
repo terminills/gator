@@ -792,31 +792,76 @@
             addChatMessage('user', 'Create test persona');
             const typingIndicator = document.getElementById('typing-indicator');
             typingIndicator.classList.add('active');
+            const verboseMode = document.getElementById('verbose-mode').checked;
+            
+            let log = [];
+            log.push('[ACTIVITY] Test Persona Creation');
+            log.push('[TIMESTAMP] ' + new Date().toISOString());
+            log.push('');
             
             try {
                 const timestamp = Date.now();
+                const personaData = {
+                    name: `Test Persona ${timestamp}`,
+                    appearance: 'Professional business attire, confident demeanor, modern style',
+                    personality: 'Confident, knowledgeable, friendly and approachable',
+                    content_themes: ['technology', 'business', 'innovation'],
+                    style_preferences: { tone: 'professional', format: 'structured' }
+                };
+                
+                log.push('[STEP 1] Preparing persona data...');
+                log.push('[PERSONA DATA]');
+                log.push(JSON.stringify(personaData, null, 2));
+                log.push('');
+                
+                log.push('[STEP 2] Creating persona...');
+                log.push('[API CALL] POST /api/v1/personas/');
+                
+                const startTime = Date.now();
                 const response = await fetch('/api/v1/personas/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: `Test Persona ${timestamp}`,
-                        appearance: 'Professional business attire, confident demeanor, modern style',
-                        personality: 'Confident, knowledgeable, friendly and approachable',
-                        content_themes: ['technology', 'business', 'innovation'],
-                        style_preferences: { tone: 'professional', format: 'structured' }
-                    })
+                    body: JSON.stringify(personaData)
                 });
+                const elapsed = Date.now() - startTime;
+                
+                log.push(`[RESPONSE] HTTP ${response.status} ${response.statusText} (${elapsed}ms)`);
                 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Persona creation failed');
+                    const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                    log.push('[ERROR] Persona creation failed');
+                    log.push('[ERROR DETAILS] ' + JSON.stringify(errorData, null, 2));
+                    throw new Error(errorData.detail || 'Persona creation failed');
                 }
                 
                 const result = await response.json();
-                addChatMessage('gator', `✅ Test persona created! Name: ${result.name}, ID: ${result.id}`);
+                log.push('[STEP 2] ✓ Persona created successfully');
+                log.push('');
+                log.push('[RESULT DETAILS]');
+                log.push(`  - Persona ID: ${result.id}`);
+                log.push(`  - Name: ${result.name}`);
+                log.push(`  - Appearance: ${result.appearance}`);
+                log.push(`  - Personality: ${result.personality}`);
+                log.push(`  - Themes: ${result.content_themes.join(', ')}`);
+                log.push('');
+                log.push('[COMPLETE] Test persona created successfully!');
+                
+                if (verboseMode) {
+                    addChatMessage('gator', log.join('\n'), false, true);
+                } else {
+                    addChatMessage('gator', `✅ Test persona created! Name: ${result.name}, ID: ${result.id}`);
+                }
                 
             } catch (error) {
-                addChatMessage('gator', `❌ FAILED: ${error.message}. Persona creation is broken!`, true);
+                log.push('');
+                log.push('[FATAL ERROR] ' + error.message);
+                log.push('[ERROR STACK] ' + (error.stack || 'No stack trace available'));
+                
+                if (verboseMode) {
+                    addChatMessage('gator', log.join('\n'), true, true);
+                } else {
+                    addChatMessage('gator', `❌ FAILED: ${error.message}. Persona creation is broken!`, true);
+                }
             } finally {
                 typingIndicator.classList.remove('active');
             }
@@ -826,16 +871,52 @@
             addChatMessage('user', 'Check available AI models');
             const typingIndicator = document.getElementById('typing-indicator');
             typingIndicator.classList.add('active');
+            const verboseMode = document.getElementById('verbose-mode').checked;
+            
+            let log = [];
+            log.push('[ACTIVITY] AI Models Status Check');
+            log.push('[TIMESTAMP] ' + new Date().toISOString());
+            log.push('');
             
             try {
+                log.push('[STEP 1] Fetching AI models status...');
+                log.push('[API CALL] GET /api/v1/setup/models/status');
+                log.push('');
+                
+                const startTime = Date.now();
                 const response = await fetch('/api/v1/setup/models/status');
+                const elapsed = Date.now() - startTime;
+                
+                log.push(`[RESPONSE] HTTP ${response.status} ${response.statusText} (${elapsed}ms)`);
                 
                 if (!response.ok) {
-                    throw new Error('Cannot reach AI models endpoint');
+                    log.push('[ERROR] API endpoint returned error status');
+                    const errorText = await response.text();
+                    log.push('[ERROR DETAILS] ' + errorText);
+                    throw new Error(`HTTP ${response.status}: Cannot reach AI models endpoint`);
                 }
                 
                 const status = await response.json();
+                log.push('[STEP 1] ✓ Status retrieved successfully');
+                log.push('');
+                log.push('[STEP 2] Parsing model data...');
+                
                 let message = '🤖 AI Models Status:\n\n';
+                
+                if (verboseMode) {
+                    log.push('[MODEL CATEGORIES]');
+                    for (const [category, models] of Object.entries(status.models || {})) {
+                        log.push(`  - ${category}: ${models.length} model(s)`);
+                        for (const model of models) {
+                            const status_str = model.loaded ? 'LOADED' : (model.available ? 'AVAILABLE' : 'UNAVAILABLE');
+                            log.push(`    • ${model.name || 'Unknown'}: ${status_str}`);
+                            if (model.provider) log.push(`      Provider: ${model.provider}`);
+                            if (model.inference_engine) log.push(`      Engine: ${model.inference_engine}`);
+                            if (model.error) log.push(`      Error: ${model.error}`);
+                        }
+                    }
+                    log.push('');
+                }
                 
                 for (const [category, models] of Object.entries(status.models || {})) {
                     const available = models.filter(m => m.loaded || m.available).length;
@@ -843,13 +924,37 @@
                 }
                 
                 if (status.errors && status.errors.length > 0) {
+                    log.push('[ERRORS DETECTED]');
+                    for (const error of status.errors) {
+                        log.push(`  - ${error}`);
+                    }
+                    log.push('');
                     message += `\n⚠️ Errors: ${status.errors.join(', ')}`;
                 }
                 
-                addChatMessage('gator', message);
+                log.push('[STEP 2] ✓ Model data parsed');
+                log.push('');
+                log.push('[COMPLETE] AI models check complete!');
+                
+                if (verboseMode) {
+                    log.push('');
+                    log.push('[SUMMARY]');
+                    log.push(message.trim());
+                    addChatMessage('gator', log.join('\n'), false, true);
+                } else {
+                    addChatMessage('gator', message);
+                }
                 
             } catch (error) {
-                addChatMessage('gator', `❌ FAILED: ${error.message}. Cannot check AI models!`, true);
+                log.push('');
+                log.push('[FATAL ERROR] ' + error.message);
+                log.push('[ERROR STACK] ' + (error.stack || 'No stack trace available'));
+                
+                if (verboseMode) {
+                    addChatMessage('gator', log.join('\n'), true, true);
+                } else {
+                    addChatMessage('gator', `❌ FAILED: ${error.message}. Cannot check AI models!`, true);
+                }
             } finally {
                 typingIndicator.classList.remove('active');
             }
@@ -859,36 +964,104 @@
             addChatMessage('user', 'Test ACD context creation');
             const typingIndicator = document.getElementById('typing-indicator');
             typingIndicator.classList.add('active');
+            const verboseMode = document.getElementById('verbose-mode').checked;
+            
+            let log = [];
+            log.push('[ACTIVITY] ACD Context Creation Test');
+            log.push('[TIMESTAMP] ' + new Date().toISOString());
+            log.push('');
             
             try {
-                // Get first available persona
+                log.push('[STEP 1] Fetching available personas...');
+                log.push('[API CALL] GET /api/v1/personas/');
+                
+                const startTime1 = Date.now();
                 const personasResp = await fetch('/api/v1/personas/');
+                const elapsed1 = Date.now() - startTime1;
+                
+                log.push(`[RESPONSE] HTTP ${personasResp.status} ${personasResp.statusText} (${elapsed1}ms)`);
+                
+                if (!personasResp.ok) {
+                    const errorText = await personasResp.text();
+                    log.push('[ERROR] Failed to fetch personas');
+                    log.push('[ERROR DETAILS] ' + errorText);
+                    throw new Error('Failed to fetch personas');
+                }
+                
                 const personas = await personasResp.json();
                 
                 if (!personas || personas.length === 0) {
-                    throw new Error('No personas available');
+                    log.push('[ERROR] No personas available in system');
+                    throw new Error('No personas available. Create a persona first.');
                 }
                 
+                const selectedPersona = personas[0];
+                log.push(`[STEP 1] ✓ Found ${personas.length} persona(s)`);
+                log.push(`[SELECTED] Persona: ${selectedPersona.name} (ID: ${selectedPersona.id})`);
+                log.push('');
+                
+                log.push('[STEP 2] Creating ACD context...');
+                log.push('[API CALL] POST /api/v1/acd/contexts');
+                
+                const requestBody = {
+                    context_type: 'content_generation',
+                    persona_id: selectedPersona.id,
+                    metadata: { test: true, source: 'diagnostics', timestamp: new Date().toISOString() }
+                };
+                
+                log.push('[REQUEST BODY]');
+                log.push(JSON.stringify(requestBody, null, 2));
+                log.push('');
+                
+                const startTime2 = Date.now();
                 const response = await fetch('/api/v1/acd/contexts', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        context_type: 'content_generation',
-                        persona_id: personas[0].id,
-                        metadata: { test: true, source: 'diagnostics' }
-                    })
+                    body: JSON.stringify(requestBody)
                 });
+                const elapsed2 = Date.now() - startTime2;
+                
+                log.push(`[RESPONSE] HTTP ${response.status} ${response.statusText} (${elapsed2}ms)`);
                 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'ACD context creation failed');
+                    const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                    log.push('[ERROR] ACD context creation failed');
+                    log.push('[ERROR DETAILS] ' + JSON.stringify(errorData, null, 2));
+                    throw new Error(errorData.detail || 'ACD context creation failed');
                 }
                 
                 const result = await response.json();
-                addChatMessage('gator', `✅ ACD context created! ID: ${result.id}, Phase: ${result.ai_phase}, State: ${result.ai_state}`);
+                log.push('[STEP 2] ✓ ACD context created successfully');
+                log.push('');
+                log.push('[RESULT DETAILS]');
+                log.push(`  - Context ID: ${result.id}`);
+                log.push(`  - Context Type: ${result.context_type}`);
+                log.push(`  - AI Phase: ${result.ai_phase}`);
+                log.push(`  - AI State: ${result.ai_state}`);
+                log.push(`  - AI Confidence: ${result.ai_confidence || 'N/A'}`);
+                log.push(`  - Persona ID: ${result.persona_id}`);
+                if (result.metadata) {
+                    log.push(`  - Metadata: ${JSON.stringify(result.metadata)}`);
+                }
+                log.push('');
+                log.push('[COMPLETE] ACD context test successful!');
+                
+                if (verboseMode) {
+                    addChatMessage('gator', log.join('\n'), false, true);
+                } else {
+                    addChatMessage('gator', `✅ ACD context created! ID: ${result.id}, Phase: ${result.ai_phase}, State: ${result.ai_state}`);
+                }
                 
             } catch (error) {
-                addChatMessage('gator', `❌ FAILED: ${error.message}. ACD system is broken!`, true);
+                log.push('');
+                log.push('[FATAL ERROR] ' + error.message);
+                log.push('[ERROR STACK] ' + (error.stack || 'No stack trace available'));
+                
+                if (verboseMode) {
+                    addChatMessage('gator', log.join('\n'), true, true);
+                } else {
+                    addChatMessage('gator', `❌ FAILED: ${error.message}. ACD system is broken!`, true);
+                }
             } finally {
                 typingIndicator.classList.remove('active');
             }
@@ -898,64 +1071,233 @@
             addChatMessage('user', 'Run full diagnostic check');
             const typingIndicator = document.getElementById('typing-indicator');
             typingIndicator.classList.add('active');
+            const verboseMode = document.getElementById('verbose-mode').checked;
+            
+            let log = [];
+            log.push('[ACTIVITY] Full System Diagnostic');
+            log.push('[TIMESTAMP] ' + new Date().toISOString());
+            log.push('');
             
             try {
                 // Check multiple systems
                 const results = {
-                    api: false,
-                    personas: false,
-                    aiModels: false,
-                    acd: false,
-                    gatorAgent: false
+                    api: { status: false, response: null, error: null, elapsed: 0 },
+                    personas: { status: false, response: null, error: null, elapsed: 0 },
+                    aiModels: { status: false, response: null, error: null, elapsed: 0 },
+                    acd: { status: false, response: null, error: null, elapsed: 0 },
+                    gatorAgent: { status: false, response: null, error: null, elapsed: 0 }
                 };
                 
                 // Test API health
+                log.push('[TEST 1/5] API Health Check');
+                log.push('[API CALL] GET /health');
                 try {
+                    const start = Date.now();
                     const healthResp = await fetch('/health');
-                    results.api = healthResp.ok;
-                } catch (e) { /* ignore */ }
+                    results.api.elapsed = Date.now() - start;
+                    results.api.status = healthResp.ok;
+                    
+                    log.push(`[RESPONSE] HTTP ${healthResp.status} ${healthResp.statusText} (${results.api.elapsed}ms)`);
+                    
+                    if (healthResp.ok) {
+                        const data = await healthResp.json();
+                        results.api.response = data;
+                        log.push('[RESULT] ✓ API is healthy');
+                        if (verboseMode && data) {
+                            log.push('[DETAILS] ' + JSON.stringify(data, null, 2));
+                        }
+                    } else {
+                        log.push('[RESULT] ✗ API returned error status');
+                    }
+                } catch (e) {
+                    results.api.error = e.message;
+                    log.push('[RESULT] ✗ FAILED: ' + e.message);
+                }
+                log.push('');
                 
                 // Test personas endpoint
+                log.push('[TEST 2/5] Personas API Check');
+                log.push('[API CALL] GET /api/v1/personas/');
                 try {
+                    const start = Date.now();
                     const personasResp = await fetch('/api/v1/personas/');
-                    results.personas = personasResp.ok;
-                } catch (e) { /* ignore */ }
+                    results.personas.elapsed = Date.now() - start;
+                    results.personas.status = personasResp.ok;
+                    
+                    log.push(`[RESPONSE] HTTP ${personasResp.status} ${personasResp.statusText} (${results.personas.elapsed}ms)`);
+                    
+                    if (personasResp.ok) {
+                        const data = await personasResp.json();
+                        results.personas.response = data;
+                        log.push(`[RESULT] ✓ Personas API working (${data.length} personas found)`);
+                    } else {
+                        log.push('[RESULT] ✗ Personas API returned error status');
+                    }
+                } catch (e) {
+                    results.personas.error = e.message;
+                    log.push('[RESULT] ✗ FAILED: ' + e.message);
+                }
+                log.push('');
                 
                 // Test AI models
+                log.push('[TEST 3/5] AI Models Check');
+                log.push('[API CALL] GET /api/v1/setup/models/status');
                 try {
+                    const start = Date.now();
                     const modelsResp = await fetch('/api/v1/setup/models/status');
-                    results.aiModels = modelsResp.ok;
-                } catch (e) { /* ignore */ }
+                    results.aiModels.elapsed = Date.now() - start;
+                    results.aiModels.status = modelsResp.ok;
+                    
+                    log.push(`[RESPONSE] HTTP ${modelsResp.status} ${modelsResp.statusText} (${results.aiModels.elapsed}ms)`);
+                    
+                    if (modelsResp.ok) {
+                        const data = await modelsResp.json();
+                        results.aiModels.response = data;
+                        
+                        let totalModels = 0;
+                        let loadedModels = 0;
+                        if (data.models) {
+                            for (const [cat, models] of Object.entries(data.models)) {
+                                totalModels += models.length;
+                                loadedModels += models.filter(m => m.loaded).length;
+                            }
+                        }
+                        
+                        log.push(`[RESULT] ✓ AI Models API working (${loadedModels}/${totalModels} models loaded)`);
+                        
+                        if (verboseMode && data.models) {
+                            for (const [cat, models] of Object.entries(data.models)) {
+                                log.push(`  ${cat}:`);
+                                for (const model of models) {
+                                    log.push(`    - ${model.name}: ${model.loaded ? 'LOADED' : 'NOT LOADED'}`);
+                                }
+                            }
+                        }
+                    } else {
+                        log.push('[RESULT] ✗ AI Models API returned error status');
+                    }
+                } catch (e) {
+                    results.aiModels.error = e.message;
+                    log.push('[RESULT] ✗ FAILED: ' + e.message);
+                }
+                log.push('');
                 
                 // Test ACD
+                log.push('[TEST 4/5] ACD System Check');
+                log.push('[API CALL] GET /api/v1/acd/contexts?limit=1');
                 try {
+                    const start = Date.now();
                     const acdResp = await fetch('/api/v1/acd/contexts?limit=1');
-                    results.acd = acdResp.ok;
-                } catch (e) { /* ignore */ }
+                    results.acd.elapsed = Date.now() - start;
+                    results.acd.status = acdResp.ok;
+                    
+                    log.push(`[RESPONSE] HTTP ${acdResp.status} ${acdResp.statusText} (${results.acd.elapsed}ms)`);
+                    
+                    if (acdResp.ok) {
+                        const data = await acdResp.json();
+                        results.acd.response = data;
+                        log.push(`[RESULT] ✓ ACD system working (${data.length} contexts found)`);
+                    } else {
+                        log.push('[RESULT] ✗ ACD API returned error status');
+                    }
+                } catch (e) {
+                    results.acd.error = e.message;
+                    log.push('[RESULT] ✗ FAILED: ' + e.message);
+                }
+                log.push('');
                 
                 // Test Gator Agent
+                log.push('[TEST 5/5] Gator AI Agent Check');
+                log.push(`[API CALL] GET ${GATOR_API}/status`);
                 try {
+                    const start = Date.now();
                     const gatorResp = await fetch(`${GATOR_API}/status`);
-                    results.gatorAgent = gatorResp.ok;
-                } catch (e) { /* ignore */ }
+                    results.gatorAgent.elapsed = Date.now() - start;
+                    results.gatorAgent.status = gatorResp.ok;
+                    
+                    log.push(`[RESPONSE] HTTP ${gatorResp.status} ${gatorResp.statusText} (${results.gatorAgent.elapsed}ms)`);
+                    
+                    if (gatorResp.ok) {
+                        const data = await gatorResp.json();
+                        results.gatorAgent.response = data;
+                        log.push(`[RESULT] ✓ Gator Agent working (${data.status})`);
+                        if (verboseMode && data) {
+                            log.push('[DETAILS] Agent: ' + data.agent);
+                            log.push('          Conversations: ' + data.conversation_count);
+                        }
+                    } else {
+                        log.push('[RESULT] ✗ Gator Agent returned error status');
+                    }
+                } catch (e) {
+                    results.gatorAgent.error = e.message;
+                    log.push('[RESULT] ✗ FAILED: ' + e.message);
+                }
+                log.push('');
                 
-                // Build report
-                let report = '🔍 Full Diagnostic Results:\n\n';
-                for (const [system, status] of Object.entries(results)) {
-                    report += `${status ? '✅' : '❌'} ${system}: ${status ? 'OK' : 'FAILED'}\n`;
+                // Build summary
+                log.push('═'.repeat(60));
+                log.push('[DIAGNOSTIC SUMMARY]');
+                log.push('═'.repeat(60));
+                
+                const systemNames = {
+                    api: 'API Health',
+                    personas: 'Personas API',
+                    aiModels: 'AI Models',
+                    acd: 'ACD System',
+                    gatorAgent: 'Gator Agent'
+                };
+                
+                for (const [key, result] of Object.entries(results)) {
+                    const status_icon = result.status ? '✅' : '❌';
+                    const status_text = result.status ? 'OK' : 'FAILED';
+                    log.push(`${status_icon} ${systemNames[key]}: ${status_text} (${result.elapsed}ms)`);
+                    if (!result.status && result.error) {
+                        log.push(`    Error: ${result.error}`);
+                    }
                 }
                 
-                const allOk = Object.values(results).every(v => v);
+                const allOk = Object.values(results).every(v => v.status);
+                log.push('');
                 if (allOk) {
-                    report += '\n✅ All systems operational!';
+                    log.push('✅ ALL SYSTEMS OPERATIONAL!');
                 } else {
-                    report += '\n❌ CRITICAL: Some systems are DOWN!';
+                    log.push('❌ CRITICAL: Some systems are DOWN!');
+                    log.push('');
+                    log.push('[FAILED SYSTEMS]');
+                    for (const [key, result] of Object.entries(results)) {
+                        if (!result.status) {
+                            log.push(`  - ${systemNames[key]}: ${result.error || 'Unknown error'}`);
+                        }
+                    }
                 }
                 
-                addChatMessage('gator', report, !allOk);
+                if (verboseMode) {
+                    addChatMessage('gator', log.join('\n'), !allOk, true);
+                } else {
+                    let report = '🔍 Full Diagnostic Results:\n\n';
+                    for (const [key, result] of Object.entries(results)) {
+                        report += `${result.status ? '✅' : '❌'} ${systemNames[key]}: ${result.status ? 'OK' : 'FAILED'}\n`;
+                    }
+                    
+                    if (allOk) {
+                        report += '\n✅ All systems operational!';
+                    } else {
+                        report += '\n❌ CRITICAL: Some systems are DOWN!';
+                    }
+                    
+                    addChatMessage('gator', report, !allOk);
+                }
                 
             } catch (error) {
-                addChatMessage('gator', `❌ DIAGNOSTIC FAILED: ${error.message}`, true);
+                log.push('');
+                log.push('[FATAL ERROR] ' + error.message);
+                log.push('[ERROR STACK] ' + (error.stack || 'No stack trace available'));
+                
+                if (verboseMode) {
+                    addChatMessage('gator', log.join('\n'), true, true);
+                } else {
+                    addChatMessage('gator', `❌ DIAGNOSTIC FAILED: ${error.message}`, true);
+                }
             } finally {
                 typingIndicator.classList.remove('active');
             }
