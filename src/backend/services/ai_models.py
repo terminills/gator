@@ -441,11 +441,19 @@ class AIModelManager:
             sys_req = self._get_system_requirements()
 
             for model_name, config in self.local_model_configs["image"].items():
-                can_run = sys_req["gpu_memory_gb"] >= config.get(
+                # Check if model can run with available GPU memory
+                has_gpu_memory = sys_req["gpu_memory_gb"] >= config.get(
                     "min_gpu_memory_gb", 0
-                ) and sys_req["ram_gb"] >= config.get("min_ram_gb", 0)
+                )
+                # Check if model has sufficient RAM (for CPU fallback)
+                has_ram = sys_req["ram_gb"] >= config.get("min_ram_gb", 0)
+                
+                # Image models can run on CPU if inference engine is available,
+                # even without GPU (though slower)
+                can_run = has_gpu_memory and has_ram
+                can_run_cpu = has_ram  # Allow CPU fallback if RAM is sufficient
 
-                if can_run:
+                if can_run or can_run_cpu:
                     # Check both model path formats for compatibility
                     # 1. Category subdirectory: ./models/image/model-name/
                     # 2. Direct: ./models/model-name/
@@ -470,6 +478,9 @@ class AIModelManager:
                         inference_engine
                     )
 
+                    # Determine if model can be loaded (either on GPU or CPU)
+                    can_load = (can_run or can_run_cpu) and engine_available
+                    
                     self.available_models["image"].append(
                         {
                             "name": model_name,
@@ -478,7 +489,7 @@ class AIModelManager:
                             "provider": "local",
                             "inference_engine": inference_engine,
                             "loaded": is_downloaded and engine_available,
-                            "can_load": can_run and engine_available,
+                            "can_load": can_load,
                             "size_gb": config["size_gb"],
                             "description": config["description"],
                             "device": "cuda" if sys_req["gpu_memory_gb"] > 0 else "cpu",
@@ -487,12 +498,18 @@ class AIModelManager:
                     )
 
                     if is_downloaded and engine_available:
+                        device_type = "GPU" if has_gpu_memory else "CPU"
                         logger.info(
-                            f"Local image model {model_name} ready at {model_path}"
+                            f"Local image model {model_name} ready at {model_path} ({device_type})"
                         )
                     elif is_downloaded and not engine_available:
                         logger.warning(
                             f"Local image model {model_name} found at {model_path} but inference engine {inference_engine} not available"
+                        )
+                    elif not is_downloaded and engine_available and can_run_cpu:
+                        device_type = "GPU" if has_gpu_memory else "CPU"
+                        logger.info(
+                            f"Image model {model_name} can be downloaded and run on {device_type}"
                         )
 
         except Exception as e:
