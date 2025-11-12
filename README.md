@@ -282,6 +282,8 @@ bash scripts/install_comfyui_rocm.sh
 - Powerful UI for Stable Diffusion workflows
 - Auto-detects ROCm or falls back to CPU mode
 - Includes extension manager and model downloader
+- **Integrated with automatic fallback to diffusers** - works with or without ComfyUI
+- See [ComfyUI Integration Guide](COMFYUI_INTEGRATION.md) for usage details
 - See [Installation Scripts Guide](docs/INSTALLATION_SCRIPTS_GUIDE.md)
 
 ### NVIDIA GPUs (CUDA)
