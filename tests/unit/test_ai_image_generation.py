@@ -151,18 +151,101 @@ class TestImageGeneration:
             assert "diffusers" in str(e).lower() or "import" in str(e).lower()
 
     @pytest.mark.asyncio
-    async def test_comfyui_returns_not_implemented(self, model_manager):
-        """Test that ComfyUI returns not implemented status."""
+    @patch("backend.services.ai_models.AIModelManager._fallback_to_diffusers")
+    async def test_comfyui_fallback_when_unavailable(self, mock_fallback, model_manager):
+        """Test that ComfyUI falls back to diffusers when unavailable."""
         test_model = {
             "name": "test-comfyui-model",
             "model_id": "test/comfyui",
         }
+        
+        # Mock fallback response
+        mock_fallback.return_value = {
+            "image_data": b"fallback_image",
+            "format": "PNG",
+            "model": "fallback-model",
+            "status": "success"
+        }
+        
+        # Mock http_client to simulate ComfyUI not available
+        model_manager.http_client = AsyncMock()
+        model_manager.http_client.get = AsyncMock(side_effect=Exception("Connection refused"))
 
         result = await model_manager._generate_image_comfyui("test prompt", test_model)
 
-        assert result["status"] == "not_implemented"
+        # Should fallback to diffusers
+        mock_fallback.assert_called_once()
+        assert result["image_data"] == b"fallback_image"
+        assert result["model"] == "fallback-model"
+    
+    @pytest.mark.asyncio
+    @patch("backend.utils.model_detection.find_comfyui_installation")
+    async def test_comfyui_integration_with_api(self, mock_comfyui_find, model_manager):
+        """Test that ComfyUI integration works when API is available."""
+        # Mock ComfyUI installation found
+        mock_comfyui_find.return_value = Path("/fake/comfyui/path")
+        
+        test_model = {
+            "name": "flux.1-dev",
+            "model_id": "flux1-dev.safetensors",
+        }
+        
+        # Mock http_client for successful ComfyUI interaction
+        model_manager.http_client = AsyncMock()
+        
+        # Mock system_stats call (ComfyUI available)
+        stats_response = AsyncMock()
+        stats_response.status_code = 200
+        
+        # Mock prompt submission
+        queue_response = AsyncMock()
+        queue_response.status_code = 200
+        queue_response.json = Mock(return_value={"prompt_id": "test-prompt-123"})
+        
+        # Mock history check (completed)
+        history_response = AsyncMock()
+        history_response.status_code = 200
+        history_response.json = Mock(return_value={
+            "test-prompt-123": {
+                "outputs": {
+                    "9": {
+                        "images": [{
+                            "filename": "test_image.png",
+                            "subfolder": "",
+                            "type": "output"
+                        }]
+                    }
+                }
+            }
+        })
+        
+        # Mock image download
+        image_response = AsyncMock()
+        image_response.status_code = 200
+        image_response.content = b"fake_comfyui_image_data"
+        
+        # Setup mock responses
+        model_manager.http_client.get = AsyncMock(side_effect=[
+            stats_response,  # First call: system_stats
+            history_response,  # Second call: history check
+            image_response,  # Third call: image download
+        ])
+        model_manager.http_client.post = AsyncMock(return_value=queue_response)
+        
+        result = await model_manager._generate_image_comfyui(
+            "test prompt", 
+            test_model,
+            width=1024,
+            height=1024
+        )
+        
+        # Verify successful generation
+        assert result["status"] == "success"
+        assert result["image_data"] == b"fake_comfyui_image_data"
+        assert result["format"] == "PNG"
         assert result["workflow"] == "comfyui"
-        assert "not_implemented" in result["status"].lower()
+        assert result["width"] == 1024
+        assert result["height"] == 1024
 
     @pytest.mark.asyncio
     async def test_generate_image_prefers_local_models(self, model_manager):

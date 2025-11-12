@@ -905,6 +905,23 @@ class AIModelManager:
                 if m.get("provider") == "local" and m.get("can_load", False)
             ]
             
+            # Check ComfyUI availability for models that require it
+            comfyui_url = os.environ.get("COMFYUI_API_URL", "http://127.0.0.1:8188")
+            comfyui_available = False
+            try:
+                response = await self.http_client.get(f"{comfyui_url}/system_stats", timeout=2.0)
+                comfyui_available = response.status_code == 200
+            except Exception:
+                pass
+            
+            # Filter out ComfyUI models if ComfyUI is not running
+            if not comfyui_available:
+                local_models = [
+                    m for m in local_models 
+                    if m.get("inference_engine") != "comfyui"
+                ]
+                logger.info(f"ComfyUI not available, filtering to diffusers-only models")
+            
             # Only consider cloud models if explicitly enabled
             enable_cloud_apis = os.environ.get("ENABLE_CLOUD_APIS", "false").lower() == "true"
             if enable_cloud_apis:
@@ -1504,26 +1521,263 @@ class AIModelManager:
     async def _generate_image_comfyui(
         self, prompt: str, model: Dict[str, Any], **kwargs
     ) -> Dict[str, Any]:
-        """Generate image using ComfyUI workflow."""
+        """
+        Generate image using ComfyUI workflow API.
+        
+        ComfyUI provides a REST API for submitting workflows and retrieving generated images.
+        This implementation uses a basic text-to-image workflow compatible with FLUX models.
+        
+        Args:
+            prompt: Text prompt for image generation
+            model: Model configuration dict with model_id and path
+            **kwargs: Additional parameters (width, height, steps, guidance_scale, seed)
+        
+        Returns:
+            Dict with image_data, format, width, height, and metadata
+        
+        Raises:
+            Exception: If ComfyUI is not available or generation fails
+        """
         try:
-            # ComfyUI integration requires ComfyUI installation and API setup
-            # This is a placeholder for future implementation
-            logger.warning(
-                f"ComfyUI integration not yet implemented. "
-                f"Model {model['name']} requires ComfyUI setup. "
-                f"Consider using diffusers-based models instead."
-            )
-            return {
-                "image_data": b"",  # Empty data - ComfyUI not integrated yet
-                "format": "PNG",
-                "model": model["name"],
-                "workflow": "comfyui",
-                "provider": "local",
-                "status": "not_implemented",
-                "note": f"ComfyUI support planned for future release. Use diffusers models for now.",
+            import uuid as uuid_lib
+            
+            # Get ComfyUI API URL from environment or use default
+            comfyui_url = os.environ.get("COMFYUI_API_URL", "http://127.0.0.1:8188")
+            
+            # Check if ComfyUI is available
+            comfyui_path = find_comfyui_installation(self.models_dir.parent)
+            
+            if not comfyui_path:
+                logger.warning(
+                    f"ComfyUI installation not found. "
+                    f"Model {model['name']} requires ComfyUI setup. "
+                    f"Attempting to use ComfyUI API at {comfyui_url}"
+                )
+            
+            # Try to connect to ComfyUI API
+            try:
+                response = await self.http_client.get(f"{comfyui_url}/system_stats", timeout=5.0)
+                if response.status_code != 200:
+                    raise ConnectionError(f"ComfyUI API not responding (status {response.status_code})")
+                logger.info(f"✓ Connected to ComfyUI at {comfyui_url}")
+            except Exception as conn_error:
+                logger.warning(
+                    f"ComfyUI API not accessible at {comfyui_url}: {str(conn_error)}\n"
+                    f"Please ensure ComfyUI is running with: python main.py --listen\n"
+                    f"Falling back to diffusers-based generation"
+                )
+                # Fallback to diffusers if available
+                return await self._fallback_to_diffusers(prompt, **kwargs)
+            
+            # Get generation parameters
+            width = kwargs.get("width", 1024)
+            height = kwargs.get("height", 1024)
+            num_inference_steps = kwargs.get("num_inference_steps", 20)
+            guidance_scale = kwargs.get("guidance_scale", 3.5)  # FLUX uses lower guidance
+            seed = kwargs.get("seed", None)
+            if seed is None:
+                seed = int(time.time() * 1000) % (2**32)
+            
+            # Create a basic FLUX workflow for text-to-image
+            # This is a simplified workflow compatible with FLUX.1-dev
+            workflow = {
+                "3": {  # CLIPTextEncode for positive prompt
+                    "inputs": {
+                        "text": prompt,
+                        "clip": ["11", 0]
+                    },
+                    "class_type": "CLIPTextEncode"
+                },
+                "4": {  # Empty latent image
+                    "inputs": {
+                        "width": width,
+                        "height": height,
+                        "batch_size": 1
+                    },
+                    "class_type": "EmptyLatentImage"
+                },
+                "8": {  # VAEDecode
+                    "inputs": {
+                        "samples": ["10", 0],
+                        "vae": ["11", 2]
+                    },
+                    "class_type": "VAEDecode"
+                },
+                "9": {  # SaveImage
+                    "inputs": {
+                        "filename_prefix": "gator_comfyui",
+                        "images": ["8", 0]
+                    },
+                    "class_type": "SaveImage"
+                },
+                "10": {  # KSampler
+                    "inputs": {
+                        "seed": seed,
+                        "steps": num_inference_steps,
+                        "cfg": guidance_scale,
+                        "sampler_name": "euler",
+                        "scheduler": "simple",
+                        "denoise": 1.0,
+                        "model": ["11", 0],
+                        "positive": ["3", 0],
+                        "negative": ["3", 0],  # FLUX uses same for negative
+                        "latent_image": ["4", 0]
+                    },
+                    "class_type": "KSampler"
+                },
+                "11": {  # CheckpointLoaderSimple
+                    "inputs": {
+                        "ckpt_name": model.get("model_id", "flux1-dev.safetensors")
+                    },
+                    "class_type": "CheckpointLoaderSimple"
+                }
             }
+            
+            # Generate a unique prompt ID
+            prompt_id = str(uuid_lib.uuid4())
+            
+            # Submit workflow to ComfyUI
+            logger.info(f"Submitting workflow to ComfyUI: {prompt[:100]}...")
+            queue_response = await self.http_client.post(
+                f"{comfyui_url}/prompt",
+                json={
+                    "prompt": workflow,
+                    "client_id": prompt_id
+                },
+                timeout=10.0
+            )
+            
+            if queue_response.status_code != 200:
+                raise Exception(f"Failed to queue prompt: {queue_response.text}")
+            
+            queue_result = queue_response.json()
+            prompt_execution_id = queue_result.get("prompt_id")
+            
+            logger.info(f"Workflow queued with ID: {prompt_execution_id}")
+            
+            # Poll for completion
+            max_wait_time = 300  # 5 minutes max
+            poll_interval = 2  # Check every 2 seconds
+            elapsed_time = 0
+            
+            while elapsed_time < max_wait_time:
+                await asyncio.sleep(poll_interval)
+                elapsed_time += poll_interval
+                
+                # Check queue status
+                history_response = await self.http_client.get(
+                    f"{comfyui_url}/history/{prompt_execution_id}",
+                    timeout=5.0
+                )
+                
+                if history_response.status_code == 200:
+                    history_data = history_response.json()
+                    if prompt_execution_id in history_data:
+                        # Generation completed
+                        result_data = history_data[prompt_execution_id]
+                        
+                        # Extract output image information
+                        outputs = result_data.get("outputs", {})
+                        for node_id, node_output in outputs.items():
+                            if "images" in node_output:
+                                images = node_output["images"]
+                                if images:
+                                    # Get the first image
+                                    image_info = images[0]
+                                    filename = image_info["filename"]
+                                    subfolder = image_info.get("subfolder", "")
+                                    image_type = image_info.get("type", "output")
+                                    
+                                    # Download the generated image
+                                    image_url = f"{comfyui_url}/view"
+                                    params = {
+                                        "filename": filename,
+                                        "subfolder": subfolder,
+                                        "type": image_type
+                                    }
+                                    
+                                    image_response = await self.http_client.get(
+                                        image_url,
+                                        params=params,
+                                        timeout=30.0
+                                    )
+                                    
+                                    if image_response.status_code == 200:
+                                        image_data = image_response.content
+                                        
+                                        logger.info(f"✓ Image generated successfully via ComfyUI: {len(image_data)} bytes")
+                                        
+                                        return {
+                                            "image_data": image_data,
+                                            "format": "PNG",
+                                            "width": width,
+                                            "height": height,
+                                            "model": model["name"],
+                                            "workflow": "comfyui",
+                                            "provider": "local",
+                                            "prompt": prompt,
+                                            "num_inference_steps": num_inference_steps,
+                                            "guidance_scale": guidance_scale,
+                                            "seed": seed,
+                                            "status": "success",
+                                        }
+            
+            # Timeout reached
+            raise TimeoutError(f"ComfyUI generation timed out after {max_wait_time} seconds")
+            
+        except (ConnectionError, TimeoutError) as e:
+            logger.warning(f"ComfyUI generation failed: {str(e)}, attempting fallback to diffusers")
+            # Fallback to diffusers if ComfyUI fails
+            return await self._fallback_to_diffusers(prompt, **kwargs)
         except Exception as e:
             logger.error(f"ComfyUI generation failed: {str(e)}")
+            # Fallback to diffusers for any other errors
+            return await self._fallback_to_diffusers(prompt, **kwargs)
+    
+    async def _fallback_to_diffusers(self, prompt: str, **kwargs) -> Dict[str, Any]:
+        """
+        Fallback to diffusers-based image generation when ComfyUI is unavailable.
+        
+        Selects the best available diffusers model (SDXL or SD 1.5) and generates
+        the image using the local diffusers pipeline.
+        
+        Args:
+            prompt: Text prompt for generation
+            **kwargs: Generation parameters
+        
+        Returns:
+            Dict with generated image data
+        """
+        try:
+            # Find available diffusers models
+            diffusers_models = [
+                m for m in self.available_models["image"]
+                if m.get("inference_engine") == "diffusers" 
+                and m.get("provider") == "local"
+                and (m.get("loaded") or m.get("can_load"))
+            ]
+            
+            if not diffusers_models:
+                logger.error("No diffusers models available for fallback")
+                raise ValueError("No image generation models available")
+            
+            # Prefer SDXL for quality, fallback to SD 1.5 for speed
+            model = None
+            for m in diffusers_models:
+                if "xl" in m["name"].lower():
+                    model = m
+                    break
+            
+            if not model:
+                model = diffusers_models[0]
+            
+            logger.info(f"Using fallback model: {model['name']}")
+            
+            # Generate using diffusers
+            return await self._generate_image_diffusers(prompt, model, **kwargs)
+            
+        except Exception as e:
+            logger.error(f"Fallback to diffusers failed: {str(e)}")
             raise
 
     async def _generate_image_diffusers(
