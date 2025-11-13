@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Monitoring - Gator AI Admin</title>
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5568d3;
+            --accent: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark-bg: #0f0f1e;
+            --dark-surface: #1a1a2e;
+            --dark-card: #16213e;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --sidebar-width: 260px;
+            --border-color: #2a2a3e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--dark-surface);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .logo-icon {
+            font-size: 2rem;
+        }
+        
+        .nav-section {
+            padding: 20px 16px 8px;
+        }
+        
+        .nav-section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-bottom: 8px;
+            padding: 0 12px;
+        }
+        
+        .nav-menu {
+            list-style: none;
+        }
+        
+        .nav-item {
+            margin-bottom: 4px;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .nav-link:hover {
+            background: var(--dark-card);
+            color: var(--text-primary);
+        }
+        
+        .nav-link.active {
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            color: white;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.3rem;
+            width: 24px;
+            text-align: center;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            padding: 32px;
+            max-width: 1400px;
+        }
+        
+        .page-header {
+            margin-bottom: 32px;
+        }
+        
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .page-description {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        
+        .card {
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .status-healthy {
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+        
+        .status-warm {
+            background: var(--warning);
+            box-shadow: 0 0 10px var(--warning);
+        }
+        
+        .status-critical {
+            background: var(--danger);
+            box-shadow: 0 0 10px var(--danger);
+        }
+        
+        .gpu-item {
+            padding: 16px;
+            background: var(--dark-surface);
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .gpu-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .gpu-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        
+        .gpu-temp {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .temp-healthy {
+            color: var(--accent);
+        }
+        
+        .temp-warm {
+            color: var(--warning);
+        }
+        
+        .temp-hot {
+            color: #f97316;
+        }
+        
+        .temp-critical {
+            color: var(--danger);
+        }
+        
+        .gpu-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .detail-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .progress-bar {
+            height: 6px;
+            background: var(--dark-surface);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            transition: width 0.3s ease;
+        }
+        
+        .fan-controls {
+            margin-top: 20px;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .control-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: var(--dark-surface);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--primary);
+        }
+        
+        .btn-success {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+        }
+        
+        .slider {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--dark-surface);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            border: none;
+        }
+        
+        .fan-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: var(--dark-surface);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .fan-name {
+            font-weight: 600;
+        }
+        
+        .fan-speed {
+            color: var(--accent);
+            font-weight: 700;
+        }
+        
+        .alert {
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid;
+        }
+        
+        .alert-info {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: var(--primary);
+            color: var(--text-primary);
+        }
+        
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: var(--warning);
+            color: var(--text-primary);
+        }
+        
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--danger);
+            color: var(--text-primary);
+        }
+        
+        .refresh-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--dark-surface);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .mode-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .mode-btn {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            background: var(--dark-surface);
+            color: var(--text-secondary);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+        
+        .mode-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        .threshold-inputs {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .input {
+            padding: 10px;
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+        
+        .input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-icon">🐊</span>
+                <span>Gator AI</span>
+            </div>
+        </div>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Main</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin" class="nav-link">
+                        <span class="nav-icon">📊</span>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/personas" class="nav-link">
+                        <span class="nav-icon">🎭</span>
+                        <span>Personas</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/content" class="nav-link">
+                        <span class="nav-icon">🎨</span>
+                        <span>Content</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section">
+            <div class="nav-section-title">Tools</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/ai-models-setup" class="nav-link">
+                        <span class="nav-icon">🤖</span>
+                        <span>AI Models</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/rss" class="nav-link">
+                        <span class="nav-icon">📡</span>
+                        <span>RSS Feeds</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/analytics" class="nav-link">
+                        <span class="nav-icon">📈</span>
+                        <span>Analytics</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/diagnostics" class="nav-link">
+                        <span class="nav-icon">🔬</span>
+                        <span>AI Diagnostics</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <nav class="nav-section" style="margin-top: auto;">
+            <div class="nav-section-title">System</div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/admin/system-monitoring" class="nav-link active">
+                        <span class="nav-icon">🌡️</span>
+                        <span>System Monitor</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/settings" class="nav-link">
+                        <span class="nav-icon">⚙️</span>
+                        <span>Settings</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/docs" class="nav-link">
+                        <span class="nav-icon">📚</span>
+                        <span>API Docs</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header">
+            <h1 class="page-title">🌡️ System Monitoring</h1>
+            <p class="page-description">Monitor GPU temperatures and control server fan speeds</p>
+        </div>
+        
+        <!-- Status Alerts -->
+        <div id="alerts-container"></div>
+        
+        <!-- GPU Monitoring -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <span>GPU Temperature Monitoring</span>
+                </h2>
+                <div class="refresh-indicator" id="gpu-refresh">
+                    <span id="refresh-text">Auto-refresh: 5s</span>
+                    <div class="spinner" id="refresh-spinner"></div>
+                </div>
+            </div>
+            
+            <div id="gpu-container">
+                <div class="alert alert-info">
+                    Loading GPU information...
+                </div>
+            </div>
+        </div>
+        
+        <!-- Fan Control -->
+        <div class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Fan Control</h2>
+                </div>
+                
+                <div class="fan-controls">
+                    <div class="control-group">
+                        <label class="control-label">Control Mode</label>
+                        <div class="mode-toggle">
+                            <button class="mode-btn active" id="mode-auto" onclick="setFanMode('auto')">
+                                Automatic
+                            </button>
+                            <button class="mode-btn" id="mode-manual" onclick="setFanMode('manual')">
+                                Manual
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group" id="manual-control" style="display: none;">
+                        <label class="control-label">Fan Speed: <span id="speed-value">50</span>%</label>
+                        <div class="control-row">
+                            <input type="range" class="slider" id="fan-speed-slider" 
+                                   min="30" max="100" value="50" 
+                                   oninput="updateSpeedValue(this.value)">
+                        </div>
+                        <button class="btn btn-primary" onclick="setFanSpeed()" style="margin-top: 12px; width: 100%;">
+                            Apply Fan Speed
+                        </button>
+                    </div>
+                    
+                    <div class="control-group">
+                        <button class="btn btn-success" onclick="autoAdjustFans()" style="width: 100%;">
+                            🔄 Auto-Adjust Based on Temperature
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Current Fan Status</h2>
+                </div>
+                
+                <div id="fan-status-container">
+                    <div class="alert alert-info">
+                        Loading fan information...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Temperature Thresholds -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Temperature Thresholds</h2>
+            </div>
+            
+            <div class="threshold-inputs">
+                <div class="input-group">
+                    <label class="control-label">Low Threshold (°C)</label>
+                    <input type="number" class="input" id="threshold-low" value="50" min="0" max="100">
+                </div>
+                <div class="input-group">
+                    <label class="control-label">Normal Threshold (°C)</label>
+                    <input type="number" class="input" id="threshold-normal" value="65" min="0" max="100">
+                </div>
+                <div class="input-group">
+                    <label class="control-label">High Threshold (°C)</label>
+                    <input type="number" class="input" id="threshold-high" value="75" min="0" max="100">
+                </div>
+                <div class="input-group">
+                    <label class="control-label">Critical Threshold (°C)</label>
+                    <input type="number" class="input" id="threshold-critical" value="85" min="0" max="100">
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" onclick="updateThresholds()" style="margin-top: 16px;">
+                Update Thresholds
+            </button>
+        </div>
+    </main>
+    
+    <script>
+        let refreshInterval;
+        let currentMode = 'auto';
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadGPUData();
+            loadFanStatus();
+            loadFanInfo();
+            
+            // Auto-refresh every 5 seconds
+            refreshInterval = setInterval(() => {
+                loadGPUData();
+                loadFanStatus();
+            }, 5000);
+        });
+        
+        async function loadGPUData() {
+            try {
+                const response = await fetch('/api/v1/system/gpu/status');
+                const data = await response.json();
+                
+                const container = document.getElementById('gpu-container');
+                const alertsContainer = document.getElementById('alerts-container');
+                
+                alertsContainer.innerHTML = '';
+                
+                if (!data.available) {
+                    container.innerHTML = `
+                        <div class="alert alert-warning">
+                            ⚠️ GPU monitoring not available. PyTorch not installed or no GPUs detected.
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Check for critical temperatures
+                const criticalGPUs = data.gpus.filter(gpu => gpu.health_status === 'critical');
+                const hotGPUs = data.gpus.filter(gpu => gpu.health_status === 'hot');
+                
+                if (criticalGPUs.length > 0) {
+                    alertsContainer.innerHTML += `
+                        <div class="alert alert-danger">
+                            🚨 Critical: ${criticalGPUs.length} GPU(s) at critical temperature! Fan speed should be at maximum.
+                        </div>
+                    `;
+                } else if (hotGPUs.length > 0) {
+                    alertsContainer.innerHTML += `
+                        <div class="alert alert-warning">
+                            ⚠️ Warning: ${hotGPUs.length} GPU(s) running hot. Consider increasing fan speed.
+                        </div>
+                    `;
+                }
+                
+                // Render GPU cards
+                container.innerHTML = data.gpus.map(gpu => {
+                    const tempClass = getTempClass(gpu.health_status);
+                    const statusClass = getStatusClass(gpu.health_status);
+                    const memUsage = gpu.memory ? gpu.memory.utilization_percent : 0;
+                    
+                    return `
+                        <div class="gpu-item">
+                            <div class="gpu-header">
+                                <div>
+                                    <div class="gpu-name">
+                                        <span class="status-indicator ${statusClass}"></span>
+                                        ${gpu.name}
+                                    </div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">
+                                        GPU ${gpu.device_id} • ${gpu.health_status}
+                                    </div>
+                                </div>
+                                <div class="gpu-temp ${tempClass}">
+                                    ${gpu.temperature_c ? gpu.temperature_c.toFixed(1) : 'N/A'}°C
+                                </div>
+                            </div>
+                            
+                            ${gpu.memory ? `
+                                <div class="gpu-details">
+                                    <div class="detail-item">
+                                        <span>Memory Used</span>
+                                        <span class="detail-value">${gpu.memory.used_gb.toFixed(1)} GB</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span>Memory Free</span>
+                                        <span class="detail-value">${gpu.memory.free_gb.toFixed(1)} GB</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span>Total Memory</span>
+                                        <span class="detail-value">${gpu.memory.total_gb.toFixed(1)} GB</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span>Utilization</span>
+                                        <span class="detail-value">${memUsage.toFixed(1)}%</span>
+                                    </div>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${memUsage}%"></div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('Error loading GPU data:', error);
+                document.getElementById('gpu-container').innerHTML = `
+                    <div class="alert alert-danger">
+                        ❌ Error loading GPU data: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        async function loadFanStatus() {
+            try {
+                const response = await fetch('/api/v1/system/fans');
+                const data = await response.json();
+                
+                const container = document.getElementById('fan-status-container');
+                
+                if (!data.available) {
+                    container.innerHTML = `
+                        <div class="alert alert-warning">
+                            ⚠️ Fan monitoring not available. IPMI tools not installed.
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Render fan list
+                if (data.fans && data.fans.length > 0) {
+                    container.innerHTML = data.fans.map(fan => `
+                        <div class="fan-item">
+                            <span class="fan-name">${fan.name}</span>
+                            <span class="fan-speed">${fan.speed !== null ? fan.speed.toFixed(0) : 'N/A'} ${fan.unit || ''}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = `
+                        <div class="alert alert-info">
+                            No fan data available from IPMI.
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('Error loading fan status:', error);
+            }
+        }
+        
+        async function loadFanInfo() {
+            try {
+                const response = await fetch('/api/v1/system/fans/info');
+                const data = await response.json();
+                
+                if (data.control_mode) {
+                    currentMode = data.control_mode;
+                    updateModeUI(currentMode);
+                }
+                
+                if (data.temperature_thresholds) {
+                    document.getElementById('threshold-low').value = data.temperature_thresholds.low;
+                    document.getElementById('threshold-normal').value = data.temperature_thresholds.normal;
+                    document.getElementById('threshold-high').value = data.temperature_thresholds.high;
+                    document.getElementById('threshold-critical').value = data.temperature_thresholds.critical;
+                }
+                
+            } catch (error) {
+                console.error('Error loading fan info:', error);
+            }
+        }
+        
+        async function setFanMode(mode) {
+            try {
+                const response = await fetch('/api/v1/system/fans/mode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentMode = mode;
+                    updateModeUI(mode);
+                    showNotification('Fan mode set to ' + mode, 'success');
+                } else {
+                    showNotification('Error: ' + (data.error || 'Unknown error'), 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error setting fan mode:', error);
+                showNotification('Error setting fan mode', 'error');
+            }
+        }
+        
+        function updateModeUI(mode) {
+            document.getElementById('mode-auto').classList.toggle('active', mode === 'auto');
+            document.getElementById('mode-manual').classList.toggle('active', mode === 'manual');
+            document.getElementById('manual-control').style.display = mode === 'manual' ? 'block' : 'none';
+        }
+        
+        function updateSpeedValue(value) {
+            document.getElementById('speed-value').textContent = value;
+        }
+        
+        async function setFanSpeed() {
+            const speed = parseInt(document.getElementById('fan-speed-slider').value);
+            
+            try {
+                const response = await fetch('/api/v1/system/fans/speed', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ speed_percent: speed })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification(`Fan speed set to ${speed}%`, 'success');
+                    loadFanStatus();
+                } else {
+                    showNotification('Error: ' + (data.error || 'Unknown error'), 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error setting fan speed:', error);
+                showNotification('Error setting fan speed', 'error');
+            }
+        }
+        
+        async function autoAdjustFans() {
+            try {
+                const response = await fetch('/api/v1/system/fans/auto-adjust', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification(`Auto-adjusted to ${data.target_speed_percent}% based on ${data.temperature.toFixed(1)}°C`, 'success');
+                    loadFanStatus();
+                } else {
+                    showNotification('Error: ' + (data.error || 'Unknown error'), 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error auto-adjusting fans:', error);
+                showNotification('Error auto-adjusting fans', 'error');
+            }
+        }
+        
+        async function updateThresholds() {
+            const thresholds = {
+                low: parseFloat(document.getElementById('threshold-low').value),
+                normal: parseFloat(document.getElementById('threshold-normal').value),
+                high: parseFloat(document.getElementById('threshold-high').value),
+                critical: parseFloat(document.getElementById('threshold-critical').value)
+            };
+            
+            try {
+                const response = await fetch('/api/v1/system/fans/thresholds', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(thresholds)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('Temperature thresholds updated', 'success');
+                } else {
+                    showNotification('Error updating thresholds', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error updating thresholds:', error);
+                showNotification('Error updating thresholds', 'error');
+            }
+        }
+        
+        function getTempClass(status) {
+            const classMap = {
+                'healthy': 'temp-healthy',
+                'warm': 'temp-warm',
+                'hot': 'temp-hot',
+                'critical': 'temp-critical'
+            };
+            return classMap[status] || 'temp-healthy';
+        }
+        
+        function getStatusClass(status) {
+            const classMap = {
+                'healthy': 'status-healthy',
+                'warm': 'status-warm',
+                'hot': 'status-warm',
+                'critical': 'status-critical'
+            };
+            return classMap[status] || 'status-healthy';
+        }
+        
+        function showNotification(message, type) {
+            const alertClass = type === 'success' ? 'alert-info' : 'alert-danger';
+            const icon = type === 'success' ? '✅' : '❌';
+            
+            const alertsContainer = document.getElementById('alerts-container');
+            const alert = document.createElement('div');
+            alert.className = `alert ${alertClass}`;
+            alert.innerHTML = `${icon} ${message}`;
+            
+            alertsContainer.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

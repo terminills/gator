@@ -361,6 +361,14 @@ def create_app() -> FastAPI:
             return FileResponse(diagnostics_path)
         return {"error": "AI diagnostics page not found"}
 
+    @app.get("/admin/system-monitoring", tags=["system"])
+    async def admin_system_monitoring():
+        """Serve system monitoring page for GPU temperature and fan control."""
+        monitoring_path = os.path.join(project_root, "admin_panel", "system-monitoring.html")
+        if os.path.exists(monitoring_path):
+            return FileResponse(monitoring_path)
+        return {"error": "System monitoring page not found"}
+
     @app.get("/ai-models-setup", tags=["system"])
     async def ai_models_setup():
         """Serve AI models setup page."""
