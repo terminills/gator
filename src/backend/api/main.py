@@ -197,6 +197,14 @@ def create_app() -> FastAPI:
     frontend_path = os.path.join(project_root, "frontend", "public")
     if os.path.exists(frontend_path):
         app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+    
+    # Mount content directory for generated content (images, videos, etc.)
+    content_path = os.path.join(project_root, "data", "content")
+    if os.path.exists(content_path):
+        app.mount("/content", StaticFiles(directory=content_path), name="content")
+        logger.info(f"Mounted content directory: {content_path}")
+    else:
+        logger.warning(f"Content directory not found: {content_path}")
 
     # Include API routers
     app.include_router(public.router, prefix="/api/v1")
