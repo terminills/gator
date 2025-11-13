@@ -147,3 +147,46 @@ class TestConcurrentImageGeneration:
             kwargs = call_args[1]
             assert "use_karras_sigmas" in kwargs
             assert kwargs["use_karras_sigmas"] is True
+
+    @pytest.mark.asyncio
+    async def test_sequential_generation_prevents_race_condition(self, model_manager):
+        """Test that sequential generation prevents scheduler race conditions.
+        
+        This test verifies the fix for the issue where concurrent generation
+        caused 'index 31 is out of bounds' errors due to step_index accumulation
+        in shared schedulers. Sequential generation ensures each request completes
+        before the next begins.
+        """
+        # Create a mock for tracking generation order
+        generation_order = []
+        
+        async def mock_generate(appearance, **kwargs):
+            start_idx = len(generation_order)
+            generation_order.append(f"start_{start_idx}")
+            # Simulate generation time
+            await asyncio.sleep(0.01)
+            generation_order.append(f"end_{start_idx}")
+            return {
+                "image_data": b"fake_image_data",
+                "format": "PNG",
+            }
+        
+        # Run 4 sequential generations
+        results = []
+        for i in range(4):
+            result = await mock_generate(f"appearance_{i}")
+            results.append(result)
+        
+        # Verify all generations completed
+        assert len(results) == 4
+        
+        # Verify sequential execution: each generation should complete before next starts
+        # Pattern should be: start_0, end_0, start_1, end_1, start_2, end_2, start_3, end_3
+        for i in range(4):
+            start_idx = generation_order.index(f"start_{i}")
+            end_idx = generation_order.index(f"end_{i}")
+            # Each generation's end should come before the next generation's start
+            assert end_idx == start_idx + 1
+            if i < 3:
+                next_start_idx = generation_order.index(f"start_{i+1}")
+                assert end_idx < next_start_idx

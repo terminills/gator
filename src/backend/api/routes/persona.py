@@ -661,18 +661,20 @@ async def generate_sample_images(
         logger.info(f"Generating 4 sample images with appearance: {appearance[:50]}...")
         logger.info(f"Resolution: {width}x{height}, Quality: {quality}")
         
-        # Generate 4 images concurrently (or sequentially if API rate limited)
+        # Generate 4 images sequentially to prevent scheduler state conflicts
         images = []
         
         # Prefer local models (free, no API costs, better privacy)
         # Use DALL-E only as fallback if local models aren't available
         if local_models:
-            # Generate with local models (free, can be done in parallel)
+            # Generate with local models sequentially to prevent scheduler conflicts
+            # Concurrent generation causes step_index accumulation in shared pipeline schedulers
             logger.info("Using local Stable Diffusion models for generation")
-            tasks = []
+            
+            # Generate images sequentially to avoid scheduler race conditions
             for i in range(4):
-                tasks.append(
-                    ai_manager._generate_reference_image_local(
+                try:
+                    result = await ai_manager._generate_reference_image_local(
                         appearance_prompt=appearance,
                         personality_context=personality[:200] if personality else None,
                         reference_image_path=None,
@@ -680,17 +682,7 @@ async def generate_sample_images(
                         height=height,
                         num_inference_steps=num_steps,
                     )
-                )
-            
-            # Execute in parallel for faster generation
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    logger.warning(f"Failed to generate image {i+1}: {str(result)}")
-                    continue
                     
-                try:
                     # Convert to base64 data URL
                     base64_image = base64.b64encode(result["image_data"]).decode('utf-8')
                     data_url = f"data:image/png;base64,{base64_image}"
@@ -700,8 +692,11 @@ async def generate_sample_images(
                         "data_url": data_url,
                         "size": len(result["image_data"])
                     })
+                    
+                    logger.info(f"Generated sample image {i+1}/4")
+                    
                 except Exception as e:
-                    logger.warning(f"Failed to process image {i+1}: {str(e)}")
+                    logger.warning(f"Failed to generate image {i+1}: {str(e)}")
                     
         elif dalle_available:
             # Fallback to DALL-E if local models not available (requires API key and costs money)
