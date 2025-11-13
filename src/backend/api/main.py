@@ -73,11 +73,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     await database_manager.connect()
     print("Database connection established.")
-    
+
     # Run database migrations automatically (if AUTO_MIGRATE is enabled)
     migration_results = await run_migrations(database_manager.engine)
     if migration_results.get("columns_added"):
-        print(f"  ✓ Applied database migrations: {', '.join(migration_results['columns_added'])}")
+        print(
+            f"  ✓ Applied database migrations: {', '.join(migration_results['columns_added'])}"
+        )
     else:
         print("  ✓ Database schema is up to date")
 
@@ -85,9 +87,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         from backend.services.ai_models import ai_models
 
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("🤖 Initializing AI models...")
-        print("="*80)
+        print("=" * 80)
         await ai_models.initialize_models()
 
         # Log available models
@@ -122,17 +124,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             ),
         }
 
-        print("="*80)
+        print("=" * 80)
         print(f"✅ AI models initialized:")
         print(f"  - Text models loaded: {available_counts['text']}")
         print(f"  - Image models loaded: {available_counts['image']}")
         print(f"  - Voice models loaded: {available_counts['voice']}")
         print(f"  - Video models loaded: {available_counts['video']}")
-        print("="*80)
+        print("=" * 80)
 
         if sum(available_counts.values()) == 0:
             print("  ⚠️  No local models found. Using cloud APIs if configured.")
-        
+
         print("\n")
 
     except Exception as e:
@@ -197,14 +199,14 @@ def create_app() -> FastAPI:
     frontend_path = os.path.join(project_root, "frontend", "public")
     if os.path.exists(frontend_path):
         app.mount("/static", StaticFiles(directory=frontend_path), name="static")
-    
+
     # Mount content directory for generated content (images, videos, etc.)
     content_path = os.path.join(project_root, "data", "content")
     if os.path.exists(content_path):
         app.mount("/content", StaticFiles(directory=content_path), name="content")
-        logger.info(f"Mounted content directory: {content_path}")
+        print(f"Mounted content directory: {content_path}")
     else:
-        logger.warning(f"Content directory not found: {content_path}")
+        print(f"Warning: Content directory not found: {content_path}")
 
     # Include API routers
     app.include_router(public.router, prefix="/api/v1")
@@ -282,19 +284,21 @@ def create_app() -> FastAPI:
         if os.path.exists(admin_path):
             return FileResponse(admin_path)
         return {"error": "Admin dashboard not found"}
-    
+
     @app.get("/admin/personas", tags=["system"])
     async def admin_personas(request: Request):
         """Serve persona management page or persona editor based on query params."""
         # Check if action parameter is present (create or edit)
         action = request.query_params.get("action")
-        
+
         if action in ["create", "edit"]:
             # Serve the persona editor
-            editor_path = os.path.join(project_root, "admin_panel", "persona-editor.html")
+            editor_path = os.path.join(
+                project_root, "admin_panel", "persona-editor.html"
+            )
             if os.path.exists(editor_path):
                 return FileResponse(editor_path)
-        
+
         # Default: serve the personas list page
         personas_path = os.path.join(project_root, "admin_panel", "personas.html")
         if os.path.exists(personas_path):
@@ -304,7 +308,7 @@ def create_app() -> FastAPI:
         if os.path.exists(admin_panel_path):
             return FileResponse(admin_panel_path)
         return {"error": "Persona management page not found"}
-    
+
     @app.get("/admin/content", tags=["system"])
     async def admin_content():
         """Serve content management page."""
@@ -312,15 +316,17 @@ def create_app() -> FastAPI:
         if os.path.exists(content_path):
             return FileResponse(content_path)
         return {"error": "Content management page not found"}
-    
+
     @app.get("/admin/content/view", tags=["system"])
     async def admin_content_view():
         """Serve individual content view page."""
-        content_view_path = os.path.join(project_root, "admin_panel", "content-view.html")
+        content_view_path = os.path.join(
+            project_root, "admin_panel", "content-view.html"
+        )
         if os.path.exists(content_view_path):
             return FileResponse(content_view_path)
         return {"error": "Content view page not found"}
-    
+
     @app.get("/admin/rss", tags=["system"])
     async def admin_rss():
         """Serve RSS feed management page."""
@@ -328,7 +334,7 @@ def create_app() -> FastAPI:
         if os.path.exists(rss_path):
             return FileResponse(rss_path)
         return {"error": "RSS management page not found"}
-    
+
     @app.get("/admin/analytics", tags=["system"])
     async def admin_analytics():
         """Serve analytics dashboard page."""
@@ -336,7 +342,7 @@ def create_app() -> FastAPI:
         if os.path.exists(analytics_path):
             return FileResponse(analytics_path)
         return {"error": "Analytics page not found"}
-    
+
     @app.get("/admin/settings", tags=["system"])
     async def admin_settings():
         """Serve system settings page."""
@@ -344,7 +350,7 @@ def create_app() -> FastAPI:
         if os.path.exists(settings_path):
             return FileResponse(settings_path)
         return {"error": "Settings page not found"}
-    
+
     @app.get("/admin/diagnostics", tags=["system"])
     async def admin_diagnostics():
         """Serve AI diagnostics page."""
@@ -404,9 +410,9 @@ def create_app() -> FastAPI:
     async def gator_agent_status_alias():
         """Alias for Gator agent status endpoint (backward compatibility)."""
         from backend.services.gator_agent_service import gator_agent
-        
+
         history = gator_agent.get_conversation_history()
-        
+
         return {
             "status": "operational",
             "agent": "Gator from The Other Guys",
