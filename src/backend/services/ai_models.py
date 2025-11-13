@@ -2730,13 +2730,16 @@ class AIModelManager:
 
         This method uses local MI25/ROCm hardware for cost-effective
         reference image generation. Supports ControlNet for refining
-        draft images.
+        draft images. Automatically selects least loaded GPU if device_id
+        is not specified.
 
         Args:
             appearance_prompt: Detailed appearance description
             personality_context: Optional personality traits
             reference_image_path: Optional draft image for ControlNet refinement
-            **kwargs: Additional generation parameters
+            **kwargs: Additional generation parameters including:
+                - device_id (int, optional): Specific GPU to use. If not provided,
+                  automatically selects the least loaded GPU.
 
         Returns:
             Dict with image_data, format, width, height, and metadata
@@ -2759,6 +2762,18 @@ class AIModelManager:
 
             logger.info(f"Generating reference image locally: {full_prompt[:100]}...")
 
+            # Auto-select GPU if not specified
+            device_id = kwargs.get("device_id")
+            if device_id is None:
+                from backend.services.gpu_monitoring_service import (
+                    get_gpu_monitoring_service,
+                )
+
+                gpu_service = get_gpu_monitoring_service()
+                device_id = await gpu_service.get_least_loaded_gpu()
+                if device_id is not None:
+                    logger.info(f"Auto-selected GPU {device_id} based on utilization")
+
             # Use high-resolution parameters for reference images
             generation_kwargs = {
                 "width": kwargs.get("width", 1024),
@@ -2772,6 +2787,7 @@ class AIModelManager:
                     "ugly, blurry, low quality, distorted, deformed, bad anatomy",
                 ),
                 "seed": kwargs.get("seed"),
+                "device_id": device_id,  # Pass through the selected GPU
             }
 
             # Enable ControlNet if reference image provided
