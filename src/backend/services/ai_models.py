@@ -2718,6 +2718,66 @@ class AIModelManager:
             logger.error(f"Failed to generate reference image with DALL-E: {str(e)}")
             raise
 
+    def _build_style_specific_prompt(
+        self, base_prompt: str, image_style: str = "photorealistic"
+    ) -> tuple[str, str]:
+        """
+        Build style-specific prompts and negative prompts for image generation.
+
+        Args:
+            base_prompt: Base appearance/character description
+            image_style: Style identifier (photorealistic, anime, cartoon, etc.)
+
+        Returns:
+            Tuple of (enhanced_prompt, negative_prompt)
+        """
+        style_configs = {
+            "photorealistic": {
+                "prefix": "professional photograph, highly detailed, lifelike, photorealistic,",
+                "suffix": "8k uhd, dslr, soft lighting, high quality, film grain, Fujifilm XT3",
+                "negative": "cartoon, anime, 3d render, illustration, painting, drawing, art, sketched, ugly, blurry, low quality, distorted, deformed, bad anatomy",
+            },
+            "anime": {
+                "prefix": "anime style, manga art, highly detailed anime character,",
+                "suffix": "beautiful anime art, vibrant colors, studio anime, key visual, trending on pixiv",
+                "negative": "realistic, photorealistic, 3d, ugly, blurry, low quality, distorted, deformed, bad anatomy, western cartoon",
+            },
+            "cartoon": {
+                "prefix": "cartoon illustration, stylized character design, vector art style,",
+                "suffix": "clean lines, vibrant colors, professional cartoon art, high quality illustration",
+                "negative": "realistic, photorealistic, anime, 3d render, ugly, blurry, low quality, distorted, deformed, bad anatomy",
+            },
+            "artistic": {
+                "prefix": "artistic painting, oil painting style, fine art portrait,",
+                "suffix": "masterpiece, award winning, museum quality, painterly, expressive brushstrokes",
+                "negative": "photograph, 3d render, anime, cartoon, ugly, blurry, low quality, distorted, deformed",
+            },
+            "3d_render": {
+                "prefix": "3d render, cgi character, digital art, octane render,",
+                "suffix": "highly detailed 3d model, professional 3d render, unreal engine, ray tracing",
+                "negative": "photograph, 2d, anime, cartoon, flat, ugly, low quality, distorted, deformed, bad topology",
+            },
+            "fantasy": {
+                "prefix": "fantasy art style, epic fantasy character, digital fantasy painting,",
+                "suffix": "trending on artstation, fantasy character concept, dramatic lighting, magical atmosphere",
+                "negative": "realistic photograph, modern, mundane, ugly, blurry, low quality, distorted, deformed",
+            },
+            "cinematic": {
+                "prefix": "cinematic portrait, movie still, film photography,",
+                "suffix": "dramatic lighting, cinematic composition, film grain, anamorphic lens, movie quality",
+                "negative": "cartoon, anime, illustration, amateur, ugly, blurry, low quality, distorted, deformed",
+            },
+        }
+
+        # Get style config or default to photorealistic
+        style_key = image_style.lower() if image_style else "photorealistic"
+        config = style_configs.get(style_key, style_configs["photorealistic"])
+
+        # Build enhanced prompt
+        enhanced_prompt = f"{config['prefix']} {base_prompt}, {config['suffix']}"
+
+        return enhanced_prompt, config["negative"]
+
     async def _generate_reference_image_local(
         self,
         appearance_prompt: str,
@@ -2748,19 +2808,22 @@ class AIModelManager:
             Exception: If generation fails
         """
         try:
-            # Build enhanced prompt for character reference
-            prompt_parts = [
-                "professional character portrait, highly detailed,",
-                appearance_prompt,
-            ]
+            # Get image style from kwargs
+            image_style = kwargs.get("image_style", "photorealistic")
 
+            # Build base prompt with appearance and personality
+            base_prompt = appearance_prompt
             if personality_context:
-                prompt_parts.append(f"expressing {personality_context}")
+                base_prompt += f", expressing {personality_context}"
 
-            prompt_parts.append("high quality, centered composition, studio lighting")
-            full_prompt = " ".join(prompt_parts)
+            # Build style-specific prompt and negative prompt
+            full_prompt, style_negative_prompt = self._build_style_specific_prompt(
+                base_prompt, image_style
+            )
 
-            logger.info(f"Generating reference image locally: {full_prompt[:100]}...")
+            logger.info(
+                f"Generating reference image locally with style '{image_style}': {full_prompt[:100]}..."
+            )
 
             # Auto-select GPU if not specified
             device_id = kwargs.get("device_id")
@@ -2783,9 +2846,8 @@ class AIModelManager:
                 ),  # Higher quality
                 "guidance_scale": kwargs.get("guidance_scale", 8.0),
                 "negative_prompt": kwargs.get(
-                    "negative_prompt",
-                    "ugly, blurry, low quality, distorted, deformed, bad anatomy",
-                ),
+                    "negative_prompt", style_negative_prompt
+                ),  # Use style-specific negative prompt
                 "seed": kwargs.get("seed"),
                 "device_id": device_id,  # Pass through the selected GPU
             }

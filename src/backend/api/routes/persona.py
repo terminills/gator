@@ -585,6 +585,10 @@ async def generate_sample_images(
     quality: Optional[str] = Query(
         "standard", description="Generation quality: draft, standard, high, premium"
     ),
+    style: Optional[str] = Query(
+        "photorealistic",
+        description="Image generation style: photorealistic, anime, cartoon, artistic, 3d_render, fantasy, cinematic",
+    ),
     persona_service: PersonaService = Depends(get_persona_service),
 ) -> Dict[str, Any]:
     """
@@ -600,6 +604,7 @@ async def generate_sample_images(
         personality: Optional personality traits
         resolution: Image resolution in format "widthxheight" (e.g., "1024x1024", "720x1280", "1920x1080")
         quality: Generation quality preset (draft, standard, high, premium)
+        style: Image generation style (photorealistic, anime, cartoon, artistic, 3d_render, fantasy, cinematic)
         persona_service: Injected persona service
 
     Returns:
@@ -663,7 +668,7 @@ async def generate_sample_images(
         num_steps = quality_steps_map.get(quality.lower(), 30)
 
         logger.info(f"Generating 4 sample images with appearance: {appearance[:50]}...")
-        logger.info(f"Resolution: {width}x{height}, Quality: {quality}")
+        logger.info(f"Resolution: {width}x{height}, Quality: {quality}, Style: {style}")
 
         # Generate 4 images sequentially to prevent scheduler state conflicts
         images = []
@@ -707,6 +712,7 @@ async def generate_sample_images(
                         height=height,
                         num_inference_steps=num_steps,
                         device_id=device_id,  # Pass GPU selection
+                        image_style=style,  # Pass image style
                     )
 
                     # Convert to base64 data URL

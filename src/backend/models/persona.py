@@ -35,6 +35,18 @@ class BaseImageStatus(str, Enum):
     REJECTED = "rejected"  # Image was rejected, needs replacement
 
 
+class ImageStyle(str, Enum):
+    """Image generation style enumeration for persona visual appearance."""
+
+    PHOTOREALISTIC = "photorealistic"  # Lifelike, realistic photography
+    ANIME = "anime"  # Japanese animation style
+    CARTOON = "cartoon"  # Western cartoon/comic style
+    ARTISTIC = "artistic"  # Painterly, artistic rendering
+    THREE_D_RENDER = "3d_render"  # 3D CGI rendering style
+    FANTASY = "fantasy"  # Fantasy art style
+    CINEMATIC = "cinematic"  # Movie/cinematic style
+
+
 class PersonaModel(Base):
     """
     SQLAlchemy model for AI personas.
@@ -76,6 +88,9 @@ class PersonaModel(Base):
     base_image_status = Column(
         String(20), default="pending_upload", nullable=False, index=True
     )  # Approval workflow status
+    image_style = Column(
+        String(20), default="photorealistic", nullable=False, index=True
+    )  # Image generation style (photorealistic, anime, cartoon, etc.)
 
     is_active = Column(Boolean, default=True, index=True)
     generation_count = Column(Integer, default=0)
@@ -144,6 +159,10 @@ class PersonaCreate(BaseModel):
     base_image_status: BaseImageStatus = Field(
         default=BaseImageStatus.PENDING_UPLOAD,
         description="Status of the base image in the approval workflow",
+    )
+    image_style: ImageStyle = Field(
+        default=ImageStyle.PHOTOREALISTIC,
+        description="Image generation style (photorealistic, anime, cartoon, etc.)",
     )
 
     @field_validator("name")
@@ -220,6 +239,9 @@ class PersonaUpdate(BaseModel):
     base_image_status: Optional[BaseImageStatus] = Field(
         None, description="Status of the base image in the approval workflow"
     )
+    image_style: Optional[ImageStyle] = Field(
+        None, description="Image generation style (photorealistic, anime, cartoon, etc.)"
+    )
 
     @field_validator("platform_restrictions")
     @classmethod
@@ -262,5 +284,6 @@ class PersonaResponse(BaseModel):
     base_image_path: Optional[str] = None
     appearance_locked: bool = False
     base_image_status: str = "pending_upload"
+    image_style: str = "photorealistic"
 
     model_config = {"from_attributes": True}

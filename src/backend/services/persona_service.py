@@ -67,10 +67,16 @@ class PersonaService:
                 personality=persona_data.personality,
                 content_themes=persona_data.content_themes,
                 style_preferences=persona_data.style_preferences,
+                default_content_rating=persona_data.default_content_rating.value,
+                allowed_content_ratings=[
+                    rating.value for rating in persona_data.allowed_content_ratings
+                ],
+                platform_restrictions=persona_data.platform_restrictions,
                 base_appearance_description=persona_data.base_appearance_description,
                 base_image_path=persona_data.base_image_path,
                 appearance_locked=persona_data.appearance_locked,
                 base_image_status=persona_data.base_image_status.value,
+                image_style=persona_data.image_style.value,
             )
 
             # Add to session and commit
@@ -223,6 +229,8 @@ class PersonaService:
                 update_data["appearance_locked"] = updates.appearance_locked
             if updates.base_image_status is not None:
                 update_data["base_image_status"] = updates.base_image_status.value
+            if updates.image_style is not None:
+                update_data["image_style"] = updates.image_style.value
 
             if not update_data:
                 # No updates provided, return existing persona

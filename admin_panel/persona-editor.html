@@ -1139,8 +1139,20 @@
                                 <h3>🎨 Generate Sample Images</h3>
                                 <p>Click below to generate 4 sample images based on your appearance description. This helps establish a consistent look for your persona.</p>
                                 
-                                <div style="display: flex; gap: 12px; margin: 16px 0; align-items: center;">
-                                    <div style="flex: 1;">
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0;">
+                                    <div>
+                                        <label class="form-label" style="margin-bottom: 6px;">Image Style</label>
+                                        <select class="form-input" id="style-select" style="margin: 0;">
+                                            <option value="photorealistic" selected>📷 Photorealistic (Lifelike)</option>
+                                            <option value="anime">🎌 Anime</option>
+                                            <option value="cartoon">🎨 Cartoon</option>
+                                            <option value="artistic">🖼️ Artistic/Painting</option>
+                                            <option value="3d_render">🎮 3D Render</option>
+                                            <option value="fantasy">✨ Fantasy Art</option>
+                                            <option value="cinematic">🎬 Cinematic</option>
+                                        </select>
+                                    </div>
+                                    <div>
                                         <label class="form-label" style="margin-bottom: 6px;">Resolution</label>
                                         <select class="form-input" id="resolution-select" style="margin: 0;">
                                             <option value="512x512">512x512 (Square - Draft)</option>
@@ -1151,7 +1163,7 @@
                                             <option value="1920x1080">1920x1080 (Landscape 1080p)</option>
                                         </select>
                                     </div>
-                                    <div style="flex: 1;">
+                                    <div>
                                         <label class="form-label" style="margin-bottom: 6px;">Quality</label>
                                         <select class="form-input" id="quality-select" style="margin: 0;">
                                             <option value="draft">Draft (Fast)</option>
@@ -1210,6 +1222,22 @@
                             </label>
                             <span class="form-help">Path to reference image (will be set via image upload/generation endpoints)</span>
                             <input type="text" class="form-input" id="base_image_path" name="base_image_path" readonly placeholder="/models/base_images/persona_ref.jpg">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Preferred Image Style
+                            </label>
+                            <span class="form-help">Default image generation style for this persona</span>
+                            <select class="form-input" id="image_style" name="image_style">
+                                <option value="photorealistic" selected>📷 Photorealistic (Lifelike)</option>
+                                <option value="anime">🎌 Anime</option>
+                                <option value="cartoon">🎨 Cartoon</option>
+                                <option value="artistic">🖼️ Artistic/Painting</option>
+                                <option value="3d_render">🎮 3D Render</option>
+                                <option value="fantasy">✨ Fantasy Art</option>
+                                <option value="cinematic">🎬 Cinematic</option>
+                            </select>
                         </div>
                     </div>
                     
@@ -1388,6 +1416,7 @@
                 document.getElementById('appearance_locked').checked = persona.appearance_locked || false;
                 document.getElementById('base_image_status').value = persona.base_image_status || 'pending_upload';
                 document.getElementById('base_image_path').value = persona.base_image_path || '';
+                document.getElementById('image_style').value = persona.image_style || 'photorealistic';
                 
                 // Populate status
                 document.getElementById('is_active').checked = persona.is_active !== false;
@@ -1538,6 +1567,7 @@
             const personality = document.getElementById('personality').value.trim();
             const resolution = document.getElementById('resolution-select').value;
             const quality = document.getElementById('quality-select').value;
+            const style = document.getElementById('style-select').value;
             
             if (!appearance || appearance.length < 10) {
                 showAlert('Please enter an appearance description (at least 10 characters) before generating images.', 'error');
@@ -1558,15 +1588,17 @@
             sampleImages = [];
             
             try {
-                // Call API to generate sample images with resolution and quality
-                progressText.textContent = `Generating 4 sample images at ${resolution} (${quality} quality)... This may take 1-2 minutes.`;
+                // Call API to generate sample images with resolution, quality, and style
+                const styleLabel = document.getElementById('style-select').selectedOptions[0].textContent;
+                progressText.textContent = `Generating 4 ${styleLabel} images at ${resolution} (${quality} quality)... This may take 1-2 minutes.`;
                 progressBar.style.width = '25%';
                 
                 const response = await fetch('/api/v1/personas/generate-sample-images?' + new URLSearchParams({
                     appearance: appearance,
                     personality: personality || '',
                     resolution: resolution,
-                    quality: quality
+                    quality: quality,
+                    style: style
                 }), {
                     method: 'POST'
                 });
@@ -1888,6 +1920,7 @@
                     appearance_locked: document.getElementById('appearance_locked').checked,
                     base_image_status: document.getElementById('base_image_status').value,
                     base_image_path: document.getElementById('base_image_path').value.trim() || null,
+                    image_style: document.getElementById('image_style').value,
                     is_active: document.getElementById('is_active').checked
                 };
                 
