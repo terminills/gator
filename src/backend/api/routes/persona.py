@@ -1021,3 +1021,65 @@ async def set_base_image_from_sample(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to set base image: {str(e)}",
         )
+
+
+@router.get("/{persona_id}/base-image-url")
+async def get_base_image_url(
+    persona_id: str,
+    persona_service: PersonaService = Depends(get_persona_service),
+) -> Dict[str, Optional[str]]:
+    """
+    Get the URL for a persona's base image.
+    
+    Returns the URL path to access the persona's locked base image,
+    or None if no base image is set.
+    
+    Args:
+        persona_id: The persona to retrieve the base image URL for
+        persona_service: Injected persona service
+        
+    Returns:
+        Dict with base_image_url field (or None if no image)
+        
+    Raises:
+        404: Persona not found
+        500: Internal server error
+    """
+    try:
+        # Get the persona
+        persona = await persona_service.get_persona(persona_id)
+        if not persona:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Persona {persona_id} not found",
+            )
+        
+        # Check if base image exists
+        if not persona.base_image_path:
+            return {
+                "base_image_url": None,
+                "appearance_locked": persona.appearance_locked,
+                "base_image_status": persona.base_image_status,
+            }
+        
+        # Convert file path to URL path
+        # base_image_path is like: /opt/gator/data/models/base_images/persona_xxx_base.png
+        # We need to convert to: /base_images/persona_xxx_base.png
+        from pathlib import Path
+        image_filename = Path(persona.base_image_path).name
+        base_image_url = f"/base_images/{image_filename}"
+        
+        return {
+            "base_image_url": base_image_url,
+            "appearance_locked": persona.appearance_locked,
+            "base_image_status": persona.base_image_status,
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get base image URL for persona {persona_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get base image URL: {str(e)}",
+        )

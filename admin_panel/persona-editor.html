@@ -1430,6 +1430,9 @@
                 // Load assigned RSS feeds
                 await loadAssignedFeeds();
                 
+                // Load and display base image if it exists
+                await loadExistingBaseImage();
+                
                 document.getElementById('loading').classList.remove('show');
                 document.getElementById('form-container').style.display = 'block';
             } catch (error) {
@@ -1684,6 +1687,54 @@
                 
                 const actionText = editorMode === 'edit' ? 'update' : 'create';
                 showAlert(`Image selected! This will be set as your base image when you ${actionText} the persona.`, 'success');
+            }
+        }
+        
+        async function loadExistingBaseImage() {
+            // Only load in edit mode
+            if (editorMode !== 'edit' || !personaId) {
+                return;
+            }
+            
+            try {
+                // Fetch the base image URL for this persona
+                const response = await fetch(`/api/v1/personas/${personaId}/base-image-url`);
+                if (!response.ok) {
+                    console.error('Failed to fetch base image URL');
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                // If there's a base image, display it
+                if (data.base_image_url) {
+                    const gallery = document.getElementById('image-gallery');
+                    gallery.innerHTML = '';
+                    gallery.style.display = 'grid';
+                    
+                    // Create a card for the existing base image
+                    const card = document.createElement('div');
+                    card.className = 'image-card selected';
+                    card.id = 'existing-base-image';
+                    
+                    // Add locked badge if appearance is locked
+                    const lockedBadge = data.appearance_locked ? '<span class="selected-badge">🔒 Locked</span>' : '<span class="selected-badge">✓ Current</span>';
+                    
+                    card.innerHTML = `
+                        ${lockedBadge}
+                        <img src="${data.base_image_url}" alt="Current Base Image" onerror="this.parentElement.style.display='none'">
+                        <div class="image-card-label">Current Base Image</div>
+                    `;
+                    
+                    gallery.appendChild(card);
+                    
+                    // Show info message
+                    const statusText = data.appearance_locked ? 'locked and being used for consistency' : 'set but not locked';
+                    showAlert(`This persona has a base image that is ${statusText}. You can generate new samples to update it.`, 'info');
+                }
+            } catch (error) {
+                console.error('Failed to load existing base image:', error);
+                // Don't show error to user, just log it
             }
         }
         
