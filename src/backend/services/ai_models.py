@@ -2220,6 +2220,14 @@ class AIModelManager:
             logger.info(f"  - seed: {seed}")
             logger.info("=" * 60)
 
+            # Create a fresh scheduler for this generation to prevent state accumulation
+            # Schedulers are stateful and cannot be shared across concurrent runs
+            # Without this, step_index accumulates across requests causing index errors
+            pipe.scheduler = DPMSolverMultistepScheduler.from_config(
+                pipe.scheduler.config,
+                use_karras_sigmas=True,
+            )
+
             # Generate image (run in thread pool to avoid blocking)
             try:
                 loop = asyncio.get_event_loop()
