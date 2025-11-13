@@ -965,16 +965,19 @@
             // Build preview
             let previewHtml = '';
             if (content.content_type === 'image' && content.file_path) {
+                // Ensure file_path uses /content/ prefix for static serving
+                const imagePath = content.file_path.startsWith('/content/') ? content.file_path : `/content/${content.file_path}`;
                 previewHtml = `
                     <div class="content-preview">
-                        <img src="/${content.file_path}" alt="${content.title}" onerror="this.parentElement.innerHTML='<div class=no-preview>🖼️<br>Image not available</div>'">
+                        <img src="${imagePath}" alt="${content.title}" onerror="this.parentElement.innerHTML='<div class=no-preview>🖼️<br>Image not available</div>'">
                     </div>
                 `;
             } else if (content.content_type === 'video' && content.file_path) {
+                const videoPath = content.file_path.startsWith('/content/') ? content.file_path : `/content/${content.file_path}`;
                 previewHtml = `
                     <div class="content-preview">
                         <video controls style="max-width: 100%; border-radius: 8px;">
-                            <source src="/${content.file_path}" type="video/mp4">
+                            <source src="${videoPath}" type="video/mp4">
                             Your browser does not support video playback.
                         </video>
                     </div>
@@ -1023,7 +1026,7 @@
                         ${paramsHtml || '<p style="color: var(--text-secondary);">No generation parameters available</p>'}
                         
                         <div class="action-buttons">
-                            ${content.file_path ? `<a href="/${content.file_path}" download class="btn btn-primary">📥 Download</a>` : ''}
+                            ${content.file_path ? `<a href="${content.file_path.startsWith('/content/') ? content.file_path : '/content/' + content.file_path}" download class="btn btn-primary">📥 Download</a>` : ''}
                             <button class="btn btn-danger" onclick="deleteContent('${content.id}')">🗑️ Delete</button>
                         </div>
                     </div>

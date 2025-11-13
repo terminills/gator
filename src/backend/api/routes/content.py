@@ -91,6 +91,75 @@ async def generate_content(
         )
 
 
+@router.post("/generate/all", status_code=status.HTTP_202_ACCEPTED)
+async def generate_content_for_all_personas(
+    content_type: str = Query(default="image", description="Type of content to generate"),
+    quality: str = Query(default="standard", description="Quality level (standard or hd)"),
+    content_rating: str = Query(default="sfw", description="Content rating (sfw, moderate, nsfw)"),
+    content_service: ContentGenerationService = Depends(get_content_service),
+):
+    """
+    Generate content for all active personas.
+    
+    This endpoint creates content for every active persona in the system,
+    making it easy to generate a batch of content with one request.
+    
+    Args:
+        content_type: Type of content (image, video, text, etc.)
+        quality: Quality level for generation
+        content_rating: Content rating filter
+        content_service: Injected content generation service
+        
+    Returns:
+        Batch generation results with statistics
+        
+    Raises:
+        400: Invalid parameters
+        500: Generation failed
+    """
+    try:
+        from backend.models.content import ContentType, ContentRating
+        
+        # Parse and validate parameters
+        try:
+            ct = ContentType(content_type.lower())
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid content_type: {content_type}. Must be one of: image, video, text, audio, voice"
+            )
+        
+        try:
+            cr = ContentRating(content_rating.upper())
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid content_rating: {content_rating}. Must be one of: sfw, moderate, nsfw"
+            )
+        
+        # Generate content for all personas
+        result = await content_service.generate_content_for_all_personas(
+            content_type=ct,
+            quality=quality,
+            content_rating=cr
+        )
+        
+        return {
+            "status": "accepted",
+            "message": f"Batch content generation completed for {result['total_personas']} personas",
+            "details": result
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Batch content generation failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Batch content generation failed: {str(e)}",
+        )
+
+
 @router.get("/{content_id}", response_model=ContentResponse)
 async def get_content(
     content_id: UUID,

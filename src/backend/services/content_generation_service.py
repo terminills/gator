@@ -299,6 +299,104 @@ class ContentGenerationService:
             logger.error("="*80)
             raise ValueError(f"Content generation failed: {str(e)}")
 
+    async def generate_content_for_all_personas(
+        self, 
+        content_type: ContentType = ContentType.IMAGE,
+        quality: str = "standard",
+        content_rating: ContentRating = ContentRating.SFW
+    ) -> Dict[str, Any]:
+        """
+        Generate content for all active personas.
+        
+        Args:
+            content_type: Type of content to generate
+            quality: Quality level (standard or hd)
+            content_rating: Content rating filter
+            
+        Returns:
+            Dict with generation results and statistics
+        """
+        logger.info("="*80)
+        logger.info("🚀 BATCH CONTENT GENERATION FOR ALL PERSONAS")
+        logger.info(f"   Content type: {content_type.value}")
+        logger.info(f"   Quality: {quality}")
+        logger.info(f"   Rating: {content_rating.value}")
+        logger.info("="*80)
+        
+        # Get all active personas
+        stmt = (
+            select(PersonaModel)
+            .where(PersonaModel.is_active == True)
+            .order_by(PersonaModel.created_at.asc())
+        )
+        result = await self.db.execute(stmt)
+        personas = result.scalars().all()
+        
+        if not personas:
+            logger.warning("No active personas found for batch generation")
+            return {
+                "status": "error",
+                "message": "No active personas found",
+                "generated": 0,
+                "failed": 0,
+                "results": []
+            }
+        
+        logger.info(f"Found {len(personas)} active personas")
+        
+        # Generate content for each persona
+        results = []
+        generated_count = 0
+        failed_count = 0
+        
+        for persona in personas:
+            try:
+                logger.info(f"Generating content for persona: {persona.name} ({persona.id})")
+                
+                request = GenerationRequest(
+                    persona_id=persona.id,
+                    content_type=content_type,
+                    quality=quality,
+                    content_rating=content_rating,
+                    prompt=None,  # Will be auto-generated
+                )
+                
+                content = await self.generate_content(request)
+                
+                results.append({
+                    "persona_id": str(persona.id),
+                    "persona_name": persona.name,
+                    "content_id": str(content.id),
+                    "status": "success"
+                })
+                generated_count += 1
+                logger.info(f"✓ Generated content for {persona.name}")
+                
+            except Exception as e:
+                logger.error(f"✗ Failed to generate content for {persona.name}: {str(e)}")
+                results.append({
+                    "persona_id": str(persona.id),
+                    "persona_name": persona.name,
+                    "status": "failed",
+                    "error": str(e)
+                })
+                failed_count += 1
+        
+        logger.info("="*80)
+        logger.info("✅ BATCH CONTENT GENERATION COMPLETE")
+        logger.info(f"   Total personas: {len(personas)}")
+        logger.info(f"   Generated: {generated_count}")
+        logger.info(f"   Failed: {failed_count}")
+        logger.info("="*80)
+        
+        return {
+            "status": "completed",
+            "total_personas": len(personas),
+            "generated": generated_count,
+            "failed": failed_count,
+            "results": results
+        }
+
     async def get_content(self, content_id: UUID) -> Optional[ContentResponse]:
         """Get content record by ID."""
         try:
@@ -381,6 +479,68 @@ class ContentGenerationService:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def _get_trending_topics_from_feeds(self, persona: PersonaModel, limit: int = 3) -> List[str]:
+        """
+        Fetch trending topics from RSS feeds assigned to persona.
+        
+        Args:
+            persona: Persona to fetch feeds for
+            limit: Maximum number of topics to return
+            
+        Returns:
+            List of trending topic strings
+        """
+        try:
+            from backend.models.feed import PersonaFeedModel, FeedItemModel, RSSFeedModel
+            from datetime import timedelta
+            
+            # Get RSS feeds assigned to this persona
+            stmt = (
+                select(PersonaFeedModel)
+                .where(PersonaFeedModel.persona_id == persona.id)
+                .where(PersonaFeedModel.is_active == True)
+                .limit(5)
+            )
+            result = await self.db.execute(stmt)
+            persona_feeds = result.scalars().all()
+            
+            if not persona_feeds:
+                logger.info(f"No RSS feeds assigned to persona {persona.name}")
+                return []
+            
+            # Get recent feed items from the last 24 hours
+            feed_ids = [pf.feed_id for pf in persona_feeds]
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=24)
+            
+            stmt = (
+                select(FeedItemModel)
+                .where(FeedItemModel.feed_id.in_(feed_ids))
+                .where(FeedItemModel.published_at >= cutoff_time)
+                .order_by(FeedItemModel.published_at.desc())
+                .limit(limit * 2)  # Get more to filter
+            )
+            result = await self.db.execute(stmt)
+            feed_items = result.scalars().all()
+            
+            if not feed_items:
+                logger.info(f"No recent feed items for persona {persona.name}")
+                return []
+            
+            # Extract topics from titles
+            topics = []
+            for item in feed_items[:limit]:
+                # Clean and shorten title for use in prompt
+                topic = item.title[:100] if item.title else ""
+                if topic:
+                    topics.append(topic)
+            
+            logger.info(f"Found {len(topics)} trending topics from RSS feeds for persona {persona.name}")
+            return topics
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch trending topics from RSS feeds: {str(e)}")
+            return []
+
     async def _generate_prompt(
         self,
         persona: PersonaModel,
@@ -390,7 +550,17 @@ class ContentGenerationService:
         """
         Generate AI prompt based on persona characteristics and content rating.
         Uses base_appearance_description if appearance_locked is True for consistency.
+        Enriched with trending topics from RSS feeds when available.
         """
+        # Fetch trending topics from RSS feeds
+        trending_topics = await self._get_trending_topics_from_feeds(persona)
+        trending_context = ""
+        if trending_topics:
+            # Add trending context to prompt
+            topics_text = ", ".join(trending_topics[:2])  # Use top 2 topics
+            trending_context = f"related to current trending topics: {topics_text}, "
+            logger.info(f"Enriching prompt with trending topics: {topics_text[:100]}")
+        
         # Use base appearance if locked, otherwise use standard appearance
         if persona.appearance_locked and persona.base_appearance_description:
             base_prompt = (
@@ -412,7 +582,8 @@ class ContentGenerationService:
         if content_type == ContentType.IMAGE:
             style_info = persona.style_preferences.get("visual_style", "realistic")
             lighting = persona.style_preferences.get("lighting", "natural")
-            prompt = f"Portrait photo of {base_prompt}, {style_info} style, {lighting} lighting, high quality, {rating_modifier}"
+            # Enhanced photorealistic prompt with detailed appearance and trending context
+            prompt = f"Professional high-resolution portrait photograph of {base_prompt}, {trending_context}{style_info} style, {lighting} lighting, photorealistic, ultra detailed, 8k quality, sharp focus, professional photography, {rating_modifier}"
         elif content_type == ContentType.VIDEO:
             prompt = f"Short video featuring {base_prompt}, engaging and dynamic, {rating_modifier}"
         elif content_type == ContentType.AUDIO:
@@ -498,15 +669,19 @@ class ContentGenerationService:
                 if not ai_models.models_loaded:
                     await ai_models.initialize_models()
 
-                # Prepare generation parameters
+                # Prepare generation parameters with higher resolution for HD
+                # Use 2048x2048 for HD quality, 1024x1024 for standard
+                quality = (
+                    request.quality
+                    if request.quality in ["standard", "hd"]
+                    else "standard"
+                )
+                size = "2048x2048" if quality == "hd" else "1024x1024"
+                
                 generation_params = {
                     "prompt": request.prompt,
-                    "size": "1024x1024",
-                    "quality": (
-                        request.quality
-                        if request.quality in ["standard", "hd"]
-                        else "standard"
-                    ),
+                    "size": size,
+                    "quality": quality,
                 }
 
                 # Add visual consistency parameters if appearance is locked
@@ -533,8 +708,11 @@ class ContentGenerationService:
                 with open(file_path, "wb") as f:
                     f.write(image_result["image_data"])
 
+                # Store relative path for web serving (relative to /content mount point)
+                relative_path = f"images/{filename}"
+                
                 result_data = {
-                    "file_path": str(file_path),
+                    "file_path": relative_path,
                     "file_size": len(image_result["image_data"]),
                     "width": image_result.get("width", 1024),
                     "height": image_result.get("height", 1024),
