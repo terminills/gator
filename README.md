@@ -238,12 +238,25 @@ Gator supports AMD GPUs through ROCm with automatic version detection and optimi
   - See [MI25 Compatibility Guide](docs/MI25_COMPATIBILITY.md)
 
 #### Multi-GPU Support 🚀
-Gator automatically detects and optimizes for multi-GPU configurations:
-- **2 GPUs**: Parallel inference and load balancing
-- **3 GPUs**: Specialized tasks (LLM + Image + Video)
-- **4+ GPUs**: Enterprise multi-tenant deployment
+Gator automatically detects and optimizes for multi-GPU configurations with intelligent load balancing:
 
-See [Multi-GPU Setup Guide](docs/MULTI_GPU_SETUP.md) for V620 and other modern GPU configurations.
+**Automatic Load Balancing** ✨ NEW
+- Monitors GPU utilization in real-time
+- Automatically selects least loaded GPU for each task
+- Distributes batch operations (e.g., 4 sample images) across all GPUs
+- Example: 4 images on 3 GPUs → 2 on GPU 0, 1 on GPU 1, 1 on GPU 2
+
+**Configuration Recommendations:**
+- **2 GPUs**: Parallel inference with automatic load balancing
+- **3 GPUs**: Specialized tasks (LLM + Image + Video) with optimal distribution
+- **4+ GPUs**: Enterprise multi-tenant deployment with maximum efficiency
+
+**Performance Gains:**
+- 2 GPUs: Up to 2x faster batch generation
+- 4 GPUs: Up to 4x faster batch generation
+- Automatic failover if a GPU fails
+
+See [GPU Load Balancing Guide](GPU_LOAD_BALANCING.md) and [Multi-GPU Setup Guide](docs/MULTI_GPU_SETUP.md) for details.
 
 Installation:
 ```bash

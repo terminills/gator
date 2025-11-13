@@ -27,11 +27,12 @@ async def test_gpu_selection():
     service._torch_available = True
     service._gpu_count = 1
 
-    with patch("torch.cuda.is_available", return_value=True), patch(
-        "torch.cuda.device_count", return_value=1
-    ), patch("torch.cuda.memory_allocated", return_value=1024 * 1024 * 1024), patch(
-        "torch.cuda.get_device_properties"
-    ) as mock_props:
+    with (
+        patch("torch.cuda.is_available", return_value=True),
+        patch("torch.cuda.device_count", return_value=1),
+        patch("torch.cuda.memory_allocated", return_value=1024 * 1024 * 1024),
+        patch("torch.cuda.get_device_properties") as mock_props,
+    ):
 
         mock_props.return_value.total_memory = 8 * 1024 * 1024 * 1024  # 8GB
 
@@ -59,13 +60,12 @@ async def test_gpu_selection():
     def memory_allocated_side_effect(device_id):
         return memory_allocations[device_id]
 
-    with patch("torch.cuda.is_available", return_value=True), patch(
-        "torch.cuda.device_count", return_value=4
-    ), patch(
-        "torch.cuda.memory_allocated", side_effect=memory_allocated_side_effect
-    ), patch(
-        "torch.cuda.get_device_properties"
-    ) as mock_props:
+    with (
+        patch("torch.cuda.is_available", return_value=True),
+        patch("torch.cuda.device_count", return_value=4),
+        patch("torch.cuda.memory_allocated", side_effect=memory_allocated_side_effect),
+        patch("torch.cuda.get_device_properties") as mock_props,
+    ):
 
         mock_props.return_value.total_memory = 8 * 1024 * 1024 * 1024
 
@@ -98,13 +98,12 @@ async def test_gpu_selection():
     def memory_allocated_side_effect(device_id):
         return memory_allocations[device_id]
 
-    with patch("torch.cuda.is_available", return_value=True), patch(
-        "torch.cuda.device_count", return_value=3
-    ), patch(
-        "torch.cuda.memory_allocated", side_effect=memory_allocated_side_effect
-    ), patch(
-        "torch.cuda.get_device_properties"
-    ) as mock_props:
+    with (
+        patch("torch.cuda.is_available", return_value=True),
+        patch("torch.cuda.device_count", return_value=3),
+        patch("torch.cuda.memory_allocated", side_effect=memory_allocated_side_effect),
+        patch("torch.cuda.get_device_properties") as mock_props,
+    ):
 
         mock_props.return_value.total_memory = 8 * 1024 * 1024 * 1024
 
@@ -138,13 +137,12 @@ async def test_gpu_selection():
             raise RuntimeError("GPU 0 is unavailable")
         return 1024 * 1024 * 1024
 
-    with patch("torch.cuda.is_available", return_value=True), patch(
-        "torch.cuda.device_count", return_value=2
-    ), patch(
-        "torch.cuda.memory_allocated", side_effect=memory_allocated_side_effect
-    ), patch(
-        "torch.cuda.get_device_properties"
-    ) as mock_props:
+    with (
+        patch("torch.cuda.is_available", return_value=True),
+        patch("torch.cuda.device_count", return_value=2),
+        patch("torch.cuda.memory_allocated", side_effect=memory_allocated_side_effect),
+        patch("torch.cuda.get_device_properties") as mock_props,
+    ):
 
         mock_props.return_value.total_memory = 8 * 1024 * 1024 * 1024
 
