@@ -179,14 +179,25 @@ async def bulk_update_settings(
 
     for key, value in settings.items():
         try:
-            # Determine category from key prefix or use default
-            category = SettingCategory.AI_MODELS  # Default, should be smarter
+            # Determine category from key prefix or name
+            if key.startswith("ipmi_"):
+                category = SettingCategory.IPMI
+            elif key.startswith("smtp_") or "email" in key.lower():
+                category = SettingCategory.EMAIL
+            elif key.startswith("aws_"):
+                category = SettingCategory.CLOUD
+            elif key.startswith("godaddy_") or "dns" in key.lower():
+                category = SettingCategory.DNS
+            elif "facebook" in key.lower() or "instagram" in key.lower() or "twitter" in key.lower():
+                category = SettingCategory.SOCIAL_MEDIA
+            else:
+                category = SettingCategory.AI_MODELS  # Default
 
             setting_data = SettingCreate(
                 key=key,
                 category=category,
                 value=value,
-                is_sensitive="api_key" in key.lower() or "secret" in key.lower() or "token" in key.lower(),
+                is_sensitive="api_key" in key.lower() or "secret" in key.lower() or "token" in key.lower() or "password" in key.lower(),
             )
 
             result = await service.upsert_setting(setting_data)

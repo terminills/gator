@@ -494,6 +494,40 @@
             
             <div class="section">
                 <div class="section-header">
+                    <h2 class="section-title">🌡️ IPMI / Server Management</h2>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <p style="color: var(--text-secondary); margin-bottom: 8px;">
+                        Configure IPMI credentials for remote server fan control and monitoring via BMC/XCC.
+                    </p>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">IPMI Host (BMC/XCC IP Address)</label>
+                        <input type="text" class="search-input" id="ipmi-host" placeholder="192.168.1.100" style="width: 100%; max-width: 400px;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">IPMI Username</label>
+                        <input type="text" class="search-input" id="ipmi-username" placeholder="USERID" style="width: 100%; max-width: 400px;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">IPMI Password</label>
+                        <input type="password" class="search-input" id="ipmi-password" placeholder="••••••••" style="width: 100%; max-width: 400px;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">IPMI Interface</label>
+                        <select class="search-input" id="ipmi-interface" style="width: 100%; max-width: 400px;">
+                            <option value="lanplus">lanplus (recommended for remote access)</option>
+                            <option value="lan">lan</option>
+                            <option value="open">open (local in-band)</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveIPMICredentials()">
+                        💾 Save IPMI Credentials
+                    </button>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-header">
                     <h2 class="section-title">🗄️ Database</h2>
                 </div>
                 <div style="display: flex; gap: 12px;">
@@ -698,10 +732,93 @@
             return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
         }
         
+        async function saveIPMICredentials() {
+            const ipmiHost = document.getElementById('ipmi-host').value;
+            const ipmiUsername = document.getElementById('ipmi-username').value;
+            const ipmiPassword = document.getElementById('ipmi-password').value;
+            const ipmiInterface = document.getElementById('ipmi-interface').value;
+            
+            if (!ipmiHost && !ipmiUsername && !ipmiPassword) {
+                alert('⚠️ Please enter at least IPMI host and credentials');
+                return;
+            }
+            
+            try {
+                const settings = {};
+                if (ipmiHost) settings.ipmi_host = ipmiHost;
+                if (ipmiUsername) settings.ipmi_username = ipmiUsername;
+                if (ipmiPassword) settings.ipmi_password = ipmiPassword;
+                if (ipmiInterface) settings.ipmi_interface = ipmiInterface;
+                
+                const response = await fetch('/api/v1/settings/bulk-update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    alert('✅ IPMI credentials saved successfully to database!\n\nUpdated: ' + result.results.updated.join(', ') + '\n\nNo application restart required. Credentials will be used for fan control.');
+                    // Clear password field for security
+                    document.getElementById('ipmi-password').value = '';
+                    loadIPMICredentials(); // Reload to show saved values
+                } else {
+                    alert('❌ Failed to save IPMI credentials:\n' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving IPMI credentials:', error);
+                alert('❌ Failed to save IPMI credentials: ' + error.message);
+            }
+        }
+        
+        async function loadIPMICredentials() {
+            try {
+                // Load IPMI host
+                const hostResponse = await fetch('/api/v1/settings/ipmi_host');
+                if (hostResponse.ok) {
+                    const host = await hostResponse.json();
+                    if (host.value) {
+                        document.getElementById('ipmi-host').value = host.value;
+                    }
+                }
+                
+                // Load IPMI username
+                const usernameResponse = await fetch('/api/v1/settings/ipmi_username');
+                if (usernameResponse.ok) {
+                    const username = await usernameResponse.json();
+                    if (username.value) {
+                        document.getElementById('ipmi-username').value = username.value;
+                    }
+                }
+                
+                // Load IPMI password (show masked)
+                const passwordResponse = await fetch('/api/v1/settings/ipmi_password');
+                if (passwordResponse.ok) {
+                    const password = await passwordResponse.json();
+                    if (password.value) {
+                        document.getElementById('ipmi-password').placeholder = '••••••••' + password.value.slice(-4);
+                    }
+                }
+                
+                // Load IPMI interface
+                const interfaceResponse = await fetch('/api/v1/settings/ipmi_interface');
+                if (interfaceResponse.ok) {
+                    const interfaceData = await interfaceResponse.json();
+                    if (interfaceData.value) {
+                        document.getElementById('ipmi-interface').value = interfaceData.value;
+                    }
+                }
+            } catch (error) {
+                console.log('No saved IPMI credentials found');
+            }
+        }
+        
         // Load on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadSettings();
             loadAPIKeys();
+            loadIPMICredentials();
         });
     </script>
 </body>

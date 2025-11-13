@@ -30,6 +30,7 @@ class SettingCategory(str, Enum):
     CLOUD = "cloud"
     PERFORMANCE = "performance"
     CONTENT = "content"
+    IPMI = "ipmi"
 
 
 class SystemSettingModel(Base):
@@ -322,5 +323,31 @@ DEFAULT_SETTINGS = {
         "value": None,
         "description": "Sentry DSN for error tracking",
         "is_sensitive": True,
+    },
+    
+    # IPMI/BMC Configuration
+    "ipmi_host": {
+        "category": "ipmi",
+        "value": None,
+        "description": "BMC/XCC IP address or hostname for IPMI access",
+        "is_sensitive": False,
+    },
+    "ipmi_username": {
+        "category": "ipmi",
+        "value": None,
+        "description": "BMC/XCC username for IPMI authentication",
+        "is_sensitive": True,
+    },
+    "ipmi_password": {
+        "category": "ipmi",
+        "value": None,
+        "description": "BMC/XCC password for IPMI authentication",
+        "is_sensitive": True,
+    },
+    "ipmi_interface": {
+        "category": "ipmi",
+        "value": "lanplus",
+        "description": "IPMI interface type (lanplus recommended for remote access)",
+        "is_sensitive": False,
     },
 }
