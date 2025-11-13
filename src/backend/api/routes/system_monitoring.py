@@ -66,7 +66,7 @@ async def get_gpu_temperatures():
         logger.error(f"Error getting GPU temperatures: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving GPU temperatures: {str(e)}",
+            detail="Error retrieving GPU temperatures",
         )
 
 
@@ -86,7 +86,7 @@ async def get_gpu_status():
         logger.error(f"Error getting GPU status: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving GPU status: {str(e)}",
+            detail="Error retrieving GPU status",
         )
 
 
@@ -111,7 +111,7 @@ async def get_temperature_history(
         logger.error(f"Error getting temperature history: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving temperature history: {str(e)}",
+            detail="Error retrieving temperature history",
         )
 
 
@@ -131,7 +131,7 @@ async def get_max_temperatures():
         logger.error(f"Error getting max temperatures: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving max temperatures: {str(e)}",
+            detail="Error retrieving max temperatures",
         )
 
 
@@ -153,7 +153,7 @@ async def get_fan_status():
         logger.error(f"Error getting fan status: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving fan status: {str(e)}",
+            detail="Error retrieving fan status",
         )
 
 
@@ -173,7 +173,7 @@ async def get_fan_control_info():
         logger.error(f"Error getting fan control info: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving fan control info: {str(e)}",
+            detail="Error retrieving fan control info",
         )
 
 
@@ -215,7 +215,7 @@ async def set_fan_mode(request: FanModeRequest):
         logger.error(f"Error setting fan mode: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error setting fan mode: {str(e)}",
+            detail="Error setting fan mode",
         )
 
 
@@ -259,7 +259,7 @@ async def set_fan_speed(request: FanSpeedRequest):
         logger.error(f"Error setting fan speed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error setting fan speed: {str(e)}",
+            detail="Error setting fan speed",
         )
 
 
@@ -319,7 +319,7 @@ async def auto_adjust_fans(request: AutoAdjustRequest = Body(default=None)):
         logger.error(f"Error auto-adjusting fans: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error auto-adjusting fans: {str(e)}",
+            detail="Error auto-adjusting fans",
         )
 
 
@@ -362,5 +362,5 @@ async def set_temperature_thresholds(request: TemperatureThresholdsRequest):
         logger.error(f"Error setting temperature thresholds: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error setting temperature thresholds: {str(e)}",
+            detail="Error setting temperature thresholds",
         )

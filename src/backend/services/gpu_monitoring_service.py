@@ -113,7 +113,7 @@ class GPUMonitoringService:
                             "device_id": i,
                             "name": "Unknown",
                             "temperature_c": None,
-                            "error": str(e),
+                            "error": "Failed to read GPU data",
                         }
                     )
 
@@ -127,7 +127,7 @@ class GPUMonitoringService:
             }
         except Exception as e:
             logger.error(f"Error getting GPU temperatures: {e}")
-            return {"available": False, "error": str(e)}
+            return {"available": False, "error": "Failed to get GPU temperatures"}
 
     async def _get_gpu_temperature_rocm(self, device_id: int) -> Optional[float]:
         """
@@ -260,14 +260,14 @@ class GPUMonitoringService:
                         {
                             "device_id": i,
                             "name": "Unknown",
-                            "error": str(e),
+                            "error": "Failed to read GPU status",
                         }
                     )
 
             return status
         except Exception as e:
             logger.error(f"Error getting GPU status: {e}")
-            return {"available": False, "error": str(e)}
+            return {"available": False, "error": "Failed to get GPU status"}
 
     def _determine_health_status(self, temperature: Optional[float]) -> str:
         """

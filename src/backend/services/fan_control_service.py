@@ -121,7 +121,7 @@ class FanControlService:
             logger.error(f"Error getting fan status: {e}")
             return {
                 "available": False,
-                "error": str(e),
+                "error": "Operation failed",
             }
 
     def _parse_fan_sensors(self, sensor_output: str) -> List[Dict[str, Any]]:
@@ -209,7 +209,7 @@ class FanControlService:
             logger.error(f"Error setting fan mode: {e}")
             return {
                 "success": False,
-                "error": str(e),
+                "error": "Operation failed",
             }
 
     async def _set_ipmi_fan_mode_auto(self) -> Dict[str, Any]:
@@ -250,7 +250,7 @@ class FanControlService:
             logger.error(f"Error setting auto fan mode: {e}")
             return {
                 "success": False,
-                "error": str(e),
+                "error": "Operation failed",
             }
 
     async def set_fan_speed(self, speed_percent: int, zone: Optional[FanZone] = None) -> Dict[str, Any]:
@@ -317,7 +317,7 @@ class FanControlService:
             logger.error(f"Error setting fan speed: {e}")
             return {
                 "success": False,
-                "error": str(e),
+                "error": "Operation failed",
             }
 
     async def _set_ipmi_fan_mode_manual(self) -> Dict[str, Any]:
@@ -344,7 +344,7 @@ class FanControlService:
                 return {"success": True, "warning": error_msg}
         except Exception as e:
             logger.error(f"Error setting manual fan mode: {e}")
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Operation failed"}
 
     def _get_zone_id(self, zone: Optional[FanZone]) -> int:
         """
@@ -413,7 +413,7 @@ class FanControlService:
             logger.error(f"Error adjusting fans for temperature: {e}")
             return {
                 "success": False,
-                "error": str(e),
+                "error": "Operation failed",
             }
 
     def _calculate_fan_speed(self, temperature: float) -> int:
