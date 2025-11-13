@@ -41,14 +41,14 @@ class TestConcurrentImageGeneration:
         mock_pipeline_instance.scheduler.config = {}
         mock_pipeline_instance.enable_attention_slicing = MagicMock()
         mock_pipeline_instance.enable_xformers_memory_efficient_attention = MagicMock()
-        
+
         # Mock the pipe call to return a result with images
         mock_result = MagicMock()
         mock_image = MagicMock()
         mock_image.save = MagicMock()
         mock_result.images = [mock_image]
         mock_pipeline_instance.return_value = mock_result
-        
+
         mock_pipeline_class.from_pretrained.return_value = mock_pipeline_instance
 
         mock_scheduler_instance = MagicMock()
@@ -67,12 +67,12 @@ class TestConcurrentImageGeneration:
             await model_manager._generate_image_diffusers(
                 "test prompt 1", model, width=512, height=512
             )
-            
+
             # Second generation request (simulating concurrent request)
             await model_manager._generate_image_diffusers(
                 "test prompt 2", model, width=512, height=512
             )
-            
+
             # Third generation request (simulating concurrent request)
             await model_manager._generate_image_diffusers(
                 "test prompt 3", model, width=512, height=512
@@ -83,7 +83,7 @@ class TestConcurrentImageGeneration:
         # 2. Once before each of the 3 generation requests
         # This ensures each request gets a fresh scheduler with step_index=0
         assert mock_scheduler_class.from_config.call_count >= 4
-        
+
         # Verify all scheduler creations used use_karras_sigmas=True
         for call_args in mock_scheduler_class.from_config.call_args_list:
             kwargs = call_args[1]
@@ -106,14 +106,14 @@ class TestConcurrentImageGeneration:
         mock_pipeline_instance.scheduler.config = {}
         mock_pipeline_instance.enable_attention_slicing = MagicMock()
         mock_pipeline_instance.enable_xformers_memory_efficient_attention = MagicMock()
-        
+
         # Mock the pipe call to return a result with images
         mock_result = MagicMock()
         mock_image = MagicMock()
         mock_image.save = MagicMock()
         mock_result.images = [mock_image]
         mock_pipeline_instance.return_value = mock_result
-        
+
         mock_pipeline_class.from_pretrained.return_value = mock_pipeline_instance
 
         mock_scheduler_instance = MagicMock()
@@ -132,7 +132,7 @@ class TestConcurrentImageGeneration:
             await model_manager._generate_image_diffusers(
                 "test prompt 1", model, width=512, height=512
             )
-            
+
             await model_manager._generate_image_diffusers(
                 "test prompt 2", model, width=512, height=512
             )
@@ -141,7 +141,7 @@ class TestConcurrentImageGeneration:
         # 1. Once when the pipeline is first loaded
         # 2. Once before each of the 2 generation requests
         assert mock_scheduler_class.from_config.call_count >= 3
-        
+
         # Verify all scheduler creations used use_karras_sigmas=True
         for call_args in mock_scheduler_class.from_config.call_args_list:
             kwargs = call_args[1]
