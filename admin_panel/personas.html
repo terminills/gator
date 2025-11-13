@@ -452,6 +452,9 @@
                 <div class="toolbar-search">
                     <input type="text" class="search-input" id="search-personas" placeholder="Search personas..." style="width: 100%;">
                 </div>
+                <button class="btn btn-secondary" onclick="createRandomPersona()" style="margin-right: 8px;">
+                    🎲 Random Persona
+                </button>
                 <button class="btn btn-primary" onclick="createPersona()">
                     ➕ Create New Persona
                 </button>
@@ -545,6 +548,39 @@
         
         function createPersona() {
             window.location.href = '/admin/personas?action=create';
+        }
+        
+        async function createRandomPersona() {
+            const confirmed = confirm('🎲 Create a random persona?\n\nThis will generate a persona with randomized:\n• Name and appearance\n• Personality traits\n• Content themes\n• Style preferences\n\nGenerate preview images too? (Click OK to generate, Cancel for no images)');
+            
+            if (confirmed === null) return; // User cancelled
+            
+            const generateImages = confirmed;
+            
+            try {
+                // Show loading state
+                const container = document.getElementById('personas-container');
+                container.innerHTML = '<div class="empty-state"><h2>🎲 Creating Random Persona...</h2><p>This may take a moment...</p></div>';
+                
+                const response = await fetch(`/api/v1/personas/random?generate_images=${generateImages}&resolution=1024x1024&quality=standard`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to create random persona');
+                }
+                
+                const persona = await response.json();
+                
+                // Show success and redirect to edit
+                alert(`✅ Random persona created: ${persona.name}\n\nYou can now edit and customize it!`);
+                window.location.href = `/admin/personas?action=edit&id=${persona.id}`;
+                
+            } catch (error) {
+                console.error('Failed to create random persona:', error);
+                alert('❌ Failed to create random persona. Please try again.');
+                loadPersonas(); // Reload the list
+            }
         }
         
         function editPersona(id) {

@@ -574,6 +574,8 @@ async def approve_seed_image(
 async def generate_sample_images(
     appearance: str = Query(..., description="Appearance description for image generation"),
     personality: Optional[str] = Query(None, description="Personality context for image generation"),
+    resolution: Optional[str] = Query("1024x1024", description="Image resolution (e.g., '1024x1024', '720x1280', '1920x1080')"),
+    quality: Optional[str] = Query("standard", description="Generation quality: draft, standard, high, premium"),
     persona_service: PersonaService = Depends(get_persona_service),
 ) -> Dict[str, Any]:
     """
@@ -587,6 +589,8 @@ async def generate_sample_images(
     Args:
         appearance: Physical appearance description
         personality: Optional personality traits
+        resolution: Image resolution in format "widthxheight" (e.g., "1024x1024", "720x1280", "1920x1080")
+        quality: Generation quality preset (draft, standard, high, premium)
         persona_service: Injected persona service
         
     Returns:
@@ -607,60 +611,64 @@ async def generate_sample_images(
         ai_manager = AIModelManager()
         await ai_manager.initialize_models()
         
-        # Check what's available - prefer cloud for quality, fallback to local
-        dalle_available = any(
-            m.get("name") == "dall-e-3" and m.get("provider") == "openai"
-            for m in ai_manager.available_models.get("image", [])
-        )
-        
+        # Check what's available - prefer local models (free, no API costs)
         local_models = [
             m
             for m in ai_manager.available_models.get("image", [])
             if m.get("provider") == "local" and m.get("loaded")
         ]
         
-        if not dalle_available and not local_models:
+        dalle_available = any(
+            m.get("name") == "dall-e-3" and m.get("provider") == "openai"
+            for m in ai_manager.available_models.get("image", [])
+        )
+        
+        if not local_models and not dalle_available:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No image generation models available. Configure OPENAI_API_KEY or install local models.",
+                detail="No image generation models available. Install local models (Stable Diffusion XL recommended) or configure OPENAI_API_KEY as fallback.",
             )
         
+        # Parse resolution
+        try:
+            width, height = map(int, resolution.split('x'))
+            if width < 256 or width > 4096 or height < 256 or height > 4096:
+                raise ValueError("Resolution dimensions must be between 256 and 4096")
+        except (ValueError, AttributeError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid resolution format. Use 'widthxheight' (e.g., '1024x1024', '720x1280', '1920x1080')",
+            )
+        
+        # Map quality to DALL-E quality setting
+        dalle_quality_map = {
+            "draft": "standard",
+            "standard": "standard",
+            "high": "hd",
+            "premium": "hd"
+        }
+        dalle_quality = dalle_quality_map.get(quality.lower(), "standard")
+        
+        # Map quality to local generation steps
+        quality_steps_map = {
+            "draft": 20,
+            "standard": 30,
+            "high": 50,
+            "premium": 80
+        }
+        num_steps = quality_steps_map.get(quality.lower(), 30)
+        
         logger.info(f"Generating 4 sample images with appearance: {appearance[:50]}...")
+        logger.info(f"Resolution: {width}x{height}, Quality: {quality}")
         
         # Generate 4 images concurrently (or sequentially if API rate limited)
         images = []
         
-        # For DALL-E, we can generate multiple but need to manage rate limits
-        # For local, we can generate in parallel
-        if dalle_available:
-            # Generate 4 images sequentially to avoid rate limits
-            for i in range(4):
-                try:
-                    result = await ai_manager._generate_reference_image_openai(
-                        appearance_prompt=appearance,
-                        personality_context=personality[:200] if personality else None,
-                        quality="standard",  # Use standard for faster generation
-                        size="512x512",  # Smaller size for preview
-                    )
-                    
-                    # Convert to base64 data URL
-                    base64_image = base64.b64encode(result["image_data"]).decode('utf-8')
-                    data_url = f"data:image/png;base64,{base64_image}"
-                    
-                    images.append({
-                        "id": f"sample_{i+1}",
-                        "data_url": data_url,
-                        "size": len(result["image_data"])
-                    })
-                    
-                    logger.info(f"Generated sample image {i+1}/4")
-                    
-                except Exception as e:
-                    logger.warning(f"Failed to generate image {i+1}: {str(e)}")
-                    # Continue with other images even if one fails
-                    
-        elif local_models:
-            # Generate with local models (can be done in parallel)
+        # Prefer local models (free, no API costs, better privacy)
+        # Use DALL-E only as fallback if local models aren't available
+        if local_models:
+            # Generate with local models (free, can be done in parallel)
+            logger.info("Using local Stable Diffusion models for generation")
             tasks = []
             for i in range(4):
                 tasks.append(
@@ -668,13 +676,13 @@ async def generate_sample_images(
                         appearance_prompt=appearance,
                         personality_context=personality[:200] if personality else None,
                         reference_image_path=None,
-                        width=512,
-                        height=512,
-                        num_inference_steps=30,  # Fewer steps for faster generation
+                        width=width,
+                        height=height,
+                        num_inference_steps=num_steps,
                     )
                 )
             
-            # Execute in parallel
+            # Execute in parallel for faster generation
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
             for i, result in enumerate(results):
@@ -694,6 +702,35 @@ async def generate_sample_images(
                     })
                 except Exception as e:
                     logger.warning(f"Failed to process image {i+1}: {str(e)}")
+                    
+        elif dalle_available:
+            # Fallback to DALL-E if local models not available (requires API key and costs money)
+            logger.warning("Using DALL-E as fallback - this will incur API costs. Consider installing local Stable Diffusion models.")
+            # Generate 4 images sequentially to avoid rate limits
+            for i in range(4):
+                try:
+                    result = await ai_manager._generate_reference_image_openai(
+                        appearance_prompt=appearance,
+                        personality_context=personality[:200] if personality else None,
+                        quality=dalle_quality,
+                        size=f"{width}x{height}",
+                    )
+                    
+                    # Convert to base64 data URL
+                    base64_image = base64.b64encode(result["image_data"]).decode('utf-8')
+                    data_url = f"data:image/png;base64,{base64_image}"
+                    
+                    images.append({
+                        "id": f"sample_{i+1}",
+                        "data_url": data_url,
+                        "size": len(result["image_data"])
+                    })
+                    
+                    logger.info(f"Generated sample image {i+1}/4")
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to generate image {i+1}: {str(e)}")
+                    # Continue with other images even if one fails
         
         # Clean up
         await ai_manager.close()
@@ -718,6 +755,137 @@ async def generate_sample_images(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate images: {str(e)}",
+        )
+
+
+@router.post("/random", response_model=PersonaResponse, status_code=status.HTTP_201_CREATED)
+async def create_random_persona(
+    generate_images: bool = Query(
+        False,
+        description="If true, generates 4 sample images and auto-selects the first one"
+    ),
+    resolution: Optional[str] = Query(
+        "1024x1024",
+        description="Image resolution if generate_images is true"
+    ),
+    quality: Optional[str] = Query(
+        "standard",
+        description="Generation quality if generate_images is true"
+    ),
+    persona_service: PersonaService = Depends(get_persona_service),
+):
+    """
+    Create a random persona with randomized appearance, personality, and themes.
+    
+    This endpoint generates a complete persona with randomly selected attributes,
+    perfect for quick testing, experimentation, or creative inspiration.
+    
+    Args:
+        generate_images: If true, automatically generates preview images
+        resolution: Image resolution for preview generation
+        quality: Quality preset for image generation
+        persona_service: Injected persona service
+        
+    Returns:
+        PersonaResponse: The created random persona
+        
+    Raises:
+        500: Generation error
+    """
+    try:
+        from backend.services.persona_randomizer import PersonaRandomizer
+        
+        # Generate random persona configuration
+        random_config = PersonaRandomizer.generate_complete_random_persona(detailed=True)
+        
+        logger.info(f"Creating random persona: {random_config['name']}")
+        
+        # Create persona data object
+        persona_data = PersonaCreate(
+            name=random_config["name"],
+            appearance=random_config["appearance"],
+            personality=random_config["personality"],
+            content_themes=random_config["content_themes"],
+            style_preferences=random_config["style_preferences"],
+            default_content_rating=random_config["default_content_rating"],
+            allowed_content_ratings=random_config["allowed_content_ratings"],
+            platform_restrictions=random_config["platform_restrictions"],
+            is_active=random_config["is_active"],
+        )
+        
+        # Create the persona
+        persona = await persona_service.create_persona(persona_data)
+        
+        # Optionally generate and set preview images
+        if generate_images:
+            try:
+                logger.info(f"Generating preview images for random persona {persona.id}")
+                
+                # Initialize AI model manager
+                ai_manager = AIModelManager()
+                await ai_manager.initialize_models()
+                
+                # Check for local models
+                local_models = [
+                    m
+                    for m in ai_manager.available_models.get("image", [])
+                    if m.get("provider") == "local" and m.get("loaded")
+                ]
+                
+                if local_models:
+                    # Parse resolution
+                    width, height = map(int, resolution.split('x'))
+                    
+                    # Map quality to steps
+                    quality_steps = {"draft": 20, "standard": 30, "high": 50, "premium": 80}
+                    num_steps = quality_steps.get(quality.lower(), 30)
+                    
+                    # Generate first image only (faster for random personas)
+                    result = await ai_manager._generate_reference_image_local(
+                        appearance_prompt=persona.appearance,
+                        personality_context=persona.personality[:200],
+                        reference_image_path=None,
+                        width=width,
+                        height=height,
+                        num_inference_steps=num_steps,
+                    )
+                    
+                    # Save and set as base image
+                    image_path = await persona_service._save_image_to_disk(
+                        persona_id=str(persona.id),
+                        image_data=result["image_data"],
+                        filename=f"persona_{persona.id}_random.png",
+                    )
+                    
+                    # Update persona with image
+                    from backend.models.persona import PersonaUpdate
+                    updates = PersonaUpdate(
+                        base_image_path=image_path,
+                        base_image_status=BaseImageStatus.APPROVED,
+                        appearance_locked=True,
+                    )
+                    persona = await persona_service.update_persona(str(persona.id), updates)
+                    
+                    logger.info(f"Generated and set base image for random persona {persona.id}")
+                    
+                    await ai_manager.close()
+                else:
+                    logger.warning("No local models available for image generation")
+                    
+            except Exception as e:
+                logger.error(f"Failed to generate images for random persona: {str(e)}")
+                # Don't fail the whole operation if image generation fails
+        
+        logger.info(f"Random persona created: {persona.id} - {persona.name}")
+        return persona
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create random persona: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create random persona: {str(e)}",
         )
 
 

@@ -203,6 +203,14 @@ class PersonaService:
                 update_data["content_themes"] = updates.content_themes
             if updates.style_preferences is not None:
                 update_data["style_preferences"] = updates.style_preferences
+            if updates.default_content_rating is not None:
+                update_data["default_content_rating"] = updates.default_content_rating.value
+            if updates.allowed_content_ratings is not None:
+                update_data["allowed_content_ratings"] = [
+                    rating.value for rating in updates.allowed_content_ratings
+                ]
+            if updates.platform_restrictions is not None:
+                update_data["platform_restrictions"] = updates.platform_restrictions
             if updates.is_active is not None:
                 update_data["is_active"] = updates.is_active
             if updates.base_appearance_description is not None:

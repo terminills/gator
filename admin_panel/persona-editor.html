@@ -1003,6 +1003,30 @@
                             <div class="generate-images-section" id="generate-prompt">
                                 <h3>🎨 Generate Sample Images</h3>
                                 <p>Click below to generate 4 sample images based on your appearance description. This helps establish a consistent look for your persona.</p>
+                                
+                                <div style="display: flex; gap: 12px; margin: 16px 0; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <label class="form-label" style="margin-bottom: 6px;">Resolution</label>
+                                        <select class="form-input" id="resolution-select" style="margin: 0;">
+                                            <option value="512x512">512x512 (Square - Draft)</option>
+                                            <option value="1024x1024" selected>1024x1024 (Square - HD)</option>
+                                            <option value="720x1280">720x1280 (Portrait 720p)</option>
+                                            <option value="1080x1920">1080x1920 (Portrait 1080p)</option>
+                                            <option value="1280x720">1280x720 (Landscape 720p)</option>
+                                            <option value="1920x1080">1920x1080 (Landscape 1080p)</option>
+                                        </select>
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <label class="form-label" style="margin-bottom: 6px;">Quality</label>
+                                        <select class="form-input" id="quality-select" style="margin: 0;">
+                                            <option value="draft">Draft (Fast)</option>
+                                            <option value="standard" selected>Standard (Balanced)</option>
+                                            <option value="high">High (Detailed)</option>
+                                            <option value="premium">Premium (Best Quality)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
                                 <button type="button" class="btn-generate" id="generate-images-btn" onclick="generateSampleImages()">
                                     <span>✨</span>
                                     <span>Generate 4 Sample Images</span>
@@ -1127,8 +1151,8 @@
                 document.getElementById('page-title').textContent = 'Edit Persona';
                 document.getElementById('submit-text').textContent = 'Update Persona';
                 document.getElementById('delete-btn').style.display = 'inline-block';
-                // Hide sample images section in edit mode
-                document.getElementById('sample-images-section').style.display = 'none';
+                // Show sample images section in edit mode too (for updating base images)
+                document.getElementById('sample-images-section').style.display = 'block';
             } else {
                 editorMode = 'create';
                 document.getElementById('page-title').textContent = 'Create Persona';
@@ -1348,6 +1372,8 @@
         async function generateSampleImages() {
             const appearance = document.getElementById('appearance').value.trim();
             const personality = document.getElementById('personality').value.trim();
+            const resolution = document.getElementById('resolution-select').value;
+            const quality = document.getElementById('quality-select').value;
             
             if (!appearance || appearance.length < 10) {
                 showAlert('Please enter an appearance description (at least 10 characters) before generating images.', 'error');
@@ -1368,13 +1394,15 @@
             sampleImages = [];
             
             try {
-                // Call API to generate sample images
-                progressText.textContent = 'Generating 4 sample images... This may take 1-2 minutes.';
+                // Call API to generate sample images with resolution and quality
+                progressText.textContent = `Generating 4 sample images at ${resolution} (${quality} quality)... This may take 1-2 minutes.`;
                 progressBar.style.width = '25%';
                 
                 const response = await fetch('/api/v1/personas/generate-sample-images?' + new URLSearchParams({
                     appearance: appearance,
-                    personality: personality || ''
+                    personality: personality || '',
+                    resolution: resolution,
+                    quality: quality
                 }), {
                     method: 'POST'
                 });
@@ -1432,7 +1460,8 @@
             });
             
             // Show instruction
-            showAlert('Select one image to set as your persona\'s base image. The selected image will be locked for consistency.', 'info');
+            const actionText = editorMode === 'edit' ? 'update' : 'set';
+            showAlert(`Select one image to ${actionText} as your persona's base image. The selected image will be locked for consistency.`, 'success');
         }
         
         function selectSampleImage(imageId) {
@@ -1455,9 +1484,10 @@
                 // Update form fields to indicate image is selected
                 document.getElementById('base_image_status').value = 'approved';
                 document.getElementById('appearance_locked').checked = true;
-                document.getElementById('base_image_path').value = `Will be set after persona creation`;
+                document.getElementById('base_image_path').value = editorMode === 'edit' ? `Will be updated when you save` : `Will be set after persona creation`;
                 
-                showAlert('Image selected! This will be set as your base image when you create the persona.', 'success');
+                const actionText = editorMode === 'edit' ? 'update' : 'create';
+                showAlert(`Image selected! This will be set as your base image when you ${actionText} the persona.`, 'success');
             }
         }
         
@@ -1514,17 +1544,21 @@
                 
                 const result = await response.json();
                 
-                // If in create mode and user selected a sample image, set it as base image
-                if (editorMode === 'create' && selectedImageData) {
+                // If user selected a sample image, set it as base image (works for both create and edit)
+                if (selectedImageData) {
                     try {
                         document.getElementById('submit-text').textContent = 'Setting base image...';
                         
-                        const imageResponse = await fetch(`/api/v1/personas/${result.id}/set-base-image?image_data=${encodeURIComponent(selectedImageData)}`, {
+                        // Use the persona ID from result (works for both create and edit)
+                        const personaIdToUse = result.id;
+                        const imageResponse = await fetch(`/api/v1/personas/${personaIdToUse}/set-base-image?image_data=${encodeURIComponent(selectedImageData)}`, {
                             method: 'POST'
                         });
                         
                         if (!imageResponse.ok) {
-                            console.error('Failed to set base image, but persona was created');
+                            console.error(`Failed to set base image, but persona was ${editorMode === 'create' ? 'created' : 'updated'}`);
+                        } else {
+                            logger.info('Base image set successfully');
                         }
                     } catch (imageError) {
                         console.error('Failed to set base image:', imageError);
