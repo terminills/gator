@@ -713,6 +713,135 @@
             width: 0%;
             transition: width 0.3s;
         }
+        
+        .feed-assignment-card {
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .feed-assignment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .feed-assignment-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+        }
+        
+        .feed-assignment-url {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .feed-topics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        
+        .topic-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            background: var(--accent);
+            color: white;
+            border-radius: 12px;
+            font-size: 0.75rem;
+        }
+        
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-overlay.show {
+            display: flex;
+        }
+        
+        .modal-dialog {
+            background: var(--dark-surface);
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 600px;
+            width: 90%;
+            border: 1px solid var(--border-color);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+        
+        .feed-select-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px;
+            background: var(--dark-card);
+            margin-bottom: 16px;
+        }
+        
+        .feed-select-item {
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+        }
+        
+        .feed-select-item:hover {
+            background: var(--dark-surface);
+        }
+        
+        .feed-select-item.selected {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .feed-select-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .feed-select-url {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+        
+        .category-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        
+        .category-chip {
+            display: inline-block;
+            padding: 3px 8px;
+            background: rgba(102, 126, 234, 0.2);
+            border-radius: 10px;
+            font-size: 0.7rem;
+        }
     </style>
 </head>
 <body>
@@ -1084,6 +1213,30 @@
                         </div>
                     </div>
                     
+                    <!-- RSS Feed Assignment -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>📡</span>
+                                RSS Feed Content Sources
+                            </h2>
+                        </div>
+                        <p class="section-description">Assign RSS feeds to this persona for content generation inspiration. Specify categories to filter relevant topics.</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Assigned RSS Feeds
+                            </label>
+                            <span class="form-help">RSS feeds that provide content suggestions for this persona</span>
+                            <div id="assigned-feeds-container" style="margin-bottom: 12px;">
+                                <!-- Will be populated dynamically -->
+                            </div>
+                            <button type="button" class="add-btn" onclick="showAssignFeedModal()">
+                                + Assign RSS Feed
+                            </button>
+                        </div>
+                    </div>
+                    
                     <!-- Status -->
                     <div class="section">
                         <div class="section-header">
@@ -1126,6 +1279,8 @@
         let platformRestrictions = {};
         let sampleImages = []; // Generated sample images
         let selectedImageData = null; // Selected image for base
+        let assignedFeeds = []; // Assigned RSS feeds for persona
+        let availableFeeds = []; // Available RSS feeds to assign
         
         // Load branding configuration
         async function loadBranding() {
@@ -1242,6 +1397,9 @@
                 if (persona.generation_count > 0) {
                     badge.innerHTML = `<span class="badge badge-info">${persona.generation_count} generations</span>`;
                 }
+                
+                // Load assigned RSS feeds
+                await loadAssignedFeeds();
                 
                 document.getElementById('loading').classList.remove('show');
                 document.getElementById('form-container').style.display = 'block';
@@ -1497,6 +1655,216 @@
             }
         }
         
+        // RSS Feed Assignment Functions
+        async function loadAvailableFeeds() {
+            try {
+                const response = await fetch('/api/v1/feeds/rss?active_only=true');
+                const data = await response.json();
+                availableFeeds = data.feeds || [];
+            } catch (error) {
+                console.error('Failed to load available feeds:', error);
+                availableFeeds = [];
+            }
+        }
+        
+        async function loadAssignedFeeds() {
+            if (editorMode !== 'edit' || !personaId) {
+                renderAssignedFeeds();
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/v1/feeds/personas/${personaId}/feeds`);
+                if (response.ok) {
+                    assignedFeeds = await response.json();
+                }
+            } catch (error) {
+                console.error('Failed to load assigned feeds:', error);
+                assignedFeeds = [];
+            }
+            
+            renderAssignedFeeds();
+        }
+        
+        function renderAssignedFeeds() {
+            const container = document.getElementById('assigned-feeds-container');
+            
+            if (assignedFeeds.length === 0) {
+                container.innerHTML = `
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; padding: 12px; background: var(--dark-card); border-radius: 8px;">
+                        No RSS feeds assigned yet. Click "Assign RSS Feed" to add content sources.
+                    </p>
+                `;
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            assignedFeeds.forEach((assignment, index) => {
+                const card = document.createElement('div');
+                card.className = 'feed-assignment-card';
+                
+                const topicsHtml = (assignment.topics || []).map(topic => 
+                    `<span class="topic-tag">${topic}</span>`
+                ).join('');
+                
+                const categoriesHtml = (assignment.feed_categories || []).map(cat => 
+                    `<span class="category-tag" style="background: rgba(102, 126, 234, 0.3);">${cat}</span>`
+                ).join('');
+                
+                card.innerHTML = `
+                    <div class="feed-assignment-header">
+                        <div class="feed-assignment-title">📡 ${assignment.feed_name || 'RSS Feed'}</div>
+                        <button type="button" class="remove-btn" onclick="removeAssignedFeed(${index})">×</button>
+                    </div>
+                    <div class="feed-assignment-url">${assignment.feed_url || ''}</div>
+                    ${categoriesHtml ? `<div style="margin-bottom: 8px;">${categoriesHtml}</div>` : ''}
+                    ${topicsHtml ? `
+                        <div>
+                            <span style="font-size: 0.8rem; color: var(--text-secondary);">Filtered Topics:</span>
+                            <div class="feed-topics">${topicsHtml}</div>
+                        </div>
+                    ` : ''}
+                    <div style="margin-top: 8px; font-size: 0.8rem; color: var(--text-secondary);">
+                        Priority: ${assignment.priority || 50}/100
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+        
+        function removeAssignedFeed(index) {
+            assignedFeeds.splice(index, 1);
+            renderAssignedFeeds();
+        }
+        
+        async function showAssignFeedModal() {
+            // Load available feeds if not already loaded
+            if (availableFeeds.length === 0) {
+                await loadAvailableFeeds();
+            }
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay show';
+            modal.id = 'feed-assign-modal';
+            
+            const feedsListHtml = availableFeeds.map(feed => {
+                const categoriesHtml = (feed.categories || []).map(cat => 
+                    `<span class="category-chip">${cat}</span>`
+                ).join('');
+                
+                return `
+                    <div class="feed-select-item" onclick="selectFeedForAssignment('${feed.id}')">
+                        <div class="feed-select-name">📡 ${feed.name}</div>
+                        <div class="feed-select-url">${feed.url}</div>
+                        ${categoriesHtml ? `<div class="category-chips">${categoriesHtml}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            modal.innerHTML = `
+                <div class="modal-dialog">
+                    <h2 class="modal-header">Assign RSS Feed</h2>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Select Feed</label>
+                        <div class="feed-select-list" id="feed-select-list">
+                            ${feedsListHtml || '<p style="text-align: center; color: var(--text-secondary);">No RSS feeds available. Add feeds in the RSS page first.</p>'}
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Filter by Topics (comma-separated, optional)</label>
+                        <input type="text" class="form-input" id="feed-topics" placeholder="technology, AI, innovation">
+                        <span class="form-help">Leave empty to use all content from the feed</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Priority (0-100)</label>
+                        <input type="number" class="form-input" id="feed-priority" value="50" min="0" max="100">
+                        <span class="form-help">Higher priority feeds are preferred for content suggestions</span>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeFeedAssignModal()">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="assign-feed-btn" onclick="assignSelectedFeed()" disabled>Assign Feed</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Close modal when clicking outside
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeFeedAssignModal();
+            });
+        }
+        
+        let selectedFeedForAssignment = null;
+        
+        function selectFeedForAssignment(feedId) {
+            // Remove previous selection
+            document.querySelectorAll('.feed-select-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Mark new selection
+            const items = document.querySelectorAll('.feed-select-item');
+            items.forEach(item => {
+                if (item.onclick.toString().includes(feedId)) {
+                    item.classList.add('selected');
+                }
+            });
+            
+            selectedFeedForAssignment = feedId;
+            document.getElementById('assign-feed-btn').disabled = false;
+        }
+        
+        function assignSelectedFeed() {
+            if (!selectedFeedForAssignment) {
+                alert('Please select a feed');
+                return;
+            }
+            
+            const feed = availableFeeds.find(f => f.id === selectedFeedForAssignment);
+            if (!feed) {
+                alert('Feed not found');
+                return;
+            }
+            
+            const topicsStr = document.getElementById('feed-topics').value.trim();
+            const topics = topicsStr ? topicsStr.split(',').map(t => t.trim()).filter(t => t) : [];
+            const priority = parseInt(document.getElementById('feed-priority').value) || 50;
+            
+            // Check if already assigned
+            if (assignedFeeds.some(a => a.feed_id === feed.id)) {
+                alert('This feed is already assigned to this persona');
+                return;
+            }
+            
+            // Add to assigned feeds
+            assignedFeeds.push({
+                feed_id: feed.id,
+                feed_name: feed.name,
+                feed_url: feed.url,
+                feed_categories: feed.categories || [],
+                topics: topics,
+                priority: priority,
+                is_active: true
+            });
+            
+            renderAssignedFeeds();
+            closeFeedAssignModal();
+            showAlert('RSS feed assigned successfully!', 'success');
+        }
+        
+        function closeFeedAssignModal() {
+            const modal = document.getElementById('feed-assign-modal');
+            if (modal) modal.remove();
+            selectedFeedForAssignment = null;
+        }
+        
         // Form submission
         document.getElementById('persona-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1549,14 +1917,13 @@
                 }
                 
                 const result = await response.json();
+                const personaIdToUse = result.id;
                 
                 // If user selected a sample image, set it as base image (works for both create and edit)
                 if (selectedImageData) {
                     try {
                         document.getElementById('submit-text').textContent = 'Setting base image...';
                         
-                        // Use the persona ID from result (works for both create and edit)
-                        const personaIdToUse = result.id;
                         const imageResponse = await fetch(`/api/v1/personas/${personaIdToUse}/set-base-image?image_data=${encodeURIComponent(selectedImageData)}`, {
                             method: 'POST'
                         });
@@ -1564,11 +1931,40 @@
                         if (!imageResponse.ok) {
                             console.error(`Failed to set base image, but persona was ${editorMode === 'create' ? 'created' : 'updated'}`);
                         } else {
-                            logger.info('Base image set successfully');
+                            console.log('Base image set successfully');
                         }
                     } catch (imageError) {
                         console.error('Failed to set base image:', imageError);
                         // Don't fail the whole operation if image setting fails
+                    }
+                }
+                
+                // Handle RSS feed assignments
+                if (assignedFeeds.length > 0) {
+                    try {
+                        document.getElementById('submit-text').textContent = 'Assigning RSS feeds...';
+                        
+                        // When editing, we need to sync assignments (add new, remove old)
+                        // For now, just assign all feeds (API will handle updates for existing ones)
+                        for (const feed of assignedFeeds) {
+                            try {
+                                await fetch(`/api/v1/feeds/personas/${personaIdToUse}/feeds`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        feed_id: feed.feed_id,
+                                        topics: feed.topics || [],
+                                        priority: feed.priority || 50
+                                    })
+                                });
+                            } catch (feedError) {
+                                console.error('Failed to assign feed:', feedError);
+                                // Continue with other feeds
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to assign RSS feeds:', error);
+                        // Don't fail the whole operation
                     }
                 }
                 
@@ -1629,6 +2025,12 @@
             loadBranding();
             parseUrlParams();
             loadPersonaData();
+            loadAvailableFeeds(); // Load available feeds for assignment
+            
+            // If creating new persona, initialize empty assigned feeds
+            if (editorMode === 'create') {
+                renderAssignedFeeds();
+            }
         });
     </script>
 </body>

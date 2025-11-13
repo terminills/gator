@@ -465,6 +465,48 @@ async def refresh_rss_feed(
         )
 
 
+@router.get("/rss/{feed_id}/items", response_model=List[FeedItemResponse])
+async def get_feed_items(
+    feed_id: UUID,
+    limit: int = Query(default=50, ge=1, le=100, description="Maximum items to return"),
+    page: int = Query(default=1, ge=1, description="Page number"),
+    rss_service: RSSIngestionService = Depends(get_rss_service),
+):
+    """
+    Get items from a specific RSS feed.
+
+    Returns recent feed items with their metadata including title, description,
+    published date, and categories for preview display.
+
+    Args:
+        feed_id: Feed identifier
+        limit: Maximum items to return (1-100)
+        page: Page number for pagination
+        rss_service: Injected RSS ingestion service
+
+    Returns:
+        List[FeedItemResponse]: List of feed items
+
+    Raises:
+        404: Feed not found
+        500: Failed to retrieve feed items
+    """
+    try:
+        items = await rss_service.get_feed_items(feed_id, limit, page)
+        logger.info(f"Retrieved {len(items)} items from feed {feed_id}")
+        return items
+
+    except ValueError as e:
+        logger.warning(f"Feed not found: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to get feed items: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve feed items",
+        )
+
+
 @router.delete("/rss/{feed_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_rss_feed(
     feed_id: UUID,

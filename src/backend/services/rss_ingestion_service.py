@@ -1162,3 +1162,46 @@ class RSSIngestionService:
         except Exception as e:
             logger.error(f"Error listing feeds by topic: {str(e)}")
             return []
+
+    async def get_feed_items(
+        self, feed_id: UUID, limit: int = 50, page: int = 1
+    ) -> List[FeedItemResponse]:
+        """
+        Get feed items for a specific RSS feed.
+
+        Args:
+            feed_id: UUID of the feed
+            limit: Maximum items to return (default 50)
+            page: Page number for pagination (default 1)
+
+        Returns:
+            List of feed items
+        """
+        try:
+            # Verify feed exists
+            feed = await self._get_feed_by_id(feed_id)
+            if not feed:
+                raise ValueError(f"Feed not found: {feed_id}")
+
+            # Calculate offset for pagination
+            offset = (page - 1) * limit
+
+            # Get feed items ordered by published date
+            stmt = (
+                select(FeedItemModel)
+                .where(FeedItemModel.feed_id == feed_id)
+                .order_by(FeedItemModel.published_date.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+
+            result = await self.db.execute(stmt)
+            items = result.scalars().all()
+
+            return [FeedItemResponse.model_validate(item) for item in items]
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error getting feed items for {feed_id}: {str(e)}")
+            return []
