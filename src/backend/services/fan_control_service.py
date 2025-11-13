@@ -17,6 +17,47 @@ from backend.config.settings import get_settings
 logger = get_logger(__name__)
 
 
+async def get_ipmi_credentials_from_db():
+    """
+    Attempt to load IPMI credentials from database settings.
+    Falls back to None if database is not available.
+    
+    Returns:
+        Dict with ipmi_host, ipmi_username, ipmi_password, ipmi_interface or None
+    """
+    try:
+        from backend.database.connection import database_manager
+        from backend.services.settings_service import SettingsService
+        
+        # Check if database is connected
+        if not database_manager.is_connected:
+            return None
+            
+        async with database_manager.get_session() as session:
+            service = SettingsService(session)
+            
+            # Try to fetch each IPMI setting
+            ipmi_host = await service.get_setting("ipmi_host")
+            ipmi_username = await service.get_setting("ipmi_username")
+            ipmi_password = await service.get_setting("ipmi_password")
+            ipmi_interface = await service.get_setting("ipmi_interface")
+            
+            # Return dict if any value exists
+            if any([ipmi_host, ipmi_username, ipmi_password, ipmi_interface]):
+                return {
+                    "ipmi_host": ipmi_host.value if ipmi_host else None,
+                    "ipmi_username": ipmi_username.value if ipmi_username else None,
+                    "ipmi_password": ipmi_password.value if ipmi_password else None,
+                    "ipmi_interface": ipmi_interface.value if ipmi_interface else "lanplus",
+                }
+            
+            return None
+            
+    except Exception as e:
+        logger.debug(f"Could not load IPMI credentials from database: {e}")
+        return None
+
+
 class FanControlMode(str, Enum):
     """Fan control modes."""
     AUTO = "auto"
@@ -78,7 +119,7 @@ class FanControlService:
             "critical": 85,  # Maximum fan speed
         }
         
-        # Load credentials from settings if not provided
+        # Load credentials from environment settings if not provided
         settings = get_settings()
         self._ipmi_host = ipmi_host or settings.ipmi_host
         self._ipmi_username = ipmi_username or settings.ipmi_username
@@ -91,6 +132,29 @@ class FanControlService:
         # Log initialization (don't log credentials)
         auth_status = "with authentication" if self._ipmi_host and self._ipmi_username else "without authentication"
         logger.info(f"Fan control service initialized for manufacturer: {manufacturer.value} {auth_status}")
+    
+    async def reload_credentials_from_db(self):
+        """
+        Reload IPMI credentials from database.
+        This allows updating credentials without restarting the service.
+        """
+        db_creds = await get_ipmi_credentials_from_db()
+        if db_creds:
+            # Update credentials from database (override current values)
+            if db_creds.get("ipmi_host"):
+                self._ipmi_host = db_creds["ipmi_host"]
+            if db_creds.get("ipmi_username"):
+                self._ipmi_username = db_creds["ipmi_username"]
+            if db_creds.get("ipmi_password"):
+                self._ipmi_password = db_creds["ipmi_password"]
+            if db_creds.get("ipmi_interface"):
+                self._ipmi_interface = db_creds["ipmi_interface"]
+            
+            # Reset support status since credentials changed
+            self._manual_control_supported = None
+            
+            auth_status = "with authentication" if self._ipmi_host and self._ipmi_username else "without authentication"
+            logger.info(f"IPMI credentials reloaded from database {auth_status}")
 
     def _check_ipmi_availability(self):
         """Check if IPMI tools are available."""
