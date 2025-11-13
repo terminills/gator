@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from backend.config.logging import get_logger
+from backend.config.settings import get_settings
 
 logger = get_logger(__name__)
 
@@ -47,12 +48,23 @@ class FanControlService:
     fan wall, not attached to individual GPUs.
     """
 
-    def __init__(self, manufacturer: ServerManufacturer = ServerManufacturer.LENOVO):
+    def __init__(
+        self,
+        manufacturer: ServerManufacturer = ServerManufacturer.LENOVO,
+        ipmi_host: Optional[str] = None,
+        ipmi_username: Optional[str] = None,
+        ipmi_password: Optional[str] = None,
+        ipmi_interface: str = "lanplus",
+    ):
         """
         Initialize fan control service.
         
         Args:
             manufacturer: Server manufacturer for IPMI command selection
+            ipmi_host: BMC/XCC IP address or hostname (overrides settings)
+            ipmi_username: BMC/XCC username (overrides settings)
+            ipmi_password: BMC/XCC password (overrides settings)
+            ipmi_interface: IPMI interface type (default: lanplus for remote access)
         """
         self._ipmi_available = False
         self._control_mode = FanControlMode.AUTO
@@ -66,9 +78,19 @@ class FanControlService:
             "critical": 85,  # Maximum fan speed
         }
         
+        # Load credentials from settings if not provided
+        settings = get_settings()
+        self._ipmi_host = ipmi_host or settings.ipmi_host
+        self._ipmi_username = ipmi_username or settings.ipmi_username
+        self._ipmi_password = ipmi_password or settings.ipmi_password
+        self._ipmi_interface = ipmi_interface or settings.ipmi_interface
+        
         # Check IPMI availability
         self._check_ipmi_availability()
-        logger.info(f"Fan control service initialized for manufacturer: {manufacturer.value}")
+        
+        # Log initialization (don't log credentials)
+        auth_status = "with authentication" if self._ipmi_host and self._ipmi_username else "without authentication"
+        logger.info(f"Fan control service initialized for manufacturer: {manufacturer.value} {auth_status}")
 
     def _check_ipmi_availability(self):
         """Check if IPMI tools are available."""
@@ -86,6 +108,66 @@ class FanControlService:
         except Exception as e:
             logger.error(f"Error checking IPMI availability: {e}")
             self._ipmi_available = False
+
+    def _build_ipmi_command(self, raw_command: List[str]) -> List[str]:
+        """
+        Build complete IPMI command with authentication if configured.
+        
+        Args:
+            raw_command: The raw IPMI command arguments (e.g., ["raw", "0x30", "0x30"])
+        
+        Returns:
+            Complete ipmitool command with authentication parameters
+        
+        Examples:
+            # Local/in-band (no credentials):
+            ["ipmitool", "raw", "0x30", "0x30", ...]
+            
+            # Remote/out-of-band (with credentials):
+            ["ipmitool", "-I", "lanplus", "-H", "192.168.1.100", 
+             "-U", "USERID", "-P", "PASSW0RD", "raw", "0x30", "0x30", ...]
+        """
+        cmd = ["ipmitool"]
+        
+        # Add authentication parameters if configured (out-of-band/remote access)
+        if self._ipmi_host and self._ipmi_username and self._ipmi_password:
+            cmd.extend([
+                "-I", self._ipmi_interface,  # Interface (lanplus for remote)
+                "-H", self._ipmi_host,        # BMC/XCC hostname or IP
+                "-U", self._ipmi_username,    # Username
+                "-P", self._ipmi_password,    # Password
+            ])
+        # else: in-band/local access (no authentication needed)
+        
+        # Add the actual command
+        cmd.extend(raw_command)
+        
+        return cmd
+
+    def _is_authentication_error(self, error_msg: str) -> bool:
+        """
+        Check if IPMI error is related to authentication/authorization.
+        
+        Args:
+            error_msg: Error message from ipmitool
+        
+        Returns:
+            True if error is authentication-related
+        """
+        auth_error_patterns = [
+            "authentication",
+            "login",
+            "password",
+            "username",
+            "unauthorized",
+            "access denied",
+            "insufficient privilege",
+            "session",
+            "0xd4",  # IPMI: Insufficient privilege level
+            "0xcb",  # IPMI: Invalid data field in request
+        ]
+        error_lower = error_msg.lower()
+        return any(pattern in error_lower for pattern in auth_error_patterns)
 
     def _get_ipmi_commands(self) -> Dict[str, List[str]]:
         """
@@ -156,8 +238,9 @@ class FanControlService:
 
         try:
             # Get sensor data from IPMI
+            cmd = self._build_ipmi_command(["sensor", "list"])
             proc = await asyncio.create_subprocess_exec(
-                "ipmitool", "sensor", "list",
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -296,8 +379,9 @@ class FanControlService:
             
             logger.debug(f"Setting auto mode for {self._manufacturer.value}: {' '.join(auto_cmd)}")
             
+            cmd = self._build_ipmi_command(["raw"] + auto_cmd)
             proc = await asyncio.create_subprocess_exec(
-                "ipmitool", "raw", *auto_cmd,
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -397,8 +481,9 @@ class FanControlService:
             
             logger.debug(f"Setting fan speed for {self._manufacturer.value}: {' '.join(speed_cmd)}")
             
+            cmd = self._build_ipmi_command(["raw"] + speed_cmd)
             proc = await asyncio.create_subprocess_exec(
-                "ipmitool", "raw", *speed_cmd,
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -418,23 +503,52 @@ class FanControlService:
             else:
                 error_msg = stderr.decode("utf-8").strip()
                 
-                # Check for "Invalid command" error (0xc1) which indicates unsupported hardware
-                if "Invalid command" in error_msg or "0xc1" in error_msg.lower():
-                    self._manual_control_supported = False
-                    commands = self._get_ipmi_commands()
-                    logger.warning(
-                        f"IPMI raw fan control commands not supported on {self._manufacturer.value} hardware. "
-                        f"Error: {error_msg}"
-                    )
+                # Check for authentication errors first
+                if self._is_authentication_error(error_msg):
+                    logger.error(f"IPMI authentication failed: {error_msg}")
+                    auth_configured = bool(self._ipmi_host and self._ipmi_username and self._ipmi_password)
                     return {
                         "success": False,
-                        "error": f"Hardware does not support manual fan control via IPMI raw commands (Manufacturer: {self._manufacturer.value})",
-                        "details": f"This {self._manufacturer.value} server's BMC does not support the IPMI OEM commands needed for manual fan control. "
-                                   "The system will use automatic fan control managed by the BMC firmware.",
+                        "error": "IPMI authentication failed",
+                        "details": "Unable to authenticate with BMC/XCC. Check credentials and ensure IPMI over LAN is enabled." if auth_configured else "IPMI credentials not configured. Remote IPMI access requires authentication.",
                         "ipmi_error": error_msg,
-                        "manufacturer_note": commands.get('note'),
-                        "recommendation": "Use automatic fan control mode, change manufacturer setting if incorrect, or consult your server's documentation for supported fan control methods",
+                        "recommendation": "Configure IPMI credentials (host, username, password) and ensure IPMI over LAN is enabled in XCC/BMC settings" if not auth_configured else "Verify IPMI credentials are correct and IPMI over LAN is enabled in XCC/BMC settings",
+                        "credentials_configured": auth_configured,
                     }
+                # Check for "Invalid command" error (0xc1) which may indicate unsupported hardware or missing auth
+                elif "Invalid command" in error_msg or "0xc1" in error_msg.lower():
+                    # If credentials are not configured, this might be an auth issue
+                    if not (self._ipmi_host and self._ipmi_username and self._ipmi_password):
+                        logger.warning(
+                            f"IPMI command failed with 0xc1 error and no credentials configured. "
+                            f"This may require authentication. Error: {error_msg}"
+                        )
+                        return {
+                            "success": False,
+                            "error": "IPMI command failed - authentication may be required",
+                            "details": "The IPMI command returned 'Invalid command' (0xc1). For Lenovo and most server-class hardware, "
+                                       "IPMI over LAN requires authentication. Configure IPMI credentials to enable remote fan control.",
+                            "ipmi_error": error_msg,
+                            "recommendation": "Configure IPMI credentials (GATOR_IPMI_HOST, GATOR_IPMI_USERNAME, GATOR_IPMI_PASSWORD) and ensure IPMI over LAN is enabled in XCC/BMC",
+                            "credentials_configured": False,
+                        }
+                    else:
+                        # Credentials are configured but still got 0xc1 - truly unsupported
+                        self._manual_control_supported = False
+                        commands = self._get_ipmi_commands()
+                        logger.warning(
+                            f"IPMI raw fan control commands not supported on {self._manufacturer.value} hardware (authenticated). "
+                            f"Error: {error_msg}"
+                        )
+                        return {
+                            "success": False,
+                            "error": f"Hardware does not support manual fan control via IPMI raw commands (Manufacturer: {self._manufacturer.value})",
+                            "details": f"This {self._manufacturer.value} server's BMC does not support the IPMI OEM commands needed for manual fan control. "
+                                       "The system will use automatic fan control managed by the BMC firmware.",
+                            "ipmi_error": error_msg,
+                            "manufacturer_note": commands.get('note'),
+                            "recommendation": "Use automatic fan control mode, change manufacturer setting if incorrect, or consult your server's documentation for supported fan control methods",
+                        }
                 else:
                     logger.error(f"Failed to set fan speed: {error_msg}")
                     return {
@@ -468,8 +582,9 @@ class FanControlService:
             
             logger.debug(f"Setting manual mode for {self._manufacturer.value}: {' '.join(manual_cmd)}")
             
+            cmd = self._build_ipmi_command(["raw"] + manual_cmd)
             proc = await asyncio.create_subprocess_exec(
-                "ipmitool", "raw", *manual_cmd,
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -691,6 +806,45 @@ class FanControlService:
             "message": f"Manufacturer set to {manufacturer.value}. Manual control support will be re-checked on next use.",
         }
 
+    def set_ipmi_credentials(
+        self,
+        host: str,
+        username: str,
+        password: str,
+        interface: str = "lanplus"
+    ) -> Dict[str, Any]:
+        """
+        Update IPMI credentials for remote BMC/XCC access.
+
+        Args:
+            host: BMC/XCC IP address or hostname
+            username: BMC/XCC username
+            password: BMC/XCC password
+            interface: IPMI interface type (default: lanplus)
+
+        Returns:
+            Updated configuration status
+        """
+        self._ipmi_host = host
+        self._ipmi_username = username
+        self._ipmi_password = password
+        self._ipmi_interface = interface
+        
+        # Reset support status since credentials may now allow access
+        self._manual_control_supported = None
+        
+        logger.info(f"IPMI credentials updated for host: {host} (interface: {interface})")
+        
+        return {
+            "success": True,
+            "host": host,
+            "username": username,
+            "interface": interface,
+            "message": "IPMI credentials configured. Remote fan control via IPMI over LAN is now enabled.",
+            "note": "Ensure IPMI over LAN is enabled in your BMC/XCC settings. "
+                    "For Lenovo XCC, enable this in the XCC web interface under Network > IPMI.",
+        }
+
     def get_control_info(self) -> Dict[str, Any]:
         """
         Get fan control configuration and status.
@@ -699,6 +853,8 @@ class FanControlService:
             Fan control information
         """
         commands = self._get_ipmi_commands()
+        credentials_configured = bool(self._ipmi_host and self._ipmi_username and self._ipmi_password)
+        
         return {
             "ipmi_available": self._ipmi_available,
             "manufacturer": self._manufacturer.value,
@@ -709,9 +865,12 @@ class FanControlService:
             "supported_zones": [zone.value for zone in FanZone],
             "supported_manufacturers": [m.value for m in ServerManufacturer],
             "manufacturer_note": commands.get('note'),
-            "note": "Some servers do not support manual fan control via IPMI raw commands. "
-                    "If manual control is not supported, the BMC will manage fans automatically. "
-                    "Ensure the correct manufacturer is configured.",
+            "credentials_configured": credentials_configured,
+            "ipmi_host_configured": bool(self._ipmi_host),
+            "authentication_mode": "remote (out-of-band)" if credentials_configured else "local (in-band)",
+            "note": "Server-class IPMI typically requires authentication for remote access. "
+                    "Configure IPMI credentials (GATOR_IPMI_HOST, GATOR_IPMI_USERNAME, GATOR_IPMI_PASSWORD) "
+                    "to enable remote fan control. For Lenovo servers, ensure IPMI over LAN is enabled in XCC.",
         }
 
 

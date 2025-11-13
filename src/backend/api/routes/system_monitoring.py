@@ -55,6 +55,14 @@ class ManufacturerRequest(BaseModel):
     manufacturer: str = Field(..., description="Server manufacturer (lenovo, dell, hp, supermicro, generic)")
 
 
+class IPMICredentialsRequest(BaseModel):
+    """Request model for configuring IPMI credentials."""
+    host: str = Field(..., description="BMC/XCC IP address or hostname")
+    username: str = Field(..., description="BMC/XCC username")
+    password: str = Field(..., description="BMC/XCC password")
+    interface: Optional[str] = Field("lanplus", description="IPMI interface (default: lanplus)")
+
+
 # GPU Monitoring Endpoints
 
 @router.get("/gpu/temperature", status_code=status.HTTP_200_OK)
@@ -408,4 +416,41 @@ async def set_manufacturer(request: ManufacturerRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error setting manufacturer",
+        )
+
+
+@router.post("/fans/credentials", status_code=status.HTTP_200_OK)
+async def set_ipmi_credentials(request: IPMICredentialsRequest):
+    """
+    Configure IPMI credentials for remote BMC/XCC access.
+
+    Most server-class hardware requires authentication for IPMI over LAN access.
+    Use this endpoint to configure the BMC/XCC credentials needed for remote fan control.
+
+    For Lenovo servers:
+    1. Ensure IPMI over LAN is enabled in XCC (Network > IPMI settings)
+    2. Use XCC credentials (default may be USERID/PASSW0RD)
+    3. Use the XCC management IP address
+
+    Args:
+        request: IPMI credentials (host, username, password, interface)
+
+    Returns:
+        Updated credential configuration status.
+    """
+    try:
+        fan_service = get_fan_control_service()
+        
+        result = fan_service.set_ipmi_credentials(
+            host=request.host,
+            username=request.username,
+            password=request.password,
+            interface=request.interface or "lanplus"
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error setting IPMI credentials: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error setting IPMI credentials",
         )

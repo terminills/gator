@@ -129,6 +129,20 @@ class Settings(BaseSettings):
         default="generated_content", description="Path to generated content directory"
     )
 
+    # IPMI/BMC Configuration
+    ipmi_host: Optional[str] = Field(
+        default=None, description="BMC/XCC IP address or hostname for IPMI access"
+    )
+    ipmi_username: Optional[str] = Field(
+        default=None, description="BMC/XCC username for IPMI authentication"
+    )
+    ipmi_password: Optional[str] = Field(
+        default=None, description="BMC/XCC password for IPMI authentication"
+    )
+    ipmi_interface: str = Field(
+        default="lanplus", description="IPMI interface type (lanplus recommended for remote access)"
+    )
+
 
 @lru_cache()
 def get_settings() -> Settings:
