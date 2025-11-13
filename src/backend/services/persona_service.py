@@ -77,6 +77,12 @@ class PersonaService:
                 appearance_locked=persona_data.appearance_locked,
                 base_image_status=persona_data.base_image_status.value,
                 image_style=persona_data.image_style.value,
+                default_image_resolution=persona_data.default_image_resolution,
+                default_video_resolution=persona_data.default_video_resolution,
+                post_style=persona_data.post_style,
+                video_types=persona_data.video_types,
+                nsfw_model_preference=persona_data.nsfw_model_preference,
+                generation_quality=persona_data.generation_quality,
             )
 
             # Add to session and commit
@@ -231,6 +237,18 @@ class PersonaService:
                 update_data["base_image_status"] = updates.base_image_status.value
             if updates.image_style is not None:
                 update_data["image_style"] = updates.image_style.value
+            if updates.default_image_resolution is not None:
+                update_data["default_image_resolution"] = updates.default_image_resolution
+            if updates.default_video_resolution is not None:
+                update_data["default_video_resolution"] = updates.default_video_resolution
+            if updates.post_style is not None:
+                update_data["post_style"] = updates.post_style
+            if updates.video_types is not None:
+                update_data["video_types"] = updates.video_types
+            if updates.nsfw_model_preference is not None:
+                update_data["nsfw_model_preference"] = updates.nsfw_model_preference
+            if updates.generation_quality is not None:
+                update_data["generation_quality"] = updates.generation_quality
 
             if not update_data:
                 # No updates provided, return existing persona
