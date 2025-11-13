@@ -2718,11 +2718,49 @@ class AIModelManager:
             logger.error(f"Failed to generate reference image with DALL-E: {str(e)}")
             raise
 
+    def _truncate_prompt_for_clip(self, prompt: str, max_tokens: int = 75) -> str:
+        """
+        Truncate prompt to fit within CLIP's 77 token limit (leaving 2 tokens for special tokens).
+        
+        CLIP tokenizer has a hard limit of 77 tokens. We use 75 to be safe.
+        This function intelligently truncates the prompt while preserving key details.
+        
+        Args:
+            prompt: Full prompt text
+            max_tokens: Maximum number of tokens (default 75 to leave room for special tokens)
+            
+        Returns:
+            Truncated prompt that fits within token limit
+        """
+        # Simple word-based approximation (1 token ≈ 0.75 words for English)
+        # This is a safe heuristic that slightly underestimates to prevent truncation
+        estimated_tokens = len(prompt.split()) * 1.3
+        
+        if estimated_tokens <= max_tokens:
+            return prompt
+        
+        # Need to truncate - keep the most important parts
+        # Priority: main subject description > style qualifiers > technical details
+        words = prompt.split()
+        target_words = int(max_tokens / 1.3)  # Convert tokens back to words
+        
+        if len(words) <= target_words:
+            return prompt
+        
+        # Take the most important words from the beginning and essential style words
+        truncated = " ".join(words[:target_words])
+        logger.warning(f"Prompt truncated from {len(words)} to {target_words} words to fit CLIP's 77 token limit")
+        logger.debug(f"Original: {prompt[:100]}...")
+        logger.debug(f"Truncated: {truncated[:100]}...")
+        
+        return truncated
+
     def _build_style_specific_prompt(
         self, base_prompt: str, image_style: str = "photorealistic"
     ) -> tuple[str, str]:
         """
         Build style-specific prompts and negative prompts for image generation.
+        Automatically truncates to fit within CLIP's 77 token limit.
 
         Args:
             base_prompt: Base appearance/character description
@@ -2775,8 +2813,12 @@ class AIModelManager:
 
         # Build enhanced prompt
         enhanced_prompt = f"{config['prefix']} {base_prompt}, {config['suffix']}"
+        
+        # Truncate both positive and negative prompts to fit CLIP's 77 token limit
+        truncated_prompt = self._truncate_prompt_for_clip(enhanced_prompt)
+        truncated_negative = self._truncate_prompt_for_clip(config["negative"])
 
-        return enhanced_prompt, config["negative"]
+        return truncated_prompt, truncated_negative
 
     async def _generate_reference_image_local(
         self,
