@@ -30,6 +30,15 @@ class FanZone(str, Enum):
     PERIPHERAL = "peripheral"  # Peripheral zone fans
 
 
+class ServerManufacturer(str, Enum):
+    """Supported server manufacturers for IPMI fan control."""
+    LENOVO = "lenovo"
+    DELL = "dell"
+    HP = "hp"
+    SUPERMICRO = "supermicro"
+    GENERIC = "generic"  # Generic/fallback IPMI commands
+
+
 class FanControlService:
     """
     Service for controlling server fan wall via IPMI.
@@ -38,11 +47,18 @@ class FanControlService:
     fan wall, not attached to individual GPUs.
     """
 
-    def __init__(self):
-        """Initialize fan control service."""
+    def __init__(self, manufacturer: ServerManufacturer = ServerManufacturer.LENOVO):
+        """
+        Initialize fan control service.
+        
+        Args:
+            manufacturer: Server manufacturer for IPMI command selection
+        """
         self._ipmi_available = False
         self._control_mode = FanControlMode.AUTO
         self._manual_speed = None
+        self._manual_control_supported = None  # Will be checked on first use
+        self._manufacturer = manufacturer
         self._temperature_thresholds = {
             "low": 50,  # Below this, reduce fan speed
             "normal": 65,  # Normal operating range
@@ -52,6 +68,7 @@ class FanControlService:
         
         # Check IPMI availability
         self._check_ipmi_availability()
+        logger.info(f"Fan control service initialized for manufacturer: {manufacturer.value}")
 
     def _check_ipmi_availability(self):
         """Check if IPMI tools are available."""
@@ -69,6 +86,59 @@ class FanControlService:
         except Exception as e:
             logger.error(f"Error checking IPMI availability: {e}")
             self._ipmi_available = False
+
+    def _get_ipmi_commands(self) -> Dict[str, List[str]]:
+        """
+        Get manufacturer-specific IPMI raw commands.
+        
+        Returns:
+            Dictionary with command lists for auto_mode, manual_mode, and set_speed
+        
+        Notes:
+            - Lenovo: XCC does not have documented public OEM commands for fan control.
+              The documented OEM commands (netfn 0x2E, 0x3A) are for system control,
+              firmware info, etc., but not fan control. Fan control may require
+              undocumented commands or may not be supported via IPMI.
+            - Dell: Uses netfn 0x30, cmd 0x30 for fan control
+            - HP: Uses netfn 0x30, cmd 0x30 for iLO fan control
+            - Supermicro: Uses netfn 0x30, cmd 0x45 for fan control
+        """
+        commands = {
+            ServerManufacturer.LENOVO: {
+                "auto_mode": ["0x30", "0x30", "0x01", "0x01"],  # Not officially documented
+                "manual_mode": ["0x30", "0x30", "0x01", "0x00"],  # Not officially documented
+                "set_speed_prefix": ["0x30", "0x30", "0x02", "0xff"],  # Not officially documented
+                "note": "Lenovo XCC fan control via IPMI may not be supported. "
+                        "These commands are not in the official Lenovo OEM IPMI documentation. "
+                        "The BMC will manage fans automatically if manual control is unavailable.",
+            },
+            ServerManufacturer.DELL: {
+                "auto_mode": ["0x30", "0x30", "0x01", "0x01"],
+                "manual_mode": ["0x30", "0x30", "0x01", "0x00"],
+                "set_speed_prefix": ["0x30", "0x30", "0x02", "0xff"],
+                "note": "Dell iDRAC fan control commands",
+            },
+            ServerManufacturer.HP: {
+                "auto_mode": ["0x30", "0x30", "0x01", "0x01"],
+                "manual_mode": ["0x30", "0x30", "0x01", "0x00"],
+                "set_speed_prefix": ["0x30", "0x30", "0x02", "0xff"],
+                "note": "HP iLO fan control commands",
+            },
+            ServerManufacturer.SUPERMICRO: {
+                "auto_mode": ["0x30", "0x45", "0x01", "0x01"],
+                "manual_mode": ["0x30", "0x45", "0x01", "0x00"],
+                "set_speed_prefix": ["0x30", "0x70", "0x66", "0x01", "0x00"],
+                "note": "Supermicro IPMI fan control commands",
+            },
+            ServerManufacturer.GENERIC: {
+                "auto_mode": ["0x30", "0x30", "0x01", "0x01"],
+                "manual_mode": ["0x30", "0x30", "0x01", "0x00"],
+                "set_speed_prefix": ["0x30", "0x30", "0x02", "0xff"],
+                "note": "Generic IPMI fan control commands (may not work on all hardware)",
+            },
+        }
+        
+        return commands.get(self._manufacturer, commands[ServerManufacturer.GENERIC])
 
     async def get_fan_status(self) -> Dict[str, Any]:
         """
@@ -220,10 +290,14 @@ class FanControlService:
             Status of the operation
         """
         try:
-            # Lenovo-specific IPMI command to enable automatic fan control
-            # This varies by manufacturer - using common approach
+            # Get manufacturer-specific IPMI commands
+            commands = self._get_ipmi_commands()
+            auto_cmd = commands["auto_mode"]
+            
+            logger.debug(f"Setting auto mode for {self._manufacturer.value}: {' '.join(auto_cmd)}")
+            
             proc = await asyncio.create_subprocess_exec(
-                "ipmitool", "raw", "0x30", "0x30", "0x01", "0x01",
+                "ipmitool", "raw", *auto_cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -238,14 +312,29 @@ class FanControlService:
                 }
             else:
                 error_msg = stderr.decode("utf-8").strip()
-                logger.warning(f"IPMI auto mode command returned error: {error_msg}")
-                # Some systems don't support this command, which is okay
-                return {
-                    "success": True,
-                    "mode": FanControlMode.AUTO,
-                    "message": "Automatic mode requested (command not supported on this system)",
-                    "warning": error_msg,
-                }
+                # Check for "Invalid command" error (0xc1) which indicates unsupported hardware
+                if "Invalid command" in error_msg or "0xc1" in error_msg.lower():
+                    commands = self._get_ipmi_commands()
+                    logger.info(
+                        f"IPMI raw fan control commands not supported on this {self._manufacturer.value} hardware. "
+                        f"Note: {commands.get('note', 'No additional info')}"
+                    )
+                    return {
+                        "success": True,
+                        "mode": FanControlMode.AUTO,
+                        "message": f"Automatic mode enabled (using BMC default - {self._manufacturer.value} does not support these IPMI fan commands)",
+                        "warning": "IPMI raw commands not supported on this system",
+                        "manufacturer_note": commands.get('note'),
+                    }
+                else:
+                    logger.warning(f"IPMI auto mode command returned error: {error_msg}")
+                    # Some systems don't support this command, which is okay
+                    return {
+                        "success": True,
+                        "mode": FanControlMode.AUTO,
+                        "message": "Automatic mode requested (command not supported on this system)",
+                        "warning": error_msg,
+                    }
         except Exception as e:
             logger.error(f"Error setting auto fan mode: {e}")
             return {
@@ -267,7 +356,17 @@ class FanControlService:
         if not self._ipmi_available:
             return {
                 "success": False,
-                "error": "IPMI not available",
+                "error": "IPMI not available - install ipmitool to enable fan control",
+            }
+
+        # Check if we already know manual control is not supported
+        if self._manual_control_supported is False:
+            return {
+                "success": False,
+                "error": "Manual fan control not supported on this hardware",
+                "details": "This server's BMC does not support the IPMI OEM commands needed for manual fan control. "
+                           "The system will use automatic fan control managed by the BMC firmware.",
+                "recommendation": "Use automatic fan control mode or consult your server's documentation for supported fan control methods",
             }
 
         # Validate speed
@@ -280,17 +379,26 @@ class FanControlService:
         try:
             # First set to manual mode if not already
             if self._control_mode != FanControlMode.MANUAL:
-                await self._set_ipmi_fan_mode_manual()
+                mode_result = await self._set_ipmi_fan_mode_manual()
+                # Log but don't fail if manual mode setting is not supported
+                if not mode_result.get("success"):
+                    logger.warning("Could not set manual mode, continuing with speed setting attempt")
 
             # Convert percentage to raw value (0-255 for most IPMI systems)
             raw_speed = int((speed_percent / 100.0) * 255)
 
-            # Lenovo SR665 specific fan control via IPMI raw commands
-            # This is a common approach but may need adjustment for specific hardware
+            # Get manufacturer-specific IPMI commands
+            commands = self._get_ipmi_commands()
+            speed_cmd_prefix = commands["set_speed_prefix"]
             zone_id = self._get_zone_id(zone)
             
+            # Build the full command with speed value
+            speed_cmd = list(speed_cmd_prefix) + [hex(raw_speed)]
+            
+            logger.debug(f"Setting fan speed for {self._manufacturer.value}: {' '.join(speed_cmd)}")
+            
             proc = await asyncio.create_subprocess_exec(
-                "ipmitool", "raw", "0x30", "0x30", "0x02", "0xff", hex(raw_speed),
+                "ipmitool", "raw", *speed_cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -298,6 +406,7 @@ class FanControlService:
 
             if proc.returncode == 0:
                 self._manual_speed = speed_percent
+                self._manual_control_supported = True
                 logger.info(f"Fan speed set to {speed_percent}% (raw: {raw_speed})")
                 return {
                     "success": True,
@@ -308,16 +417,41 @@ class FanControlService:
                 }
             else:
                 error_msg = stderr.decode("utf-8").strip()
-                logger.error(f"Failed to set fan speed: {error_msg}")
-                return {
-                    "success": False,
-                    "error": f"IPMI command failed: {error_msg}",
-                }
+                
+                # Check for "Invalid command" error (0xc1) which indicates unsupported hardware
+                if "Invalid command" in error_msg or "0xc1" in error_msg.lower():
+                    self._manual_control_supported = False
+                    commands = self._get_ipmi_commands()
+                    logger.warning(
+                        f"IPMI raw fan control commands not supported on {self._manufacturer.value} hardware. "
+                        f"Error: {error_msg}"
+                    )
+                    return {
+                        "success": False,
+                        "error": f"Hardware does not support manual fan control via IPMI raw commands (Manufacturer: {self._manufacturer.value})",
+                        "details": f"This {self._manufacturer.value} server's BMC does not support the IPMI OEM commands needed for manual fan control. "
+                                   "The system will use automatic fan control managed by the BMC firmware.",
+                        "ipmi_error": error_msg,
+                        "manufacturer_note": commands.get('note'),
+                        "recommendation": "Use automatic fan control mode, change manufacturer setting if incorrect, or consult your server's documentation for supported fan control methods",
+                    }
+                else:
+                    logger.error(f"Failed to set fan speed: {error_msg}")
+                    return {
+                        "success": False,
+                        "error": f"IPMI command failed: {error_msg}",
+                    }
+        except asyncio.TimeoutError:
+            logger.error("Timeout setting fan speed via IPMI")
+            return {
+                "success": False,
+                "error": "Timeout communicating with IPMI",
+            }
         except Exception as e:
             logger.error(f"Error setting fan speed: {e}")
             return {
                 "success": False,
-                "error": "Operation failed",
+                "error": f"Operation failed: {str(e)}",
             }
 
     async def _set_ipmi_fan_mode_manual(self) -> Dict[str, Any]:
@@ -328,8 +462,14 @@ class FanControlService:
             Status of the operation
         """
         try:
+            # Get manufacturer-specific IPMI commands
+            commands = self._get_ipmi_commands()
+            manual_cmd = commands["manual_mode"]
+            
+            logger.debug(f"Setting manual mode for {self._manufacturer.value}: {' '.join(manual_cmd)}")
+            
             proc = await asyncio.create_subprocess_exec(
-                "ipmitool", "raw", "0x30", "0x30", "0x01", "0x00",
+                "ipmitool", "raw", *manual_cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -340,11 +480,23 @@ class FanControlService:
                 return {"success": True}
             else:
                 error_msg = stderr.decode("utf-8").strip()
-                logger.warning(f"IPMI manual mode command returned error: {error_msg}")
-                return {"success": True, "warning": error_msg}
+                # Check for "Invalid command" error which indicates unsupported hardware
+                if "Invalid command" in error_msg or "0xc1" in error_msg.lower():
+                    logger.info("IPMI raw fan control commands not supported on this hardware")
+                    return {
+                        "success": False,
+                        "warning": "Manual mode not supported on this hardware",
+                        "error": error_msg,
+                    }
+                else:
+                    logger.warning(f"IPMI manual mode command returned error: {error_msg}")
+                    return {"success": True, "warning": error_msg}
+        except asyncio.TimeoutError:
+            logger.error("Timeout setting manual fan mode via IPMI")
+            return {"success": False, "error": "Timeout communicating with IPMI"}
         except Exception as e:
             logger.error(f"Error setting manual fan mode: {e}")
-            return {"success": False, "error": "Operation failed"}
+            return {"success": False, "error": f"Operation failed: {str(e)}"}
 
     def _get_zone_id(self, zone: Optional[FanZone]) -> int:
         """
@@ -400,6 +552,23 @@ class FanControlService:
                 # Set the calculated speed
                 result = await self.set_fan_speed(target_speed)
                 action_taken = result
+                
+                # If manual control is not supported, log it but don't fail
+                if not result.get("success") and self._manual_control_supported is False:
+                    logger.info(
+                        f"Manual fan control not supported. BMC will manage fans automatically. "
+                        f"Temperature: {max_gpu_temp}°C, Recommended speed: {target_speed}%"
+                    )
+                    return {
+                        "success": True,
+                        "temperature": max_gpu_temp,
+                        "target_speed_percent": target_speed,
+                        "threshold_status": self._get_threshold_status(max_gpu_temp),
+                        "action_taken": None,
+                        "message": "Manual fan control not supported - BMC managing fans automatically",
+                        "note": "The server's BMC (Baseboard Management Controller) will automatically manage fan speeds based on its own thermal policies",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
             
             return {
                 "success": True,
@@ -413,7 +582,7 @@ class FanControlService:
             logger.error(f"Error adjusting fans for temperature: {e}")
             return {
                 "success": False,
-                "error": "Operation failed",
+                "error": f"Operation failed: {str(e)}",
             }
 
     def _calculate_fan_speed(self, temperature: float) -> int:
@@ -496,6 +665,32 @@ class FanControlService:
             "thresholds": self._temperature_thresholds,
         }
 
+    def set_manufacturer(self, manufacturer: ServerManufacturer) -> Dict[str, Any]:
+        """
+        Update the server manufacturer for IPMI command selection.
+
+        Args:
+            manufacturer: Server manufacturer
+
+        Returns:
+            Updated configuration
+        """
+        old_manufacturer = self._manufacturer
+        self._manufacturer = manufacturer
+        # Reset support status since it may differ with new manufacturer
+        self._manual_control_supported = None
+        
+        logger.info(f"Manufacturer changed from {old_manufacturer.value} to {manufacturer.value}")
+        
+        commands = self._get_ipmi_commands()
+        return {
+            "success": True,
+            "manufacturer": manufacturer.value,
+            "previous_manufacturer": old_manufacturer.value,
+            "manufacturer_note": commands.get('note'),
+            "message": f"Manufacturer set to {manufacturer.value}. Manual control support will be re-checked on next use.",
+        }
+
     def get_control_info(self) -> Dict[str, Any]:
         """
         Get fan control configuration and status.
@@ -503,12 +698,20 @@ class FanControlService:
         Returns:
             Fan control information
         """
+        commands = self._get_ipmi_commands()
         return {
             "ipmi_available": self._ipmi_available,
+            "manufacturer": self._manufacturer.value,
             "control_mode": self._control_mode,
             "manual_speed_percent": self._manual_speed,
+            "manual_control_supported": self._manual_control_supported,
             "temperature_thresholds": self._temperature_thresholds,
             "supported_zones": [zone.value for zone in FanZone],
+            "supported_manufacturers": [m.value for m in ServerManufacturer],
+            "manufacturer_note": commands.get('note'),
+            "note": "Some servers do not support manual fan control via IPMI raw commands. "
+                    "If manual control is not supported, the BMC will manage fans automatically. "
+                    "Ensure the correct manufacturer is configured.",
         }
 
 
@@ -516,9 +719,20 @@ class FanControlService:
 _fan_control_service = None
 
 
-def get_fan_control_service() -> FanControlService:
-    """Get or create the global fan control service instance."""
+def get_fan_control_service(manufacturer: Optional[ServerManufacturer] = None) -> FanControlService:
+    """
+    Get or create the global fan control service instance.
+    
+    Args:
+        manufacturer: Optional manufacturer override. If not provided, defaults to Lenovo.
+                     Only used when creating a new instance.
+    
+    Returns:
+        FanControlService instance
+    """
     global _fan_control_service
     if _fan_control_service is None:
-        _fan_control_service = FanControlService()
+        if manufacturer is None:
+            manufacturer = ServerManufacturer.LENOVO
+        _fan_control_service = FanControlService(manufacturer)
     return _fan_control_service

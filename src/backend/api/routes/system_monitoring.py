@@ -13,6 +13,7 @@ from backend.services.fan_control_service import (
     get_fan_control_service,
     FanControlMode,
     FanZone,
+    ServerManufacturer,
 )
 from backend.config.logging import get_logger
 
@@ -47,6 +48,11 @@ class TemperatureThresholdsRequest(BaseModel):
 class AutoAdjustRequest(BaseModel):
     """Request model for automatic fan adjustment."""
     target_temperature: Optional[float] = Field(None, description="Target max GPU temperature (C)")
+
+
+class ManufacturerRequest(BaseModel):
+    """Request model for setting server manufacturer."""
+    manufacturer: str = Field(..., description="Server manufacturer (lenovo, dell, hp, supermicro, generic)")
 
 
 # GPU Monitoring Endpoints
@@ -363,4 +369,43 @@ async def set_temperature_thresholds(request: TemperatureThresholdsRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error setting temperature thresholds",
+        )
+
+
+@router.post("/fans/manufacturer", status_code=status.HTTP_200_OK)
+async def set_manufacturer(request: ManufacturerRequest):
+    """
+    Set the server manufacturer for IPMI command selection.
+
+    Different server manufacturers use different IPMI OEM commands for fan control.
+    Use this endpoint to configure the correct manufacturer to ensure proper IPMI commands are used.
+
+    Args:
+        request: Manufacturer selection (lenovo, dell, hp, supermicro, generic)
+
+    Returns:
+        Updated manufacturer configuration.
+    """
+    try:
+        fan_service = get_fan_control_service()
+        
+        # Validate manufacturer
+        try:
+            manufacturer = ServerManufacturer(request.manufacturer.lower())
+        except ValueError:
+            valid_manufacturers = [m.value for m in ServerManufacturer]
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid manufacturer: {request.manufacturer}. Must be one of: {', '.join(valid_manufacturers)}",
+            )
+        
+        result = fan_service.set_manufacturer(manufacturer)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error setting manufacturer: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error setting manufacturer",
         )
