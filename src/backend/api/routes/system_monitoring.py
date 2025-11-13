@@ -13,6 +13,7 @@ from backend.services.fan_control_service import (
     get_fan_control_service,
     FanControlMode,
     FanZone,
+    ServerManufacturer,
 )
 from backend.config.logging import get_logger
 
@@ -47,6 +48,19 @@ class TemperatureThresholdsRequest(BaseModel):
 class AutoAdjustRequest(BaseModel):
     """Request model for automatic fan adjustment."""
     target_temperature: Optional[float] = Field(None, description="Target max GPU temperature (C)")
+
+
+class ManufacturerRequest(BaseModel):
+    """Request model for setting server manufacturer."""
+    manufacturer: str = Field(..., description="Server manufacturer (lenovo, dell, hp, supermicro, generic)")
+
+
+class IPMICredentialsRequest(BaseModel):
+    """Request model for configuring IPMI credentials."""
+    host: str = Field(..., description="BMC/XCC IP address or hostname")
+    username: str = Field(..., description="BMC/XCC username")
+    password: str = Field(..., description="BMC/XCC password")
+    interface: Optional[str] = Field("lanplus", description="IPMI interface (default: lanplus)")
 
 
 # GPU Monitoring Endpoints
@@ -363,4 +377,80 @@ async def set_temperature_thresholds(request: TemperatureThresholdsRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error setting temperature thresholds",
+        )
+
+
+@router.post("/fans/manufacturer", status_code=status.HTTP_200_OK)
+async def set_manufacturer(request: ManufacturerRequest):
+    """
+    Set the server manufacturer for IPMI command selection.
+
+    Different server manufacturers use different IPMI OEM commands for fan control.
+    Use this endpoint to configure the correct manufacturer to ensure proper IPMI commands are used.
+
+    Args:
+        request: Manufacturer selection (lenovo, dell, hp, supermicro, generic)
+
+    Returns:
+        Updated manufacturer configuration.
+    """
+    try:
+        fan_service = get_fan_control_service()
+        
+        # Validate manufacturer
+        try:
+            manufacturer = ServerManufacturer(request.manufacturer.lower())
+        except ValueError:
+            valid_manufacturers = [m.value for m in ServerManufacturer]
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid manufacturer: {request.manufacturer}. Must be one of: {', '.join(valid_manufacturers)}",
+            )
+        
+        result = fan_service.set_manufacturer(manufacturer)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error setting manufacturer: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error setting manufacturer",
+        )
+
+
+@router.post("/fans/credentials", status_code=status.HTTP_200_OK)
+async def set_ipmi_credentials(request: IPMICredentialsRequest):
+    """
+    Configure IPMI credentials for remote BMC/XCC access.
+
+    Most server-class hardware requires authentication for IPMI over LAN access.
+    Use this endpoint to configure the BMC/XCC credentials needed for remote fan control.
+
+    For Lenovo servers:
+    1. Ensure IPMI over LAN is enabled in XCC (Network > IPMI settings)
+    2. Use XCC credentials (default may be USERID/PASSW0RD)
+    3. Use the XCC management IP address
+
+    Args:
+        request: IPMI credentials (host, username, password, interface)
+
+    Returns:
+        Updated credential configuration status.
+    """
+    try:
+        fan_service = get_fan_control_service()
+        
+        result = fan_service.set_ipmi_credentials(
+            host=request.host,
+            username=request.username,
+            password=request.password,
+            interface=request.interface or "lanplus"
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error setting IPMI credentials: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error setting IPMI credentials",
         )

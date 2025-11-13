@@ -9,6 +9,7 @@ from backend.services.fan_control_service import (
     FanControlService,
     FanControlMode,
     FanZone,
+    ServerManufacturer,
 )
 
 
@@ -25,6 +26,7 @@ class TestFanControlService:
         """Test service initializes correctly."""
         assert fan_service._control_mode == FanControlMode.AUTO
         assert fan_service._manual_speed is None
+        assert fan_service._manufacturer == ServerManufacturer.LENOVO
         assert "low" in fan_service._temperature_thresholds
         assert "critical" in fan_service._temperature_thresholds
 
@@ -253,3 +255,159 @@ Temperature     | 45.0      | degrees C
 
 
 import asyncio  # Add this import at the top if not present
+
+
+class TestFanControlIPMIErrors:
+    """Test suite for IPMI error handling."""
+
+    @pytest.mark.asyncio
+    async def test_set_fan_speed_invalid_command_error(self):
+        """Test handling of Invalid command error (0xc1) from IPMI."""
+        service = FanControlService()
+        service._ipmi_available = True
+        service._control_mode = FanControlMode.MANUAL
+        
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_proc = AsyncMock()
+            mock_proc.returncode = 1
+            # Simulate the actual IPMI error message from the issue
+            mock_proc.communicate = AsyncMock(return_value=(
+                b"",
+                b"Unable to send RAW command (channel=0x0 netfn=0x30 lun=0x0 cmd=0x30 rsp=0xc1): Invalid command"
+            ))
+            mock_exec.return_value = mock_proc
+            
+            result = await service.set_fan_speed(75)
+            
+            assert result["success"] is False
+            assert "support" in result["error"].lower() and "manual" in result["error"].lower()
+            assert service._manual_control_supported is False
+            assert "recommendation" in result
+    
+    @pytest.mark.asyncio
+    async def test_set_fan_speed_cached_unsupported(self):
+        """Test that cached unsupported status prevents repeated IPMI calls."""
+        service = FanControlService()
+        service._ipmi_available = True
+        service._manual_control_supported = False  # Already determined to be unsupported
+        
+        # Should not make any IPMI calls
+        result = await service.set_fan_speed(75)
+        
+        assert result["success"] is False
+        assert "not supported" in result["error"].lower()
+    
+    @pytest.mark.asyncio
+    async def test_auto_mode_with_invalid_command(self):
+        """Test auto mode setting with unsupported IPMI commands."""
+        service = FanControlService()
+        service._ipmi_available = True
+        
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_proc = AsyncMock()
+            mock_proc.returncode = 1
+            mock_proc.communicate = AsyncMock(return_value=(
+                b"",
+                b"Unable to send RAW command (channel=0x0 netfn=0x30 lun=0x0 cmd=0x30 rsp=0xc1): Invalid command"
+            ))
+            mock_exec.return_value = mock_proc
+            
+            result = await service.set_fan_mode(FanControlMode.AUTO)
+            
+            # Should succeed with a warning since auto mode can fall back to BMC default
+            assert result["success"] is True
+            assert result["mode"] == FanControlMode.AUTO
+            assert "warning" in result or "not supported" in result["message"].lower()
+    
+    @pytest.mark.asyncio
+    async def test_adjust_fans_with_unsupported_hardware(self):
+        """Test temperature-based fan adjustment with unsupported hardware."""
+        service = FanControlService()
+        service._ipmi_available = True
+        service._manual_control_supported = False
+        
+        with patch.object(service, 'get_fan_status', return_value={"available": True}):
+            with patch.object(service, 'set_fan_mode', return_value={"success": True}):
+                result = await service.adjust_fans_for_temperature(80.0)
+                
+                # Should succeed but indicate no action taken
+                assert result["success"] is True
+                assert result["temperature"] == 80.0
+                assert "BMC" in result.get("message", "") or "not supported" in result.get("message", "").lower()
+    
+    @pytest.mark.asyncio
+    async def test_get_control_info_includes_support_status(self):
+        """Test that control info includes manual control support status."""
+        service = FanControlService()
+        service._manual_control_supported = False
+        
+        result = service.get_control_info()
+        
+        assert "manual_control_supported" in result
+        assert result["manual_control_supported"] is False
+        assert "note" in result
+
+
+class TestManufacturerSupport:
+    """Test suite for manufacturer-specific IPMI commands."""
+
+    def test_initialization_with_manufacturer(self):
+        """Test initializing service with different manufacturers."""
+        service_lenovo = FanControlService(ServerManufacturer.LENOVO)
+        assert service_lenovo._manufacturer == ServerManufacturer.LENOVO
+        
+        service_dell = FanControlService(ServerManufacturer.DELL)
+        assert service_dell._manufacturer == ServerManufacturer.DELL
+    
+    def test_get_ipmi_commands_lenovo(self):
+        """Test getting Lenovo-specific IPMI commands."""
+        service = FanControlService(ServerManufacturer.LENOVO)
+        commands = service._get_ipmi_commands()
+        
+        assert "auto_mode" in commands
+        assert "manual_mode" in commands
+        assert "set_speed_prefix" in commands
+        assert "note" in commands
+        assert "Lenovo" in commands["note"]
+    
+    def test_get_ipmi_commands_dell(self):
+        """Test getting Dell-specific IPMI commands."""
+        service = FanControlService(ServerManufacturer.DELL)
+        commands = service._get_ipmi_commands()
+        
+        assert "auto_mode" in commands
+        assert "Dell" in commands["note"]
+    
+    def test_get_ipmi_commands_supermicro(self):
+        """Test getting Supermicro-specific IPMI commands."""
+        service = FanControlService(ServerManufacturer.SUPERMICRO)
+        commands = service._get_ipmi_commands()
+        
+        # Supermicro uses different command codes
+        assert commands["auto_mode"] == ["0x30", "0x45", "0x01", "0x01"]
+        assert "Supermicro" in commands["note"]
+    
+    def test_set_manufacturer(self):
+        """Test changing manufacturer after initialization."""
+        service = FanControlService(ServerManufacturer.LENOVO)
+        assert service._manufacturer == ServerManufacturer.LENOVO
+        
+        result = service.set_manufacturer(ServerManufacturer.DELL)
+        
+        assert result["success"] is True
+        assert result["manufacturer"] == "dell"
+        assert result["previous_manufacturer"] == "lenovo"
+        assert service._manufacturer == ServerManufacturer.DELL
+        assert service._manual_control_supported is None  # Should be reset
+    
+    def test_get_control_info_includes_manufacturer(self):
+        """Test that control info includes manufacturer information."""
+        service = FanControlService(ServerManufacturer.LENOVO)
+        result = service.get_control_info()
+        
+        assert "manufacturer" in result
+        assert result["manufacturer"] == "lenovo"
+        assert "supported_manufacturers" in result
+        assert "lenovo" in result["supported_manufacturers"]
+        assert "dell" in result["supported_manufacturers"]
+        assert "manufacturer_note" in result
