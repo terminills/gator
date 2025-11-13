@@ -35,31 +35,29 @@ logger = get_logger(__name__)
 
 
 async def download_model_from_huggingface(
-    model_id: str,
-    model_path: Path,
-    model_type: str = "text"
+    model_id: str, model_path: Path, model_type: str = "text"
 ) -> bool:
     """
     Download a model from Hugging Face Hub.
-    
+
     Args:
         model_id: Hugging Face model ID (e.g., "meta-llama/Llama-3.1-8B-Instruct")
         model_path: Local path where model should be downloaded
         model_type: Type of model (text, image, voice)
-        
+
     Returns:
         bool: True if download successful, False otherwise
     """
     try:
         from huggingface_hub import snapshot_download
-        
+
         logger.info(f"📥 Downloading model {model_id}...")
         logger.info(f"   Target path: {model_path}")
         logger.info(f"   This may take several minutes depending on model size...")
-        
+
         # Create parent directory
         model_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Download model
         downloaded_path = snapshot_download(
             repo_id=model_id,
@@ -67,10 +65,10 @@ async def download_model_from_huggingface(
             local_dir_use_symlinks=False,
             resume_download=True,
         )
-        
+
         logger.info(f"✅ Model downloaded successfully to {downloaded_path}")
         return True
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to download model {model_id}: {str(e)}")
         return False
@@ -1413,53 +1411,55 @@ class AIModelManager:
         model_name = model["name"]
         inference_engine = model.get("inference_engine", "transformers")
         fallback_engines = model.get("fallback_engines", [])
-        
+
         # Build priority list: primary engine + fallbacks
         engines_to_try = [inference_engine] + fallback_engines
-        
+
         last_error = None
         for engine in engines_to_try:
             try:
                 logger.info(f"   Trying inference engine: {engine}")
-                
+
                 # Check if model is downloaded, download if needed
                 model_path = Path(model.get("path", ""))
                 if not model_path.exists():
                     logger.warning(f"   Model not found at {model_path}")
-                    
+
                     # Attempt to download model
                     model_id = model.get("model_id")
                     if model_id:
                         logger.info(f"   Attempting to download model {model_id}...")
                         success = await download_model_from_huggingface(
-                            model_id=model_id,
-                            model_path=model_path,
-                            model_type="text"
+                            model_id=model_id, model_path=model_path, model_type="text"
                         )
                         if not success:
-                            logger.warning(f"   Failed to download model, trying next engine...")
+                            logger.warning(
+                                f"   Failed to download model, trying next engine..."
+                            )
                             continue
                     else:
                         logger.warning(f"   No model_id available for download")
                         continue
-                
+
                 # Try generation with this engine
                 if engine == "llama.cpp":
                     return await self._generate_text_llamacpp(prompt, model, **kwargs)
                 elif engine == "vllm":
                     return await self._generate_text_vllm(prompt, model, **kwargs)
                 elif engine == "transformers":
-                    return await self._generate_text_transformers(prompt, model, **kwargs)
+                    return await self._generate_text_transformers(
+                        prompt, model, **kwargs
+                    )
                 else:
                     logger.warning(f"   Unknown inference engine: {engine}")
                     continue
-                    
+
             except Exception as e:
                 last_error = e
                 logger.warning(f"   {engine} failed: {str(e)}")
                 logger.info(f"   Trying next fallback engine...")
                 continue
-        
+
         # All engines failed
         error_msg = f"All inference engines failed for {model_name}. Last error: {str(last_error)}"
         logger.error(f"   ❌ {error_msg}")
@@ -2096,8 +2096,10 @@ class AIModelManager:
                         logger.info(f"Model saved to: {model_path}")
 
                 # Use DPM-Solver++ for faster inference
+                # Enable Karras sigmas to stabilize step index calculation
                 pipe.scheduler = DPMSolverMultistepScheduler.from_config(
-                    pipe.scheduler.config
+                    pipe.scheduler.config,
+                    use_karras_sigmas=True,
                 )
                 pipe = pipe.to(device)
 
