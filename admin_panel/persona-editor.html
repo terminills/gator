@@ -2008,8 +2008,14 @@
                     try {
                         document.getElementById('submit-text').textContent = 'Setting base image...';
                         
-                        const imageResponse = await fetch(`/api/v1/personas/${personaIdToUse}/set-base-image?image_data=${encodeURIComponent(selectedImageData)}`, {
-                            method: 'POST'
+                        const imageResponse = await fetch(`/api/v1/personas/${personaIdToUse}/set-base-image`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                image_data: selectedImageData
+                            })
                         });
                         
                         if (!imageResponse.ok) {
