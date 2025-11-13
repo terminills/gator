@@ -280,7 +280,7 @@ class TestFanControlIPMIErrors:
             result = await service.set_fan_speed(75)
             
             assert result["success"] is False
-            assert "not supported" in result["error"].lower()
+            assert "support" in result["error"].lower() and "manual" in result["error"].lower()
             assert service._manual_control_supported is False
             assert "recommendation" in result
     
