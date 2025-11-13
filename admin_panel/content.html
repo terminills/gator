@@ -706,60 +706,228 @@
         
         async function generateContent() {
             try {
+                // Load personas to show selection dialog
+                const personasResponse = await fetch('/api/v1/personas/');
+                const personasData = await personasResponse.json();
+                const personas = personasData.personas || [];
+                
+                if (personas.length === 0) {
+                    alert('❌ No personas available. Please create a persona first.');
+                    return;
+                }
+                
+                // Show persona selection dialog
+                const personaOptions = personas.map(p => 
+                    `<option value="${p.id}">${p.name} (${p.default_content_rating})</option>`
+                ).join('');
+                
+                const dialogHtml = `
+                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center;" id="content-gen-modal">
+                        <div style="background: var(--dark-card); padding: 32px; border-radius: 16px; max-width: 500px; width: 90%;">
+                            <h2 style="margin-bottom: 24px; color: var(--text-primary);">Generate Content</h2>
+                            
+                            <div style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.9rem;">Select Persona</label>
+                                <select id="gen-persona-select" class="form-input" style="width: 100%;">
+                                    ${personaOptions}
+                                </select>
+                            </div>
+                            
+                            <div style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.9rem;">Content Type</label>
+                                <select id="gen-content-type" class="form-input" style="width: 100%;">
+                                    <option value="image">Image</option>
+                                    <option value="video">Video</option>
+                                    <option value="text">Text</option>
+                                </select>
+                            </div>
+                            
+                            <div style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.9rem;">Prompt (optional)</label>
+                                <textarea id="gen-prompt" class="form-input" style="width: 100%; min-height: 80px;" placeholder="Leave blank to use auto-generated prompt based on persona..."></textarea>
+                            </div>
+                            
+                            <div style="margin-bottom: 20px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                                <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 8px;">Persona Settings Will Be Used:</div>
+                                <div id="persona-settings-preview" style="color: var(--text-primary); font-size: 0.9rem;">
+                                    Select a persona to see settings...
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                                <button class="btn" onclick="document.getElementById('content-gen-modal').remove()" style="background: var(--dark-surface);">
+                                    Cancel
+                                </button>
+                                <button class="btn btn-primary" onclick="executeContentGeneration()">
+                                    🚀 Generate
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.insertAdjacentHTML('beforeend', dialogHtml);
+                
+                // Update preview when persona changes
+                const personaSelect = document.getElementById('gen-persona-select');
+                const updatePreview = () => {
+                    const selectedId = personaSelect.value;
+                    const persona = personas.find(p => p.id === selectedId);
+                    if (persona) {
+                        const preview = document.getElementById('persona-settings-preview');
+                        preview.innerHTML = `
+                            <div>• Content Rating: <strong>${persona.default_content_rating.toUpperCase()}</strong></div>
+                            <div>• Image Resolution: <strong>${persona.default_image_resolution || '1024x1024'}</strong></div>
+                            <div>• Video Resolution: <strong>${persona.default_video_resolution || '1920x1080'}</strong></div>
+                            <div>• Quality: <strong>${persona.generation_quality || 'standard'}</strong></div>
+                            <div>• Image Style: <strong>${persona.image_style || 'photorealistic'}</strong></div>
+                            ${persona.nsfw_model_preference ? `<div>• NSFW Model: <strong>${persona.nsfw_model_preference}</strong></div>` : ''}
+                        `;
+                    }
+                };
+                personaSelect.addEventListener('change', updatePreview);
+                updatePreview();
+                
+            } catch (error) {
+                console.error('Failed to load personas:', error);
+                alert('❌ Failed to load personas');
+            }
+        }
+        
+        async function executeContentGeneration() {
+            const personaId = document.getElementById('gen-persona-select').value;
+            const contentType = document.getElementById('gen-content-type').value;
+            const prompt = document.getElementById('gen-prompt').value.trim();
+            
+            // Close modal
+            document.getElementById('content-gen-modal').remove();
+            
+            try {
+                const requestBody = {
+                    persona_id: personaId,
+                    content_type: contentType
+                };
+                
+                if (prompt) {
+                    requestBody.prompt = prompt;
+                }
+                
                 const response = await fetch('/api/v1/content/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        content_type: 'image',
-                        prompt: 'Generate trending content'
-                    })
+                    body: JSON.stringify(requestBody)
                 });
                 
                 if (response.ok) {
-                    alert('✅ Content generation started!');
+                    alert('✅ Content generation started! Persona settings will be applied.');
                     setTimeout(loadContent, 2000);
+                } else {
+                    const error = await response.json();
+                    alert(`❌ Failed to generate content: ${error.detail || 'Unknown error'}`);
                 }
             } catch (error) {
+                console.error('Generation error:', error);
                 alert('❌ Failed to generate content');
             }
         }
         
         async function generateContentForAll() {
-            if (!confirm('Generate content for all active personas? This may take several minutes.')) {
+            // Show dialog to select content type
+            const dialogHtml = `
+                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center;" id="batch-gen-modal">
+                    <div style="background: var(--dark-card); padding: 32px; border-radius: 16px; max-width: 500px; width: 90%;">
+                        <h2 style="margin-bottom: 24px; color: var(--text-primary);">Batch Generate for All Personas</h2>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.9rem;">Content Type</label>
+                            <select id="batch-content-type" class="form-input" style="width: 100%;">
+                                <option value="image">Image</option>
+                                <option value="video">Video</option>
+                                <option value="text">Text</option>
+                            </select>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px; padding: 12px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                            <div style="color: var(--text-primary); font-size: 0.9rem; margin-bottom: 8px;">ℹ️ Batch Generation Behavior:</div>
+                            <div style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+                                • Each persona will use their own settings<br>
+                                • Content rating from persona (SFW/NSFW)<br>
+                                • Resolution from persona preferences<br>
+                                • Quality level from persona settings<br>
+                                • NSFW models applied automatically<br>
+                                • This may take several minutes
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                            <button class="btn" onclick="document.getElementById('batch-gen-modal').remove()" style="background: var(--dark-surface);">
+                                Cancel
+                            </button>
+                            <button class="btn btn-primary" onclick="executeBatchGeneration()">
+                                🚀 Generate for All
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', dialogHtml);
+        }
+        
+        async function executeBatchGeneration() {
+            const contentType = document.getElementById('batch-content-type').value;
+            
+            // Close modal
+            document.getElementById('batch-gen-modal').remove();
+            
+            if (!confirm(`Generate ${contentType} content for all active personas?\n\nEach persona will use their own settings (rating, resolution, quality, NSFW models).\n\nThis may take several minutes.`)) {
                 return;
             }
             
             try {
-                // Show loading indicator
-                const button = event.target;
-                const originalText = button.innerHTML;
-                button.innerHTML = '⏳ Generating...';
-                button.disabled = true;
+                // Show loading message
+                const loadingDiv = document.createElement('div');
+                loadingDiv.id = 'batch-loading';
+                loadingDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: var(--dark-card); padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 9999; border: 2px solid var(--primary);';
+                loadingDiv.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="font-size: 1.5rem;">⏳</div>
+                        <div>
+                            <div style="font-weight: 600; color: var(--text-primary);">Batch Generation Running</div>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary);">Generating ${contentType} for all personas...</div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(loadingDiv);
                 
-                const response = await fetch('/api/v1/content/generate/all?content_type=image&quality=hd&content_rating=sfw', {
+                // Note: We removed hardcoded quality and content_rating parameters
+                // Now each persona will use their own settings
+                const response = await fetch(`/api/v1/content/generate/all?content_type=${contentType}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });
                 
+                // Remove loading indicator
+                if (document.getElementById('batch-loading')) {
+                    document.getElementById('batch-loading').remove();
+                }
+                
                 if (response.ok) {
                     const result = await response.json();
                     const details = result.details;
-                    alert(`✅ Batch generation completed!\n\nGenerated: ${details.generated}\nFailed: ${details.failed}\nTotal: ${details.total_personas}`);
+                    alert(`✅ Batch generation completed!\n\nGenerated: ${details.generated}\nFailed: ${details.failed}\nTotal: ${details.total_personas}\n\nEach persona used their own settings.`);
                     setTimeout(loadContent, 2000);
                 } else {
                     const error = await response.json();
                     alert(`❌ Failed to generate content: ${error.detail || 'Unknown error'}`);
                 }
                 
-                // Restore button
-                button.innerHTML = originalText;
-                button.disabled = false;
             } catch (error) {
                 console.error('Batch generation error:', error);
+                if (document.getElementById('batch-loading')) {
+                    document.getElementById('batch-loading').remove();
+                }
                 alert('❌ Failed to generate content for all personas');
-                // Restore button
-                event.target.innerHTML = '🚀 Generate for All Personas';
-                event.target.disabled = false;
             }
         }
         

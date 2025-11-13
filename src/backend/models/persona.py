@@ -92,6 +92,26 @@ class PersonaModel(Base):
         String(20), default="photorealistic", nullable=False, index=True
     )  # Image generation style (photorealistic, anime, cartoon, etc.)
 
+    # Content generation preferences
+    default_image_resolution = Column(
+        String(20), default="1024x1024", nullable=False
+    )  # Default resolution for image generation (512x512, 1024x1024, 2048x2048)
+    default_video_resolution = Column(
+        String(20), default="1920x1080", nullable=False
+    )  # Default resolution for video generation (720p, 1080p, 4k)
+    post_style = Column(
+        String(50), default="casual", nullable=False
+    )  # Post style (casual, professional, artistic, provocative, etc.)
+    video_types = Column(
+        JSON, nullable=False, default=list
+    )  # Preferred video types (["short_clip", "story", "reel", "long_form"])
+    nsfw_model_preference = Column(
+        String(100), nullable=True
+    )  # Preferred NSFW model (e.g., "flux-nsfw-highress", "darkblueaphrodite")
+    generation_quality = Column(
+        String(20), default="standard", nullable=False
+    )  # Default quality level (draft, standard, hd, premium)
+
     is_active = Column(Boolean, default=True, index=True)
     generation_count = Column(Integer, default=0)
 
@@ -163,6 +183,30 @@ class PersonaCreate(BaseModel):
     image_style: ImageStyle = Field(
         default=ImageStyle.PHOTOREALISTIC,
         description="Image generation style (photorealistic, anime, cartoon, etc.)",
+    )
+    default_image_resolution: str = Field(
+        default="1024x1024",
+        description="Default resolution for image generation (512x512, 1024x1024, 2048x2048)",
+    )
+    default_video_resolution: str = Field(
+        default="1920x1080",
+        description="Default resolution for video generation (1280x720, 1920x1080, 3840x2160)",
+    )
+    post_style: str = Field(
+        default="casual",
+        description="Post style preference (casual, professional, artistic, provocative, playful)",
+    )
+    video_types: List[str] = Field(
+        default=[],
+        description="Preferred video types (short_clip, story, reel, long_form, tutorial)",
+    )
+    nsfw_model_preference: Optional[str] = Field(
+        default=None,
+        description="Preferred NSFW model (flux-nsfw-highress, darkblueaphrodite, modifier_sexual_coaching)",
+    )
+    generation_quality: str = Field(
+        default="standard",
+        description="Default quality level for content generation (draft, standard, hd, premium)",
     )
 
     @field_validator("name")
@@ -242,6 +286,20 @@ class PersonaUpdate(BaseModel):
     image_style: Optional[ImageStyle] = Field(
         None, description="Image generation style (photorealistic, anime, cartoon, etc.)"
     )
+    default_image_resolution: Optional[str] = Field(
+        None, description="Default resolution for image generation"
+    )
+    default_video_resolution: Optional[str] = Field(
+        None, description="Default resolution for video generation"
+    )
+    post_style: Optional[str] = Field(None, description="Post style preference")
+    video_types: Optional[List[str]] = Field(None, description="Preferred video types")
+    nsfw_model_preference: Optional[str] = Field(
+        None, description="Preferred NSFW model"
+    )
+    generation_quality: Optional[str] = Field(
+        None, description="Default quality level for content generation"
+    )
 
     @field_validator("platform_restrictions")
     @classmethod
@@ -285,5 +343,11 @@ class PersonaResponse(BaseModel):
     appearance_locked: bool = False
     base_image_status: str = "pending_upload"
     image_style: str = "photorealistic"
+    default_image_resolution: str = "1024x1024"
+    default_video_resolution: str = "1920x1080"
+    post_style: str = "casual"
+    video_types: List[str] = []
+    nsfw_model_preference: Optional[str] = None
+    generation_quality: str = "standard"
 
     model_config = {"from_attributes": True}

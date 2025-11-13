@@ -669,20 +669,33 @@ class ContentGenerationService:
                 if not ai_models.models_loaded:
                     await ai_models.initialize_models()
 
-                # Prepare generation parameters with higher resolution for HD
-                # Use 2048x2048 for HD quality, 1024x1024 for standard
-                quality = (
-                    request.quality
-                    if request.quality in ["standard", "hd"]
-                    else "standard"
-                )
-                size = "2048x2048" if quality == "hd" else "1024x1024"
+                # Use persona's generation settings instead of hardcoded values
+                # Quality: use persona's generation_quality if not overridden by request
+                quality = request.quality if request.quality else persona.generation_quality
+                if quality not in ["draft", "standard", "hd", "premium"]:
+                    quality = persona.generation_quality or "standard"
+                
+                # Resolution: use persona's default_image_resolution
+                size = persona.default_image_resolution or "1024x1024"
+                # Override with higher resolution for HD quality if not explicitly set
+                if quality == "hd" and size == "1024x1024":
+                    size = "2048x2048"
+                elif quality == "premium":
+                    size = "2048x2048"
+                
+                logger.info(f"   Image generation: quality={quality}, resolution={size}")
+                logger.info(f"   Persona defaults: quality={persona.generation_quality}, resolution={persona.default_image_resolution}")
                 
                 generation_params = {
                     "prompt": request.prompt,
                     "size": size,
                     "quality": quality,
                 }
+                
+                # Add NSFW model preference if applicable
+                if request.content_rating == ContentRating.NSFW and persona.nsfw_model_preference:
+                    generation_params["nsfw_model"] = persona.nsfw_model_preference
+                    logger.info(f"   Using NSFW model: {persona.nsfw_model_preference}")
 
                 # Add visual consistency parameters if appearance is locked
                 if persona.appearance_locked and persona.base_image_path:
@@ -804,9 +817,14 @@ class ContentGenerationService:
             if not ai_models.models_loaded:
                 await ai_models.initialize_models()
 
-            # Get video generation parameters
-            quality = request.quality or "high"
+            # Get video generation parameters from persona settings
+            quality = request.quality or persona.generation_quality or "standard"
             video_quality = VideoQuality(quality)
+            
+            # Use persona's default video resolution
+            resolution = persona.default_video_resolution or "1920x1080"
+            logger.info(f"   Video generation: quality={quality}, resolution={resolution}")
+            logger.info(f"   Persona video preferences: {persona.video_types}")
 
             # Check if this is a multi-scene video (storyboard)
             if request.style_override and "scenes" in request.style_override:
@@ -815,7 +833,7 @@ class ContentGenerationService:
                 logger.info(f"Generating storyboard with {len(scenes)} scenes")
 
                 video_result = await ai_models.create_video_storyboard(
-                    scenes=scenes, quality=quality
+                    scenes=scenes, quality=quality, resolution=resolution
                 )
 
             elif request.style_override and "prompts" in request.style_override:
@@ -832,6 +850,7 @@ class ContentGenerationService:
                     prompt=prompts,
                     video_type="multi_frame",
                     quality=quality,
+                    resolution=resolution,
                     transition=transition,
                     duration_per_frame=duration_per_frame,
                 )
@@ -844,6 +863,7 @@ class ContentGenerationService:
                     prompt=request.prompt,
                     video_type="single_frame",
                     quality=quality,
+                    resolution=resolution,
                     duration_per_frame=(
                         request.style_override.get("duration", 4.0)
                         if request.style_override
@@ -877,7 +897,7 @@ class ContentGenerationService:
                 "file_path": str(file_path),
                 "file_size": file_path.stat().st_size,
                 "duration": video_result.get("duration", 15.0),
-                "resolution": video_result.get("resolution", "1920x1080"),
+                "resolution": video_result.get("resolution", resolution),
                 "format": video_result.get("format", "MP4"),
                 "quality": quality,
                 "content_rating": request.content_rating.value,

@@ -1110,6 +1110,118 @@
                         </div>
                     </div>
                     
+                    <!-- Content Generation Preferences -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>⚙️</span>
+                                Content Generation Preferences
+                            </h2>
+                        </div>
+                        <p class="section-description">Configure default settings for content generation including resolution, quality, and model preferences.</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Default Image Resolution
+                            </label>
+                            <span class="form-help">Default resolution for image generation</span>
+                            <select class="form-input" id="default_image_resolution" name="default_image_resolution">
+                                <option value="512x512">512x512 (Square - Draft)</option>
+                                <option value="1024x1024" selected>1024x1024 (Square - HD)</option>
+                                <option value="2048x2048">2048x2048 (Square - Ultra HD)</option>
+                                <option value="720x1280">720x1280 (Portrait 720p)</option>
+                                <option value="1080x1920">1080x1920 (Portrait 1080p)</option>
+                                <option value="1280x720">1280x720 (Landscape 720p)</option>
+                                <option value="1920x1080">1920x1080 (Landscape 1080p)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Default Video Resolution
+                            </label>
+                            <span class="form-help">Default resolution for video generation</span>
+                            <select class="form-input" id="default_video_resolution" name="default_video_resolution">
+                                <option value="1280x720">1280x720 (720p HD)</option>
+                                <option value="1920x1080" selected>1920x1080 (1080p Full HD)</option>
+                                <option value="2560x1440">2560x1440 (1440p 2K)</option>
+                                <option value="3840x2160">3840x2160 (2160p 4K)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Generation Quality
+                            </label>
+                            <span class="form-help">Default quality level for content generation</span>
+                            <select class="form-input" id="generation_quality" name="generation_quality">
+                                <option value="draft">Draft (Fast, lower quality)</option>
+                                <option value="standard" selected>Standard (Balanced)</option>
+                                <option value="hd">HD (High detail)</option>
+                                <option value="premium">Premium (Best quality, slower)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Post Style
+                            </label>
+                            <span class="form-help">Default style for content posts</span>
+                            <select class="form-input" id="post_style" name="post_style">
+                                <option value="casual" selected>Casual</option>
+                                <option value="professional">Professional</option>
+                                <option value="artistic">Artistic</option>
+                                <option value="provocative">Provocative</option>
+                                <option value="playful">Playful</option>
+                                <option value="elegant">Elegant</option>
+                                <option value="edgy">Edgy</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Video Types
+                            </label>
+                            <span class="form-help">Preferred types of video content</span>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="video_types" value="short_clip">
+                                    <span>Short Clip (15-30s)</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="video_types" value="story">
+                                    <span>Story (Instagram/Snapchat style)</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="video_types" value="reel">
+                                    <span>Reel (TikTok/Instagram Reel)</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="video_types" value="long_form">
+                                    <span>Long Form (YouTube/extended)</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="video_types" value="tutorial">
+                                    <span>Tutorial/How-to</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                NSFW Model Preference
+                            </label>
+                            <span class="form-help">Preferred NSFW model (only used when content rating is NSFW)</span>
+                            <select class="form-input" id="nsfw_model_preference" name="nsfw_model_preference">
+                                <option value="">None (Use default)</option>
+                                <option value="flux-nsfw-highress">CultriX/flux-nsfw-highress (High Resolution NSFW)</option>
+                                <option value="darkblueaphrodite">StableDiffusion API/darkblueaphrodite (NSFW Hentai)</option>
+                                <option value="modifier_sexual_coaching">DervlexVenice/modifier_sexual_coaching (Illustrious Style)</option>
+                                <option value="eye_contact_blowjob">DervlexVenice/eye_contact_blowjob-action (Flux Action)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
                     <!-- Appearance & Visual Consistency -->
                     <div class="section">
                         <div class="section-header">
@@ -1417,6 +1529,19 @@
                 document.getElementById('base_image_status').value = persona.base_image_status || 'pending_upload';
                 document.getElementById('base_image_path').value = persona.base_image_path || '';
                 document.getElementById('image_style').value = persona.image_style || 'photorealistic';
+                
+                // Populate content generation preferences
+                document.getElementById('default_image_resolution').value = persona.default_image_resolution || '1024x1024';
+                document.getElementById('default_video_resolution').value = persona.default_video_resolution || '1920x1080';
+                document.getElementById('post_style').value = persona.post_style || 'casual';
+                document.getElementById('generation_quality').value = persona.generation_quality || 'standard';
+                document.getElementById('nsfw_model_preference').value = persona.nsfw_model_preference || '';
+                
+                // Populate video types
+                const videoTypes = persona.video_types || [];
+                document.querySelectorAll('input[name="video_types"]').forEach(checkbox => {
+                    checkbox.checked = videoTypes.includes(checkbox.value);
+                });
                 
                 // Populate status
                 document.getElementById('is_active').checked = persona.is_active !== false;
@@ -1972,6 +2097,12 @@
                     base_image_status: document.getElementById('base_image_status').value,
                     base_image_path: document.getElementById('base_image_path').value.trim() || null,
                     image_style: document.getElementById('image_style').value,
+                    default_image_resolution: document.getElementById('default_image_resolution').value,
+                    default_video_resolution: document.getElementById('default_video_resolution').value,
+                    post_style: document.getElementById('post_style').value,
+                    video_types: Array.from(document.querySelectorAll('input[name="video_types"]:checked')).map(cb => cb.value),
+                    nsfw_model_preference: document.getElementById('nsfw_model_preference').value || null,
+                    generation_quality: document.getElementById('generation_quality').value,
                     is_active: document.getElementById('is_active').checked
                 };
                 
