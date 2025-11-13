@@ -130,7 +130,7 @@ async def generate_content_for_all_personas(
             )
         
         try:
-            cr = ContentRating(content_rating.upper())
+            cr = ContentRating(content_rating.lower())
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

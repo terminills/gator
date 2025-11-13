@@ -208,6 +208,14 @@ def create_app() -> FastAPI:
         print(f"Mounted content directory: {content_path}")
     else:
         print(f"Warning: Content directory not found: {content_path}")
+    
+    # Mount base_images directory for persona base images
+    base_images_path = "/opt/gator/data/models/base_images"
+    if os.path.exists(base_images_path):
+        app.mount("/base_images", StaticFiles(directory=base_images_path), name="base_images")
+        print(f"Mounted base_images directory: {base_images_path}")
+    else:
+        print(f"Warning: Base images directory not found: {base_images_path}")
 
     # Include API routers
     app.include_router(public.router, prefix="/api/v1")
