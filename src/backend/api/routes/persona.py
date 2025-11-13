@@ -1027,7 +1027,7 @@ async def set_base_image_from_sample(
 async def get_base_image_url(
     persona_id: str,
     persona_service: PersonaService = Depends(get_persona_service),
-) -> Dict[str, Optional[str]]:
+) -> Dict[str, Any]:
     """
     Get the URL for a persona's base image.
     
@@ -1039,7 +1039,7 @@ async def get_base_image_url(
         persona_service: Injected persona service
         
     Returns:
-        Dict with base_image_url field (or None if no image)
+        Dict with base_image_url field (or None if no image), appearance_locked (bool), and base_image_status (str)
         
     Raises:
         404: Persona not found
@@ -1058,8 +1058,8 @@ async def get_base_image_url(
         if not persona.base_image_path:
             return {
                 "base_image_url": None,
-                "appearance_locked": persona.appearance_locked,
-                "base_image_status": persona.base_image_status,
+                "appearance_locked": bool(persona.appearance_locked),
+                "base_image_status": str(persona.base_image_status),
             }
         
         # Convert file path to URL path
@@ -1071,8 +1071,8 @@ async def get_base_image_url(
         
         return {
             "base_image_url": base_image_url,
-            "appearance_locked": persona.appearance_locked,
-            "base_image_status": persona.base_image_status,
+            "appearance_locked": bool(persona.appearance_locked),
+            "base_image_status": str(persona.base_image_status),
         }
         
     except HTTPException:
