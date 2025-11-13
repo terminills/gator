@@ -2314,9 +2314,25 @@ class AIModelManager:
             # Convert PIL Image to bytes
             img_byte_arr = io.BytesIO()
             image.save(img_byte_arr, format="PNG")
+            
+            # Get the buffer position to check if all data was written
+            buffer_position = img_byte_arr.tell()
+            logger.debug(f"BytesIO buffer position after save: {buffer_position}")
+            
+            # Get the actual bytes
             image_data = img_byte_arr.getvalue()
-
-            logger.info(f"Image generated successfully: {len(image_data)} bytes")
+            
+            logger.info(
+                f"Image generated successfully: {len(image_data)} bytes "
+                f"(buffer position: {buffer_position}, match: {len(image_data) == buffer_position})"
+            )
+            
+            # Additional sanity check - verify we can load the image from bytes
+            try:
+                verify_img = Image.open(io.BytesIO(image_data))
+                logger.debug(f"Image bytes verification: {verify_img.size} {verify_img.mode}")
+            except Exception as e:
+                logger.error(f"⚠️  Generated image bytes are corrupted: {e}")
 
             return {
                 "image_data": image_data,

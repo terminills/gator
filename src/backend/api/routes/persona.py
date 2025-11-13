@@ -276,6 +276,9 @@ async def upload_seed_image(
 
         # Read file data
         image_data = await file.read()
+        
+        # Log the size immediately after reading
+        logger.info(f"Read {len(image_data)} bytes from uploaded file '{file.filename}'")
 
         # Validate file size (max 10MB)
         max_size = 10 * 1024 * 1024  # 10MB
@@ -288,9 +291,12 @@ async def upload_seed_image(
         # Save image to disk
         file_extension = file.filename.split(".")[-1] if "." in file.filename else "png"
         custom_filename = f"persona_{persona_id}_uploaded.{file_extension}"
+        
+        logger.info(f"Saving image to disk: {len(image_data)} bytes as {custom_filename}")
         image_path = await persona_service._save_image_to_disk(
             persona_id=persona_id, image_data=image_data, filename=custom_filename
         )
+        logger.info(f"Image saved successfully to: {image_path}")
 
         # Update persona with image path and status
         from backend.models.persona import PersonaUpdate
