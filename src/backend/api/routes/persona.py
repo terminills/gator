@@ -947,7 +947,7 @@ async def create_random_persona(
 @router.post("/{persona_id}/set-base-image")
 async def set_base_image_from_sample(
     persona_id: str,
-    image_data: str = Query(..., description="Base64 encoded image data"),
+    image_data: Dict[str, str],
     persona_service: PersonaService = Depends(get_persona_service),
 ) -> PersonaResponse:
     """
@@ -958,7 +958,7 @@ async def set_base_image_from_sample(
 
     Args:
         persona_id: The persona to update
-        image_data: Base64 encoded image data (with or without data URL prefix)
+        image_data: Request body with 'image_data' key containing base64 encoded image (with or without data URL prefix)
         persona_service: Injected persona service
 
     Returns:
@@ -978,13 +978,21 @@ async def set_base_image_from_sample(
                 detail=f"Persona {persona_id} not found",
             )
 
+        # Extract image_data from request body
+        image_data_str = image_data.get("image_data")
+        if not image_data_str:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing 'image_data' in request body",
+            )
+
         # Remove data URL prefix if present
-        if image_data.startswith("data:image"):
-            image_data = image_data.split(",", 1)[1]
+        if image_data_str.startswith("data:image"):
+            image_data_str = image_data_str.split(",", 1)[1]
 
         # Decode base64
         try:
-            decoded_image = base64.b64decode(image_data)
+            decoded_image = base64.b64decode(image_data_str)
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
