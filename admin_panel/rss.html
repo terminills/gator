@@ -326,6 +326,139 @@
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
         }
+        
+        .feed-card {
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .feed-card:hover {
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .category-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            background: var(--primary);
+            color: white;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            margin: 4px 4px 4px 0;
+        }
+        
+        .preview-section {
+            background: var(--dark-card);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        
+        .preview-section.expanded {
+            max-height: 800px;
+            overflow-y: auto;
+        }
+        
+        .feed-item {
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .feed-item-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            font-size: 0.95rem;
+        }
+        
+        .feed-item-desc {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        
+        .feed-item-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        .loading-spinner {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.show {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: var(--dark-surface);
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid var(--border-color);
+        }
+        
+        .modal-title {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 10px;
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
     </style>
 </head>
 <body>
@@ -458,7 +591,7 @@
                 <div class="toolbar-search">
                     <input type="text" class="search-input" id="search-feeds" placeholder="Search feeds..." style="width: 100%;">
                 </div>
-                <button class="btn btn-primary" onclick="addFeed()">
+                <button class="btn btn-primary" onclick="showAddFeedModal()">
                     ➕ Add RSS Feed
                 </button>
             </div>
@@ -500,6 +633,8 @@
         });
 
         // RSS Feed Management
+        let currentPreviewFeed = null;
+        
         async function loadFeeds() {
             try {
                 const response = await fetch('/api/v1/feeds/rss');
@@ -513,7 +648,7 @@
                         <div class="empty-state">
                             <h2>No RSS Feeds</h2>
                             <p>Add RSS feeds to monitor trends and automate content generation.</p>
-                            <button class="btn btn-primary" onclick="addFeed()">
+                            <button class="btn btn-primary" onclick="showAddFeedModal()">
                                 ➕ Add Your First Feed
                             </button>
                         </div>
@@ -526,21 +661,35 @@
                 
                 feeds.forEach(feed => {
                     const card = document.createElement('div');
-                    card.className = 'card';
+                    card.className = 'card feed-card';
+                    
+                    // Generate categories HTML
+                    const categoriesHtml = (feed.categories || []).map(cat => 
+                        `<span class="category-tag">${cat}</span>`
+                    ).join('');
+                    
                     card.innerHTML = `
                         <h3 style="margin-bottom: 12px; color: var(--text-primary);">
-                            📡 ${feed.title || feed.url}
+                            📡 ${feed.name || 'RSS Feed'}
                         </h3>
-                        <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.9rem;">
+                        <p style="color: var(--text-secondary); margin-bottom: 12px; font-size: 0.85rem; word-break: break-all;">
                             ${feed.url}
                         </p>
-                        <div style="display: flex; gap: 12px; margin-top: 16px;">
-                            <button class="btn btn-secondary" onclick="refreshFeed('${feed.id}')">
+                        ${categoriesHtml ? `<div style="margin-bottom: 12px;">${categoriesHtml}</div>` : ''}
+                        ${feed.description ? `<p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 12px;">${feed.description}</p>` : ''}
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px;">
+                            <button class="btn btn-secondary" onclick="togglePreview('${feed.id}')" style="font-size: 0.85rem;">
+                                👁️ Preview
+                            </button>
+                            <button class="btn btn-secondary" onclick="refreshFeed('${feed.id}')" style="font-size: 0.85rem;">
                                 🔄 Refresh
                             </button>
-                            <button class="btn btn-secondary" onclick="deleteFeed('${feed.id}')">
+                            <button class="btn btn-secondary" onclick="deleteFeed('${feed.id}')" style="font-size: 0.85rem;">
                                 🗑️ Delete
                             </button>
+                        </div>
+                        <div class="preview-section" id="preview-${feed.id}">
+                            <div class="loading-spinner">Loading preview...</div>
                         </div>
                     `;
                     grid.appendChild(card);
@@ -550,19 +699,177 @@
             }
         }
         
-        function addFeed() {
-            const url = prompt('Enter RSS feed URL:');
-            if (url) {
-                fetch('/api/v1/feeds/rss', {
+        async function togglePreview(feedId) {
+            const previewEl = document.getElementById(`preview-${feedId}`);
+            
+            // If already expanded, collapse it
+            if (previewEl.classList.contains('expanded')) {
+                previewEl.classList.remove('expanded');
+                currentPreviewFeed = null;
+                return;
+            }
+            
+            // Collapse any other open previews
+            if (currentPreviewFeed && currentPreviewFeed !== feedId) {
+                const prevEl = document.getElementById(`preview-${currentPreviewFeed}`);
+                if (prevEl) prevEl.classList.remove('expanded');
+            }
+            
+            // Expand this preview
+            previewEl.classList.add('expanded');
+            currentPreviewFeed = feedId;
+            
+            // Load feed items if not already loaded
+            if (previewEl.dataset.loaded !== 'true') {
+                await loadFeedPreview(feedId, previewEl);
+            }
+        }
+        
+        async function loadFeedPreview(feedId, previewEl) {
+            try {
+                const response = await fetch(`/api/v1/feeds/rss/${feedId}/items?limit=10`);
+                if (!response.ok) {
+                    throw new Error('Failed to load feed items');
+                }
+                
+                const items = await response.json();
+                
+                if (items.length === 0) {
+                    previewEl.innerHTML = `
+                        <p style="color: var(--text-secondary); text-align: center; padding: 20px;">
+                            No items found. Try refreshing the feed first.
+                        </p>
+                    `;
+                    previewEl.dataset.loaded = 'true';
+                    return;
+                }
+                
+                let itemsHtml = '<h4 style="margin-bottom: 12px; color: var(--text-primary);">Recent Items</h4>';
+                
+                items.forEach(item => {
+                    const publishedDate = item.published_date ? 
+                        new Date(item.published_date).toLocaleDateString() : 'Unknown date';
+                    
+                    const categoriesHtml = (item.categories || []).map(cat => 
+                        `<span class="category-tag">${cat}</span>`
+                    ).join('');
+                    
+                    const description = item.description ? 
+                        (item.description.length > 200 ? 
+                            item.description.substring(0, 200) + '...' : 
+                            item.description) : 
+                        'No description available';
+                    
+                    itemsHtml += `
+                        <div class="feed-item">
+                            <div class="feed-item-title">${item.title}</div>
+                            <div class="feed-item-desc">${description}</div>
+                            ${categoriesHtml ? `<div style="margin: 8px 0;">${categoriesHtml}</div>` : ''}
+                            <div class="feed-item-meta">
+                                <span>📅 ${publishedDate}</span>
+                                ${item.author ? `<span>✍️ ${item.author}</span>` : ''}
+                                ${item.sentiment_score !== null && item.sentiment_score !== undefined ? 
+                                    `<span>😊 Sentiment: ${(item.sentiment_score * 100).toFixed(0)}%</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                previewEl.innerHTML = itemsHtml;
+                previewEl.dataset.loaded = 'true';
+                
+            } catch (error) {
+                console.error('Failed to load feed preview:', error);
+                previewEl.innerHTML = `
+                    <p style="color: var(--danger); text-align: center; padding: 20px;">
+                        Failed to load preview. Please try again.
+                    </p>
+                `;
+            }
+        }
+        
+        function showAddFeedModal() {
+            const modal = document.createElement('div');
+            modal.className = 'modal show';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h2 class="modal-title">Add RSS Feed</h2>
+                    <form id="add-feed-form">
+                        <div class="form-group">
+                            <label class="form-label">Feed URL *</label>
+                            <input type="url" class="form-input" id="feed-url" required placeholder="https://example.com/feed.xml">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Feed Name (optional)</label>
+                            <input type="text" class="form-input" id="feed-name" placeholder="My Tech Blog">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Description (optional)</label>
+                            <textarea class="form-input" id="feed-description" rows="3" placeholder="A brief description of this feed"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Categories (comma-separated, optional)</label>
+                            <input type="text" class="form-input" id="feed-categories" placeholder="technology, AI, innovation">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Add Feed</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            document.getElementById('add-feed-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await addFeed();
+            });
+            
+            // Close modal when clicking outside
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+        }
+        
+        function closeModal() {
+            const modal = document.querySelector('.modal');
+            if (modal) modal.remove();
+        }
+        
+        async function addFeed() {
+            const url = document.getElementById('feed-url').value.trim();
+            const name = document.getElementById('feed-name').value.trim();
+            const description = document.getElementById('feed-description').value.trim();
+            const categoriesStr = document.getElementById('feed-categories').value.trim();
+            const categories = categoriesStr ? categoriesStr.split(',').map(c => c.trim()).filter(c => c) : [];
+            
+            if (!url) {
+                alert('❌ Please enter a feed URL');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/v1/feeds/rss', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url })
-                }).then(() => {
-                    alert('✅ Feed added successfully!');
-                    loadFeeds();
-                }).catch(() => {
-                    alert('❌ Failed to add feed');
+                    body: JSON.stringify({ 
+                        url,
+                        name: name || null,
+                        description: description || null,
+                        categories
+                    })
                 });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to add feed');
+                }
+                
+                alert('✅ Feed added successfully!');
+                closeModal();
+                loadFeeds();
+            } catch (error) {
+                console.error('Failed to add feed:', error);
+                alert('❌ Failed to add feed. Please check the URL and try again.');
             }
         }
         
