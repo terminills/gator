@@ -406,12 +406,29 @@ class PersonaService:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"persona_{persona_id}_{timestamp}.png"
 
+            # Log the size before writing
+            logger.info(f"Writing {len(image_data)} bytes to disk for persona {persona_id}")
+
             # Save image to disk
             file_path = base_images_dir / filename
+            bytes_written = 0
             with open(file_path, "wb") as f:
-                f.write(image_data)
+                bytes_written = f.write(image_data)
 
-            logger.info(f"Saved base image for persona {persona_id}: {file_path}")
+            # Verify the write was successful
+            actual_file_size = file_path.stat().st_size
+            logger.info(
+                f"Saved base image for persona {persona_id}: {file_path} "
+                f"(wrote {bytes_written} bytes, file size: {actual_file_size} bytes)"
+            )
+            
+            # Check for size mismatch
+            if actual_file_size != len(image_data):
+                logger.error(
+                    f"⚠️  SIZE MISMATCH: Expected {len(image_data)} bytes, "
+                    f"but file is {actual_file_size} bytes!"
+                )
+            
             return str(file_path)
 
         except Exception as e:
