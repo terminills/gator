@@ -101,6 +101,7 @@ async def get_system_health(db: AsyncSession = Depends(get_db_session)):
         "database": "unknown",
         "ai_models": "not_loaded",
         "content_generation": "not_configured",
+        "gpu_monitoring": "unknown",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -119,5 +120,32 @@ async def get_system_health(db: AsyncSession = Depends(get_db_session)):
     if has_openai or has_hf:
         health_status["ai_models"] = "configured"
         health_status["content_generation"] = "configured"
+
+    # Check GPU monitoring status
+    try:
+        from backend.services.gpu_monitoring_service import get_gpu_monitoring_service
+        gpu_service = get_gpu_monitoring_service()
+        gpu_temps = await gpu_service.get_gpu_temperatures()
+        
+        if gpu_temps.get("available"):
+            health_status["gpu_monitoring"] = "healthy"
+            health_status["gpu_count"] = gpu_temps.get("gpu_count", 0)
+            
+            # Add temperature warnings if any GPU is hot
+            max_temp = 0
+            for gpu in gpu_temps.get("gpus", []):
+                temp = gpu.get("temperature_c")
+                if temp is not None and temp > max_temp:
+                    max_temp = temp
+            
+            if max_temp >= 85:
+                health_status["gpu_warning"] = f"Critical GPU temperature: {max_temp}°C"
+            elif max_temp >= 75:
+                health_status["gpu_warning"] = f"High GPU temperature: {max_temp}°C"
+        else:
+            health_status["gpu_monitoring"] = "not_available"
+    except Exception as e:
+        logger.debug(f"GPU monitoring check failed: {e}")
+        health_status["gpu_monitoring"] = "unavailable"
 
     return health_status

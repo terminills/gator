@@ -46,6 +46,7 @@ from backend.api.routes import (
     acd,
     diagnostics,
     settings as settings_routes,
+    system_monitoring,
 )
 from backend.api.websocket import websocket_endpoint
 
@@ -232,6 +233,7 @@ def create_app() -> FastAPI:
     app.include_router(enhanced_persona.router, prefix="/api/v1")
     app.include_router(acd.router)
     app.include_router(settings_routes.router, prefix="/api/v1")
+    app.include_router(system_monitoring.router)
 
     # WebSocket endpoint for real-time communication
     @app.websocket("/ws/{user_id}")
@@ -358,6 +360,14 @@ def create_app() -> FastAPI:
         if os.path.exists(diagnostics_path):
             return FileResponse(diagnostics_path)
         return {"error": "AI diagnostics page not found"}
+
+    @app.get("/admin/system-monitoring", tags=["system"])
+    async def admin_system_monitoring():
+        """Serve system monitoring page for GPU temperature and fan control."""
+        monitoring_path = os.path.join(project_root, "admin_panel", "system-monitoring.html")
+        if os.path.exists(monitoring_path):
+            return FileResponse(monitoring_path)
+        return {"error": "System monitoring page not found"}
 
     @app.get("/ai-models-setup", tags=["system"])
     async def ai_models_setup():
