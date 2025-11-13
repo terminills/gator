@@ -94,8 +94,8 @@ async def generate_content(
 @router.post("/generate/all", status_code=status.HTTP_202_ACCEPTED)
 async def generate_content_for_all_personas(
     content_type: str = Query(default="image", description="Type of content to generate"),
-    quality: str = Query(default="standard", description="Quality level (standard or hd)"),
-    content_rating: str = Query(default="sfw", description="Content rating (sfw, moderate, nsfw)"),
+    quality: Optional[str] = Query(default=None, description="Quality level override (None=use persona defaults)"),
+    content_rating: Optional[str] = Query(default=None, description="Content rating override (None=use persona defaults)"),
     content_service: ContentGenerationService = Depends(get_content_service),
 ):
     """
@@ -104,10 +104,13 @@ async def generate_content_for_all_personas(
     This endpoint creates content for every active persona in the system,
     making it easy to generate a batch of content with one request.
     
+    When quality or content_rating are not specified (None), each persona
+    will use their own default settings from their configuration.
+    
     Args:
         content_type: Type of content (image, video, text, etc.)
-        quality: Quality level for generation
-        content_rating: Content rating filter
+        quality: Quality level override (None to use persona defaults)
+        content_rating: Content rating override (None to use persona defaults)
         content_service: Injected content generation service
         
     Returns:
@@ -129,19 +132,22 @@ async def generate_content_for_all_personas(
                 detail=f"Invalid content_type: {content_type}. Must be one of: image, video, text, audio, voice"
             )
         
-        try:
-            cr = ContentRating(content_rating.lower())
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid content_rating: {content_rating}. Must be one of: sfw, moderate, nsfw"
-            )
+        # Parse content rating if provided, otherwise None means use persona defaults
+        cr = None
+        if content_rating is not None:
+            try:
+                cr = ContentRating(content_rating.lower())
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid content_rating: {content_rating}. Must be one of: sfw, moderate, nsfw"
+                )
         
         # Generate content for all personas
         result = await content_service.generate_content_for_all_personas(
             content_type=ct,
-            quality=quality,
-            content_rating=cr
+            quality=quality,  # Can be None to use persona defaults
+            content_rating=cr  # Can be None to use persona defaults
         )
         
         return {
