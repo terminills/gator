@@ -172,8 +172,10 @@ class GPUMonitoringService:
             import glob
 
             # Look for hwmon devices associated with AMD GPUs
-            hwmon_paths = glob.glob(f"/sys/class/drm/card{device_id}/device/hwmon/hwmon*/temp*_input")
-            
+            hwmon_paths = glob.glob(
+                f"/sys/class/drm/card{device_id}/device/hwmon/hwmon*/temp*_input"
+            )
+
             for path in hwmon_paths:
                 with open(path, "r") as f:
                     # Temperature is in millidegrees Celsius
@@ -217,7 +219,7 @@ class GPUMonitoringService:
                 try:
                     props = torch.cuda.get_device_properties(i)
                     device_name = torch.cuda.get_device_name(i)
-                    
+
                     # Get memory info
                     memory_allocated = torch.cuda.memory_allocated(i)
                     memory_reserved = torch.cuda.memory_reserved(i)
@@ -232,7 +234,11 @@ class GPUMonitoringService:
                             break
 
                     # Calculate utilization percentage
-                    utilization_pct = (memory_allocated / memory_total * 100) if memory_total > 0 else 0
+                    utilization_pct = (
+                        (memory_allocated / memory_total * 100)
+                        if memory_total > 0
+                        else 0
+                    )
 
                     # Determine health status based on temperature
                     health_status = self._determine_health_status(temp)
@@ -281,7 +287,7 @@ class GPUMonitoringService:
         """
         if temperature is None:
             return "unknown"
-        
+
         # Temperature thresholds for AMD GPUs (conservative)
         if temperature < 60:
             return "healthy"
@@ -346,7 +352,11 @@ class GPUMonitoringService:
         max_temps = {}
         for device_id, history in self.temperature_history.items():
             if history:
-                temps = [entry["temperature"] for entry in history if entry["temperature"] is not None]
+                temps = [
+                    entry["temperature"]
+                    for entry in history
+                    if entry["temperature"] is not None
+                ]
                 if temps:
                     max_temps[device_id] = {
                         "max_temperature_c": max(temps),
@@ -358,6 +368,115 @@ class GPUMonitoringService:
             "available": True,
             "max_temperatures": max_temps,
         }
+
+    async def get_least_loaded_gpu(self) -> Optional[int]:
+        """
+        Get the GPU with the lowest memory utilization.
+
+        This method identifies the least loaded GPU by checking memory usage,
+        making it ideal for distributing workload across multiple GPUs.
+
+        Returns:
+            GPU device ID with lowest utilization, or None if no GPUs available
+        """
+        if not self._torch_available or self._gpu_count == 0:
+            return None
+
+        try:
+            import torch
+
+            # Get current GPU status
+            gpu_loads = []
+            for i in range(self._gpu_count):
+                try:
+                    memory_allocated = torch.cuda.memory_allocated(i)
+                    memory_total = torch.cuda.get_device_properties(i).total_memory
+                    utilization = (
+                        (memory_allocated / memory_total) if memory_total > 0 else 1.0
+                    )
+
+                    gpu_loads.append(
+                        {
+                            "device_id": i,
+                            "utilization": utilization,
+                            "memory_allocated": memory_allocated,
+                        }
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to get load for GPU {i}: {e}")
+                    # Mark as fully loaded if we can't read it
+                    gpu_loads.append(
+                        {
+                            "device_id": i,
+                            "utilization": 1.0,
+                            "memory_allocated": float("inf"),
+                        }
+                    )
+
+            # Sort by utilization (lowest first)
+            gpu_loads.sort(key=lambda x: x["utilization"])
+
+            # Return the least loaded GPU
+            least_loaded = gpu_loads[0]
+            logger.debug(
+                f"Selected GPU {least_loaded['device_id']} "
+                f"(utilization: {least_loaded['utilization']*100:.1f}%)"
+            )
+            return least_loaded["device_id"]
+
+        except Exception as e:
+            logger.error(f"Error finding least loaded GPU: {e}")
+            # Fallback to GPU 0
+            return 0
+
+    async def get_available_gpus(self) -> List[int]:
+        """
+        Get list of all available GPU device IDs sorted by load (least loaded first).
+
+        Returns:
+            List of GPU device IDs sorted by utilization (ascending)
+        """
+        if not self._torch_available or self._gpu_count == 0:
+            return []
+
+        try:
+            import torch
+
+            # Get current GPU status
+            gpu_loads = []
+            for i in range(self._gpu_count):
+                try:
+                    memory_allocated = torch.cuda.memory_allocated(i)
+                    memory_total = torch.cuda.get_device_properties(i).total_memory
+                    utilization = (
+                        (memory_allocated / memory_total) if memory_total > 0 else 1.0
+                    )
+
+                    gpu_loads.append(
+                        {
+                            "device_id": i,
+                            "utilization": utilization,
+                        }
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to get load for GPU {i}: {e}")
+                    gpu_loads.append(
+                        {
+                            "device_id": i,
+                            "utilization": 1.0,
+                        }
+                    )
+
+            # Sort by utilization (lowest first)
+            gpu_loads.sort(key=lambda x: x["utilization"])
+
+            # Return list of device IDs
+            return [gpu["device_id"] for gpu in gpu_loads]
+
+        except Exception as e:
+            logger.error(f"Error getting available GPUs: {e}")
+            # Fallback to all GPUs in order
+            return list(range(self._gpu_count))
 
 
 # Global instance
