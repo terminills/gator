@@ -1970,9 +1970,23 @@ class AIModelManager:
         try:
             from diffusers import (
                 StableDiffusionPipeline,
-                StableDiffusionXLPipeline,
                 DPMSolverMultistepScheduler,
             )
+            
+            # Import SDXL Long Prompt Pipeline from community examples
+            # This handles prompts longer than CLIP's 77 token limit properly
+            try:
+                from diffusers import StableDiffusionXLLongPromptWeightingPipeline
+                sdxl_long_prompt_available = True
+            except ImportError:
+                # Fallback to standard pipeline if community pipeline not available
+                from diffusers import StableDiffusionXLPipeline
+                StableDiffusionXLLongPromptWeightingPipeline = StableDiffusionXLPipeline
+                sdxl_long_prompt_available = False
+                logger.warning(
+                    "SDXL Long Prompt Pipeline not available. Install with: "
+                    "pip install git+https://github.com/huggingface/diffusers.git"
+                )
 
             model_name = model["name"]
             model_id = model["model_id"]
@@ -2012,14 +2026,18 @@ class AIModelManager:
                 )
 
                 # Select the appropriate pipeline class
-                PipelineClass = (
-                    StableDiffusionXLPipeline if is_sdxl else StableDiffusionPipeline
-                )
-                pipeline_type = (
-                    "StableDiffusionXLPipeline"
-                    if is_sdxl
-                    else "StableDiffusionPipeline"
-                )
+                # Use SDXL Long Prompt Pipeline for SDXL models to handle prompts > 77 tokens
+                if is_sdxl:
+                    PipelineClass = StableDiffusionXLLongPromptWeightingPipeline
+                    pipeline_type = (
+                        "StableDiffusionXLLongPromptWeightingPipeline" 
+                        if sdxl_long_prompt_available 
+                        else "StableDiffusionXLPipeline (fallback)"
+                    )
+                else:
+                    PipelineClass = StableDiffusionPipeline
+                    pipeline_type = "StableDiffusionPipeline"
+                    
                 logger.info(f"Using pipeline: {pipeline_type} for model {model_name}")
 
                 # Try to load from local path first, fallback to HuggingFace Hub
@@ -2722,6 +2740,10 @@ class AIModelManager:
         """
         Truncate prompt to fit within CLIP's 77 token limit (leaving 2 tokens for special tokens).
         
+        NOTE: This is only used for SD 1.5 models as a fallback. SDXL models use
+        StableDiffusionXLLongPromptWeightingPipeline which properly handles prompts
+        longer than 77 tokens without truncation.
+        
         CLIP tokenizer has a hard limit of 77 tokens. We use 75 to be safe.
         This function intelligently truncates the prompt while preserving key details.
         
@@ -2756,15 +2778,19 @@ class AIModelManager:
         return truncated
 
     def _build_style_specific_prompt(
-        self, base_prompt: str, image_style: str = "photorealistic"
+        self, base_prompt: str, image_style: str = "photorealistic", use_long_prompt: bool = True
     ) -> tuple[str, str]:
         """
         Build style-specific prompts and negative prompts for image generation.
-        Automatically truncates to fit within CLIP's 77 token limit.
+        
+        For SDXL models, returns full prompts without truncation when use_long_prompt=True,
+        as StableDiffusionXLLongPromptWeightingPipeline handles prompts > 77 tokens.
+        For SD 1.5 models, truncates to fit CLIP's 77 token limit.
 
         Args:
             base_prompt: Base appearance/character description
             image_style: Style identifier (photorealistic, anime, cartoon, etc.)
+            use_long_prompt: If True, don't truncate (for SDXL Long Prompt Pipeline)
 
         Returns:
             Tuple of (enhanced_prompt, negative_prompt)
@@ -2814,11 +2840,15 @@ class AIModelManager:
         # Build enhanced prompt
         enhanced_prompt = f"{config['prefix']} {base_prompt}, {config['suffix']}"
         
-        # Truncate both positive and negative prompts to fit CLIP's 77 token limit
-        truncated_prompt = self._truncate_prompt_for_clip(enhanced_prompt)
-        truncated_negative = self._truncate_prompt_for_clip(config["negative"])
-
-        return truncated_prompt, truncated_negative
+        # For SDXL with Long Prompt Pipeline, don't truncate
+        # For SD 1.5 or fallback mode, truncate to fit CLIP's 77 token limit
+        if use_long_prompt:
+            logger.debug(f"Using full prompt for SDXL Long Prompt Pipeline (no truncation)")
+            return enhanced_prompt, config["negative"]
+        else:
+            truncated_prompt = self._truncate_prompt_for_clip(enhanced_prompt)
+            truncated_negative = self._truncate_prompt_for_clip(config["negative"])
+            return truncated_prompt, truncated_negative
 
     async def _generate_reference_image_local(
         self,
@@ -2858,9 +2888,15 @@ class AIModelManager:
             if personality_context:
                 base_prompt += f", expressing {personality_context}"
 
+            # Check if we're using SDXL to determine if we can use long prompts
+            model = self._get_best_local_image_model()
+            is_sdxl = "xl" in model.get("name", "").lower()
+            
             # Build style-specific prompt and negative prompt
+            # For SDXL, use full prompts (Long Prompt Pipeline handles > 77 tokens)
+            # For SD 1.5, truncate to fit CLIP's limit
             full_prompt, style_negative_prompt = self._build_style_specific_prompt(
-                base_prompt, image_style
+                base_prompt, image_style, use_long_prompt=is_sdxl
             )
 
             logger.info(
