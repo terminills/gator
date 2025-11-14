@@ -368,6 +368,15 @@ class ACDContextResponse(BaseModel):
     ai_assigned_at: Optional[datetime] = None
     ai_assignment_reason: Optional[str] = None
     ai_previous_assignee: Optional[str] = None
+    ai_assignment_history: Optional[List[Dict[str, Any]]] = None
+    ai_handoff_requested: Optional[bool] = None
+    ai_handoff_to: Optional[str] = None
+    ai_handoff_type: Optional[str] = None
+    ai_handoff_reason: Optional[str] = None
+    ai_handoff_status: Optional[str] = None
+    ai_started: Optional[datetime] = None
+    runtime_err: Optional[str] = None
+    compiler_err: Optional[str] = None
     ai_context: Optional[Dict[str, Any]] = None
     ai_metadata: Optional[Dict[str, Any]] = None
     created_at: datetime

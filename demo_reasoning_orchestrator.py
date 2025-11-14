@@ -8,7 +8,7 @@ showing how it functions like the basal ganglia to coordinate ACD operations.
 import asyncio
 from datetime import datetime, timezone
 
-from backend.database.connection import database_manager, get_async_session
+from backend.database.connection import database_manager, get_db_session
 from backend.services.reasoning_orchestrator import ReasoningOrchestrator, DecisionType
 from backend.services.acd_service import ACDService
 from backend.models.acd import (
@@ -46,7 +46,7 @@ async def demo_simple_task():
     """Demo 1: Simple task with high confidence."""
     print_header("DEMO 1: Simple Task - Execute Locally")
     
-    async with get_async_session() as session:
+    async with database_manager.session_factory() as session:
         acd_service = ACDService(session)
         orchestrator = ReasoningOrchestrator(session)
         
@@ -88,7 +88,7 @@ async def demo_complex_task():
     """Demo 2: Complex task requiring escalation."""
     print_header("DEMO 2: Complex Task - Escalation Required")
     
-    async with get_async_session() as session:
+    async with database_manager.session_factory() as session:
         acd_service = ACDService(session)
         orchestrator = ReasoningOrchestrator(session)
         
@@ -139,7 +139,7 @@ async def demo_error_recovery():
     """Demo 3: Task with errors - retry with learning."""
     print_header("DEMO 3: Error Recovery - Learning from Failures")
     
-    async with get_async_session() as session:
+    async with database_manager.session_factory() as session:
         acd_service = ACDService(session)
         orchestrator = ReasoningOrchestrator(session)
         
@@ -203,7 +203,7 @@ async def demo_pattern_learning():
     """Demo 4: Pattern-based handoff decision."""
     print_header("DEMO 4: Pattern-Based Handoff - Learning from History")
     
-    async with get_async_session() as session:
+    async with database_manager.session_factory() as session:
         acd_service = ACDService(session)
         orchestrator = ReasoningOrchestrator(session)
         
@@ -266,7 +266,7 @@ async def demo_learning_cycle():
     """Demo 5: Complete learning cycle with feedback."""
     print_header("DEMO 5: Learning Cycle - Reinforcement from Outcomes")
     
-    async with get_async_session() as session:
+    async with database_manager.session_factory() as session:
         acd_service = ACDService(session)
         orchestrator = ReasoningOrchestrator(session)
         
@@ -315,7 +315,7 @@ async def demo_learning_cycle():
         updated_context = await acd_service.get_context(context.id)
         print(f"\n📊 Learning Results:")
         print(f"   Context updated: ✅")
-        print(f"   Decision logged: {'✅' if 'orchestration_decision' in updated_context.ai_metadata else '❌'}")
+        print(f"   Decision logged: {'✅' if updated_context.ai_metadata and 'orchestration_decision' in updated_context.ai_metadata else '❌'}")
         print(f"   Pattern cache cleared: ✅ (ready for fresh patterns)")
         
         # Now test with a failed outcome
@@ -340,7 +340,7 @@ async def demo_learning_cycle():
         )
         
         fail_updated = await acd_service.get_context(fail_context.id)
-        if fail_updated.ai_metadata and "failed_decisions" in fail_updated.ai_metadata:
+        if fail_updated and fail_updated.ai_metadata and "failed_decisions" in fail_updated.ai_metadata:
             print(f"   ✅ Failed pattern recorded for inhibition")
             print(f"   Failed decisions logged: {len(fail_updated.ai_metadata['failed_decisions'])}")
         else:

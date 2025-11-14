@@ -26,10 +26,10 @@ from backend.models.acd import (
 
 
 @pytest.mark.asyncio
-async def test_orchestrate_simple_task(async_session):
+async def test_orchestrate_simple_task(db_session):
     """Test orchestration of a simple, low-complexity task."""
     # Create a simple task context
-    acd_service = ACDService(async_session)
+    acd_service = ACDService(db_session)
     context = await acd_service.create_context(
         ACDContextCreate(
             ai_phase="TEXT_GENERATION",
@@ -42,7 +42,7 @@ async def test_orchestrate_simple_task(async_session):
     )
     
     # Orchestrate decision
-    orchestrator = ReasoningOrchestrator(async_session)
+    orchestrator = ReasoningOrchestrator(db_session)
     decision = await orchestrator.orchestrate_decision(context)
     
     # Should execute locally for simple, confident tasks
@@ -53,10 +53,10 @@ async def test_orchestrate_simple_task(async_session):
 
 
 @pytest.mark.asyncio
-async def test_orchestrate_high_complexity_task(async_session):
+async def test_orchestrate_high_complexity_task(db_session):
     """Test orchestration of high-complexity task with low confidence."""
     # Create high-complexity task
-    acd_service = ACDService(async_session)
+    acd_service = ACDService(db_session)
     context = await acd_service.create_context(
         ACDContextCreate(
             ai_phase="VIDEO_GENERATION",
@@ -69,7 +69,7 @@ async def test_orchestrate_high_complexity_task(async_session):
     )
     
     # Orchestrate decision
-    orchestrator = ReasoningOrchestrator(async_session)
+    orchestrator = ReasoningOrchestrator(db_session)
     decision = await orchestrator.orchestrate_decision(context)
     
     # Should escalate due to high complexity and low confidence
@@ -79,10 +79,10 @@ async def test_orchestrate_high_complexity_task(async_session):
 
 
 @pytest.mark.asyncio
-async def test_orchestrate_with_errors(async_session):
+async def test_orchestrate_with_errors(db_session):
     """Test orchestration when errors are present."""
     # Create context with errors
-    acd_service = ACDService(async_session)
+    acd_service = ACDService(db_session)
     context = await acd_service.create_context(
         ACDContextCreate(
             ai_phase="IMAGE_GENERATION",
@@ -104,7 +104,7 @@ async def test_orchestrate_with_errors(async_session):
     context = await acd_service.get_context(context.id)
     
     # Orchestrate decision
-    orchestrator = ReasoningOrchestrator(async_session)
+    orchestrator = ReasoningOrchestrator(db_session)
     decision = await orchestrator.orchestrate_decision(context)
     
     # Should either retry or request assistance
@@ -116,10 +116,10 @@ async def test_orchestrate_with_errors(async_session):
 
 
 @pytest.mark.asyncio
-async def test_orchestrate_retry_limit_exceeded(async_session):
+async def test_orchestrate_retry_limit_exceeded(db_session):
     """Test orchestration when retry limit is exceeded."""
     # Create context with high retry count
-    acd_service = ACDService(async_session)
+    acd_service = ACDService(db_session)
     context = await acd_service.create_context(
         ACDContextCreate(
             ai_phase="TEXT_GENERATION",
@@ -131,7 +131,7 @@ async def test_orchestrate_retry_limit_exceeded(async_session):
     )
     
     # Orchestrate decision
-    orchestrator = ReasoningOrchestrator(async_session)
+    orchestrator = ReasoningOrchestrator(db_session)
     decision = await orchestrator.orchestrate_decision(context)
     
     # Should defer to human after retries exhausted
@@ -140,10 +140,10 @@ async def test_orchestrate_retry_limit_exceeded(async_session):
 
 
 @pytest.mark.asyncio
-async def test_orchestrate_blocked_task(async_session):
+async def test_orchestrate_blocked_task(db_session):
     """Test orchestration of a blocked task."""
     # Create blocked context
-    acd_service = ACDService(async_session)
+    acd_service = ACDService(db_session)
     context = await acd_service.create_context(
         ACDContextCreate(
             ai_phase="IMAGE_GENERATION",
@@ -156,7 +156,7 @@ async def test_orchestrate_blocked_task(async_session):
     )
     
     # Orchestrate decision
-    orchestrator = ReasoningOrchestrator(async_session)
+    orchestrator = ReasoningOrchestrator(db_session)
     decision = await orchestrator.orchestrate_decision(context)
     
     # Should request collaboration or assistance
@@ -168,10 +168,10 @@ async def test_orchestrate_blocked_task(async_session):
 
 
 @pytest.mark.asyncio
-async def test_execute_handoff_decision(async_session):
+async def test_execute_handoff_decision(db_session):
     """Test execution of a handoff decision."""
     # Create context
-    acd_service = ACDService(async_session)
+    acd_service = ACDService(db_session)
     context = await acd_service.create_context(
         ACDContextCreate(
             ai_phase="IMAGE_GENERATION",
@@ -183,7 +183,7 @@ async def test_execute_handoff_decision(async_session):
     )
     
     # Orchestrate decision
-    orchestrator = ReasoningOrchestrator(async_session)
+    orchestrator = ReasoningOrchestrator(db_session)
     decision = await orchestrator.orchestrate_decision(context, current_agent="basic_generator")
     
     # Execute decision
@@ -202,10 +202,10 @@ async def test_execute_handoff_decision(async_session):
 
 
 @pytest.mark.asyncio
-async def test_learn_from_successful_outcome(async_session):
+async def test_learn_from_successful_outcome(db_session):
     """Test learning from a successful outcome."""
     # Create and complete successful context
-    acd_service = ACDService(async_session)
+    acd_service = ACDService(db_session)
     context = await acd_service.create_context(
         ACDContextCreate(
             ai_phase="TEXT_GENERATION",
@@ -217,7 +217,7 @@ async def test_learn_from_successful_outcome(async_session):
     )
     
     # Make decision (which logs to metadata)
-    orchestrator = ReasoningOrchestrator(async_session)
+    orchestrator = ReasoningOrchestrator(db_session)
     decision = await orchestrator.orchestrate_decision(context)
     
     # Re-fetch context with decision metadata
@@ -237,10 +237,10 @@ async def test_learn_from_successful_outcome(async_session):
 
 
 @pytest.mark.asyncio
-async def test_learn_from_failed_outcome(async_session):
+async def test_learn_from_failed_outcome(db_session):
     """Test learning from a failed outcome."""
     # Create failed context
-    acd_service = ACDService(async_session)
+    acd_service = ACDService(db_session)
     context = await acd_service.create_context(
         ACDContextCreate(
             ai_phase="IMAGE_GENERATION",
@@ -252,7 +252,7 @@ async def test_learn_from_failed_outcome(async_session):
     )
     
     # Make decision
-    orchestrator = ReasoningOrchestrator(async_session)
+    orchestrator = ReasoningOrchestrator(db_session)
     decision = await orchestrator.orchestrate_decision(context)
     
     # Re-fetch context
@@ -276,9 +276,9 @@ async def test_learn_from_failed_outcome(async_session):
 
 
 @pytest.mark.asyncio
-async def test_pattern_learning_with_successful_history(async_session):
+async def test_pattern_learning_with_successful_history(db_session):
     """Test that orchestrator learns from successful patterns."""
-    acd_service = ACDService(async_session)
+    acd_service = ACDService(db_session)
     
     # Create multiple successful contexts with same characteristics
     for i in range(5):
@@ -307,7 +307,7 @@ async def test_pattern_learning_with_successful_history(async_session):
     )
     
     # Orchestrate - should learn from patterns
-    orchestrator = ReasoningOrchestrator(async_session)
+    orchestrator = ReasoningOrchestrator(db_session)
     decision = await orchestrator.orchestrate_decision(
         new_context,
         current_agent="basic_generator"
@@ -318,9 +318,9 @@ async def test_pattern_learning_with_successful_history(async_session):
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_with_uncertain_confidence(async_session):
+async def test_orchestrator_with_uncertain_confidence(db_session):
     """Test orchestration with uncertain confidence."""
-    acd_service = ACDService(async_session)
+    acd_service = ACDService(db_session)
     context = await acd_service.create_context(
         ACDContextCreate(
             ai_phase="SOCIAL_MEDIA_CONTENT",
@@ -331,7 +331,7 @@ async def test_orchestrator_with_uncertain_confidence(async_session):
         )
     )
     
-    orchestrator = ReasoningOrchestrator(async_session)
+    orchestrator = ReasoningOrchestrator(db_session)
     decision = await orchestrator.orchestrate_decision(context)
     
     # Should request review for uncertain tasks
@@ -345,10 +345,10 @@ async def test_orchestrator_with_uncertain_confidence(async_session):
 
 
 @pytest.mark.asyncio
-async def test_complexity_evaluation(async_session):
+async def test_complexity_evaluation(db_session):
     """Test complexity scoring logic."""
-    acd_service = ACDService(async_session)
-    orchestrator = ReasoningOrchestrator(async_session)
+    acd_service = ACDService(db_session)
+    orchestrator = ReasoningOrchestrator(db_session)
     
     # Test low complexity
     low_context = await acd_service.create_context(
@@ -383,10 +383,10 @@ async def test_complexity_evaluation(async_session):
 
 
 @pytest.mark.asyncio
-async def test_confidence_evaluation_with_patterns(async_session):
+async def test_confidence_evaluation_with_patterns(db_session):
     """Test confidence scoring with learned patterns."""
-    acd_service = ACDService(async_session)
-    orchestrator = ReasoningOrchestrator(async_session)
+    acd_service = ACDService(db_session)
+    orchestrator = ReasoningOrchestrator(db_session)
     
     # Create successful pattern
     await acd_service.create_context(
