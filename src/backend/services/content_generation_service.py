@@ -57,12 +57,16 @@ class ContentModerationService:
     def analyze_content_rating(prompt: str, persona_rating: str) -> ContentRating:
         """
         Analyze content to determine appropriate rating.
-        
+
         This is informational - helps tag content appropriately for platform filtering.
         Does NOT block content generation. All ratings can be generated.
-        
+
         Note: This is a placeholder - in production, this would use ML models.
         """
+        # If no prompt provided, return SFW as default
+        if prompt is None or not prompt:
+            return ContentRating.SFW
+
         # Simple keyword-based analysis
         nsfw_keywords = [
             "sexy",
@@ -96,11 +100,11 @@ class ContentModerationService:
         content_rating: ContentRating,
         target_platform: str,
         persona_platform_restrictions: Optional[Dict[str, str]] = None,
-        platform_policy_service = None,
+        platform_policy_service=None,
     ) -> bool:
         """
         Check if content is appropriate for target platform.
-        
+
         Uses database-driven platform policies instead of hardcoded rules.
         This allows platform rules to be updated dynamically without code changes.
 
@@ -146,7 +150,7 @@ class ContentModerationService:
                 )
                 # Fallback to safe default if database lookup fails
                 return content_rating == ContentRating.SFW
-        
+
         # Fallback: if no platform policy service provided, default to safe
         # This should not happen in production but provides backwards compatibility
         logger.warning(
@@ -161,7 +165,9 @@ class GenerationRequest(BaseModel):
 
     persona_id: UUID
     content_type: ContentType  # 'image', 'video', 'audio', 'voice', 'text'
-    content_rating: Optional[ContentRating] = None  # Use persona's default if not specified
+    content_rating: Optional[ContentRating] = (
+        None  # Use persona's default if not specified
+    )
     prompt: Optional[str] = None
     style_override: Optional[Dict[str, Any]] = None
     quality: str = "high"  # 'draft', 'standard', 'high', 'premium'
@@ -199,9 +205,10 @@ class ContentGenerationService:
 
         self.moderation_service = ContentModerationService()
         self.template_service = TemplateService()
-        
+
         # Import here to avoid circular dependency
         from backend.services.platform_policy_service import PlatformPolicyService
+
         self.platform_policy_service = PlatformPolicyService(db_session)
 
     async def generate_content(self, request: GenerationRequest) -> ContentResponse:
@@ -699,12 +706,12 @@ class ContentGenerationService:
     ) -> bool:
         """
         Check if the requested content rating matches persona's preferences.
-        
+
         NOTE: This is informational only - it does NOT block content generation.
         Content can be generated with any rating. The persona's allowed_content_ratings
         indicates which ratings the persona PREFERS to generate, not which are blocked.
         Platform filtering will determine where content can be posted.
-        
+
         Returns:
             True if rating matches persona preferences, False if outside preferences
         """
@@ -719,7 +726,9 @@ class ContentGenerationService:
         # Ensure the persona's default_content_rating is always in allowed list
         # This handles cases where database has inconsistent data
         default_rating = getattr(persona, "default_content_rating", "sfw")
-        if default_rating and default_rating.lower() not in [r.lower() for r in allowed_ratings]:
+        if default_rating and default_rating.lower() not in [
+            r.lower() for r in allowed_ratings
+        ]:
             # Add default to allowed list to fix inconsistency
             allowed_ratings.append(default_rating)
             logger.debug(
@@ -816,10 +825,12 @@ class ContentGenerationService:
                     content_rating=request.content_rating,
                     rss_content=None,  # Will be auto-fetched from DB if available
                     image_style=persona.image_style,
-                    use_ai=True  # Enable AI-powered prompt generation
+                    use_ai=True,  # Enable AI-powered prompt generation
                 )
-                
-                logger.info(f"Generated prompt ({prompt_data['word_count']} words, source: {prompt_data['source']})")
+
+                logger.info(
+                    f"Generated prompt ({prompt_data['word_count']} words, source: {prompt_data['source']})"
+                )
                 logger.info(f"Prompt preview: {prompt_data['prompt'][:150]}...")
 
                 generation_params = {
@@ -841,10 +852,13 @@ class ContentGenerationService:
                 if persona.appearance_locked and persona.base_image_path:
                     generation_params["reference_image_path"] = persona.base_image_path
                     generation_params["use_controlnet"] = True
-                    
+
                     # Check if RSS content was used for reaction prompt
-                    rss_used = "rss" in prompt_data.get("prompt", "").lower() or prompt_data.get("word_count", 0) > 50
-                    
+                    rss_used = (
+                        "rss" in prompt_data.get("prompt", "").lower()
+                        or prompt_data.get("word_count", 0) > 50
+                    )
+
                     logger.info(
                         f"✓ Using base image for visual consistency: {persona.base_image_path}"
                     )
@@ -852,7 +866,7 @@ class ContentGenerationService:
                         logger.info(
                             f"✓ Base image will be used with RSS-inspired reaction prompt"
                         )
-                    
+
                     await acd.set_metadata(
                         {
                             **initial_context,
@@ -1423,10 +1437,10 @@ Generate the social media content now:"""
             # Pass persona's platform_restrictions to enable per-site filtering
             # Uses database-driven platform policies
             if not await self.moderation_service.platform_content_filter(
-                content_rating, 
-                platform_lower, 
+                content_rating,
+                platform_lower,
                 persona.platform_restrictions,
-                self.platform_policy_service
+                self.platform_policy_service,
             ):
                 adaptations[platform_lower] = {
                     "status": "blocked",
