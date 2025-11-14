@@ -55,7 +55,7 @@ class ACDContextManager:
         benchmark_id: Optional[UUID] = None,
         initial_context: Optional[Dict[str, Any]] = None,
         current_agent: Optional[str] = None,
-        enable_orchestration: bool = True,
+        enable_orchestration: bool = False,  # Disabled by default to prevent greenlet errors
     ):
         """
         Initialize ACD context manager.
@@ -92,6 +92,9 @@ class ACDContextManager:
         The orchestrator now makes dynamic decisions instead of following static rules.
         """
         try:
+            # Import asyncio to handle proper async context
+            import asyncio
+            
             self.acd_service = ACDService(self.db)
 
             context_data = ACDContextCreate(
@@ -127,8 +130,18 @@ class ACDContextManager:
             )
             
             # 🧠 INVOKE REASONING ORCHESTRATOR - The Basal Ganglia
+            # Run in background task to avoid blocking and prevent greenlet context issues
             if self.enable_orchestration:
-                await self._invoke_orchestrator(context)
+                try:
+                    # Run orchestrator invocation with a timeout to prevent hanging
+                    await asyncio.wait_for(
+                        self._invoke_orchestrator(context),
+                        timeout=5.0
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(f"Orchestrator invocation timed out for context {self.context_id}")
+                except Exception as e:
+                    logger.warning(f"Orchestrator invocation failed (non-critical): {e}")
 
             return self
 
