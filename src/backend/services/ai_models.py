@@ -1966,10 +1966,12 @@ class AIModelManager:
     async def _generate_image_diffusers(
         self, prompt: str, model: Dict[str, Any], **kwargs
     ) -> Dict[str, Any]:
-        """Generate image using Diffusers library with optional reference image for consistency."""
+        """Generate image using Diffusers library with optional reference image for img2img consistency."""
         try:
             from diffusers import (
                 StableDiffusionPipeline,
+                StableDiffusionImg2ImgPipeline,
+                StableDiffusionXLImg2ImgPipeline,
                 DPMSolverMultistepScheduler,
                 DiffusionPipeline,
             )
@@ -2001,10 +2003,12 @@ class AIModelManager:
                 device = "cpu"
 
             # Load or get cached pipeline (with device-specific caching for multi-GPU)
+            # Use different cache key for img2img vs text2img pipelines
+            pipeline_mode = "img2img" if use_img2img else "text2img"
             if device_id is not None:
-                pipeline_key = f"diffusers_{model_name}_gpu{device_id}"
+                pipeline_key = f"diffusers_{model_name}_{pipeline_mode}_gpu{device_id}"
             else:
-                pipeline_key = f"diffusers_{model_name}"
+                pipeline_key = f"diffusers_{model_name}_{pipeline_mode}"
 
             if pipeline_key not in self._loaded_pipelines:
                 logger.info(
@@ -2018,26 +2022,40 @@ class AIModelManager:
                     ),
                 }
 
-                # For SDXL models, use standard pipeline with dual text encoders
-                # SDXL natively supports longer prompts (up to 154 tokens) via its dual encoders:
+                # Select appropriate pipeline type based on img2img mode and model type
+                # For SDXL models, use standard pipeline with dual text encoders:
                 # - CLIP ViT-L encoder: 77 tokens
                 # - OpenCLIP ViT-G encoder: 77 tokens
                 # Total: 154 tokens without truncation
                 # Note: For prompts >154 tokens, consider using the 'compel' library (pip install compel)
-                if is_sdxl:
-                    pipeline_type = "StableDiffusionXLPipeline"
-                    logger.info(
-                        f"Using standard SDXL pipeline with dual text encoders (supports up to 154 tokens)"
-                    )
-                    logger.info(
-                        f"📝 For prompts exceeding 154 tokens, install 'compel' library for advanced prompt weighting"
-                    )
+                
+                if use_img2img:
+                    # Use img2img pipeline for visual consistency with reference image
+                    if is_sdxl:
+                        pipeline_type = "StableDiffusionXLImg2ImgPipeline"
+                        logger.info(f"Using SDXL img2img pipeline for visual consistency")
+                    else:
+                        pipeline_type = "StableDiffusionImg2ImgPipeline"
+                        logger.info(f"Using SD img2img pipeline for visual consistency")
+                        # Only add safety_checker params for SD 1.5 models (not SDXL)
+                        load_args["safety_checker"] = None  # Disable for performance
+                        load_args["requires_safety_checker"] = False  # Suppress warning
                 else:
-                    # For SD 1.5, use standard pipeline
-                    pipeline_type = "StableDiffusionPipeline"
-                    # Only add safety_checker params for SD 1.5 models (not SDXL)
-                    load_args["safety_checker"] = None  # Disable for performance
-                    load_args["requires_safety_checker"] = False  # Suppress warning
+                    # Use text2img pipeline for standard generation
+                    if is_sdxl:
+                        pipeline_type = "StableDiffusionXLPipeline"
+                        logger.info(
+                            f"Using standard SDXL pipeline with dual text encoders (supports up to 154 tokens)"
+                        )
+                        logger.info(
+                            f"📝 For prompts exceeding 154 tokens, install 'compel' library for advanced prompt weighting"
+                        )
+                    else:
+                        # For SD 1.5, use standard pipeline
+                        pipeline_type = "StableDiffusionPipeline"
+                        # Only add safety_checker params for SD 1.5 models (not SDXL)
+                        load_args["safety_checker"] = None  # Disable for performance
+                        load_args["requires_safety_checker"] = False  # Suppress warning
 
                 logger.info(f"Using pipeline: {pipeline_type} for model {model_name}")
 
@@ -2188,17 +2206,41 @@ class AIModelManager:
                     gen_device = "cuda" if torch.cuda.is_available() else "cpu"
                 generator = torch.Generator(device=gen_device).manual_seed(seed)
 
-            # Handle reference image for visual consistency
-            if reference_image_path and use_controlnet:
-                logger.info(
-                    f"Visual consistency enabled with reference: {reference_image_path}"
-                )
-                logger.info(
-                    "Note: ControlNet support requires additional setup. Using prompt-based consistency for now."
-                )
-                # In production, this would load the reference image and use ControlNet
-                # For now, we enhance the prompt with consistency instructions
-                prompt = f"maintaining consistent appearance from reference, {prompt}"
+            # Determine if we're using img2img for visual consistency
+            use_img2img = reference_image_path is not None
+            init_image = None
+            img2img_strength = kwargs.get("img2img_strength", 0.75)  # Default to 0.75
+            
+            if use_img2img:
+                try:
+                    logger.info(
+                        f"🖼️  Image-to-image mode enabled with reference: {reference_image_path}"
+                    )
+                    logger.info(f"   Strength: {img2img_strength} (0.0=exact copy, 1.0=full regeneration)")
+                    
+                    # Load reference image
+                    reference_path = Path(reference_image_path)
+                    if not reference_path.exists():
+                        logger.warning(f"Reference image not found: {reference_image_path}")
+                        logger.warning("Falling back to text-to-image generation")
+                        use_img2img = False
+                    else:
+                        init_image = Image.open(reference_path).convert("RGB")
+                        # Resize to target dimensions if needed
+                        init_image = init_image.resize((width, height), Image.Resampling.LANCZOS)
+                        logger.info(f"   ✓ Reference image loaded: {init_image.size}")
+                        
+                        # Note about ControlNet
+                        if use_controlnet:
+                            logger.info(
+                                "   Note: ControlNet requested but not yet implemented. "
+                                "Using img2img for visual consistency."
+                            )
+                except Exception as e:
+                    logger.error(f"Failed to load reference image: {str(e)}")
+                    logger.warning("Falling back to text-to-image generation")
+                    use_img2img = False
+                    init_image = None
 
             # Log detailed diagnostics before generation
             logger.info("=" * 60)
@@ -2248,21 +2290,41 @@ class AIModelManager:
             )
 
             # Generate image (run in thread pool to avoid blocking)
+            # Use different parameters for img2img vs text2img
             try:
                 loop = asyncio.get_event_loop()
-                image = await loop.run_in_executor(
-                    None,
-                    lambda: pipe(
-                        prompt=prompt,
-                        negative_prompt=negative_prompt,
-                        num_inference_steps=num_inference_steps,
-                        guidance_scale=guidance_scale,
-                        width=width,
-                        height=height,
-                        generator=generator,
-                    ).images[0],
-                )
-                logger.info("✓ Image generated successfully")
+                
+                if use_img2img and init_image:
+                    # img2img generation with reference image
+                    logger.info(f"Generating img2img with strength={img2img_strength}")
+                    image = await loop.run_in_executor(
+                        None,
+                        lambda: pipe(
+                            prompt=prompt,
+                            image=init_image,
+                            strength=img2img_strength,
+                            negative_prompt=negative_prompt,
+                            num_inference_steps=num_inference_steps,
+                            guidance_scale=guidance_scale,
+                            generator=generator,
+                        ).images[0],
+                    )
+                    logger.info("✓ Image generated successfully via img2img")
+                else:
+                    # Standard text2img generation
+                    image = await loop.run_in_executor(
+                        None,
+                        lambda: pipe(
+                            prompt=prompt,
+                            negative_prompt=negative_prompt,
+                            num_inference_steps=num_inference_steps,
+                            guidance_scale=guidance_scale,
+                            width=width,
+                            height=height,
+                            generator=generator,
+                        ).images[0],
+                    )
+                    logger.info("✓ Image generated successfully via text2img")
             except Exception as e:
                 logger.error(f"Diffusers generation failed: {str(e)}")
                 logger.error(f"Error type: {type(e).__name__}")
@@ -2310,6 +2372,8 @@ class AIModelManager:
                 "guidance_scale": guidance_scale,
                 "seed": seed,
                 "reference_image_used": bool(reference_image_path),
+                "img2img_mode": use_img2img,
+                "img2img_strength": img2img_strength if use_img2img else None,
             }
         except Exception as e:
             logger.error(f"Diffusers generation failed: {str(e)}")
