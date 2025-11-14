@@ -43,6 +43,7 @@ dependencies = [
     "opencv-python>=4.8.0.74",
     "transformers>=4.41.0",
     "diffusers>=0.28.0",
+    "compel>=2.0.0",
     "accelerate>=0.29.0",
     "huggingface_hub>=0.23.0",
     "aiofiles>=23.1.0",

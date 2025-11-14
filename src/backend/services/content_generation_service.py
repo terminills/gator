@@ -29,6 +29,7 @@ from backend.models.content import (
     ModerationStatus,
 )
 from backend.services.template_service import TemplateService
+from backend.services.prompt_generation_service import get_prompt_service
 from backend.config.logging import get_logger
 from backend.utils.acd_integration import ACDContextManager
 from backend.models.acd import AIComplexity, AIConfidence, AIState, ACDContextModel
@@ -803,8 +804,24 @@ class ContentGenerationService:
                     f"   Persona defaults: quality={persona.generation_quality}, resolution={persona.default_image_resolution}"
                 )
 
+                # Generate enhanced prompt using AI (llama.cpp) or templates
+                # This creates detailed prompts that can exceed 77 tokens when using SDXL
+                prompt_service = get_prompt_service()
+                prompt_data = await prompt_service.generate_image_prompt(
+                    persona=persona,
+                    context=request.prompt,  # User's request becomes context
+                    content_rating=request.content_rating,
+                    rss_content=None,  # TODO: Can be enhanced with RSS feed integration
+                    image_style=persona.image_style,
+                    use_ai=True  # Enable AI-powered prompt generation
+                )
+                
+                logger.info(f"Generated prompt ({prompt_data['word_count']} words, source: {prompt_data['source']})")
+                logger.info(f"Prompt preview: {prompt_data['prompt'][:150]}...")
+
                 generation_params = {
-                    "prompt": request.prompt,
+                    "prompt": prompt_data["prompt"],
+                    "negative_prompt": prompt_data["negative_prompt"],
                     "size": size,
                     "quality": quality,
                 }
@@ -829,10 +846,12 @@ class ContentGenerationService:
                             **initial_context,
                             "using_reference": True,
                             "reference_path": persona.base_image_path,
+                            "prompt_source": prompt_data["source"],
+                            "prompt_word_count": prompt_data["word_count"],
                         }
                     )
 
-                # Generate image using AI model
+                # Generate image using AI model with enhanced prompt
                 image_result = await ai_models.generate_image(**generation_params)
 
                 # Save the generated image
