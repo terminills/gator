@@ -886,6 +886,23 @@ class AIModelManager:
 
         # For image models
         if content_type == "image":
+            # Check for explicit NSFW model preference from persona settings
+            nsfw_model_pref = kwargs.get("nsfw_model")
+            if nsfw_model_pref:
+                # Try to find the preferred model in available models
+                for model in available_models:
+                    # Match by name or model_id
+                    if (nsfw_model_pref.lower() in model["name"].lower() or 
+                        nsfw_model_pref.lower() in model.get("model_id", "").lower()):
+                        logger.info(
+                            f"🎯 Model selection: {model['name']} (reason: persona NSFW model preference)"
+                        )
+                        return model
+                logger.warning(
+                    f"Preferred NSFW model '{nsfw_model_pref}' not found in available models, "
+                    f"falling back to intelligent selection"
+                )
+            
             # Keywords that indicate need for high quality
             high_quality_keywords = [
                 "detailed",
@@ -2192,8 +2209,24 @@ class AIModelManager:
             # Get generation parameters
             num_inference_steps = kwargs.get("num_inference_steps", 25)
             guidance_scale = kwargs.get("guidance_scale", 7.5)
-            width = kwargs.get("width", 512)
-            height = kwargs.get("height", 512)
+            
+            # Parse size parameter if provided (e.g., "1024x1024")
+            # Otherwise use explicit width/height or defaults
+            size = kwargs.get("size")
+            if size and isinstance(size, str) and "x" in size:
+                try:
+                    width_str, height_str = size.split("x")
+                    width = int(width_str)
+                    height = int(height_str)
+                    logger.info(f"Parsed size parameter: {size} -> width={width}, height={height}")
+                except (ValueError, AttributeError) as e:
+                    logger.warning(f"Failed to parse size parameter '{size}': {e}, using defaults")
+                    width = kwargs.get("width", 512)
+                    height = kwargs.get("height", 512)
+            else:
+                width = kwargs.get("width", 512)
+                height = kwargs.get("height", 512)
+            
             negative_prompt = kwargs.get(
                 "negative_prompt", "ugly, blurry, low quality, distorted"
             )
