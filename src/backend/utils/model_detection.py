@@ -184,10 +184,26 @@ def find_llama_cpp_installation() -> Optional[Dict[str, Any]]:
     except ImportError:
         pass
     
-    # Check for standalone llama.cpp binary
-    llama_server = shutil.which("llama-server") or shutil.which("llama-cli")
+    # Check for standalone llama.cpp binary (system-wide installation)
+    # Check common binary names
+    binary_names = [
+        "llama-server",
+        "llama-cli", 
+        "llama",
+        "llama.cpp",
+        "main",  # Legacy llama.cpp binary name
+    ]
+    
+    llama_server = None
+    for binary_name in binary_names:
+        found_binary = shutil.which(binary_name)
+        if found_binary:
+            llama_server = found_binary
+            break
+    
     if llama_server:
         try:
+            # Try to get version info
             result = subprocess.run(
                 [llama_server, "--version"],
                 capture_output=True,
@@ -207,14 +223,23 @@ def find_llama_cpp_installation() -> Optional[Dict[str, Any]]:
                 "is_hip_build": is_hip,
             }
         except (subprocess.TimeoutExpired, Exception):
-            pass
+            # Even if version check fails, binary exists so mark as installed
+            return {
+                "installed": True,
+                "type": "binary",
+                "version": "unknown",
+                "path": llama_server,
+                "is_hip_build": False,
+            }
     
-    # Check for source installation
+    # Check for source installation in common locations
     possible_locations = [
         Path("./llama.cpp"),
         Path.cwd() / "llama.cpp",
         Path(__file__).parent.parent.parent.parent / "llama.cpp",
         Path.home() / "llama.cpp",
+        Path("/usr/local/llama.cpp"),  # System-wide installation
+        Path("/opt/llama.cpp"),  # Alternative system location
     ]
     
     for location in possible_locations:
@@ -222,15 +247,33 @@ def find_llama_cpp_installation() -> Optional[Dict[str, Any]]:
             makefile = location / "Makefile"
             if makefile.exists():
                 # Check if there's a built server binary
-                server_binary = location / "llama-server"
-                if server_binary.exists():
+                for binary_name in ["llama-server", "llama-cli", "main", "llama"]:
+                    server_binary = location / binary_name
+                    if server_binary.exists():
+                        return {
+                            "installed": True,
+                            "type": "source",
+                            "version": "source-build",
+                            "path": str(location.resolve()),
+                            "is_hip_build": False,  # Would need to check build flags
+                            "source_dir": str(location.resolve()),
+                            "binary": str(server_binary.resolve()),
+                        }
+    
+    # Check system-wide shared library installations
+    # These are common on Linux when llama.cpp is installed via package manager
+    for lib_path in ["/usr/lib", "/usr/local/lib", "/opt/lib"]:
+        lib_dir = Path(lib_path)
+        if lib_dir.exists():
+            # Look for llama.cpp shared libraries
+            for lib_file in ["libllama.so", "libllama.dylib", "libllama.dll"]:
+                if (lib_dir / lib_file).exists():
                     return {
                         "installed": True,
-                        "type": "source",
-                        "version": "source-build",
-                        "path": str(location.resolve()),
-                        "is_hip_build": False,  # Would need to check build flags
-                        "source_dir": str(location.resolve()),
+                        "type": "system-library",
+                        "version": "system-installed",
+                        "path": str(lib_dir / lib_file),
+                        "is_hip_build": False,
                     }
     
     return None

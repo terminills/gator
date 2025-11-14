@@ -579,8 +579,8 @@ class ContentGenerationService:
             stmt = (
                 select(FeedItemModel)
                 .where(FeedItemModel.feed_id.in_(feed_ids))
-                .where(FeedItemModel.published_at >= cutoff_time)
-                .order_by(FeedItemModel.published_at.desc())
+                .where(FeedItemModel.published_date >= cutoff_time)
+                .order_by(FeedItemModel.published_date.desc())
                 .limit(limit * 2)  # Get more to filter
             )
             result = await self.db.execute(stmt)
@@ -678,6 +678,17 @@ class ContentGenerationService:
 
         if isinstance(allowed_ratings, str):
             allowed_ratings = [allowed_ratings]
+
+        # Ensure the persona's default_content_rating is always in allowed list
+        # This handles cases where database has inconsistent data
+        default_rating = getattr(persona, "default_content_rating", "sfw")
+        if default_rating and default_rating.lower() not in [r.lower() for r in allowed_ratings]:
+            # Add default to allowed list to fix inconsistency
+            allowed_ratings.append(default_rating)
+            logger.warning(
+                f"Persona {persona.name} has inconsistent rating config: default '{default_rating}' "
+                f"not in allowed {allowed_ratings}. Auto-correcting for this request."
+            )
 
         # Check if requested rating is allowed
         return requested_rating.value in [r.lower() for r in allowed_ratings]
