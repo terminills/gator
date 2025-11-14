@@ -1711,7 +1711,6 @@ class AIModelManager:
             # Try to load and use transformers
             try:
                 from transformers import AutoModelForCausalLM, AutoTokenizer
-                import torch
 
                 logger.info(f"   Loading model from {model_path}...")
                 tokenizer = AutoTokenizer.from_pretrained(str(model_path))
@@ -2395,8 +2394,6 @@ class AIModelManager:
                         # Fallback to PyTorch's scaled_dot_product_attention if available (PyTorch 2.0+)
                         try:
                             # Check PyTorch version
-                            import torch
-
                             pytorch_version = tuple(
                                 int(x) for x in torch.__version__.split(".")[:2]
                             )
