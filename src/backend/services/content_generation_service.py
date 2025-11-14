@@ -270,7 +270,9 @@ class ContentGenerationService:
                 )
 
             # Generate prompt if not provided
-            if not request.prompt:
+            # Note: For IMAGE type, we skip this and let the image generation
+            # service use the advanced prompt generation service instead
+            if not request.prompt and request.content_type != ContentType.IMAGE:
                 logger.info("   Generating AI prompt based on persona...")
                 request.prompt = await self._generate_prompt(
                     persona, request.content_type, request.content_rating
@@ -806,12 +808,13 @@ class ContentGenerationService:
 
                 # Generate enhanced prompt using AI (llama.cpp) or templates
                 # This creates detailed prompts that can exceed 77 tokens when using SDXL
-                prompt_service = get_prompt_service()
+                # Pass database session to enable RSS content integration
+                prompt_service = get_prompt_service(db_session=self.db)
                 prompt_data = await prompt_service.generate_image_prompt(
                     persona=persona,
                     context=request.prompt,  # User's request becomes context
                     content_rating=request.content_rating,
-                    rss_content=None,  # TODO: Can be enhanced with RSS feed integration
+                    rss_content=None,  # Will be auto-fetched from DB if available
                     image_style=persona.image_style,
                     use_ai=True  # Enable AI-powered prompt generation
                 )
