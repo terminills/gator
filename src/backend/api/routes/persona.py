@@ -834,14 +834,16 @@ async def create_random_persona(
         500: Generation error
     """
     try:
-        from backend.services.persona_randomizer import PersonaRandomizer
+        from backend.services.ai_persona_generator import get_ai_persona_generator
 
-        # Generate random persona configuration
-        random_config = PersonaRandomizer.generate_complete_random_persona(
-            detailed=True
+        # Generate AI-powered persona configuration using llama.cpp
+        # This creates more coherent and realistic personas than random templates
+        ai_generator = get_ai_persona_generator()
+        random_config = await ai_generator.generate_persona(
+            use_ai=True  # Use llama.cpp for AI-powered generation
         )
 
-        logger.info(f"Creating random persona: {random_config['name']}")
+        logger.info(f"Creating AI-generated persona: {random_config['name']}")
 
         # Create persona data object
         persona_data = PersonaCreate(
