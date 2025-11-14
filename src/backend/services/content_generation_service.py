@@ -302,16 +302,16 @@ class ContentGenerationService:
     async def generate_content_for_all_personas(
         self, 
         content_type: ContentType = ContentType.IMAGE,
-        quality: str = "standard",
-        content_rating: ContentRating = ContentRating.SFW
+        quality: Optional[str] = "standard",
+        content_rating: Optional[ContentRating] = ContentRating.SFW
     ) -> Dict[str, Any]:
         """
         Generate content for all active personas.
         
         Args:
             content_type: Type of content to generate
-            quality: Quality level (standard or hd)
-            content_rating: Content rating filter
+            quality: Quality level (standard or hd), None to use persona defaults
+            content_rating: Content rating filter, None to use persona defaults
             
         Returns:
             Dict with generation results and statistics
@@ -319,8 +319,8 @@ class ContentGenerationService:
         logger.info("="*80)
         logger.info("🚀 BATCH CONTENT GENERATION FOR ALL PERSONAS")
         logger.info(f"   Content type: {content_type.value}")
-        logger.info(f"   Quality: {quality}")
-        logger.info(f"   Rating: {content_rating.value}")
+        logger.info(f"   Quality: {quality if quality is not None else 'persona defaults'}")
+        logger.info(f"   Rating: {content_rating.value if content_rating is not None else 'persona defaults'}")
         logger.info("="*80)
         
         # Get all active personas
@@ -353,11 +353,15 @@ class ContentGenerationService:
             try:
                 logger.info(f"Generating content for persona: {persona.name} ({persona.id})")
                 
+                # Use provided values or fall back to persona defaults
+                effective_quality = quality if quality is not None else (persona.image_quality if hasattr(persona, 'image_quality') else "standard")
+                effective_rating = content_rating if content_rating is not None else (ContentRating(persona.content_rating) if hasattr(persona, 'content_rating') and persona.content_rating else ContentRating.SFW)
+                
                 request = GenerationRequest(
                     persona_id=persona.id,
                     content_type=content_type,
-                    quality=quality,
-                    content_rating=content_rating,
+                    quality=effective_quality,
+                    content_rating=effective_rating,
                     prompt=None,  # Will be auto-generated
                 )
                 
