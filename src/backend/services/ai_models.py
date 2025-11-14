@@ -886,6 +886,23 @@ class AIModelManager:
 
         # For image models
         if content_type == "image":
+            # Check for explicit NSFW model preference from persona settings
+            nsfw_model_pref = kwargs.get("nsfw_model")
+            if nsfw_model_pref:
+                # Try to find the preferred model in available models
+                for model in available_models:
+                    # Match by name or model_id
+                    if (nsfw_model_pref.lower() in model["name"].lower() or 
+                        nsfw_model_pref.lower() in model.get("model_id", "").lower()):
+                        logger.info(
+                            f"🎯 Model selection: {model['name']} (reason: persona NSFW model preference)"
+                        )
+                        return model
+                logger.warning(
+                    f"Preferred NSFW model '{nsfw_model_pref}' not found in available models, "
+                    f"falling back to intelligent selection"
+                )
+            
             # Keywords that indicate need for high quality
             high_quality_keywords = [
                 "detailed",
@@ -1018,22 +1035,39 @@ class AIModelManager:
             # Check ComfyUI availability for models that require it
             comfyui_url = os.environ.get("COMFYUI_API_URL", "http://127.0.0.1:8188")
             comfyui_available = False
+            comfyui_models_count = len([m for m in local_models if m.get("inference_engine") == "comfyui"])
+            
+            # Always check ComfyUI availability if any local models exist
+            # This allows fallback from diffusers to ComfyUI if needed
+            logger.info(f"Checking ComfyUI availability at {comfyui_url}...")
+            logger.info(f"Found {comfyui_models_count} ComfyUI-specific models in local models")
+            
             try:
                 response = await self.http_client.get(
-                    f"{comfyui_url}/system_stats", timeout=2.0
+                    f"{comfyui_url}/system_stats", timeout=5.0  # Increased timeout
                 )
                 comfyui_available = response.status_code == 200
-            except Exception:
-                pass
+                if comfyui_available:
+                    logger.info(f"✓ ComfyUI is available and responding at {comfyui_url}")
+                    if comfyui_models_count > 0:
+                        logger.info(f"✓ {comfyui_models_count} ComfyUI models will be available for selection")
+                else:
+                    logger.warning(f"ComfyUI responded with unexpected status {response.status_code}")
+            except Exception as e:
+                logger.warning(f"ComfyUI not accessible at {comfyui_url}: {type(e).__name__}: {str(e)}")
+                logger.info(f"To use ComfyUI, ensure it's running with: python main.py --listen")
 
-            # Filter out ComfyUI models if ComfyUI is not running
-            if not comfyui_available:
+            # Filter out ComfyUI models ONLY if ComfyUI is not running
+            if not comfyui_available and comfyui_models_count > 0:
+                original_count = len(local_models)
                 local_models = [
                     m for m in local_models if m.get("inference_engine") != "comfyui"
                 ]
-                logger.info(
-                    f"ComfyUI not available, filtering to diffusers-only models"
+                filtered_count = original_count - len(local_models)
+                logger.warning(
+                    f"⚠️  Filtered out {filtered_count} ComfyUI models (ComfyUI not available)"
                 )
+                logger.info(f"Remaining local models: {len(local_models)}")
 
             # Only consider cloud models if explicitly enabled
             enable_cloud_apis = (
@@ -2192,8 +2226,24 @@ class AIModelManager:
             # Get generation parameters
             num_inference_steps = kwargs.get("num_inference_steps", 25)
             guidance_scale = kwargs.get("guidance_scale", 7.5)
-            width = kwargs.get("width", 512)
-            height = kwargs.get("height", 512)
+            
+            # Parse size parameter if provided (e.g., "1024x1024")
+            # Otherwise use explicit width/height or defaults
+            size = kwargs.get("size")
+            if size and isinstance(size, str) and "x" in size:
+                try:
+                    width_str, height_str = size.split("x")
+                    width = int(width_str)
+                    height = int(height_str)
+                    logger.info(f"Parsed size parameter: {size} -> width={width}, height={height}")
+                except (ValueError, AttributeError) as e:
+                    logger.warning(f"Failed to parse size parameter '{size}': {e}, using defaults")
+                    width = kwargs.get("width", 512)
+                    height = kwargs.get("height", 512)
+            else:
+                width = kwargs.get("width", 512)
+                height = kwargs.get("height", 512)
+            
             negative_prompt = kwargs.get(
                 "negative_prompt", "ugly, blurry, low quality, distorted"
             )
@@ -2298,6 +2348,10 @@ class AIModelManager:
             pooled_prompt_embeds = None
             negative_pooled_prompt_embeds = None
             
+            # Preserve original prompts for return value
+            original_prompt = prompt
+            original_negative_prompt = negative_prompt
+            
             if is_sdxl and not use_img2img:
                 # Check if we should use compel for long prompt support
                 # Estimate token count (rough approximation: 1.3 tokens per word)
@@ -2329,7 +2383,7 @@ class AIModelManager:
                         negative_prompt_embeds = negative_conditioning
                         negative_pooled_prompt_embeds = negative_pooled
                         
-                        # Clear text prompts since we're using embeddings
+                        # Clear text prompts since we're using embeddings (but keep originals for return)
                         prompt = None
                         negative_prompt = None
                         
@@ -2444,8 +2498,8 @@ class AIModelManager:
                 "model": model_name,
                 "library": "diffusers",
                 "provider": "local",
-                "prompt": prompt,
-                "negative_prompt": negative_prompt,
+                "prompt": original_prompt,  # Use preserved original prompt
+                "negative_prompt": original_negative_prompt,  # Use preserved original negative prompt
                 "num_inference_steps": num_inference_steps,
                 "guidance_scale": guidance_scale,
                 "seed": seed,
