@@ -381,36 +381,39 @@ async def _process_persona_response_queue(
                 conversation_id=conversation.id, limit=10
             )
 
-            # Build context for AI generation
-            context_messages = []
-            for msg in messages[-10:]:  # Last 10 messages
-                role = "user" if msg.sender == "user" else "assistant"
-                context_messages.append({"role": role, "content": msg.content})
+            # Get the last user message to respond to
+            last_user_message = "Hi"  # Default if no messages
+            for msg in reversed(messages):
+                if msg.sender == "user":
+                    last_user_message = msg.content
+                    break
 
-            # Generate appropriate response using LLM
-            from backend.services.ai_models import AIModelManager
+            # Generate response using persona chat service (uses llama.cpp with personality)
+            from backend.services.persona_chat_service import get_persona_chat_service
+            from backend.models.message import MessageModel
 
-            ai_manager = AIModelManager()
+            chat_service = get_persona_chat_service()
 
-            # Create persona-informed prompt
-            system_prompt = f"""You are {persona.name}, an AI influencer.
-Your personality: {persona.personality}
-Your appearance: {persona.appearance}
-Content themes: {', '.join(persona.content_themes)}
-
-Respond naturally as this persona would, maintaining character and style.
-Keep responses engaging, authentic, and conversational."""
-
-            # Build the full prompt with context
-            full_prompt = f"{system_prompt}\n\nConversation context:\n"
-            for msg in context_messages:
-                full_prompt += f"{msg['role']}: {msg['content']}\n"
-            full_prompt += "\nassistant: "
+            # Convert message responses to message models for history
+            message_models = []
+            for msg_response in messages:
+                # Create a mock MessageModel with the necessary attributes
+                msg_model = type('MessageModel', (), {
+                    'sender': msg_response.sender,
+                    'content': msg_response.content,
+                    'created_at': msg_response.created_at
+                })()
+                message_models.append(msg_model)
 
             try:
-                response_text = await ai_manager.generate_text(
-                    prompt=full_prompt, max_tokens=150, temperature=0.7
+                # Use persona chat service with llama.cpp for personality-based responses
+                response_text = await chat_service.generate_response(
+                    persona=persona,
+                    user_message=last_user_message,
+                    conversation_history=message_models,
+                    use_ai=True  # Enable llama.cpp AI generation
                 )
+                logger.info(f"Generated persona response using llama.cpp for {persona.name}")
             except Exception as e:
                 logger.warning(f"AI generation failed, using fallback: {str(e)}")
                 # Fallback to a simple response
