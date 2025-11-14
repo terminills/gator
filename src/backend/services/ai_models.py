@@ -1037,30 +1037,37 @@ class AIModelManager:
             comfyui_available = False
             comfyui_models_count = len([m for m in local_models if m.get("inference_engine") == "comfyui"])
             
-            if comfyui_models_count > 0:
-                logger.info(f"Checking ComfyUI availability at {comfyui_url}...")
-                try:
-                    response = await self.http_client.get(
-                        f"{comfyui_url}/system_stats", timeout=2.0
-                    )
-                    comfyui_available = response.status_code == 200
-                    if comfyui_available:
-                        logger.info(f"✓ ComfyUI is available ({comfyui_models_count} ComfyUI models detected)")
-                    else:
-                        logger.warning(f"ComfyUI responded with status {response.status_code}")
-                except Exception as e:
-                    logger.warning(f"ComfyUI not accessible: {str(e)}")
+            # Always check ComfyUI availability if any local models exist
+            # This allows fallback from diffusers to ComfyUI if needed
+            logger.info(f"Checking ComfyUI availability at {comfyui_url}...")
+            logger.info(f"Found {comfyui_models_count} ComfyUI-specific models in local models")
+            
+            try:
+                response = await self.http_client.get(
+                    f"{comfyui_url}/system_stats", timeout=5.0  # Increased timeout
+                )
+                comfyui_available = response.status_code == 200
+                if comfyui_available:
+                    logger.info(f"✓ ComfyUI is available and responding at {comfyui_url}")
+                    if comfyui_models_count > 0:
+                        logger.info(f"✓ {comfyui_models_count} ComfyUI models will be available for selection")
+                else:
+                    logger.warning(f"ComfyUI responded with unexpected status {response.status_code}")
+            except Exception as e:
+                logger.warning(f"ComfyUI not accessible at {comfyui_url}: {type(e).__name__}: {str(e)}")
+                logger.info(f"To use ComfyUI, ensure it's running with: python main.py --listen")
 
-                # Filter out ComfyUI models if ComfyUI is not running
-                if not comfyui_available:
-                    local_models = [
-                        m for m in local_models if m.get("inference_engine") != "comfyui"
-                    ]
-                    logger.info(
-                        f"Filtering out {comfyui_models_count} ComfyUI models (ComfyUI not available)"
-                    )
-            else:
-                logger.debug("No ComfyUI models detected in available models")
+            # Filter out ComfyUI models ONLY if ComfyUI is not running
+            if not comfyui_available and comfyui_models_count > 0:
+                original_count = len(local_models)
+                local_models = [
+                    m for m in local_models if m.get("inference_engine") != "comfyui"
+                ]
+                filtered_count = original_count - len(local_models)
+                logger.warning(
+                    f"⚠️  Filtered out {filtered_count} ComfyUI models (ComfyUI not available)"
+                )
+                logger.info(f"Remaining local models: {len(local_models)}")
 
             # Only consider cloud models if explicitly enabled
             enable_cloud_apis = (
