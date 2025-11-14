@@ -56,7 +56,11 @@ class ContentModerationService:
     def analyze_content_rating(prompt: str, persona_rating: str) -> ContentRating:
         """
         Analyze content to determine appropriate rating.
-        This is a placeholder - in production, this would use ML models.
+        
+        This is informational - helps tag content appropriately for platform filtering.
+        Does NOT block content generation. All ratings can be generated.
+        
+        Note: This is a placeholder - in production, this would use ML models.
         """
         # Simple keyword-based analysis
         nsfw_keywords = [
@@ -272,14 +276,11 @@ class ContentGenerationService:
                 )
                 logger.info(f"   ✓ Generated prompt: {request.prompt[:80]}...")
 
-            # Validate content rating against persona settings
-            if not await self._validate_content_rating(persona, request.content_rating):
-                logger.error(
-                    f"   ❌ Content rating {request.content_rating} not allowed for persona {persona.name}"
-                )
-                raise ValueError(
-                    f"Content rating {request.content_rating} not allowed for persona {persona.name}"
-                )
+            # Note: We do NOT validate content rating against persona settings here
+            # Content can be generated with any rating - the platform filtering will
+            # determine which social media sites it can be posted to
+            # The persona's allowed_content_ratings is only used to select a preferred
+            # rating when none is specified, not to block generation
 
             # Analyze and adjust content rating based on prompt
             analyzed_rating = self.moderation_service.analyze_content_rating(
@@ -690,10 +691,20 @@ class ContentGenerationService:
 
         return prompt
 
-    async def _validate_content_rating(
+    async def _check_content_rating_preference(
         self, persona: PersonaModel, requested_rating: ContentRating
     ) -> bool:
-        """Validate that the requested content rating is allowed for this persona."""
+        """
+        Check if the requested content rating matches persona's preferences.
+        
+        NOTE: This is informational only - it does NOT block content generation.
+        Content can be generated with any rating. The persona's allowed_content_ratings
+        indicates which ratings the persona PREFERS to generate, not which are blocked.
+        Platform filtering will determine where content can be posted.
+        
+        Returns:
+            True if rating matches persona preferences, False if outside preferences
+        """
         # Get allowed ratings from persona, default to ['sfw'] if empty
         allowed_ratings = getattr(persona, "allowed_content_ratings", ["sfw"])
         if not allowed_ratings:  # If empty list, default to sfw
@@ -708,12 +719,12 @@ class ContentGenerationService:
         if default_rating and default_rating.lower() not in [r.lower() for r in allowed_ratings]:
             # Add default to allowed list to fix inconsistency
             allowed_ratings.append(default_rating)
-            logger.warning(
+            logger.debug(
                 f"Persona {persona.name} has inconsistent rating config: default '{default_rating}' "
-                f"not in allowed {allowed_ratings}. Auto-correcting for this request."
+                f"not in allowed {allowed_ratings}. This is informational only."
             )
 
-        # Check if requested rating is allowed
+        # Check if requested rating matches preferences
         return requested_rating.value in [r.lower() for r in allowed_ratings]
 
     async def _generate_image(
