@@ -59,8 +59,11 @@ class TestSafeExtractImage:
         # Verify that it checks for None
         assert "if result is None:" in source
 
-        # Verify that it checks for missing images attribute
-        assert "if not hasattr(result, 'images'):" in source
+        # Verify that it checks for missing images attribute (handles both quote styles)
+        assert (
+            'if not hasattr(result, "images"):' in source
+            or "if not hasattr(result, 'images'):" in source
+        )
 
         # Verify that it checks for None images
         assert "if result.images is None:" in source
@@ -81,7 +84,11 @@ class TestSafeExtractImage:
         # Check for clear error messages
         assert "Pipeline returned None" in source
         assert "This may indicate a pipeline configuration error" in source
-        assert "Pipeline result does not have 'images' attribute" in source
+        # Handle both quote styles from black formatting
+        assert (
+            'Pipeline result does not have "images" attribute' in source
+            or "Pipeline result does not have 'images' attribute" in source
+        )
         assert "Pipeline result.images is None" in source
         assert "Pipeline result.images is empty" in source
 
