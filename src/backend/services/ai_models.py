@@ -2605,6 +2605,44 @@ class AIModelManager:
             logger.info(f"  - seed: {seed}")
             logger.info("=" * 60)
 
+            # Helper function to safely extract image from pipeline result
+            def safe_extract_image(result):
+                """
+                Safely extract the first image from a diffusers pipeline result.
+
+                Args:
+                    result: The pipeline result object
+
+                Returns:
+                    PIL.Image: The first generated image
+
+                Raises:
+                    ValueError: If result is None or doesn't contain valid images
+                """
+                if result is None:
+                    raise ValueError(
+                        "Pipeline returned None. This may indicate a pipeline configuration error "
+                        "or an issue with the model loading."
+                    )
+
+                if not hasattr(result, "images"):
+                    raise ValueError(
+                        f"Pipeline result does not have 'images' attribute. "
+                        f"Result type: {type(result).__name__}"
+                    )
+
+                if result.images is None:
+                    raise ValueError(
+                        "Pipeline result.images is None. This may indicate a generation failure."
+                    )
+
+                if not result.images:
+                    raise ValueError(
+                        "Pipeline result.images is empty. No images were generated."
+                    )
+
+                return result.images[0]
+
             # Create a fresh scheduler for this generation to prevent state accumulation
             # Schedulers are stateful and cannot be shared across concurrent runs
             # Without this, step_index accumulates across requests causing index errors
@@ -2698,7 +2736,7 @@ class AIModelManager:
                     # Use embeddings if available (from compel for long prompts), otherwise use text prompts
                     if prompt_embeds is not None and is_sdxl:
                         # Using compel embeddings for long prompt support with ControlNet
-                        image = await loop.run_in_executor(
+                        result = await loop.run_in_executor(
                             None,
                             lambda: pipe(
                                 prompt_embeds=prompt_embeds,
@@ -2712,14 +2750,15 @@ class AIModelManager:
                                 width=width,
                                 height=height,
                                 generator=generator,
-                            ).images[0],
+                            ),
                         )
+                        image = safe_extract_image(result)
                         logger.info(
                             "✓ Image generated successfully via ControlNet with compel embeddings"
                         )
                     else:
                         # Using standard text prompts
-                        image = await loop.run_in_executor(
+                        result = await loop.run_in_executor(
                             None,
                             lambda: pipe(
                                 prompt=original_prompt,  # Use original text prompt
@@ -2731,8 +2770,9 @@ class AIModelManager:
                                 width=width,
                                 height=height,
                                 generator=generator,
-                            ).images[0],
+                            ),
                         )
+                        image = safe_extract_image(result)
                         logger.info("✓ Image generated successfully via ControlNet")
                 elif use_img2img and init_image:
                     # img2img generation with reference image
@@ -2741,7 +2781,7 @@ class AIModelManager:
                     # Use embeddings if available (from compel for long prompts), otherwise use text prompts
                     if prompt_embeds is not None and is_sdxl:
                         # Using compel embeddings for long prompt support with img2img
-                        image = await loop.run_in_executor(
+                        result = await loop.run_in_executor(
                             None,
                             lambda: pipe(
                                 prompt_embeds=prompt_embeds,
@@ -2753,14 +2793,15 @@ class AIModelManager:
                                 num_inference_steps=num_inference_steps,
                                 guidance_scale=guidance_scale,
                                 generator=generator,
-                            ).images[0],
+                            ),
                         )
+                        image = safe_extract_image(result)
                         logger.info(
                             "✓ Image generated successfully via img2img with compel embeddings"
                         )
                     else:
                         # Using standard text prompts
-                        image = await loop.run_in_executor(
+                        result = await loop.run_in_executor(
                             None,
                             lambda: pipe(
                                 prompt=original_prompt,  # Use original prompt for img2img
@@ -2770,15 +2811,16 @@ class AIModelManager:
                                 num_inference_steps=num_inference_steps,
                                 guidance_scale=guidance_scale,
                                 generator=generator,
-                            ).images[0],
+                            ),
                         )
+                        image = safe_extract_image(result)
                         logger.info("✓ Image generated successfully via img2img")
                 else:
                     # Standard text2img generation
                     # Use embeddings if available (from compel), otherwise use text prompts
                     if prompt_embeds is not None:
                         # Using compel embeddings for long prompt support
-                        image = await loop.run_in_executor(
+                        result = await loop.run_in_executor(
                             None,
                             lambda: pipe(
                                 prompt_embeds=prompt_embeds,
@@ -2790,14 +2832,15 @@ class AIModelManager:
                                 width=width,
                                 height=height,
                                 generator=generator,
-                            ).images[0],
+                            ),
                         )
+                        image = safe_extract_image(result)
                         logger.info(
                             "✓ Image generated successfully via text2img with compel embeddings"
                         )
                     else:
                         # Using standard text prompts
-                        image = await loop.run_in_executor(
+                        result = await loop.run_in_executor(
                             None,
                             lambda: pipe(
                                 prompt=prompt,
@@ -2807,8 +2850,9 @@ class AIModelManager:
                                 width=width,
                                 height=height,
                                 generator=generator,
-                            ).images[0],
+                            ),
                         )
+                        image = safe_extract_image(result)
                         logger.info("✓ Image generated successfully via text2img")
             except Exception as e:
                 logger.error(f"Diffusers generation failed: {str(e)}")
