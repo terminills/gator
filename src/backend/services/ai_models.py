@@ -2056,6 +2056,10 @@ class AIModelManager:
             else:
                 device = "cpu"
 
+            # Track if we're using ControlNet for this generation (must be initialized before pipeline loading)
+            using_controlnet = False
+            controlnet = None
+
             # Load or get cached pipeline (with device-specific caching for multi-GPU)
             # Use different cache key for img2img vs text2img pipelines
             pipeline_mode = "img2img" if use_img2img else "text2img"
@@ -2082,10 +2086,6 @@ class AIModelManager:
                 # - OpenCLIP ViT-G encoder: 77 tokens
                 # Total: 154 tokens without truncation
                 # Note: For prompts >154 tokens, consider using the 'compel' library (pip install compel)
-
-                # Track if we're using ControlNet for this generation
-                using_controlnet = False
-                controlnet = None
 
                 if use_controlnet and reference_image_path:
                     # Use ControlNet pipeline for maximum visual consistency
