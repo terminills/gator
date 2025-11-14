@@ -387,13 +387,20 @@ class PromptGenerationService:
             "# Persona Information",
         ]
 
-        # Add appearance details
-        if persona.appearance:
+        # Add appearance details - use base_appearance_description if appearance is locked
+        if persona.appearance_locked and persona.base_appearance_description:
+            instruction_parts.append(f"Appearance (LOCKED - maintain consistency): {persona.base_appearance_description}")
+            instruction_parts.append("IMPORTANT: The appearance MUST match the locked description exactly for visual consistency")
+        elif persona.appearance:
             instruction_parts.append(f"Appearance: {persona.appearance}")
 
         # Add personality
         if persona.personality:
             instruction_parts.append(f"Personality: {persona.personality}")
+        
+        # Add post style for engagement context
+        if hasattr(persona, 'post_style') and persona.post_style:
+            instruction_parts.append(f"Post Style: {persona.post_style}")
 
         # Add interests/preferences from content themes
         if persona.content_themes:
@@ -552,8 +559,10 @@ class PromptGenerationService:
         prefix = style_prefixes.get(style, style_prefixes["photorealistic"])
         prompt_parts.append(prefix)
 
-        # Add appearance
-        if persona.appearance:
+        # Add appearance - use base_appearance_description if appearance is locked
+        if persona.appearance_locked and persona.base_appearance_description:
+            prompt_parts.append(persona.base_appearance_description)
+        elif persona.appearance:
             prompt_parts.append(persona.appearance)
 
         # Add personality context

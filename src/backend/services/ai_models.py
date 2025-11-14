@@ -1035,22 +1035,32 @@ class AIModelManager:
             # Check ComfyUI availability for models that require it
             comfyui_url = os.environ.get("COMFYUI_API_URL", "http://127.0.0.1:8188")
             comfyui_available = False
-            try:
-                response = await self.http_client.get(
-                    f"{comfyui_url}/system_stats", timeout=2.0
-                )
-                comfyui_available = response.status_code == 200
-            except Exception:
-                pass
+            comfyui_models_count = len([m for m in local_models if m.get("inference_engine") == "comfyui"])
+            
+            if comfyui_models_count > 0:
+                logger.info(f"Checking ComfyUI availability at {comfyui_url}...")
+                try:
+                    response = await self.http_client.get(
+                        f"{comfyui_url}/system_stats", timeout=2.0
+                    )
+                    comfyui_available = response.status_code == 200
+                    if comfyui_available:
+                        logger.info(f"✓ ComfyUI is available ({comfyui_models_count} ComfyUI models detected)")
+                    else:
+                        logger.warning(f"ComfyUI responded with status {response.status_code}")
+                except Exception as e:
+                    logger.warning(f"ComfyUI not accessible: {str(e)}")
 
-            # Filter out ComfyUI models if ComfyUI is not running
-            if not comfyui_available:
-                local_models = [
-                    m for m in local_models if m.get("inference_engine") != "comfyui"
-                ]
-                logger.info(
-                    f"ComfyUI not available, filtering to diffusers-only models"
-                )
+                # Filter out ComfyUI models if ComfyUI is not running
+                if not comfyui_available:
+                    local_models = [
+                        m for m in local_models if m.get("inference_engine") != "comfyui"
+                    ]
+                    logger.info(
+                        f"Filtering out {comfyui_models_count} ComfyUI models (ComfyUI not available)"
+                    )
+            else:
+                logger.debug("No ComfyUI models detected in available models")
 
             # Only consider cloud models if explicitly enabled
             enable_cloud_apis = (
@@ -2331,6 +2341,10 @@ class AIModelManager:
             pooled_prompt_embeds = None
             negative_pooled_prompt_embeds = None
             
+            # Preserve original prompts for return value
+            original_prompt = prompt
+            original_negative_prompt = negative_prompt
+            
             if is_sdxl and not use_img2img:
                 # Check if we should use compel for long prompt support
                 # Estimate token count (rough approximation: 1.3 tokens per word)
@@ -2362,7 +2376,7 @@ class AIModelManager:
                         negative_prompt_embeds = negative_conditioning
                         negative_pooled_prompt_embeds = negative_pooled
                         
-                        # Clear text prompts since we're using embeddings
+                        # Clear text prompts since we're using embeddings (but keep originals for return)
                         prompt = None
                         negative_prompt = None
                         
@@ -2477,8 +2491,8 @@ class AIModelManager:
                 "model": model_name,
                 "library": "diffusers",
                 "provider": "local",
-                "prompt": prompt,
-                "negative_prompt": negative_prompt,
+                "prompt": original_prompt,  # Use preserved original prompt
+                "negative_prompt": original_negative_prompt,  # Use preserved original negative prompt
                 "num_inference_steps": num_inference_steps,
                 "guidance_scale": guidance_scale,
                 "seed": seed,
