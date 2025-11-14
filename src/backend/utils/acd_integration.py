@@ -2,6 +2,7 @@
 ACD Integration Utilities
 
 Helper functions for integrating ACD context tracking into content generation.
+Enhanced with reasoning orchestrator integration for dynamic decision-making.
 """
 
 import traceback
@@ -31,6 +32,11 @@ logger = get_logger(__name__)
 class ACDContextManager:
     """
     Context manager for ACD tracking in content generation.
+    
+    Enhanced with reasoning orchestrator integration - no longer static!
+    The orchestrator acts as the basal ganglia, making dynamic decisions
+    about task routing, handoffs, and agent coordination based on context
+    and learned patterns.
 
     Usage:
         async with ACDContextManager(db, "IMAGE_GENERATION", prompt) as acd:
@@ -48,6 +54,8 @@ class ACDContextManager:
         content_id: Optional[UUID] = None,
         benchmark_id: Optional[UUID] = None,
         initial_context: Optional[Dict[str, Any]] = None,
+        current_agent: Optional[str] = None,
+        enable_orchestration: bool = True,
     ):
         """
         Initialize ACD context manager.
@@ -60,6 +68,8 @@ class ACDContextManager:
             content_id: Link to content being generated
             benchmark_id: Link to benchmark record
             initial_context: Initial context metadata
+            current_agent: Name of current agent (for orchestration)
+            enable_orchestration: Enable reasoning orchestrator (default True)
         """
         self.db = db_session
         self.phase = phase
@@ -71,9 +81,16 @@ class ACDContextManager:
         self.context_id: Optional[UUID] = None
         self.acd_service: Optional[ACDService] = None
         self.session_id: Optional[str] = None
+        self.current_agent = current_agent or "content_generation_service"
+        self.enable_orchestration = enable_orchestration
+        self.orchestration_decision = None
 
     async def __aenter__(self):
-        """Enter context - create ACD context."""
+        """
+        Enter context - create ACD context and invoke reasoning orchestrator.
+        
+        The orchestrator now makes dynamic decisions instead of following static rules.
+        """
         try:
             self.acd_service = ACDService(self.db)
 
@@ -88,6 +105,7 @@ class ACDContextManager:
                 ai_context=self.initial_context,
                 content_id=self.content_id,
                 benchmark_id=self.benchmark_id,
+                ai_assigned_to=self.current_agent,
             )
 
             context = await self.acd_service.create_context(context_data)
@@ -97,10 +115,20 @@ class ACDContextManager:
             # Mark as started
             await self.acd_service.update_context(
                 self.context_id,
-                ACDContextUpdate(ai_queue_status=AIQueueStatus.IN_PROGRESS),
+                ACDContextUpdate(
+                    ai_queue_status=AIQueueStatus.IN_PROGRESS,
+                    ai_started=datetime.now(timezone.utc),
+                ),
             )
 
-            logger.info(f"ACD context created: {self.context_id} for phase {self.phase}")
+            logger.info(
+                f"ACD context created: {self.context_id} for phase {self.phase} "
+                f"(agent={self.current_agent})"
+            )
+            
+            # 🧠 INVOKE REASONING ORCHESTRATOR - The Basal Ganglia
+            if self.enable_orchestration:
+                await self._invoke_orchestrator(context)
 
             return self
 
@@ -108,14 +136,83 @@ class ACDContextManager:
             logger.error(f"Failed to create ACD context: {str(e)}")
             # Don't fail the operation if ACD tracking fails
             return self
+    
+    async def _invoke_orchestrator(self, context):
+        """
+        Invoke the reasoning orchestrator to make dynamic decisions.
+        
+        This is where the "basal ganglia" evaluates the task and decides
+        if it should be handled locally, handed off, escalated, etc.
+        """
+        try:
+            # Import here to avoid circular dependency
+            from backend.services.reasoning_orchestrator import ReasoningOrchestrator
+            
+            orchestrator = ReasoningOrchestrator(self.db)
+            
+            # Get fresh context with all metadata
+            fresh_context = await self.acd_service.get_context(self.context_id)
+            if not fresh_context:
+                logger.warning("Could not retrieve context for orchestration")
+                return
+            
+            # Make orchestration decision
+            logger.info(
+                f"🧠 Invoking reasoning orchestrator for {self.phase} "
+                f"(complexity={self.complexity}, agent={self.current_agent})"
+            )
+            
+            decision = await orchestrator.orchestrate_decision(
+                context=fresh_context,
+                current_agent=self.current_agent,
+                additional_context=self.initial_context,
+            )
+            
+            self.orchestration_decision = decision
+            
+            logger.info(
+                f"🧠 Orchestration decision: {decision.decision_type.value} "
+                f"(confidence={decision.confidence.value})"
+            )
+            
+            # Execute decision if it's not EXECUTE_LOCALLY
+            # (EXECUTE_LOCALLY means continue with current flow)
+            from backend.services.reasoning_orchestrator import DecisionType
+            
+            if decision.decision_type != DecisionType.EXECUTE_LOCALLY:
+                logger.info(
+                    f"🔄 Executing orchestration decision: {decision.decision_type.value}"
+                )
+                
+                success = await orchestrator.execute_decision(fresh_context, decision)
+                
+                if success:
+                    logger.info(
+                        f"✅ Orchestration decision executed: {decision.decision_type.value}"
+                    )
+                else:
+                    logger.warning(
+                        f"⚠️ Orchestration decision execution failed: {decision.decision_type.value}"
+                    )
+            
+        except Exception as e:
+            logger.error(f"Orchestration failed (non-critical): {e}")
+            # Don't fail the main operation if orchestration has issues
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Exit context - update ACD context with results."""
+        """
+        Exit context - update ACD context with results and trigger learning.
+        
+        This is where the basal ganglia learns from the outcome - reinforcing
+        successful patterns or inhibiting failed patterns.
+        """
         if not self.context_id or not self.acd_service:
             return False
 
         try:
-            if exc_type is None:
+            success = exc_type is None
+            
+            if success:
                 # Success case
                 await self.acd_service.update_context(
                     self.context_id,
@@ -124,15 +221,59 @@ class ACDContextManager:
                         ai_queue_status=AIQueueStatus.COMPLETED,
                     ),
                 )
-                logger.info(f"ACD context completed: {self.context_id}")
+                logger.info(f"✅ ACD context completed: {self.context_id}")
             else:
                 # Error case - create trace artifact
                 await self._handle_error(exc_type, exc_val, exc_tb)
+                logger.info(f"❌ ACD context failed: {self.context_id}")
+            
+            # 🎓 LEARN FROM OUTCOME - Basal Ganglia Reinforcement/Inhibition
+            if self.enable_orchestration and self.orchestration_decision:
+                await self._learn_from_outcome(success, exc_val)
 
         except Exception as e:
             logger.error(f"Failed to update ACD context: {str(e)}")
 
         return False  # Don't suppress exceptions
+    
+    async def _learn_from_outcome(self, success: bool, error: Optional[Exception] = None):
+        """
+        Trigger learning from the outcome of this operation.
+        
+        This implements the reinforcement (success) or inhibition (failure)
+        mechanism of the basal ganglia.
+        """
+        try:
+            from backend.services.reasoning_orchestrator import ReasoningOrchestrator
+            
+            orchestrator = ReasoningOrchestrator(self.db)
+            
+            outcome_metadata = {
+                "phase": self.phase,
+                "complexity": self.complexity.value if self.complexity else None,
+                "agent": self.current_agent,
+            }
+            
+            if not success and error:
+                outcome_metadata["failure_reason"] = str(error)
+            
+            logger.info(
+                f"🎓 Learning from {'successful' if success else 'failed'} outcome "
+                f"for context {self.context_id}"
+            )
+            
+            await orchestrator.learn_from_outcome(
+                context_id=self.context_id,
+                success=success,
+                outcome_metadata=outcome_metadata,
+            )
+            
+            logger.info(
+                f"🎓 Pattern {'reinforced' if success else 'inhibited'} for future decisions"
+            )
+            
+        except Exception as e:
+            logger.error(f"Learning from outcome failed (non-critical): {e}")
 
     async def _handle_error(self, exc_type, exc_val, exc_tb):
         """Handle error by creating trace artifact and updating context."""
