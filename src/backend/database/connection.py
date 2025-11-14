@@ -92,7 +92,9 @@ class DatabaseManager:
             async with self.engine.begin() as conn:
                 await conn.execute(text("PRAGMA journal_mode=WAL"))
                 await conn.execute(text("PRAGMA synchronous=NORMAL"))
-                await conn.execute(text("PRAGMA busy_timeout=30000"))  # 30 second busy timeout
+                await conn.execute(
+                    text("PRAGMA busy_timeout=30000")
+                )  # 30 second busy timeout
                 logger.info("SQLite WAL mode enabled for improved concurrency")
 
         # Run automatic migrations to ensure schema is up to date
@@ -112,10 +114,19 @@ class DatabaseManager:
     async def disconnect(self) -> None:
         """Close database connection."""
         if self.engine:
-            await self.engine.dispose()
-            self.engine = None
-            self.session_factory = None
-            logger.info("Database disconnected")
+            try:
+                await self.engine.dispose()
+            except Exception as e:
+                # Log termination errors as warnings - these are non-critical
+                # and occur when connections are already closed or invalid
+                logger.warning(
+                    f"Non-critical error during connection cleanup: {str(e)}"
+                )
+            finally:
+                # Always clear engine references even if disposal fails
+                self.engine = None
+                self.session_factory = None
+                logger.info("Database disconnected")
 
     @asynccontextmanager
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
