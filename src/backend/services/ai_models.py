@@ -892,8 +892,10 @@ class AIModelManager:
                 # Try to find the preferred model in available models
                 for model in available_models:
                     # Match by name or model_id
-                    if (nsfw_model_pref.lower() in model["name"].lower() or 
-                        nsfw_model_pref.lower() in model.get("model_id", "").lower()):
+                    if (
+                        nsfw_model_pref.lower() in model["name"].lower()
+                        or nsfw_model_pref.lower() in model.get("model_id", "").lower()
+                    ):
                         logger.info(
                             f"🎯 Model selection: {model['name']} (reason: persona NSFW model preference)"
                         )
@@ -902,7 +904,7 @@ class AIModelManager:
                     f"Preferred NSFW model '{nsfw_model_pref}' not found in available models, "
                     f"falling back to intelligent selection"
                 )
-            
+
             # Keywords that indicate need for high quality
             high_quality_keywords = [
                 "detailed",
@@ -1035,27 +1037,41 @@ class AIModelManager:
             # Check ComfyUI availability for models that require it
             comfyui_url = os.environ.get("COMFYUI_API_URL", "http://127.0.0.1:8188")
             comfyui_available = False
-            comfyui_models_count = len([m for m in local_models if m.get("inference_engine") == "comfyui"])
-            
+            comfyui_models_count = len(
+                [m for m in local_models if m.get("inference_engine") == "comfyui"]
+            )
+
             # Always check ComfyUI availability if any local models exist
             # This allows fallback from diffusers to ComfyUI if needed
             logger.info(f"Checking ComfyUI availability at {comfyui_url}...")
-            logger.info(f"Found {comfyui_models_count} ComfyUI-specific models in local models")
-            
+            logger.info(
+                f"Found {comfyui_models_count} ComfyUI-specific models in local models"
+            )
+
             try:
                 response = await self.http_client.get(
                     f"{comfyui_url}/system_stats", timeout=5.0  # Increased timeout
                 )
                 comfyui_available = response.status_code == 200
                 if comfyui_available:
-                    logger.info(f"✓ ComfyUI is available and responding at {comfyui_url}")
+                    logger.info(
+                        f"✓ ComfyUI is available and responding at {comfyui_url}"
+                    )
                     if comfyui_models_count > 0:
-                        logger.info(f"✓ {comfyui_models_count} ComfyUI models will be available for selection")
+                        logger.info(
+                            f"✓ {comfyui_models_count} ComfyUI models will be available for selection"
+                        )
                 else:
-                    logger.warning(f"ComfyUI responded with unexpected status {response.status_code}")
+                    logger.warning(
+                        f"ComfyUI responded with unexpected status {response.status_code}"
+                    )
             except Exception as e:
-                logger.warning(f"ComfyUI not accessible at {comfyui_url}: {type(e).__name__}: {str(e)}")
-                logger.info(f"To use ComfyUI, ensure it's running with: python main.py --listen")
+                logger.warning(
+                    f"ComfyUI not accessible at {comfyui_url}: {type(e).__name__}: {str(e)}"
+                )
+                logger.info(
+                    f"To use ComfyUI, ensure it's running with: python main.py --listen"
+                )
 
             # Filter out ComfyUI models ONLY if ComfyUI is not running
             if not comfyui_available and comfyui_models_count > 0:
@@ -2006,7 +2022,7 @@ class AIModelManager:
         use_controlnet = kwargs.get("use_controlnet", False)
         use_img2img = reference_image_path is not None
         img2img_strength = kwargs.get("img2img_strength", 0.75)
-        
+
         try:
             from diffusers import (
                 StableDiffusionPipeline,
@@ -2067,17 +2083,17 @@ class AIModelManager:
                 # - OpenCLIP ViT-G encoder: 77 tokens
                 # Total: 154 tokens without truncation
                 # Note: For prompts >154 tokens, consider using the 'compel' library (pip install compel)
-                
+
                 # Track if we're using ControlNet for this generation
                 using_controlnet = False
                 controlnet = None
-                
+
                 if use_controlnet and reference_image_path:
                     # Use ControlNet pipeline for maximum visual consistency
                     # ControlNet provides structural guidance while allowing prompt control
                     try:
                         logger.info("Loading ControlNet for appearance consistency...")
-                        
+
                         # Select appropriate ControlNet model
                         if is_sdxl:
                             # SDXL ControlNet for Canny edge detection (good for pose/structure)
@@ -2087,42 +2103,54 @@ class AIModelManager:
                             # SD 1.5 ControlNet for Canny
                             controlnet_model_id = "lllyasviel/control_v11p_sd15_canny"
                             pipeline_type = "StableDiffusionControlNetPipeline"
-                        
+
                         # Load ControlNet model
                         controlnet = ControlNetModel.from_pretrained(
                             controlnet_model_id,
-                            torch_dtype=torch.float16 if "cuda" in device else torch.float32,
+                            torch_dtype=(
+                                torch.float16 if "cuda" in device else torch.float32
+                            ),
                         )
                         load_args["controlnet"] = controlnet
                         using_controlnet = True
                         logger.info(f"✓ ControlNet loaded: {controlnet_model_id}")
-                        
+
                     except Exception as e:
                         logger.warning(f"Failed to load ControlNet: {e}")
                         logger.warning("Falling back to img2img pipeline")
                         use_controlnet = False
                         using_controlnet = False
-                
+
                 if not using_controlnet:
                     # Fall back to img2img or text2img pipelines
                     if use_img2img:
                         # Use img2img pipeline for visual consistency with reference image
                         if is_sdxl:
                             pipeline_type = "StableDiffusionXLImg2ImgPipeline"
-                            logger.info(f"Using SDXL img2img pipeline for visual consistency")
+                            logger.info(
+                                f"Using SDXL img2img pipeline for visual consistency"
+                            )
                         else:
                             pipeline_type = "StableDiffusionImg2ImgPipeline"
-                            logger.info(f"Using SD img2img pipeline for visual consistency")
+                            logger.info(
+                                f"Using SD img2img pipeline for visual consistency"
+                            )
                             # Only add safety_checker params for SD 1.5 models (not SDXL)
-                            load_args["safety_checker"] = None  # Disable for performance
-                            load_args["requires_safety_checker"] = False  # Suppress warning
+                            load_args["safety_checker"] = (
+                                None  # Disable for performance
+                            )
+                            load_args["requires_safety_checker"] = (
+                                False  # Suppress warning
+                            )
                     else:
                         # Use text2img pipeline for standard generation
                         if is_sdxl:
                             # Use Long Prompt Weighting pipeline for SDXL
                             # This community pipeline properly handles prompts > 77 tokens
                             # by chunking and merging embeddings from both CLIP encoders
-                            pipeline_type = "StableDiffusionXLPipeline"  # Base type for reference
+                            pipeline_type = (
+                                "StableDiffusionXLPipeline"  # Base type for reference
+                            )
                             load_args["custom_pipeline"] = "lpw_stable_diffusion_xl"
                             logger.info(
                                 f"Using SDXL Long Prompt Weighting pipeline (lpw_stable_diffusion_xl)"
@@ -2134,8 +2162,12 @@ class AIModelManager:
                             # For SD 1.5, use standard pipeline
                             pipeline_type = "StableDiffusionPipeline"
                             # Only add safety_checker params for SD 1.5 models (not SDXL)
-                            load_args["safety_checker"] = None  # Disable for performance
-                            load_args["requires_safety_checker"] = False  # Suppress warning
+                            load_args["safety_checker"] = (
+                                None  # Disable for performance
+                            )
+                            load_args["requires_safety_checker"] = (
+                                False  # Suppress warning
+                            )
 
                 logger.info(f"Using pipeline: {pipeline_type} for model {model_name}")
 
@@ -2149,7 +2181,7 @@ class AIModelManager:
                         load_args_fp16 = load_args.copy()
                         load_args_fp16["variant"] = "fp16"
                         load_args_fp16["use_safetensors"] = True
-                        
+
                         # Try with custom pipeline first, fallback to standard if it fails
                         custom_pipeline = load_args_fp16.get("custom_pipeline")
                         try:
@@ -2160,7 +2192,9 @@ class AIModelManager:
                                 logger.info(
                                     f"✅ Successfully loaded SDXL Long Prompt Weighting pipeline ({custom_pipeline})"
                                 )
-                                logger.info("   Supports prompts > 77 tokens via chunking and embedding merge")
+                                logger.info(
+                                    "   Supports prompts > 77 tokens via chunking and embedding merge"
+                                )
                             else:
                                 logger.info(
                                     "✅ Successfully loaded SDXL pipeline with dual text encoders"
@@ -2171,14 +2205,20 @@ class AIModelManager:
                                 logger.warning(
                                     f"Long Prompt Weighting pipeline not available: {e}"
                                 )
-                                logger.warning("Falling back to standard SDXL pipeline with compel support")
+                                logger.warning(
+                                    "Falling back to standard SDXL pipeline with compel support"
+                                )
                                 load_args_fp16_fallback = load_args_fp16.copy()
                                 load_args_fp16_fallback.pop("custom_pipeline", None)
                                 pipe = DiffusionPipeline.from_pretrained(
                                     str(model_path), **load_args_fp16_fallback
                                 )
-                                logger.info("✅ Successfully loaded standard SDXL pipeline (fallback)")
-                            elif "fp16" in str(e).lower() or "variant" in str(e).lower():
+                                logger.info(
+                                    "✅ Successfully loaded standard SDXL pipeline (fallback)"
+                                )
+                            elif (
+                                "fp16" in str(e).lower() or "variant" in str(e).lower()
+                            ):
                                 # fp16 variant not available
                                 logger.warning(
                                     f"fp16 variant not available, loading without variant: {e}"
@@ -2192,9 +2232,7 @@ class AIModelManager:
                                         f"✅ Successfully loaded SDXL Long Prompt Weighting pipeline ({custom_pipeline})"
                                     )
                                 else:
-                                    logger.info(
-                                        "✅ Successfully loaded SDXL pipeline"
-                                    )
+                                    logger.info("✅ Successfully loaded SDXL pipeline")
                             else:
                                 raise
                     else:
@@ -2216,14 +2254,18 @@ class AIModelManager:
                         except Exception as e:
                             if custom_pipeline and "custom_pipeline" in str(e).lower():
                                 # Custom pipeline failed, fallback to standard
-                                logger.warning(f"Long Prompt Weighting pipeline not available: {e}")
+                                logger.warning(
+                                    f"Long Prompt Weighting pipeline not available: {e}"
+                                )
                                 logger.warning("Falling back to standard SDXL pipeline")
                                 load_args_fallback = load_args.copy()
                                 load_args_fallback.pop("custom_pipeline", None)
                                 pipe = DiffusionPipeline.from_pretrained(
                                     str(model_path), **load_args_fallback
                                 )
-                                logger.info("✅ Successfully loaded standard SDXL pipeline (fallback)")
+                                logger.info(
+                                    "✅ Successfully loaded standard SDXL pipeline (fallback)"
+                                )
                             else:
                                 raise
                 else:
@@ -2235,7 +2277,7 @@ class AIModelManager:
                         load_args_fp16 = load_args.copy()
                         load_args_fp16["variant"] = "fp16"
                         load_args_fp16["use_safetensors"] = True
-                        
+
                         # Try with custom pipeline first, fallback to standard if it fails
                         custom_pipeline = load_args_fp16.get("custom_pipeline")
                         try:
@@ -2246,7 +2288,9 @@ class AIModelManager:
                                 logger.info(
                                     f"✅ Successfully loaded SDXL Long Prompt Weighting pipeline ({custom_pipeline})"
                                 )
-                                logger.info("   Supports prompts > 77 tokens via chunking and embedding merge")
+                                logger.info(
+                                    "   Supports prompts > 77 tokens via chunking and embedding merge"
+                                )
                             else:
                                 logger.info(
                                     "✅ Successfully loaded SDXL pipeline with dual text encoders"
@@ -2257,14 +2301,20 @@ class AIModelManager:
                                 logger.warning(
                                     f"Long Prompt Weighting pipeline not available: {e}"
                                 )
-                                logger.warning("Falling back to standard SDXL pipeline with compel support")
+                                logger.warning(
+                                    "Falling back to standard SDXL pipeline with compel support"
+                                )
                                 load_args_fp16_fallback = load_args_fp16.copy()
                                 load_args_fp16_fallback.pop("custom_pipeline", None)
                                 pipe = DiffusionPipeline.from_pretrained(
                                     model_id, **load_args_fp16_fallback
                                 )
-                                logger.info("✅ Successfully loaded standard SDXL pipeline (fallback)")
-                            elif "fp16" in str(e).lower() or "variant" in str(e).lower():
+                                logger.info(
+                                    "✅ Successfully loaded standard SDXL pipeline (fallback)"
+                                )
+                            elif (
+                                "fp16" in str(e).lower() or "variant" in str(e).lower()
+                            ):
                                 # fp16 variant not available
                                 logger.warning(
                                     f"fp16 variant not available, loading without variant: {e}"
@@ -2278,16 +2328,16 @@ class AIModelManager:
                                         f"✅ Successfully loaded SDXL Long Prompt Weighting pipeline ({custom_pipeline})"
                                     )
                                 else:
-                                    logger.info(
-                                        "✅ Successfully loaded SDXL pipeline"
-                                    )
+                                    logger.info("✅ Successfully loaded SDXL pipeline")
                             else:
                                 raise
                     else:
                         # CPU or non-CUDA device
                         custom_pipeline = load_args.get("custom_pipeline")
                         try:
-                            pipe = DiffusionPipeline.from_pretrained(model_id, **load_args)
+                            pipe = DiffusionPipeline.from_pretrained(
+                                model_id, **load_args
+                            )
                             if is_sdxl:
                                 if custom_pipeline:
                                     logger.info(
@@ -2300,12 +2350,18 @@ class AIModelManager:
                         except Exception as e:
                             if custom_pipeline and "custom_pipeline" in str(e).lower():
                                 # Custom pipeline failed, fallback to standard
-                                logger.warning(f"Long Prompt Weighting pipeline not available: {e}")
+                                logger.warning(
+                                    f"Long Prompt Weighting pipeline not available: {e}"
+                                )
                                 logger.warning("Falling back to standard SDXL pipeline")
                                 load_args_fallback = load_args.copy()
                                 load_args_fallback.pop("custom_pipeline", None)
-                                pipe = DiffusionPipeline.from_pretrained(model_id, **load_args_fallback)
-                                logger.info("✅ Successfully loaded standard SDXL pipeline (fallback)")
+                                pipe = DiffusionPipeline.from_pretrained(
+                                    model_id, **load_args_fallback
+                                )
+                                logger.info(
+                                    "✅ Successfully loaded standard SDXL pipeline (fallback)"
+                                )
                             else:
                                 raise
                     # Save to local path for future use
@@ -2333,14 +2389,21 @@ class AIModelManager:
                         logger.warning(
                             f"xformers not available, using default attention: {e}"
                         )
-                        logger.info("To enable xformers for faster inference: pip install xformers")
+                        logger.info(
+                            "To enable xformers for faster inference: pip install xformers"
+                        )
                         # Fallback to PyTorch's scaled_dot_product_attention if available (PyTorch 2.0+)
                         try:
                             # Check PyTorch version
                             import torch
-                            pytorch_version = tuple(int(x) for x in torch.__version__.split('.')[:2])
+
+                            pytorch_version = tuple(
+                                int(x) for x in torch.__version__.split(".")[:2]
+                            )
                             if pytorch_version >= (2, 0):
-                                logger.info("Using PyTorch 2.0+ scaled_dot_product_attention as fallback")
+                                logger.info(
+                                    "Using PyTorch 2.0+ scaled_dot_product_attention as fallback"
+                                )
                         except Exception:
                             pass
 
@@ -2382,7 +2445,7 @@ class AIModelManager:
             # Get generation parameters
             num_inference_steps = kwargs.get("num_inference_steps", 25)
             guidance_scale = kwargs.get("guidance_scale", 7.5)
-            
+
             # Parse size parameter if provided (e.g., "1024x1024")
             # Otherwise use explicit width/height or defaults
             size = kwargs.get("size")
@@ -2391,15 +2454,19 @@ class AIModelManager:
                     width_str, height_str = size.split("x")
                     width = int(width_str)
                     height = int(height_str)
-                    logger.info(f"Parsed size parameter: {size} -> width={width}, height={height}")
+                    logger.info(
+                        f"Parsed size parameter: {size} -> width={width}, height={height}"
+                    )
                 except (ValueError, AttributeError) as e:
-                    logger.warning(f"Failed to parse size parameter '{size}': {e}, using defaults")
+                    logger.warning(
+                        f"Failed to parse size parameter '{size}': {e}, using defaults"
+                    )
                     width = kwargs.get("width", 512)
                     height = kwargs.get("height", 512)
             else:
                 width = kwargs.get("width", 512)
                 height = kwargs.get("height", 512)
-            
+
             negative_prompt = kwargs.get(
                 "negative_prompt", "ugly, blurry, low quality, distorted"
             )
@@ -2418,18 +2485,20 @@ class AIModelManager:
             # Handle ControlNet and img2img mode with reference image
             init_image = None
             control_image = None
-            
+
             # Process reference image for ControlNet if enabled
             if using_controlnet and reference_image_path:
                 try:
                     logger.info(
                         f"🎨 ControlNet mode enabled with reference: {reference_image_path}"
                     )
-                    
+
                     # Load reference image
                     reference_path = Path(reference_image_path)
                     if not reference_path.exists():
-                        logger.warning(f"Reference image not found: {reference_image_path}")
+                        logger.warning(
+                            f"Reference image not found: {reference_image_path}"
+                        )
                         logger.warning("Falling back to standard generation")
                         using_controlnet = False
                         use_controlnet = False
@@ -2437,50 +2506,62 @@ class AIModelManager:
                         from PIL import Image
                         import cv2
                         import numpy as np
-                        
+
                         # Load and prepare reference image
                         ref_image = Image.open(reference_path).convert("RGB")
-                        ref_image = ref_image.resize((width, height), Image.Resampling.LANCZOS)
-                        
+                        ref_image = ref_image.resize(
+                            (width, height), Image.Resampling.LANCZOS
+                        )
+
                         # Extract Canny edges for structural guidance
                         # Convert to numpy array for OpenCV
                         image_np = np.array(ref_image)
-                        
+
                         # Apply Canny edge detection
                         # Lower threshold = 100, upper threshold = 200
                         edges = cv2.Canny(image_np, 100, 200)
-                        
+
                         # Convert back to PIL Image (3-channel for ControlNet)
                         edges_rgb = cv2.cvtColor(edges, cv2.COLOR_GRAY2RGB)
                         control_image = Image.fromarray(edges_rgb)
-                        
-                        logger.info(f"   ✓ ControlNet conditioning image prepared (Canny edges)")
-                        logger.info(f"   This will maintain pose/structure while allowing prompt control")
-                        
+
+                        logger.info(
+                            f"   ✓ ControlNet conditioning image prepared (Canny edges)"
+                        )
+                        logger.info(
+                            f"   This will maintain pose/structure while allowing prompt control"
+                        )
+
                 except Exception as e:
                     logger.error(f"Failed to prepare ControlNet image: {str(e)}")
                     logger.warning("Falling back to img2img generation")
                     using_controlnet = False
                     use_controlnet = False
                     control_image = None
-            
+
             if use_img2img and not using_controlnet:
                 try:
                     logger.info(
                         f"🖼️  Image-to-image mode enabled with reference: {reference_image_path}"
                     )
-                    logger.info(f"   Strength: {img2img_strength} (0.0=exact copy, 1.0=full regeneration)")
-                    
+                    logger.info(
+                        f"   Strength: {img2img_strength} (0.0=exact copy, 1.0=full regeneration)"
+                    )
+
                     # Load reference image
                     reference_path = Path(reference_image_path)
                     if not reference_path.exists():
-                        logger.warning(f"Reference image not found: {reference_image_path}")
+                        logger.warning(
+                            f"Reference image not found: {reference_image_path}"
+                        )
                         logger.warning("Falling back to text-to-image generation")
                         use_img2img = False
                     else:
                         init_image = Image.open(reference_path).convert("RGB")
                         # Resize to target dimensions if needed
-                        init_image = init_image.resize((width, height), Image.Resampling.LANCZOS)
+                        init_image = init_image.resize(
+                            (width, height), Image.Resampling.LANCZOS
+                        )
                         logger.info(f"   ✓ Reference image loaded: {init_image.size}")
                 except Exception as e:
                     logger.error(f"Failed to load reference image: {str(e)}")
@@ -2541,11 +2622,11 @@ class AIModelManager:
             negative_prompt_embeds = None
             pooled_prompt_embeds = None
             negative_pooled_prompt_embeds = None
-            
+
             # Preserve original prompts for return value
             original_prompt = prompt
             original_negative_prompt = negative_prompt
-            
+
             # SDXL supports longer prompts through compel
             # Standard SDXL has 2 CLIP encoders with 77 tokens each
             # Without compel, prompts are truncated at 77 tokens per encoder
@@ -2554,7 +2635,7 @@ class AIModelManager:
                 # Check if we should use compel for long prompt support
                 # Estimate token count (rough approximation: 1.3 tokens per word)
                 estimated_tokens = len(prompt.split()) * 1.3
-                
+
                 # Use compel for prompts that would be truncated (>75 tokens allows margin)
                 # Note: SDXL dual encoders can handle ~154 tokens without compel,
                 # but they still truncate at 77 tokens per encoder. Compel merges them properly.
@@ -2562,34 +2643,36 @@ class AIModelManager:
                     try:
                         # Try to use compel for long prompt handling
                         from compel import Compel, ReturnedEmbeddingsType
-                        
-                        logger.info(f"Using compel for long prompt support (~{int(estimated_tokens)} tokens)")
-                        
+
+                        logger.info(
+                            f"Using compel for long prompt support (~{int(estimated_tokens)} tokens)"
+                        )
+
                         # Create compel instance for SDXL
                         compel = Compel(
                             tokenizer=[pipe.tokenizer, pipe.tokenizer_2],
                             text_encoder=[pipe.text_encoder, pipe.text_encoder_2],
                             returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
                             requires_pooled=[False, True],
-                            device=device
+                            device=device,
                         )
-                        
+
                         # Generate embeddings for prompt and negative prompt
                         conditioning, pooled = compel(prompt)
                         negative_conditioning, negative_pooled = compel(negative_prompt)
-                        
+
                         # Set the embeddings to use
                         prompt_embeds = conditioning
                         pooled_prompt_embeds = pooled
                         negative_prompt_embeds = negative_conditioning
                         negative_pooled_prompt_embeds = negative_pooled
-                        
+
                         # Clear text prompts since we're using embeddings (but keep originals for return)
                         prompt = None
                         negative_prompt = None
-                        
+
                         logger.info("✓ Long prompt encoded successfully with compel")
-                        
+
                     except ImportError:
                         logger.warning(
                             "compel library not available. Install with: pip install compel"
@@ -2605,14 +2688,16 @@ class AIModelManager:
             # Use different parameters for ControlNet, img2img vs text2img
             try:
                 loop = asyncio.get_event_loop()
-                
+
                 if using_controlnet and control_image:
                     # ControlNet generation with structural conditioning
                     logger.info(f"Generating with ControlNet conditioning")
-                    
+
                     # ControlNet conditioning strength (how much to follow the structure)
-                    controlnet_conditioning_scale = kwargs.get("controlnet_conditioning_scale", 0.8)
-                    
+                    controlnet_conditioning_scale = kwargs.get(
+                        "controlnet_conditioning_scale", 0.8
+                    )
+
                     # Use embeddings if available (from compel for long prompts), otherwise use text prompts
                     if prompt_embeds is not None and is_sdxl:
                         # Using compel embeddings for long prompt support with ControlNet
@@ -2632,7 +2717,9 @@ class AIModelManager:
                                 generator=generator,
                             ).images[0],
                         )
-                        logger.info("✓ Image generated successfully via ControlNet with compel embeddings")
+                        logger.info(
+                            "✓ Image generated successfully via ControlNet with compel embeddings"
+                        )
                     else:
                         # Using standard text prompts
                         image = await loop.run_in_executor(
@@ -2653,7 +2740,7 @@ class AIModelManager:
                 elif use_img2img and init_image:
                     # img2img generation with reference image
                     logger.info(f"Generating img2img with strength={img2img_strength}")
-                    
+
                     # Use embeddings if available (from compel for long prompts), otherwise use text prompts
                     if prompt_embeds is not None and is_sdxl:
                         # Using compel embeddings for long prompt support with img2img
@@ -2671,7 +2758,9 @@ class AIModelManager:
                                 generator=generator,
                             ).images[0],
                         )
-                        logger.info("✓ Image generated successfully via img2img with compel embeddings")
+                        logger.info(
+                            "✓ Image generated successfully via img2img with compel embeddings"
+                        )
                     else:
                         # Using standard text prompts
                         image = await loop.run_in_executor(
@@ -2706,7 +2795,9 @@ class AIModelManager:
                                 generator=generator,
                             ).images[0],
                         )
-                        logger.info("✓ Image generated successfully via text2img with compel embeddings")
+                        logger.info(
+                            "✓ Image generated successfully via text2img with compel embeddings"
+                        )
                     else:
                         # Using standard text prompts
                         image = await loop.run_in_executor(
@@ -2771,7 +2862,9 @@ class AIModelManager:
                 "reference_image_used": bool(reference_image_path),
                 "controlnet_used": using_controlnet,
                 "img2img_mode": use_img2img and not using_controlnet,
-                "img2img_strength": img2img_strength if (use_img2img and not using_controlnet) else None,
+                "img2img_strength": (
+                    img2img_strength if (use_img2img and not using_controlnet) else None
+                ),
             }
         except Exception as e:
             logger.error(f"Diffusers generation failed: {str(e)}")
