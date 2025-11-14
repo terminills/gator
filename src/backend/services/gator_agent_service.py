@@ -198,6 +198,25 @@ class GatorAgentService:
         output.append("[AGENT] Calling AI models manager for text generation...")
         output.append("[MODEL SELECTION] Manager will select optimal model (prefers LOCAL)")
         
+        # Check if we have loaded models
+        if len(local_text_models) == 0 and len(cloud_text_models) == 0:
+            output.append("[DECISION] No text models loaded - using rule-based fallback")
+            output.append("")
+            output.append("[FALLBACK] Generating rule-based response...")
+            start_time = datetime.now()
+            
+            rule_response = await self._generate_rule_based_response(message, context, output)
+            
+            elapsed = (datetime.now() - start_time).total_seconds()
+            
+            output.append("")
+            output.append(f"[FALLBACK] ✓ Generated in {elapsed:.4f}s")
+            output.append("")
+            output.append("[RESPONSE]")
+            output.append(rule_response)
+            
+            return "\n".join(output)
+        
         try:
             # Build Gator-style system prompt
             system_prompt = """You are Gator, a tough, no-nonsense AI help agent. You're direct, confident, and sometimes intimidating, but ultimately helpful. Keep responses concise (2-3 sentences). Use phrases like "Listen here", "Pay attention"."""
@@ -223,10 +242,17 @@ class GatorAgentService:
         except Exception as e:
             output.append(f"[INFERENCE] ✗ FAILED: {str(e)}")
             output.append("")
-            output.append("[FATAL ERROR] AI model generation failed!")
-            output.append("[ERROR DETAILS] " + str(e))
+            output.append("[FALLBACK] Using rule-based response due to LLM error...")
+            start_time = datetime.now()
+            
+            rule_response = await self._generate_rule_based_response(message, context, output)
+            
+            elapsed = (datetime.now() - start_time).total_seconds()
+            
+            output.append(f"[FALLBACK] ✓ Generated in {elapsed:.4f}s")
             output.append("")
-            output.append("[NO FALLBACK] System configured to fail on AI errors for debugging")
+            output.append("[RESPONSE]")
+            output.append(rule_response)
             
             return "\n".join(output)
     
@@ -319,27 +345,32 @@ class GatorAgentService:
         # Use AI models manager which handles local models
         if self.models_available and self.ai_models:
             try:
-                # Build Gator-style system prompt
-                system_prompt = """You are Gator, a tough, no-nonsense AI help agent for the Gator AI Influencer Platform. You're direct, confident, and sometimes intimidating, but ultimately helpful. Keep responses concise (2-3 sentences). Use phrases like "Listen here", "Pay attention"."""
+                # Check if any text models are actually loaded
+                text_models = self.ai_models.available_models.get("text", [])
+                loaded_models = [m for m in text_models if m.get("loaded")]
                 
-                full_prompt = f"{system_prompt}\n\nUser: {message}\nGator:"
-                
-                llm_response = await self.ai_models.generate_text(
-                    full_prompt, 
-                    max_tokens=200, 
-                    temperature=0.8
-                )
-                
-                if llm_response:
-                    return llm_response
+                if loaded_models:
+                    # Build Gator-style system prompt
+                    system_prompt = """You are Gator, a tough, no-nonsense AI help agent for the Gator AI Influencer Platform. You're direct, confident, and sometimes intimidating, but ultimately helpful. Keep responses concise (2-3 sentences). Use phrases like "Listen here", "Pay attention"."""
+                    
+                    full_prompt = f"{system_prompt}\n\nUser: {message}\nGator:"
+                    
+                    llm_response = await self.ai_models.generate_text(
+                        full_prompt, 
+                        max_tokens=200, 
+                        temperature=0.8
+                    )
+                    
+                    if llm_response:
+                        return llm_response
+                else:
+                    logger.info("No text models loaded - using rule-based fallback")
                     
             except Exception as e:
-                logger.error(f"AI model generation failed: {e}")
-                # NO FALLBACK - fail hard for debugging
-                raise Exception(f"AI model generation FAILED: {e}. No fallback configured.")
+                logger.warning(f"AI model generation failed, falling back to rules: {e}")
         
-        # If no models available, fail hard
-        raise Exception("No AI models available. Cannot generate response without local models.")
+        # Fallback to rule-based response when no models available
+        return await self._generate_rule_based_response(message, context)
 
     async def _handle_help_request(
         self, message: str, context: Optional[Dict] = None
