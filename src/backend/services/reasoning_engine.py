@@ -22,6 +22,9 @@ from backend.models.acd import (
     AIComplexity,
     AIConfidence,
     AIState,
+    AIDomain,
+    AISubdomain,
+    DOMAIN_COMPATIBILITY,
 )
 from backend.services.multi_agent_service import MultiAgentService
 from backend.models.multi_agent import AgentModel, AgentStatus
@@ -138,6 +141,8 @@ class ReasoningEngine:
 
 ## Current Task Context
 
+**Domain**: {context.ai_domain or 'UNKNOWN'}
+**Subdomain**: {context.ai_subdomain or 'UNKNOWN'}
 **Phase**: {context.ai_phase}
 **Current State**: {context.ai_state}
 **Complexity**: {context.ai_complexity or 'UNKNOWN'}
@@ -614,17 +619,67 @@ Provide ONLY the JSON array, no other text.
             logger.error(f"Task decomposition failed: {e}")
             return []
     
+    def check_domain_compatibility(
+        self,
+        source_domain: Optional[str],
+        target_domain: Optional[str],
+    ) -> float:
+        """
+        Check if two domains are compatible for correlation/handoff.
+        
+        This prevents noisy correlations by respecting domain boundaries
+        (cortical regions).
+        
+        Args:
+            source_domain: Source task domain
+            target_domain: Target task domain
+            
+        Returns:
+            Compatibility weight (0.0 = incompatible, 1.0 = same domain)
+        """
+        if not source_domain or not target_domain:
+            return 0.4  # Unknown domains get neutral score
+        
+        try:
+            source = AIDomain(source_domain)
+            target = AIDomain(target_domain)
+            
+            # Same domain = highest compatibility
+            if source == target:
+                return 1.0
+            
+            # Check compatibility matrix
+            compatible_domains = DOMAIN_COMPATIBILITY.get(source, [])
+            
+            if target in compatible_domains:
+                return 0.6  # Compatible but different domains
+            
+            # Meta-reasoning is compatible with everything
+            if source == AIDomain.METAREASONING or target == AIDomain.METAREASONING:
+                return 0.5
+            
+            # Otherwise incompatible
+            return 0.1
+        
+        except Exception as e:
+            logger.error(f"Error checking domain compatibility: {e}")
+            return 0.4  # Default neutral
+    
     async def evaluate_capability_match(
         self,
         agent_name: str,
         task_requirements: Dict[str, Any],
+        task_domain: Optional[str] = None,
     ) -> float:
         """
         Evaluate how well an agent's capabilities match task requirements.
         
+        Now includes domain compatibility checking for better routing.
+        
         Args:
             agent_name: Name of agent to evaluate
             task_requirements: Required capabilities
+            task_domain: Task domain for domain-aware matching
             
         Returns:
             Match score (0.0-1.0)
@@ -643,13 +698,26 @@ Provide ONLY the JSON array, no other text.
             required_caps = set(task_requirements.get("capabilities", []))
             
             if not required_caps:
-                return 0.5  # No requirements, neutral match
-            
-            overlap = len(agent_caps & required_caps)
-            match_score = overlap / len(required_caps)
+                capability_score = 0.5  # No requirements, neutral match
+            else:
+                overlap = len(agent_caps & required_caps)
+                capability_score = overlap / len(required_caps)
             
             # Boost for success rate
-            match_score = (match_score + agent.success_rate) / 2
+            match_score = (capability_score + agent.success_rate) / 2
+            
+            # Apply domain compatibility weighting
+            if task_domain and hasattr(agent, 'specializations') and agent.specializations:
+                # Check if agent's domain matches task domain
+                agent_domains = [s.get('domain') for s in agent.specializations if isinstance(s, dict) and 'domain' in s]
+                if agent_domains:
+                    domain_weights = [
+                        self.check_domain_compatibility(task_domain, agent_domain)
+                        for agent_domain in agent_domains
+                    ]
+                    max_domain_weight = max(domain_weights) if domain_weights else 0.5
+                    # Blend capability match with domain compatibility
+                    match_score = (match_score * 0.6) + (max_domain_weight * 0.4)
             
             return min(match_score, 1.0)
         

@@ -309,6 +309,8 @@ class ReasoningOrchestrator:
         """
         Query database for relevant successful patterns.
         
+        Now includes domain-aware filtering for cleaner correlations.
+        
         Args:
             context: ACD context to find patterns for
             
@@ -316,8 +318,8 @@ class ReasoningOrchestrator:
             List of relevant successful patterns
         """
         try:
-            # Check cache first
-            cache_key = f"{context.ai_phase}_{context.ai_complexity}"
+            # Check cache first - now includes domain
+            cache_key = f"{context.ai_domain or 'UNKNOWN'}_{context.ai_phase}_{context.ai_complexity}"
             if (
                 cache_key in self._pattern_cache
                 and (datetime.now(timezone.utc) - self._last_cache_update) < self._cache_timeout
@@ -335,6 +337,19 @@ class ReasoningOrchestrator:
                     ]),
                 )
             )
+            
+            # Add domain filtering if domain is specified
+            if context.ai_domain:
+                try:
+                    from backend.models.acd import AIDomain, DOMAIN_COMPATIBILITY
+                    domain = AIDomain(context.ai_domain)
+                    compatible_domains = DOMAIN_COMPATIBILITY.get(domain, [])
+                    # Include same domain + compatible domains
+                    domain_filter = [context.ai_domain] + [d.value for d in compatible_domains]
+                    stmt = stmt.where(ACDContextModel.ai_domain.in_(domain_filter))
+                    logger.info(f"Filtering patterns by domain: {context.ai_domain} (+ {len(compatible_domains)} compatible)")
+                except Exception as e:
+                    logger.warning(f"Could not apply domain filter: {e}")
             
             # Filter by similar complexity if available
             if context.ai_complexity:

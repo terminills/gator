@@ -144,6 +144,214 @@ class SkillLevel(str, Enum):
     SPECIALIST = "SPECIALIST"
 
 
+class AIDomain(str, Enum):
+    """
+    Top-level domain classification for ACD contexts.
+    
+    Represents cognitive "cortical regions" - separates different types of work
+    to enable clean cross-domain orchestration and prevent noisy correlations.
+    """
+    
+    # Meta-level reasoning and orchestration
+    METAREASONING = "METAREASONING"
+    
+    # Content generation and transformation
+    CODE_GENERATION = "CODE_GENERATION"
+    TEXT_GENERATION = "TEXT_GENERATION"
+    IMAGE_GENERATION = "IMAGE_GENERATION"
+    VIDEO_GENERATION = "VIDEO_GENERATION"
+    AUDIO_GENERATION = "AUDIO_GENERATION"
+    GRAPH_GENERATION = "GRAPH_GENERATION"
+    DATA_TRANSFORMATION = "DATA_TRANSFORMATION"
+    MODEL_GENERATION = "MODEL_GENERATION"
+    MODEL_REFINEMENT = "MODEL_REFINEMENT"
+    
+    # Analysis and understanding
+    COMPRESSION = "COMPRESSION"
+    SUMMARIZATION = "SUMMARIZATION"
+    PLANNING = "PLANNING"
+    ANALYSIS = "ANALYSIS"
+    
+    # Multimodal semantics
+    MULTIMODAL_SEMANTICS = "MULTIMODAL_SEMANTICS"
+    
+    # System operations
+    SYSTEM_OPERATIONS = "SYSTEM_OPERATIONS"
+    
+    # Human interface
+    HUMAN_INTERFACE = "HUMAN_INTERFACE"
+
+
+class AISubdomain(str, Enum):
+    """
+    Sub-domain classification for fine-grained categorization.
+    
+    Provides detailed specialization within each domain for precise agent matching.
+    """
+    
+    # METAREASONING subdomains
+    ORCHESTRATION = "ORCHESTRATION"
+    REASONING_ENGINE = "REASONING_ENGINE"
+    CORRELATION_INDEX = "CORRELATION_INDEX"
+    AGENT_SELECTION = "AGENT_SELECTION"
+    COMPLEXITY_HANDLING = "COMPLEXITY_HANDLING"
+    ERROR_RESOLUTION = "ERROR_RESOLUTION"
+    RESCHEDULING = "RESCHEDULING"
+    
+    # CODE_GENERATION subdomains
+    PYTHON = "PYTHON"
+    JAVASCRIPT = "JAVASCRIPT"
+    TYPESCRIPT = "TYPESCRIPT"
+    SQL = "SQL"
+    BACKEND = "BACKEND"
+    FRONTEND = "FRONTEND"
+    API = "API"
+    TESTING = "TESTING"
+    
+    # TEXT_GENERATION subdomains
+    CREATIVE_WRITING = "CREATIVE_WRITING"
+    TECHNICAL_WRITING = "TECHNICAL_WRITING"
+    SOCIAL_MEDIA = "SOCIAL_MEDIA"
+    MARKETING = "MARKETING"
+    DOCUMENTATION = "DOCUMENTATION"
+    DIALOGUE = "DIALOGUE"
+    
+    # IMAGE_GENERATION subdomains
+    PORTRAITS = "PORTRAITS"
+    LANDSCAPES = "LANDSCAPES"
+    ABSTRACT = "ABSTRACT"
+    PHOTOREALISTIC = "PHOTOREALISTIC"
+    STYLIZED = "STYLIZED"
+    LOGO_DESIGN = "LOGO_DESIGN"
+    IMAGE_EDITING = "IMAGE_EDITING"
+    UPSCALING = "UPSCALING"
+    
+    # VIDEO_GENERATION subdomains
+    SHORT_FORM = "SHORT_FORM"
+    LONG_FORM = "LONG_FORM"
+    ANIMATION = "ANIMATION"
+    VIDEO_EDITING = "VIDEO_EDITING"
+    EFFECTS = "EFFECTS"
+    TRANSITIONS = "TRANSITIONS"
+    
+    # AUDIO_GENERATION subdomains
+    VOICE = "VOICE"
+    MUSIC = "MUSIC"
+    SOUND_EFFECTS = "SOUND_EFFECTS"
+    AUDIO_MIXING = "AUDIO_MIXING"
+    
+    # MULTIMODAL_SEMANTICS subdomains
+    EMBEDDINGS = "EMBEDDINGS"
+    ALIGNMENT = "ALIGNMENT"
+    CAPTIONING = "CAPTIONING"
+    SCENE_PARSING = "SCENE_PARSING"
+    OCR = "OCR"
+    CROSS_MODAL_INFERENCE = "CROSS_MODAL_INFERENCE"
+    
+    # SYSTEM_OPERATIONS subdomains
+    FILE_OPERATIONS = "FILE_OPERATIONS"
+    SCHEDULING = "SCHEDULING"
+    PIPELINE_CONTROL = "PIPELINE_CONTROL"
+    ENVIRONMENT = "ENVIRONMENT"
+    MICROSERVICE = "MICROSERVICE"
+    PLUGIN = "PLUGIN"
+    MIDDLEWARE = "MIDDLEWARE"
+    DATABASE = "DATABASE"
+    MIGRATION = "MIGRATION"
+    
+    # HUMAN_INTERFACE subdomains
+    UI_GENERATION = "UI_GENERATION"
+    UX_DESIGN = "UX_DESIGN"
+    FORM_VALIDATION = "FORM_VALIDATION"
+    DASHBOARD = "DASHBOARD"
+    DOCUMENTATION_UI = "DOCUMENTATION_UI"
+    TUTORIAL = "TUTORIAL"
+    EXPLANATION = "EXPLANATION"
+    
+    # PLANNING subdomains
+    STRATEGIC = "STRATEGIC"
+    TACTICAL = "TACTICAL"
+    OPERATIONAL = "OPERATIONAL"
+    
+    # ANALYSIS subdomains
+    DATA_ANALYSIS = "DATA_ANALYSIS"
+    PERFORMANCE = "PERFORMANCE"
+    QUALITY = "QUALITY"
+    SECURITY = "SECURITY"
+
+
+# Domain compatibility matrix - defines which domains can correlate
+DOMAIN_COMPATIBILITY = {
+    AIDomain.CODE_GENERATION: [
+        AIDomain.TEXT_GENERATION,
+        AIDomain.PLANNING,
+        AIDomain.SYSTEM_OPERATIONS,
+    ],
+    AIDomain.TEXT_GENERATION: [
+        AIDomain.CODE_GENERATION,
+        AIDomain.HUMAN_INTERFACE,
+        AIDomain.PLANNING,
+        AIDomain.MULTIMODAL_SEMANTICS,
+    ],
+    AIDomain.IMAGE_GENERATION: [
+        AIDomain.MULTIMODAL_SEMANTICS,
+        AIDomain.VIDEO_GENERATION,
+        AIDomain.HUMAN_INTERFACE,
+    ],
+    AIDomain.VIDEO_GENERATION: [
+        AIDomain.IMAGE_GENERATION,
+        AIDomain.AUDIO_GENERATION,
+        AIDomain.MULTIMODAL_SEMANTICS,
+    ],
+    AIDomain.AUDIO_GENERATION: [
+        AIDomain.VIDEO_GENERATION,
+        AIDomain.MULTIMODAL_SEMANTICS,
+    ],
+    AIDomain.MULTIMODAL_SEMANTICS: [
+        AIDomain.IMAGE_GENERATION,
+        AIDomain.VIDEO_GENERATION,
+        AIDomain.AUDIO_GENERATION,
+        AIDomain.TEXT_GENERATION,
+    ],
+    AIDomain.SYSTEM_OPERATIONS: [
+        AIDomain.PLANNING,
+        AIDomain.CODE_GENERATION,
+    ],
+    AIDomain.HUMAN_INTERFACE: [
+        AIDomain.TEXT_GENERATION,
+        AIDomain.CODE_GENERATION,
+        AIDomain.IMAGE_GENERATION,
+    ],
+    AIDomain.PLANNING: [
+        AIDomain.CODE_GENERATION,
+        AIDomain.TEXT_GENERATION,
+        AIDomain.SYSTEM_OPERATIONS,
+        AIDomain.ANALYSIS,
+    ],
+    AIDomain.ANALYSIS: [
+        AIDomain.PLANNING,
+        AIDomain.DATA_TRANSFORMATION,
+        AIDomain.MULTIMODAL_SEMANTICS,
+    ],
+    AIDomain.METAREASONING: [
+        # Meta-reasoning can work with all domains
+        AIDomain.CODE_GENERATION,
+        AIDomain.TEXT_GENERATION,
+        AIDomain.IMAGE_GENERATION,
+        AIDomain.VIDEO_GENERATION,
+        AIDomain.AUDIO_GENERATION,
+        AIDomain.MULTIMODAL_SEMANTICS,
+        AIDomain.SYSTEM_OPERATIONS,
+        AIDomain.HUMAN_INTERFACE,
+        AIDomain.PLANNING,
+        AIDomain.ANALYSIS,
+        AIDomain.DATA_TRANSFORMATION,
+        AIDomain.MODEL_GENERATION,
+        AIDomain.MODEL_REFINEMENT,
+    ],
+}
+
+
 # Database Models
 class ACDContextModel(Base):
     """
@@ -179,6 +387,10 @@ class ACDContextModel(Base):
     ai_complexity = Column(String(20), nullable=True)
     ai_note = Column(Text, nullable=True)
     ai_dependencies = Column(JSON, nullable=True)
+    
+    # Domain classification - cortical region classification
+    ai_domain = Column(String(50), nullable=True, index=True)
+    ai_subdomain = Column(String(50), nullable=True, index=True)
 
     # Version tracking
     ai_commit = Column(String(40), nullable=True)
@@ -321,6 +533,8 @@ class ACDContextCreate(BaseModel):
     ai_complexity: Optional[AIComplexity] = None
     ai_note: Optional[str] = None
     ai_dependencies: Optional[List[str]] = None
+    ai_domain: Optional[AIDomain] = None
+    ai_subdomain: Optional[AISubdomain] = None
     ai_pattern: Optional[str] = None
     ai_strategy: Optional[str] = None
     ai_context: Optional[Dict[str, Any]] = None
@@ -337,6 +551,8 @@ class ACDContextUpdate(BaseModel):
 
     ai_status: Optional[AIStatus] = None
     ai_note: Optional[str] = None
+    ai_domain: Optional[AIDomain] = None
+    ai_subdomain: Optional[AISubdomain] = None
     ai_state: Optional[AIState] = None
     ai_confidence: Optional[AIConfidence] = None
     ai_validation: Optional[AIValidation] = None
@@ -359,6 +575,8 @@ class ACDContextResponse(BaseModel):
     ai_complexity: Optional[str]
     ai_note: Optional[str]
     ai_dependencies: Optional[List[str]] = None
+    ai_domain: Optional[str] = None
+    ai_subdomain: Optional[str] = None
     ai_state: str
     ai_confidence: Optional[str]
     ai_queue_priority: Optional[str]
