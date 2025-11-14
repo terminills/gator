@@ -47,6 +47,7 @@ from backend.api.routes import (
     diagnostics,
     settings as settings_routes,
     system_monitoring,
+    reasoning_orchestrator,
 )
 from backend.api.websocket import websocket_endpoint
 
@@ -241,6 +242,7 @@ def create_app() -> FastAPI:
     app.include_router(friend_groups.router, prefix="/api/v1")
     app.include_router(enhanced_persona.router, prefix="/api/v1")
     app.include_router(acd.router)
+    app.include_router(reasoning_orchestrator.router)
     app.include_router(settings_routes.router, prefix="/api/v1")
     app.include_router(system_monitoring.router)
 
