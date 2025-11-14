@@ -841,9 +841,18 @@ class ContentGenerationService:
                 if persona.appearance_locked and persona.base_image_path:
                     generation_params["reference_image_path"] = persona.base_image_path
                     generation_params["use_controlnet"] = True
+                    
+                    # Check if RSS content was used for reaction prompt
+                    rss_used = "rss" in prompt_data.get("prompt", "").lower() or prompt_data.get("word_count", 0) > 50
+                    
                     logger.info(
-                        f"Using visual reference for consistency: {persona.base_image_path}"
+                        f"✓ Using base image for visual consistency: {persona.base_image_path}"
                     )
+                    if rss_used:
+                        logger.info(
+                            f"✓ Base image will be used with RSS-inspired reaction prompt"
+                        )
+                    
                     await acd.set_metadata(
                         {
                             **initial_context,
@@ -851,6 +860,7 @@ class ContentGenerationService:
                             "reference_path": persona.base_image_path,
                             "prompt_source": prompt_data["source"],
                             "prompt_word_count": prompt_data["word_count"],
+                            "rss_reaction": rss_used,
                         }
                     )
 

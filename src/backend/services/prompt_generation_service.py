@@ -388,10 +388,10 @@ class PromptGenerationService:
         if context:
             instruction_parts.append(f"Context/Situation: {context}")
         
-        # Add RSS content if available for inspiration
+        # Add RSS content if available - generate a reaction/engagement prompt
         if rss_content:
             instruction_parts.append("")
-            instruction_parts.append("# RSS Feed Inspiration")
+            instruction_parts.append("# RSS Feed Content - Generate a Reaction")
             instruction_parts.append(f"Title: {rss_content.get('title', '')}")
             
             summary = rss_content.get('summary', '')
@@ -407,7 +407,13 @@ class PromptGenerationService:
             if keywords:
                 instruction_parts.append(f"Keywords: {', '.join(keywords[:5])}")
             
-            instruction_parts.append("Use this content as inspiration for the image theme and composition.")
+            instruction_parts.append("")
+            instruction_parts.append("IMPORTANT: Generate an image prompt showing the persona reacting to or engaging with this content.")
+            instruction_parts.append("Examples:")
+            instruction_parts.append("- Reading/viewing the content on a device (phone, tablet, laptop)")
+            instruction_parts.append("- Expressing emotion about the topic (excited, thoughtful, curious)")
+            instruction_parts.append("- In a setting related to the content theme")
+            instruction_parts.append("- Their facial expression and body language should reflect engagement with the topic")
         
         # Add generation guidelines
         instruction_parts.extend([
@@ -523,24 +529,51 @@ class PromptGenerationService:
         if context:
             prompt_parts.append(f"in {context}")
         
-        # Add RSS-inspired elements
+        # Add RSS-inspired reaction elements
         if rss_content:
             rss_title = rss_content.get('title', '')
             rss_keywords = rss_content.get('keywords', [])
             rss_topics = rss_content.get('topics', [])
             
-            # Build RSS-inspired theme from title and keywords
-            rss_theme_parts = []
-            if rss_title:
-                rss_theme_parts.append(rss_title[:50])
-            if rss_keywords:
-                rss_theme_parts.extend(rss_keywords[:2])
-            if rss_topics:
-                rss_theme_parts.extend(rss_topics[:2])
+            # Generate a reaction/engagement scenario
+            reaction_elements = []
             
-            if rss_theme_parts:
-                rss_inspiration = ', '.join(rss_theme_parts)
-                prompt_parts.append(f"inspired by {rss_inspiration}")
+            # Add device/reading context
+            reaction_elements.append("holding smartphone")
+            
+            # Add emotional reaction based on content
+            if rss_keywords:
+                # Positive/exciting keywords
+                exciting_words = ['breakthrough', 'innovation', 'success', 'amazing', 'win', 'achievement']
+                if any(word in ' '.join(rss_keywords).lower() for word in exciting_words):
+                    reaction_elements.append("excited expression")
+                else:
+                    reaction_elements.append("thoughtfully engaged")
+            else:
+                reaction_elements.append("reading attentively")
+            
+            # Add thematic setting based on RSS content
+            if rss_topics:
+                topic_settings = {
+                    'technology': 'modern tech workspace',
+                    'business': 'professional office setting',
+                    'science': 'contemporary study',
+                    'health': 'wellness environment',
+                    'entertainment': 'casual lifestyle setting',
+                    'sports': 'active lifestyle environment',
+                }
+                for topic in rss_topics:
+                    if topic.lower() in topic_settings:
+                        reaction_elements.append(f"in {topic_settings[topic.lower()]}")
+                        break
+            
+            # Add the reaction context
+            if reaction_elements:
+                prompt_parts.append(', '.join(reaction_elements))
+            
+            # Add content inspiration
+            if rss_title:
+                prompt_parts.append(f"reacting to content about {rss_title[:40]}")
         
         # Add style-specific qualities
         style_qualities = {
