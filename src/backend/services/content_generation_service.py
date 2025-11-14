@@ -42,6 +42,7 @@ from backend.services.ai_models import ai_models
 from backend.services.video_processing_service import (
     VideoQuality,
 )
+
 # --------------------------------------------------------
 
 logger = get_logger(__name__)
@@ -192,12 +193,14 @@ class ContentGenerationService:
         Raises:
             ValueError: If persona not found or generation fails
         """
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info(f"🚀 CONTENT GENERATION REQUEST RECEIVED")
         logger.info(f"   Content type: {request.content_type.value}")
         logger.info(f"   Quality: {request.quality}")
-        logger.info(f"   Rating: {request.content_rating.value}")
-        
+        logger.info(
+            f"   Rating: {request.content_rating.value if request.content_rating else 'use persona default'}"
+        )
+
         try:
             # Get persona data - if no persona_id provided, use first available persona
             if request.persona_id is None:
@@ -209,7 +212,9 @@ class ContentGenerationService:
                         "No personas available. Please create a persona first."
                     )
                 request.persona_id = persona.id
-                logger.info(f"   ✓ Using default persona: {persona.name} ({persona.id})")
+                logger.info(
+                    f"   ✓ Using default persona: {persona.name} ({persona.id})"
+                )
             else:
                 logger.info(f"   Loading persona: {request.persona_id}")
                 persona = await self._get_persona(request.persona_id)
@@ -217,6 +222,14 @@ class ContentGenerationService:
                     logger.error(f"   ❌ Persona not found: {request.persona_id}")
                     raise ValueError(f"Persona not found: {request.persona_id}")
                 logger.info(f"   ✓ Persona loaded: {persona.name}")
+
+            # Use persona's default content rating if not specified
+            if request.content_rating is None:
+                persona_rating = persona.default_content_rating or "sfw"
+                request.content_rating = ContentRating(persona_rating)
+                logger.info(
+                    f"   ✓ Using persona's default content rating: {request.content_rating.value}"
+                )
 
             # Generate prompt if not provided
             if not request.prompt:
@@ -228,7 +241,9 @@ class ContentGenerationService:
 
             # Validate content rating against persona settings
             if not await self._validate_content_rating(persona, request.content_rating):
-                logger.error(f"   ❌ Content rating {request.content_rating} not allowed for persona {persona.name}")
+                logger.error(
+                    f"   ❌ Content rating {request.content_rating} not allowed for persona {persona.name}"
+                )
                 raise ValueError(
                     f"Content rating {request.content_rating} not allowed for persona {persona.name}"
                 )
@@ -243,7 +258,7 @@ class ContentGenerationService:
                 )
                 request.content_rating = analyzed_rating
 
-            logger.info("-"*80)
+            logger.info("-" * 80)
             # Generate content based on type
             if request.content_type == ContentType.IMAGE:
                 content_data = await self._generate_image(persona, request)
@@ -258,9 +273,9 @@ class ContentGenerationService:
             else:
                 raise ValueError(f"Unsupported content type: {request.content_type}")
 
-            logger.info("-"*80)
+            logger.info("-" * 80)
             logger.info("   💾 Saving content record to database...")
-            
+
             # Apply platform-specific adaptations
             platform_adaptations = await self._create_platform_adaptations(
                 persona,
@@ -268,9 +283,11 @@ class ContentGenerationService:
                 request.content_rating,
                 request.target_platforms or [],
             )
-            
+
             if request.target_platforms:
-                logger.info(f"   ✓ Platform adaptations: {', '.join(request.target_platforms)}")
+                logger.info(
+                    f"   ✓ Platform adaptations: {', '.join(request.target_platforms)}"
+                )
 
             # Store content metadata in database
             content_record = await self._save_content_record(
@@ -281,48 +298,52 @@ class ContentGenerationService:
             # Update persona generation count
             await self._increment_persona_count(persona.id)
 
-            logger.info("="*80)
+            logger.info("=" * 80)
             logger.info(f"✅ CONTENT GENERATION COMPLETE")
             logger.info(f"   Content ID: {content_record.id}")
             logger.info(f"   Type: {request.content_type.value}")
             logger.info(f"   Persona: {persona.name}")
-            logger.info("="*80)
+            logger.info("=" * 80)
 
             return content_record
 
         except Exception as e:
-            logger.error("="*80)
+            logger.error("=" * 80)
             logger.error(f"❌ CONTENT GENERATION FAILED")
             logger.error(f"   Error: {str(e)}")
             logger.error(f"   Persona ID: {request.persona_id}")
             logger.error(f"   Content type: {request.content_type}")
-            logger.error("="*80)
+            logger.error("=" * 80)
             raise ValueError(f"Content generation failed: {str(e)}")
 
     async def generate_content_for_all_personas(
-        self, 
+        self,
         content_type: ContentType = ContentType.IMAGE,
-        quality: str = "standard",
-        content_rating: ContentRating = ContentRating.SFW
+        quality: Optional[str] = "standard",
+        content_rating: Optional[ContentRating] = ContentRating.SFW,
     ) -> Dict[str, Any]:
         """
         Generate content for all active personas.
-        
+
         Args:
             content_type: Type of content to generate
-            quality: Quality level (standard or hd)
-            content_rating: Content rating filter
-            
+            quality: Quality level (standard or hd), None to use persona defaults
+            content_rating: Content rating filter, None to use persona defaults
+
         Returns:
             Dict with generation results and statistics
         """
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info("🚀 BATCH CONTENT GENERATION FOR ALL PERSONAS")
         logger.info(f"   Content type: {content_type.value}")
-        logger.info(f"   Quality: {quality}")
-        logger.info(f"   Rating: {content_rating.value}")
-        logger.info("="*80)
-        
+        logger.info(
+            f"   Quality: {quality if quality is not None else 'persona defaults'}"
+        )
+        logger.info(
+            f"   Rating: {content_rating.value if content_rating is not None else 'persona defaults'}"
+        )
+        logger.info("=" * 80)
+
         # Get all active personas
         stmt = (
             select(PersonaModel)
@@ -331,7 +352,7 @@ class ContentGenerationService:
         )
         result = await self.db.execute(stmt)
         personas = result.scalars().all()
-        
+
         if not personas:
             logger.warning("No active personas found for batch generation")
             return {
@@ -339,62 +360,90 @@ class ContentGenerationService:
                 "message": "No active personas found",
                 "generated": 0,
                 "failed": 0,
-                "results": []
+                "results": [],
             }
-        
+
         logger.info(f"Found {len(personas)} active personas")
-        
+
         # Generate content for each persona
         results = []
         generated_count = 0
         failed_count = 0
-        
+
         for persona in personas:
             try:
-                logger.info(f"Generating content for persona: {persona.name} ({persona.id})")
-                
+                logger.info(
+                    f"Generating content for persona: {persona.name} ({persona.id})"
+                )
+
+                # Use provided values or fall back to persona defaults
+                effective_quality = (
+                    quality
+                    if quality is not None
+                    else (
+                        persona.image_quality
+                        if hasattr(persona, "image_quality")
+                        else "standard"
+                    )
+                )
+                effective_rating = (
+                    content_rating
+                    if content_rating is not None
+                    else (
+                        ContentRating(persona.content_rating)
+                        if hasattr(persona, "content_rating") and persona.content_rating
+                        else ContentRating.SFW
+                    )
+                )
+
                 request = GenerationRequest(
                     persona_id=persona.id,
                     content_type=content_type,
-                    quality=quality,
-                    content_rating=content_rating,
+                    quality=effective_quality,
+                    content_rating=effective_rating,
                     prompt=None,  # Will be auto-generated
                 )
-                
+
                 content = await self.generate_content(request)
-                
-                results.append({
-                    "persona_id": str(persona.id),
-                    "persona_name": persona.name,
-                    "content_id": str(content.id),
-                    "status": "success"
-                })
+
+                results.append(
+                    {
+                        "persona_id": str(persona.id),
+                        "persona_name": persona.name,
+                        "content_id": str(content.id),
+                        "status": "success",
+                    }
+                )
                 generated_count += 1
                 logger.info(f"✓ Generated content for {persona.name}")
-                
+
             except Exception as e:
-                logger.error(f"✗ Failed to generate content for {persona.name}: {str(e)}")
-                results.append({
-                    "persona_id": str(persona.id),
-                    "persona_name": persona.name,
-                    "status": "failed",
-                    "error": str(e)
-                })
+                logger.error(
+                    f"✗ Failed to generate content for {persona.name}: {str(e)}"
+                )
+                results.append(
+                    {
+                        "persona_id": str(persona.id),
+                        "persona_name": persona.name,
+                        "status": "failed",
+                        "error": str(e),
+                    }
+                )
                 failed_count += 1
-        
-        logger.info("="*80)
+
+        logger.info("=" * 80)
         logger.info("✅ BATCH CONTENT GENERATION COMPLETE")
         logger.info(f"   Total personas: {len(personas)}")
         logger.info(f"   Generated: {generated_count}")
         logger.info(f"   Failed: {failed_count}")
-        logger.info("="*80)
-        
+        logger.info("=" * 80)
+
         return {
             "status": "completed",
             "total_personas": len(personas),
             "generated": generated_count,
             "failed": failed_count,
-            "results": results
+            "results": results,
         }
 
     async def get_content(self, content_id: UUID) -> Optional[ContentResponse]:
@@ -479,21 +528,27 @@ class ContentGenerationService:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def _get_trending_topics_from_feeds(self, persona: PersonaModel, limit: int = 3) -> List[str]:
+    async def _get_trending_topics_from_feeds(
+        self, persona: PersonaModel, limit: int = 3
+    ) -> List[str]:
         """
         Fetch trending topics from RSS feeds assigned to persona.
-        
+
         Args:
             persona: Persona to fetch feeds for
             limit: Maximum number of topics to return
-            
+
         Returns:
             List of trending topic strings
         """
         try:
-            from backend.models.feed import PersonaFeedModel, FeedItemModel, RSSFeedModel
+            from backend.models.feed import (
+                PersonaFeedModel,
+                FeedItemModel,
+                RSSFeedModel,
+            )
             from datetime import timedelta
-            
+
             # Get RSS feeds assigned to this persona
             stmt = (
                 select(PersonaFeedModel)
@@ -503,15 +558,15 @@ class ContentGenerationService:
             )
             result = await self.db.execute(stmt)
             persona_feeds = result.scalars().all()
-            
+
             if not persona_feeds:
                 logger.info(f"No RSS feeds assigned to persona {persona.name}")
                 return []
-            
+
             # Get recent feed items from the last 24 hours
             feed_ids = [pf.feed_id for pf in persona_feeds]
             cutoff_time = datetime.now(timezone.utc) - timedelta(hours=24)
-            
+
             stmt = (
                 select(FeedItemModel)
                 .where(FeedItemModel.feed_id.in_(feed_ids))
@@ -521,11 +576,11 @@ class ContentGenerationService:
             )
             result = await self.db.execute(stmt)
             feed_items = result.scalars().all()
-            
+
             if not feed_items:
                 logger.info(f"No recent feed items for persona {persona.name}")
                 return []
-            
+
             # Extract topics from titles
             topics = []
             for item in feed_items[:limit]:
@@ -533,10 +588,12 @@ class ContentGenerationService:
                 topic = item.title[:100] if item.title else ""
                 if topic:
                     topics.append(topic)
-            
-            logger.info(f"Found {len(topics)} trending topics from RSS feeds for persona {persona.name}")
+
+            logger.info(
+                f"Found {len(topics)} trending topics from RSS feeds for persona {persona.name}"
+            )
             return topics
-            
+
         except Exception as e:
             logger.warning(f"Failed to fetch trending topics from RSS feeds: {str(e)}")
             return []
@@ -560,7 +617,7 @@ class ContentGenerationService:
             topics_text = ", ".join(trending_topics[:2])  # Use top 2 topics
             trending_context = f"related to current trending topics: {topics_text}, "
             logger.info(f"Enriching prompt with trending topics: {topics_text[:100]}")
-        
+
         # Use base appearance if locked, otherwise use standard appearance
         if persona.appearance_locked and persona.base_appearance_description:
             base_prompt = (
@@ -636,16 +693,16 @@ class ContentGenerationService:
                 "quality": request.quality,
                 "content_rating": request.content_rating.value,
                 "appearance_locked": persona.appearance_locked,
-            }
+            },
         )
-        
+
         # Determine complexity based on quality and locked appearance
         complexity = AIComplexity.LOW
         if request.quality == "hd":
             complexity = AIComplexity.HIGH
         elif persona.appearance_locked:
             complexity = AIComplexity.MEDIUM
-        
+
         # Create ACD context for tracking
         initial_context = {
             "prompt": request.prompt,
@@ -654,7 +711,7 @@ class ContentGenerationService:
             "content_rating": request.content_rating.value,
             "appearance_locked": persona.appearance_locked,
         }
-        
+
         # Note: content_id will be None here since content doesn't exist yet
         # We'll link it after content creation
         async with ACDContextManager(
@@ -671,10 +728,12 @@ class ContentGenerationService:
 
                 # Use persona's generation settings instead of hardcoded values
                 # Quality: use persona's generation_quality if not overridden by request
-                quality = request.quality if request.quality else persona.generation_quality
+                quality = (
+                    request.quality if request.quality else persona.generation_quality
+                )
                 if quality not in ["draft", "standard", "hd", "premium"]:
                     quality = persona.generation_quality or "standard"
-                
+
                 # Resolution: use persona's default_image_resolution
                 size = persona.default_image_resolution or "1024x1024"
                 # Override with higher resolution for HD quality if not explicitly set
@@ -682,18 +741,25 @@ class ContentGenerationService:
                     size = "2048x2048"
                 elif quality == "premium":
                     size = "2048x2048"
-                
-                logger.info(f"   Image generation: quality={quality}, resolution={size}")
-                logger.info(f"   Persona defaults: quality={persona.generation_quality}, resolution={persona.default_image_resolution}")
-                
+
+                logger.info(
+                    f"   Image generation: quality={quality}, resolution={size}"
+                )
+                logger.info(
+                    f"   Persona defaults: quality={persona.generation_quality}, resolution={persona.default_image_resolution}"
+                )
+
                 generation_params = {
                     "prompt": request.prompt,
                     "size": size,
                     "quality": quality,
                 }
-                
+
                 # Add NSFW model preference if applicable
-                if request.content_rating == ContentRating.NSFW and persona.nsfw_model_preference:
+                if (
+                    request.content_rating == ContentRating.NSFW
+                    and persona.nsfw_model_preference
+                ):
                     generation_params["nsfw_model"] = persona.nsfw_model_preference
                     logger.info(f"   Using NSFW model: {persona.nsfw_model_preference}")
 
@@ -704,11 +770,13 @@ class ContentGenerationService:
                     logger.info(
                         f"Using visual reference for consistency: {persona.base_image_path}"
                     )
-                    await acd.set_metadata({
-                        **initial_context,
-                        "using_reference": True,
-                        "reference_path": persona.base_image_path,
-                    })
+                    await acd.set_metadata(
+                        {
+                            **initial_context,
+                            "using_reference": True,
+                            "reference_path": persona.base_image_path,
+                        }
+                    )
 
                 # Generate image using AI model
                 image_result = await ai_models.generate_image(**generation_params)
@@ -723,7 +791,7 @@ class ContentGenerationService:
 
                 # Store relative path for web serving (relative to /content mount point)
                 relative_path = f"images/{filename}"
-                
+
                 result_data = {
                     "file_path": relative_path,
                     "file_size": len(image_result["image_data"]),
@@ -748,13 +816,15 @@ class ContentGenerationService:
 
                 # Update ACD with successful generation details
                 await acd.set_confidence(AIConfidence.CONFIDENT)
-                await acd.set_metadata({
-                    **initial_context,
-                    "model_used": image_result.get("model", "unknown"),
-                    "provider": image_result.get("provider", "unknown"),
-                    "file_size": len(image_result["image_data"]),
-                    "success": True,
-                })
+                await acd.set_metadata(
+                    {
+                        **initial_context,
+                        "model_used": image_result.get("model", "unknown"),
+                        "provider": image_result.get("provider", "unknown"),
+                        "file_size": len(image_result["image_data"]),
+                        "success": True,
+                    }
+                )
 
                 return result_data
 
@@ -762,13 +832,15 @@ class ContentGenerationService:
                 # Mark ACD as failed
                 await acd.set_confidence(AIConfidence.UNCERTAIN)
                 await acd.set_state(AIState.FAILED)
-                await acd.set_metadata({
-                    **initial_context,
-                    "error": str(e),
-                    "error_type": type(e).__name__,
-                    "failed": True,
-                })
-                
+                await acd.set_metadata(
+                    {
+                        **initial_context,
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                        "failed": True,
+                    }
+                )
+
                 # Log the failure comprehensively
                 logger.error(
                     f"Image generation failed for persona {persona.id}: {str(e)}",
@@ -780,9 +852,9 @@ class ContentGenerationService:
                         "error": str(e),
                         "error_type": type(e).__name__,
                         "acd_context_id": str(acd.context_id),
-                    }
+                    },
                 )
-                
+
                 # Re-raise the exception instead of creating placeholder
                 raise ValueError(f"Image generation failed: {str(e)}") from e
 
@@ -809,9 +881,9 @@ class ContentGenerationService:
                 "prompt": request.prompt,
                 "quality": request.quality,
                 "content_rating": request.content_rating.value,
-            }
+            },
         )
-        
+
         try:
             # Ensure AI models are initialized
             if not ai_models.models_loaded:
@@ -820,10 +892,12 @@ class ContentGenerationService:
             # Get video generation parameters from persona settings
             quality = request.quality or persona.generation_quality or "standard"
             video_quality = VideoQuality(quality)
-            
+
             # Use persona's default video resolution
             resolution = persona.default_video_resolution or "1920x1080"
-            logger.info(f"   Video generation: quality={quality}, resolution={resolution}")
+            logger.info(
+                f"   Video generation: quality={quality}, resolution={resolution}"
+            )
             logger.info(f"   Persona video preferences: {persona.video_types}")
 
             # Check if this is a multi-scene video (storyboard)
@@ -889,8 +963,10 @@ class ContentGenerationService:
 
             if not Path(video_result["file_path"]).exists():
                 # Fail if video file doesn't exist - no placeholders!
-                raise ValueError(f"Video generation failed: output file not found at {video_result['file_path']}")
-            
+                raise ValueError(
+                    f"Video generation failed: output file not found at {video_result['file_path']}"
+                )
+
             shutil.copy2(video_result["file_path"], file_path)
 
             return {
@@ -919,9 +995,9 @@ class ContentGenerationService:
                     "quality": request.quality,
                     "error": str(e),
                     "error_type": type(e).__name__,
-                }
+                },
             )
-            
+
             # Re-raise the exception instead of creating placeholder
             raise ValueError(f"Video generation failed: {str(e)}") from e
 
@@ -941,9 +1017,9 @@ class ContentGenerationService:
                 "persona_name": persona.name,
                 "prompt": request.prompt,
                 "quality": request.quality,
-            }
+            },
         )
-        
+
         # Audio generation not yet implemented - fail properly
         raise NotImplementedError(
             "Audio generation requires AI model integration (MusicLM, AudioCraft, or similar). "
@@ -968,11 +1044,13 @@ class ContentGenerationService:
                 "quality": request.quality,
                 "voice_settings": {
                     "voice_id": persona.style_preferences.get("voice_id", "default"),
-                    "voice_style": persona.style_preferences.get("voice_style", "alloy"),
+                    "voice_style": persona.style_preferences.get(
+                        "voice_style", "alloy"
+                    ),
                 },
-            }
+            },
         )
-        
+
         try:
             # Ensure AI models are initialized
             if not ai_models.models_loaded:
@@ -1027,14 +1105,18 @@ class ContentGenerationService:
                     "persona_name": persona.name,
                     "text": request.prompt,
                     "voice_settings": {
-                        "voice_id": persona.style_preferences.get("voice_id", "default"),
-                        "voice_style": persona.style_preferences.get("voice_style", "alloy"),
+                        "voice_id": persona.style_preferences.get(
+                            "voice_id", "default"
+                        ),
+                        "voice_style": persona.style_preferences.get(
+                            "voice_style", "alloy"
+                        ),
                     },
                     "error": str(e),
                     "error_type": type(e).__name__,
-                }
+                },
             )
-            
+
             # Re-raise the exception instead of creating placeholder
             raise ValueError(f"Voice generation failed: {str(e)}") from e
 
@@ -1054,16 +1136,18 @@ class ContentGenerationService:
             complexity = AIComplexity.MEDIUM
         if persona.appearance_locked:
             complexity = AIComplexity.MEDIUM
-        
+
         # Create ACD context for tracking
         initial_context = {
             "prompt": request.prompt,
             "persona_id": str(persona.id),
             "quality": request.quality,
             "content_rating": request.content_rating.value,
-            "content_themes": persona.content_themes[:3] if persona.content_themes else [],
+            "content_themes": (
+                persona.content_themes[:3] if persona.content_themes else []
+            ),
         }
-        
+
         async with ACDContextManager(
             self.db,
             phase="TEXT_GENERATION",
@@ -1118,13 +1202,15 @@ Generate the social media content now:"""
 
                 # Update ACD with successful generation details
                 await acd.set_confidence(AIConfidence.CONFIDENT)
-                await acd.set_metadata({
-                    **initial_context,
-                    "word_count": len(generated_text.split()),
-                    "character_count": len(generated_text),
-                    "ai_generated": True,
-                    "success": True,
-                })
+                await acd.set_metadata(
+                    {
+                        **initial_context,
+                        "word_count": len(generated_text.split()),
+                        "character_count": len(generated_text),
+                        "ai_generated": True,
+                        "success": True,
+                    }
+                )
 
                 return {
                     "file_path": str(file_path),
@@ -1146,41 +1232,53 @@ Generate the social media content now:"""
                 # Mark ACD as using fallback (not failed, since we have a working fallback)
                 await acd.set_confidence(AIConfidence.UNCERTAIN)
                 await acd.set_state(AIState.DONE)  # Still completed, just with fallback
-                await acd.set_metadata({
-                    **initial_context,
-                    "error": str(e),
-                    "error_type": type(e).__name__,
-                    "using_fallback": True,
-                    "fallback_method": "template_based",
-                })
-                
+                await acd.set_metadata(
+                    {
+                        **initial_context,
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                        "using_fallback": True,
+                        "fallback_method": "template_based",
+                    }
+                )
+
                 # Enhanced fallback generation using persona characteristics
-                logger.warning("⚠️  AI text generation unavailable, using fallback method")
+                logger.warning(
+                    "⚠️  AI text generation unavailable, using fallback method"
+                )
                 logger.warning(f"   Reason: {str(e)}")
                 logger.warning(f"   Fallback: Template-based generation")
                 logger.info("   🔄 Generating content using template fallback...")
-                
+
                 await asyncio.sleep(0.05)  # Simulate processing time
 
                 # Create more sophisticated fallback content based on persona and prompt
-                generated_text = await self._create_enhanced_fallback_text(persona, request)
-                logger.info(f"   ✓ Fallback content generated: {len(generated_text)} characters")
+                generated_text = await self._create_enhanced_fallback_text(
+                    persona, request
+                )
+                logger.info(
+                    f"   ✓ Fallback content generated: {len(generated_text)} characters"
+                )
 
-                filename = f"text_fallback_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                filename = (
+                    f"text_fallback_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                )
                 file_path = self.content_dir / "text" / filename
 
                 file_path.write_text(generated_text, encoding="utf-8")
 
                 # Update ACD with fallback details
-                await acd.set_metadata({
-                    **initial_context,
-                    "error": str(e),
-                    "error_type": type(e).__name__,
-                    "using_fallback": True,
-                    "fallback_method": "template_based",
-                    "word_count": len(generated_text.split()),
-                    "character_count": len(generated_text),
-                })
+                await acd.set_metadata(
+                    {
+                        **initial_context,
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                        "using_fallback": True,
+                        "fallback_method": "template_based",
+                        "word_count": len(generated_text.split()),
+                        "character_count": len(generated_text),
+                    }
+                )
 
                 return {
                     "file_path": str(file_path),
@@ -1290,7 +1388,7 @@ Generate the social media content now:"""
                 serializable_content_data[key] = str(value)
             else:
                 serializable_content_data[key] = value
-        
+
         content = ContentModel(
             persona_id=persona.id,
             content_type=request.content_type.value,
@@ -1314,38 +1412,41 @@ Generate the social media content now:"""
         self.db.add(content)
         await self.db.commit()
         await self.db.refresh(content)
-        
+
         # Link ACD context back to content now that content exists
         acd_context_id = content_data.get("acd_context_id")
         if acd_context_id:
             try:
                 from backend.services.acd_service import ACDService
                 from backend.models.acd import ACDContextUpdate
-                
+
                 acd_service = ACDService(self.db)
-                
+
                 # Convert string to UUID if needed
                 if isinstance(acd_context_id, str):
                     from uuid import UUID as UUIDType
+
                     acd_context_id = UUIDType(acd_context_id)
-                
+
                 # Update ACD context with content_id
                 await acd_service.update_context(
                     acd_context_id,
-                    ACDContextUpdate(
-                        ai_note=f"Content created: {content.id}"
-                    )
+                    ACDContextUpdate(ai_note=f"Content created: {content.id}"),
                 )
-                
+
                 # Also update the content_id field in ACD context directly
-                stmt = select(ACDContextModel).where(ACDContextModel.id == acd_context_id)
+                stmt = select(ACDContextModel).where(
+                    ACDContextModel.id == acd_context_id
+                )
                 result = await self.db.execute(stmt)
                 acd_context = result.scalar_one_or_none()
                 if acd_context:
                     acd_context.content_id = content.id
                     await self.db.commit()
-                    logger.info(f"Linked ACD context {acd_context_id} to content {content.id}")
-                    
+                    logger.info(
+                        f"Linked ACD context {acd_context_id} to content {content.id}"
+                    )
+
             except Exception as e:
                 logger.warning(f"Failed to link ACD context to content: {str(e)}")
                 # Don't fail content creation if ACD linking fails

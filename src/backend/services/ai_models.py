@@ -2018,27 +2018,33 @@ class AIModelManager:
                     ),
                 }
 
-                # For SDXL models, try to use the community Long Prompt Pipeline
-                # This handles prompts > 77 tokens without truncation
-                sdxl_long_prompt_available = False
+                # For SDXL models, use standard pipeline with dual text encoders
+                # SDXL natively supports longer prompts (up to 154 tokens) via its dual encoders:
+                # - CLIP ViT-L encoder: 77 tokens
+                # - OpenCLIP ViT-G encoder: 77 tokens
+                # Total: 154 tokens without truncation
+                # Note: For prompts >154 tokens, consider using the 'compel' library (pip install compel)
                 if is_sdxl:
-                    # Add custom_pipeline parameter to use community SDXL Long Prompt Pipeline
-                    load_args["custom_pipeline"] = "lpw_stable_diffusion_xl"
-                    pipeline_type = "StableDiffusionXLLongPromptWeightingPipeline (community)"
-                    logger.info(f"Attempting to load SDXL Long Prompt Pipeline from community examples")
+                    pipeline_type = "StableDiffusionXLPipeline"
+                    logger.info(
+                        f"Using standard SDXL pipeline with dual text encoders (supports up to 154 tokens)"
+                    )
+                    logger.info(
+                        f"📝 For prompts exceeding 154 tokens, install 'compel' library for advanced prompt weighting"
+                    )
                 else:
                     # For SD 1.5, use standard pipeline
                     pipeline_type = "StableDiffusionPipeline"
                     # Only add safety_checker params for SD 1.5 models (not SDXL)
                     load_args["safety_checker"] = None  # Disable for performance
                     load_args["requires_safety_checker"] = False  # Suppress warning
-                
+
                 logger.info(f"Using pipeline: {pipeline_type} for model {model_name}")
 
                 # Try to load from local path first, fallback to HuggingFace Hub
                 if model_path.exists():
                     logger.info(f"Loading model from local path: {model_path}")
-                    
+
                     # Try to load with fp16 variant first for SDXL models
                     # If variant files are not available, fallback to default loading
                     if is_sdxl and "cuda" in device:
@@ -2049,52 +2055,27 @@ class AIModelManager:
                             pipe = DiffusionPipeline.from_pretrained(
                                 str(model_path), **load_args_fp16
                             )
-                            sdxl_long_prompt_available = True
-                            logger.info("✅ Successfully loaded SDXL Long Prompt Pipeline (supports prompts > 77 tokens)")
-                        except Exception as e:
-                            logger.warning(
-                                f"Failed to load community pipeline, trying fallback: {e}"
+                            logger.info(
+                                "✅ Successfully loaded SDXL pipeline with dual text encoders (supports up to 154 tokens)"
                             )
-                            # Remove custom_pipeline and try standard SDXL pipeline
-                            load_args_fp16_fallback = load_args_fp16.copy()
-                            del load_args_fp16_fallback["custom_pipeline"]
-                            try:
-                                pipe = DiffusionPipeline.from_pretrained(
-                                    str(model_path), **load_args_fp16_fallback
-                                )
-                                logger.warning("⚠️  Using standard SDXL pipeline (77 token limit applies)")
-                            except (ValueError, OSError) as e2:
-                                logger.warning(
-                                    f"fp16 variant not available, loading without variant: {e2}"
-                                )
-                                load_args_fallback = load_args.copy()
-                                del load_args_fallback["custom_pipeline"]
-                                pipe = DiffusionPipeline.from_pretrained(
-                                    str(model_path), **load_args_fallback
-                                )
-                                logger.warning("⚠️  Using standard SDXL pipeline (77 token limit applies)")
-                    else:
-                        try:
+                        except (ValueError, OSError) as e:
+                            logger.warning(
+                                f"fp16 variant not available, loading without variant: {e}"
+                            )
                             pipe = DiffusionPipeline.from_pretrained(
                                 str(model_path), **load_args
                             )
-                            if is_sdxl:
-                                sdxl_long_prompt_available = True
-                                logger.info("✅ Successfully loaded SDXL Long Prompt Pipeline (supports prompts > 77 tokens)")
-                        except Exception as e:
-                            if is_sdxl:
-                                logger.warning(
-                                    f"Failed to load community pipeline, trying fallback: {e}"
-                                )
-                                # Remove custom_pipeline and try standard pipeline
-                                load_args_fallback = load_args.copy()
-                                del load_args_fallback["custom_pipeline"]
-                                pipe = DiffusionPipeline.from_pretrained(
-                                    str(model_path), **load_args_fallback
-                                )
-                                logger.warning("⚠️  Using standard SDXL pipeline (77 token limit applies)")
-                            else:
-                                raise
+                            logger.info(
+                                "✅ Successfully loaded SDXL pipeline (supports up to 154 tokens)"
+                            )
+                    else:
+                        pipe = DiffusionPipeline.from_pretrained(
+                            str(model_path), **load_args
+                        )
+                        if is_sdxl:
+                            logger.info(
+                                "✅ Successfully loaded SDXL pipeline with dual text encoders (supports up to 154 tokens)"
+                            )
                 else:
                     logger.info(f"Loading model from HuggingFace Hub: {model_id}")
 
@@ -2108,46 +2089,25 @@ class AIModelManager:
                             pipe = DiffusionPipeline.from_pretrained(
                                 model_id, **load_args_fp16
                             )
-                            sdxl_long_prompt_available = True
-                            logger.info("✅ Successfully loaded SDXL Long Prompt Pipeline (supports prompts > 77 tokens)")
-                        except Exception as e:
-                            logger.warning(
-                                f"Failed to load community pipeline, trying fallback: {e}"
+                            logger.info(
+                                "✅ Successfully loaded SDXL pipeline with dual text encoders (supports up to 154 tokens)"
                             )
-                            # Remove custom_pipeline and try standard SDXL pipeline
-                            load_args_fp16_fallback = load_args_fp16.copy()
-                            del load_args_fp16_fallback["custom_pipeline"]
-                            try:
-                                pipe = DiffusionPipeline.from_pretrained(
-                                    model_id, **load_args_fp16_fallback
-                                )
-                                logger.warning("⚠️  Using standard SDXL pipeline (77 token limit applies)")
-                            except (ValueError, OSError) as e2:
-                                logger.warning(
-                                    f"fp16 variant not available, loading without variant: {e2}"
-                                )
-                                load_args_fallback = load_args.copy()
-                                del load_args_fallback["custom_pipeline"]
-                                pipe = DiffusionPipeline.from_pretrained(model_id, **load_args_fallback)
-                                logger.warning("⚠️  Using standard SDXL pipeline (77 token limit applies)")
+                        except (ValueError, OSError) as e:
+                            logger.warning(
+                                f"fp16 variant not available, loading without variant: {e}"
+                            )
+                            pipe = DiffusionPipeline.from_pretrained(
+                                model_id, **load_args
+                            )
+                            logger.info(
+                                "✅ Successfully loaded SDXL pipeline (supports up to 154 tokens)"
+                            )
                     else:
-                        try:
-                            pipe = DiffusionPipeline.from_pretrained(model_id, **load_args)
-                            if is_sdxl:
-                                sdxl_long_prompt_available = True
-                                logger.info("✅ Successfully loaded SDXL Long Prompt Pipeline (supports prompts > 77 tokens)")
-                        except Exception as e:
-                            if is_sdxl:
-                                logger.warning(
-                                    f"Failed to load community pipeline, trying fallback: {e}"
-                                )
-                                # Remove custom_pipeline and try standard pipeline
-                                load_args_fallback = load_args.copy()
-                                del load_args_fallback["custom_pipeline"]
-                                pipe = DiffusionPipeline.from_pretrained(model_id, **load_args_fallback)
-                                logger.warning("⚠️  Using standard SDXL pipeline (77 token limit applies)")
-                            else:
-                                raise
+                        pipe = DiffusionPipeline.from_pretrained(model_id, **load_args)
+                        if is_sdxl:
+                            logger.info(
+                                "✅ Successfully loaded SDXL pipeline with dual text encoders (supports up to 154 tokens)"
+                            )
                     # Save to local path for future use
                     if not model_path.exists():
                         model_path.mkdir(parents=True, exist_ok=True)
@@ -2314,23 +2274,25 @@ class AIModelManager:
             # Convert PIL Image to bytes
             img_byte_arr = io.BytesIO()
             image.save(img_byte_arr, format="PNG")
-            
+
             # Get the buffer position to check if all data was written
             buffer_position = img_byte_arr.tell()
             logger.debug(f"BytesIO buffer position after save: {buffer_position}")
-            
+
             # Get the actual bytes
             image_data = img_byte_arr.getvalue()
-            
+
             logger.info(
                 f"Image generated successfully: {len(image_data)} bytes "
                 f"(buffer position: {buffer_position}, match: {len(image_data) == buffer_position})"
             )
-            
+
             # Additional sanity check - verify we can load the image from bytes
             try:
                 verify_img = Image.open(io.BytesIO(image_data))
-                logger.debug(f"Image bytes verification: {verify_img.size} {verify_img.mode}")
+                logger.debug(
+                    f"Image bytes verification: {verify_img.size} {verify_img.mode}"
+                )
             except Exception as e:
                 logger.error(f"⚠️  Generated image bytes are corrupted: {e}")
 
@@ -2796,50 +2758,55 @@ class AIModelManager:
     def _truncate_prompt_for_clip(self, prompt: str, max_tokens: int = 75) -> str:
         """
         Truncate prompt to fit within CLIP's 77 token limit (leaving 2 tokens for special tokens).
-        
+
         NOTE: This is only used for SD 1.5 models as a fallback. SDXL models use
         StableDiffusionXLLongPromptWeightingPipeline which properly handles prompts
         longer than 77 tokens without truncation.
-        
+
         CLIP tokenizer has a hard limit of 77 tokens. We use 75 to be safe.
         This function intelligently truncates the prompt while preserving key details.
-        
+
         Args:
             prompt: Full prompt text
             max_tokens: Maximum number of tokens (default 75 to leave room for special tokens)
-            
+
         Returns:
             Truncated prompt that fits within token limit
         """
         # Simple word-based approximation (1 token ≈ 0.75 words for English)
         # This is a safe heuristic that slightly underestimates to prevent truncation
         estimated_tokens = len(prompt.split()) * 1.3
-        
+
         if estimated_tokens <= max_tokens:
             return prompt
-        
+
         # Need to truncate - keep the most important parts
         # Priority: main subject description > style qualifiers > technical details
         words = prompt.split()
         target_words = int(max_tokens / 1.3)  # Convert tokens back to words
-        
+
         if len(words) <= target_words:
             return prompt
-        
+
         # Take the most important words from the beginning and essential style words
         truncated = " ".join(words[:target_words])
-        logger.warning(f"Prompt truncated from {len(words)} to {target_words} words to fit CLIP's 77 token limit")
+        logger.warning(
+            f"Prompt truncated from {len(words)} to {target_words} words to fit CLIP's 77 token limit"
+        )
         logger.debug(f"Original: {prompt[:100]}...")
         logger.debug(f"Truncated: {truncated[:100]}...")
-        
+
         return truncated
 
     def _build_style_specific_prompt(
-        self, base_prompt: str, image_style: str = "photorealistic", use_long_prompt: bool = True
+        self,
+        base_prompt: str,
+        image_style: str = "photorealistic",
+        use_long_prompt: bool = True,
     ) -> tuple[str, str]:
         """
         Build style-specific prompts and negative prompts for image generation.
-        
+
         For SDXL models, returns full prompts without truncation when use_long_prompt=True,
         as StableDiffusionXLLongPromptWeightingPipeline handles prompts > 77 tokens.
         For SD 1.5 models, truncates to fit CLIP's 77 token limit.
@@ -2896,11 +2863,13 @@ class AIModelManager:
 
         # Build enhanced prompt
         enhanced_prompt = f"{config['prefix']} {base_prompt}, {config['suffix']}"
-        
+
         # For SDXL with Long Prompt Pipeline, don't truncate
         # For SD 1.5 or fallback mode, truncate to fit CLIP's 77 token limit
         if use_long_prompt:
-            logger.debug(f"Using full prompt for SDXL Long Prompt Pipeline (no truncation)")
+            logger.debug(
+                f"Using full prompt for SDXL Long Prompt Pipeline (no truncation)"
+            )
             return enhanced_prompt, config["negative"]
         else:
             truncated_prompt = self._truncate_prompt_for_clip(enhanced_prompt)
@@ -2948,7 +2917,7 @@ class AIModelManager:
             # Check if we're using SDXL to determine if we can use long prompts
             model = self._get_best_local_image_model()
             is_sdxl = "xl" in model.get("name", "").lower()
-            
+
             # Build style-specific prompt and negative prompt
             # For SDXL, use full prompts (Long Prompt Pipeline handles > 77 tokens)
             # For SD 1.5, truncate to fit CLIP's limit

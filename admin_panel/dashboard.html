@@ -777,20 +777,42 @@
         
         async function generateContent() {
             try {
+                // Get all active personas to use their configured ratings
+                const personasResponse = await fetch('/api/v1/personas/');
+                const personas = await personasResponse.json();
+                
+                if (!personas || personas.length === 0) {
+                    alert('⚠️ No personas found. Create a persona first!');
+                    window.location.href = '/admin/personas?action=create';
+                    return;
+                }
+                
+                // Pick a random persona to use its settings
+                const randomPersona = personas[Math.floor(Math.random() * personas.length)];
+                
+                // Use persona's configured content rating (or default to sfw if not set)
+                const contentRating = randomPersona.default_content_rating || 
+                                     (randomPersona.allowed_content_ratings && randomPersona.allowed_content_ratings.length > 0 
+                                      ? randomPersona.allowed_content_ratings[Math.floor(Math.random() * randomPersona.allowed_content_ratings.length)]
+                                      : 'sfw');
+                
                 const response = await fetch('/api/v1/content/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        persona_id: randomPersona.id,
                         content_type: 'image',
-                        prompt: 'Generate trending content based on RSS feeds'
+                        content_rating: contentRating,
+                        prompt: 'Generate trending content based on RSS feeds and persona style'
                     })
                 });
                 
                 if (response.ok) {
-                    alert('✅ Content generation started!');
+                    alert(`✅ Content generation started for ${randomPersona.name} (${contentRating})!`);
                     setTimeout(loadDashboard, 2000);
                 }
             } catch (error) {
+                console.error('Generation error:', error);
                 alert('❌ Failed to generate content');
             }
         }

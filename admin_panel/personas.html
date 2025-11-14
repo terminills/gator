@@ -540,6 +540,9 @@
                             <button class="btn btn-secondary" onclick="viewPersona('${persona.id}')">
                                 👁️ View
                             </button>
+                            <button class="btn btn-secondary" onclick="deletePersona('${persona.id}', '${persona.name.replace(/'/g, "\\'")}')">
+                                🗑️ Delete
+                            </button>
                         </div>
                     `;
                     grid.appendChild(card);
@@ -595,6 +598,41 @@
         
         function viewPersona(id) {
             window.location.href = `/gallery/persona/${id}`;
+        }
+        
+        async function deletePersona(id, name) {
+            // Confirm deletion with user
+            const confirmed = confirm(
+                `⚠️ Delete Persona: ${name}\n\n` +
+                `Are you sure you want to delete this persona?\n\n` +
+                `This will:\n` +
+                `• Mark the persona as inactive (soft delete)\n` +
+                `• Preserve existing content for audit trail\n` +
+                `• Remove from active persona list\n\n` +
+                `This action can be reversed by an administrator.`
+            );
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/v1/personas/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok || response.status === 204) {
+                    alert(`✅ Persona "${name}" has been deleted successfully.`);
+                    // Reload the personas list
+                    loadPersonas();
+                } else {
+                    const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                    alert(`❌ Failed to delete persona: ${error.detail || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Delete persona error:', error);
+                alert('❌ Failed to delete persona. Please try again.');
+            }
         }
         
         // Load on page load
