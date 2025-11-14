@@ -45,6 +45,8 @@ def find_comfyui_installation(base_dir: Optional[Path] = None) -> Optional[Path]
         Path.cwd() / "ComfyUI",  # Current working directory
         Path(__file__).parent.parent.parent.parent / "ComfyUI",  # Repository root
         Path.home() / "ComfyUI",  # Home directory
+        Path("/opt/ComfyUI"),  # System-wide installation
+        Path("/usr/local/ComfyUI"),  # Alternative system location
     ])
     
     for location in possible_locations:
@@ -56,6 +58,44 @@ def find_comfyui_installation(base_dir: Optional[Path] = None) -> Optional[Path]
                 return location.resolve()
     
     return None
+
+
+def check_comfyui_api_available(api_url: str = "http://127.0.0.1:8188", timeout: float = 3.0) -> bool:
+    """
+    Check if ComfyUI API is running and accessible.
+    
+    Args:
+        api_url: ComfyUI API URL (default: http://127.0.0.1:8188)
+        timeout: Request timeout in seconds (default: 3.0)
+    
+    Returns:
+        True if ComfyUI API is accessible, False otherwise
+    """
+    try:
+        import httpx
+        
+        # Try multiple endpoints to verify ComfyUI is running
+        endpoints_to_check = [
+            f"{api_url}/system_stats",
+            f"{api_url}/queue",
+            f"{api_url}/object_info",
+        ]
+        
+        for endpoint in endpoints_to_check:
+            try:
+                response = httpx.get(endpoint, timeout=timeout)
+                if response.status_code == 200:
+                    return True
+            except Exception:
+                continue
+        
+        return False
+        
+    except ImportError:
+        # httpx not available, cannot check API
+        return False
+    except Exception:
+        return False
 
 
 def find_automatic1111_installation(base_dir: Optional[Path] = None) -> Optional[Path]:
@@ -385,13 +425,14 @@ def get_inference_engines_status(base_dir: Optional[Path] = None) -> Dict[str, D
     return engines
 
 
-def check_inference_engine_available(engine: str, base_dir: Optional[Path] = None) -> bool:
+def check_inference_engine_available(engine: str, base_dir: Optional[Path] = None, check_api: bool = False) -> bool:
     """
     Check if an inference engine is available.
     
     Args:
         engine: Name of the inference engine (vllm, comfyui, diffusers, transformers, llama-cpp, llama.cpp)
         base_dir: Optional base directory for relative path checks
+        check_api: For ComfyUI, also check if API is running (default: False)
     
     Returns:
         True if the engine is available, False otherwise
@@ -399,7 +440,17 @@ def check_inference_engine_available(engine: str, base_dir: Optional[Path] = Non
     if engine == "vllm":
         return find_vllm_installation() is not None
     elif engine == "comfyui":
-        return find_comfyui_installation(base_dir) is not None
+        # Check installation first
+        comfyui_path = find_comfyui_installation(base_dir)
+        if comfyui_path is None:
+            return False
+        
+        # Optionally check if API is running
+        if check_api:
+            api_url = os.environ.get("COMFYUI_API_URL", "http://127.0.0.1:8188")
+            return check_comfyui_api_available(api_url)
+        
+        return True
     elif engine == "automatic1111":
         return find_automatic1111_installation(base_dir) is not None
     elif engine in ["llama-cpp", "llama.cpp"]:  # Support both formats
