@@ -2291,6 +2291,61 @@ class AIModelManager:
                 use_karras_sigmas=True,
             )
 
+            # Handle long prompts (>77 tokens) with compel library for SDXL
+            # This allows prompts exceeding the CLIP token limit without truncation
+            prompt_embeds = None
+            negative_prompt_embeds = None
+            pooled_prompt_embeds = None
+            negative_pooled_prompt_embeds = None
+            
+            if is_sdxl and not use_img2img:
+                # Check if we should use compel for long prompt support
+                # Estimate token count (rough approximation: 1.3 tokens per word)
+                estimated_tokens = len(prompt.split()) * 1.3
+                
+                if estimated_tokens > 75:
+                    try:
+                        # Try to use compel for long prompt handling
+                        from compel import Compel, ReturnedEmbeddingsType
+                        
+                        logger.info(f"Using compel for long prompt support (~{int(estimated_tokens)} tokens)")
+                        
+                        # Create compel instance for SDXL
+                        compel = Compel(
+                            tokenizer=[pipe.tokenizer, pipe.tokenizer_2],
+                            text_encoder=[pipe.text_encoder, pipe.text_encoder_2],
+                            returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
+                            requires_pooled=[False, True],
+                            device=device
+                        )
+                        
+                        # Generate embeddings for prompt and negative prompt
+                        conditioning, pooled = compel(prompt)
+                        negative_conditioning, negative_pooled = compel(negative_prompt)
+                        
+                        # Set the embeddings to use
+                        prompt_embeds = conditioning
+                        pooled_prompt_embeds = pooled
+                        negative_prompt_embeds = negative_conditioning
+                        negative_pooled_prompt_embeds = negative_pooled
+                        
+                        # Clear text prompts since we're using embeddings
+                        prompt = None
+                        negative_prompt = None
+                        
+                        logger.info("✓ Long prompt encoded successfully with compel")
+                        
+                    except ImportError:
+                        logger.warning(
+                            "compel library not available. Install with: pip install compel"
+                        )
+                        logger.warning(
+                            f"Prompt may be truncated to CLIP's token limit (prompt has ~{int(estimated_tokens)} tokens)"
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to use compel: {e}")
+                        logger.warning("Falling back to standard prompt encoding")
+
             # Generate image (run in thread pool to avoid blocking)
             # Use different parameters for img2img vs text2img
             try:
@@ -2298,14 +2353,15 @@ class AIModelManager:
                 
                 if use_img2img and init_image:
                     # img2img generation with reference image
+                    # Note: compel doesn't support img2img yet, use standard prompts
                     logger.info(f"Generating img2img with strength={img2img_strength}")
                     image = await loop.run_in_executor(
                         None,
                         lambda: pipe(
-                            prompt=prompt,
+                            prompt=kwargs.get("prompt", ""),  # Use original prompt for img2img
                             image=init_image,
                             strength=img2img_strength,
-                            negative_prompt=negative_prompt,
+                            negative_prompt=kwargs.get("negative_prompt", "ugly, blurry, low quality, distorted"),
                             num_inference_steps=num_inference_steps,
                             guidance_scale=guidance_scale,
                             generator=generator,
@@ -2314,19 +2370,39 @@ class AIModelManager:
                     logger.info("✓ Image generated successfully via img2img")
                 else:
                     # Standard text2img generation
-                    image = await loop.run_in_executor(
-                        None,
-                        lambda: pipe(
-                            prompt=prompt,
-                            negative_prompt=negative_prompt,
-                            num_inference_steps=num_inference_steps,
-                            guidance_scale=guidance_scale,
-                            width=width,
-                            height=height,
-                            generator=generator,
-                        ).images[0],
-                    )
-                    logger.info("✓ Image generated successfully via text2img")
+                    # Use embeddings if available (from compel), otherwise use text prompts
+                    if prompt_embeds is not None:
+                        # Using compel embeddings for long prompt support
+                        image = await loop.run_in_executor(
+                            None,
+                            lambda: pipe(
+                                prompt_embeds=prompt_embeds,
+                                negative_prompt_embeds=negative_prompt_embeds,
+                                pooled_prompt_embeds=pooled_prompt_embeds,
+                                negative_pooled_prompt_embeds=negative_pooled_prompt_embeds,
+                                num_inference_steps=num_inference_steps,
+                                guidance_scale=guidance_scale,
+                                width=width,
+                                height=height,
+                                generator=generator,
+                            ).images[0],
+                        )
+                        logger.info("✓ Image generated successfully via text2img with compel embeddings")
+                    else:
+                        # Using standard text prompts
+                        image = await loop.run_in_executor(
+                            None,
+                            lambda: pipe(
+                                prompt=prompt,
+                                negative_prompt=negative_prompt,
+                                num_inference_steps=num_inference_steps,
+                                guidance_scale=guidance_scale,
+                                width=width,
+                                height=height,
+                                generator=generator,
+                            ).images[0],
+                        )
+                        logger.info("✓ Image generated successfully via text2img")
             except Exception as e:
                 logger.error(f"Diffusers generation failed: {str(e)}")
                 logger.error(f"Error type: {type(e).__name__}")
