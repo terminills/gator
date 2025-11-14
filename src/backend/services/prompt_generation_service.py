@@ -17,6 +17,11 @@ import subprocess
 import shutil
 from typing import Dict, List, Optional, Any
 from pathlib import Path
+from datetime import datetime, timezone, timedelta
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from backend.config.logging import get_logger
 from backend.models.persona import PersonaModel
@@ -33,10 +38,11 @@ class PromptGenerationService:
     to create comprehensive prompts optimized for SDXL image generation.
     """
     
-    def __init__(self):
+    def __init__(self, db_session: Optional[AsyncSession] = None):
         self.llamacpp_binary = shutil.which("llama-cli") or shutil.which("main")
         if not self.llamacpp_binary:
             logger.warning("llama.cpp not found in PATH. Prompt generation will use templates.")
+        self.db = db_session
         
     async def generate_image_prompt(
         self,
@@ -54,7 +60,7 @@ class PromptGenerationService:
             persona: Persona model with appearance, personality, preferences
             context: Optional context/situation for the image
             content_rating: Content rating (SFW/NSFW)
-            rss_content: Optional RSS feed item for inspiration
+            rss_content: Optional RSS feed item for inspiration (if None, will fetch from DB)
             image_style: Optional style override (photorealistic, anime, etc.)
             use_ai: Whether to use AI (llama.cpp) or fall back to templates
             
@@ -64,6 +70,10 @@ class PromptGenerationService:
         try:
             # Determine the style to use
             style = image_style or persona.image_style or "photorealistic"
+            
+            # Fetch RSS content from database if not provided and database is available
+            if rss_content is None and self.db is not None:
+                rss_content = await self._fetch_rss_content_for_persona(persona)
             
             # Check if we should use AI generation
             if use_ai and self.llamacpp_binary and self._get_llama_model():
@@ -118,6 +128,141 @@ class PromptGenerationService:
         
         logger.debug("No llama.cpp model found")
         return None
+    
+    async def _fetch_rss_content_for_persona(self, persona: PersonaModel) -> Optional[Dict[str, Any]]:
+        """
+        Fetch relevant RSS feed content from the database for a persona.
+        
+        Queries recent feed items for the persona's assigned feeds and matches them
+        with the persona's content themes and interests.
+        
+        Args:
+            persona: Persona to fetch RSS content for
+            
+        Returns:
+            Dict with RSS content including title, summary, categories, keywords
+            or None if no relevant content found
+        """
+        if self.db is None:
+            logger.debug("No database session available for RSS content fetching")
+            return None
+            
+        try:
+            from backend.models.feed import PersonaFeedModel, FeedItemModel
+            
+            # Get RSS feeds assigned to this persona
+            stmt = (
+                select(PersonaFeedModel)
+                .where(PersonaFeedModel.persona_id == persona.id)
+                .where(PersonaFeedModel.is_active == True)
+                .order_by(PersonaFeedModel.priority.desc())
+                .limit(5)
+            )
+            result = await self.db.execute(stmt)
+            persona_feeds = result.scalars().all()
+            
+            if not persona_feeds:
+                logger.debug(f"No RSS feeds assigned to persona {persona.name}")
+                return None
+            
+            # Extract feed IDs and topics for filtering
+            feed_ids = [pf.feed_id for pf in persona_feeds]
+            persona_topics = []
+            for pf in persona_feeds:
+                if pf.topics:
+                    persona_topics.extend(pf.topics)
+            
+            # Get recent, high-relevance feed items from the last 48 hours
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=48)
+            
+            stmt = (
+                select(FeedItemModel)
+                .where(FeedItemModel.feed_id.in_(feed_ids))
+                .where(FeedItemModel.created_at >= cutoff_time)
+                .where(FeedItemModel.processed == True)
+                .order_by(FeedItemModel.relevance_score.desc())
+                .limit(10)
+            )
+            result = await self.db.execute(stmt)
+            feed_items = result.scalars().all()
+            
+            if not feed_items:
+                logger.debug(f"No recent feed items found for persona {persona.name}")
+                return None
+            
+            # Score and select the best matching item based on persona themes
+            best_item = self._select_best_feed_item(feed_items, persona_topics, persona.content_themes)
+            
+            if best_item:
+                logger.info(f"Found relevant RSS content for persona {persona.name}: {best_item.title[:50]}")
+                return {
+                    'title': best_item.title,
+                    'summary': best_item.content_summary or best_item.description or '',
+                    'categories': best_item.categories or [],
+                    'keywords': best_item.keywords or [],
+                    'topics': best_item.topics or [],
+                    'relevance_score': best_item.relevance_score,
+                }
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch RSS content for persona {persona.name}: {e}")
+            return None
+    
+    def _select_best_feed_item(
+        self,
+        feed_items: List[Any],
+        persona_topics: List[str],
+        persona_themes: List[str]
+    ) -> Optional[Any]:
+        """
+        Select the most relevant feed item based on persona topics and themes.
+        
+        Args:
+            feed_items: List of FeedItemModel objects
+            persona_topics: Topics assigned to persona's feeds
+            persona_themes: Persona's content themes
+            
+        Returns:
+            Best matching FeedItemModel or None
+        """
+        if not feed_items:
+            return None
+        
+        # If no filtering criteria, return the highest relevance item
+        if not persona_topics and not persona_themes:
+            return feed_items[0]
+        
+        # Score each item based on topic and theme matches
+        scored_items = []
+        for item in feed_items:
+            score = item.relevance_score or 0.5
+            
+            # Combine item text for matching
+            item_text = f"{item.title} {item.description or ''} {' '.join(item.categories or [])} {' '.join(item.keywords or [])}".lower()
+            
+            # Boost score for persona topic matches
+            for topic in persona_topics:
+                if topic.lower() in item_text:
+                    score += 0.2
+            
+            # Boost score for persona theme matches
+            for theme in persona_themes:
+                if theme.lower() in item_text:
+                    score += 0.15
+            
+            # Boost score for item topics matching persona themes
+            if item.topics:
+                for item_topic in item.topics:
+                    if item_topic.lower() in [t.lower() for t in persona_themes]:
+                        score += 0.25
+            
+            scored_items.append((score, item))
+        
+        # Sort by score and return the best match
+        scored_items.sort(key=lambda x: x[0], reverse=True)
+        return scored_items[0][1] if scored_items else None
     
     async def _generate_with_ai(
         self,
@@ -243,9 +388,32 @@ class PromptGenerationService:
         if context:
             instruction_parts.append(f"Context/Situation: {context}")
         
-        # Add RSS content if available
+        # Add RSS content if available - generate a reaction/engagement prompt
         if rss_content:
-            instruction_parts.append(f"Inspiration: {rss_content.get('title', '')} - {rss_content.get('summary', '')[:200]}")
+            instruction_parts.append("")
+            instruction_parts.append("# RSS Feed Content - Generate a Reaction")
+            instruction_parts.append(f"Title: {rss_content.get('title', '')}")
+            
+            summary = rss_content.get('summary', '')
+            if summary:
+                instruction_parts.append(f"Summary: {summary[:200]}")
+            
+            # Add categories and keywords for context
+            categories = rss_content.get('categories', [])
+            if categories:
+                instruction_parts.append(f"Categories: {', '.join(categories[:5])}")
+            
+            keywords = rss_content.get('keywords', [])
+            if keywords:
+                instruction_parts.append(f"Keywords: {', '.join(keywords[:5])}")
+            
+            instruction_parts.append("")
+            instruction_parts.append("IMPORTANT: Generate an image prompt showing the persona reacting to or engaging with this content.")
+            instruction_parts.append("Examples:")
+            instruction_parts.append("- Reading/viewing the content on a device (phone, tablet, laptop)")
+            instruction_parts.append("- Expressing emotion about the topic (excited, thoughtful, curious)")
+            instruction_parts.append("- In a setting related to the content theme")
+            instruction_parts.append("- Their facial expression and body language should reflect engagement with the topic")
         
         # Add generation guidelines
         instruction_parts.extend([
@@ -361,10 +529,51 @@ class PromptGenerationService:
         if context:
             prompt_parts.append(f"in {context}")
         
-        # Add RSS-inspired elements
-        if rss_content and rss_content.get('title'):
-            # Extract key themes from RSS title
-            prompt_parts.append(f"themed around {rss_content['title'][:50]}")
+        # Add RSS-inspired reaction elements
+        if rss_content:
+            rss_title = rss_content.get('title', '')
+            rss_keywords = rss_content.get('keywords', [])
+            rss_topics = rss_content.get('topics', [])
+            
+            # Generate a reaction/engagement scenario
+            reaction_elements = []
+            
+            # Add device/reading context
+            reaction_elements.append("holding smartphone")
+            
+            # Add emotional reaction based on content
+            if rss_keywords:
+                # Positive/exciting keywords
+                exciting_words = ['breakthrough', 'innovation', 'success', 'amazing', 'win', 'achievement']
+                if any(word in ' '.join(rss_keywords).lower() for word in exciting_words):
+                    reaction_elements.append("excited expression")
+                else:
+                    reaction_elements.append("thoughtfully engaged")
+            else:
+                reaction_elements.append("reading attentively")
+            
+            # Add thematic setting based on RSS content
+            if rss_topics:
+                topic_settings = {
+                    'technology': 'modern tech workspace',
+                    'business': 'professional office setting',
+                    'science': 'contemporary study',
+                    'health': 'wellness environment',
+                    'entertainment': 'casual lifestyle setting',
+                    'sports': 'active lifestyle environment',
+                }
+                for topic in rss_topics:
+                    if topic.lower() in topic_settings:
+                        reaction_elements.append(f"in {topic_settings[topic.lower()]}")
+                        break
+            
+            # Add the reaction context
+            if reaction_elements:
+                prompt_parts.append(', '.join(reaction_elements))
+            
+            # Add content inspiration
+            if rss_title:
+                prompt_parts.append(f"reacting to content about {rss_title[:40]}")
         
         # Add style-specific qualities
         style_qualities = {
@@ -436,12 +645,27 @@ class PromptGenerationService:
         return base_negative
 
 
-# Global instance
+# Global instance (deprecated - use with database session instead)
 _prompt_service: Optional[PromptGenerationService] = None
 
 
-def get_prompt_service() -> PromptGenerationService:
-    """Get or create the global PromptGenerationService instance."""
+def get_prompt_service(db_session: Optional[AsyncSession] = None) -> PromptGenerationService:
+    """
+    Get or create the PromptGenerationService instance.
+    
+    Args:
+        db_session: Optional database session for RSS content fetching.
+                    If provided, creates a new instance with database access.
+                    If None, returns the global instance without database access.
+    
+    Returns:
+        PromptGenerationService instance
+    """
+    # If database session is provided, create a new instance with it
+    if db_session is not None:
+        return PromptGenerationService(db_session)
+    
+    # Otherwise, return the global instance
     global _prompt_service
     if _prompt_service is None:
         _prompt_service = PromptGenerationService()
