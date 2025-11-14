@@ -399,6 +399,7 @@ class ReasoningOrchestrator:
         Core decision-making logic - selects the best action.
         
         This implements the "action selection" function of the basal ganglia.
+        NOW USES THE ACTUAL REASONING ENGINE (THE BRAIN).
         
         Args:
             context: ACD context
@@ -411,7 +412,40 @@ class ReasoningOrchestrator:
         Returns:
             OrchestrationDecision with selected action
         """
-        # Decision logic tree based on basal ganglia principles
+        # 🧠 USE THE REASONING ENGINE (THE BRAIN)
+        try:
+            from backend.services.reasoning_engine import ReasoningEngine
+            
+            engine = ReasoningEngine(self.db)
+            
+            # Call the actual reasoning brain
+            decision_dict = await engine.reason_about_context(
+                context=context,
+                current_agent=current_agent,
+                situation=situation,
+                patterns=patterns,
+            )
+            
+            # Convert dict to OrchestrationDecision
+            decision = OrchestrationDecision(
+                decision_type=DecisionType(decision_dict["decision_type"]),
+                confidence=DecisionConfidence(decision_dict["confidence"]),
+                reasoning=decision_dict["reasoning"],
+                target_agent=decision_dict.get("target_agent"),
+                action_plan=decision_dict.get("action_plan", {}),
+                learned_patterns=decision_dict.get("learned_patterns", []),
+                risk_assessment=decision_dict.get("risk_assessment"),
+            )
+            
+            logger.info("🧠 Decision made by reasoning engine (THE BRAIN)")
+            return decision
+            
+        except Exception as e:
+            logger.error(f"Reasoning engine failed, using fallback: {e}")
+            # Fallback to rule-based logic below
+        
+        # FALLBACK: Decision logic tree based on basal ganglia principles
+        # This is the safety net when the reasoning engine is not available
         
         # Rule 1: If critical complexity and low confidence -> escalate
         if complexity_score >= 0.8 and confidence_score < 0.5:
