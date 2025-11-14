@@ -226,7 +226,8 @@ def create_app() -> FastAPI:
     app.include_router(persona.router)
     app.include_router(users.router)
     app.include_router(direct_messaging.router)
-    app.include_router(gator_agent.router, prefix="/api/v1")
+    app.include_router(gator_agent.router, prefix="/api/v1/gator-agent")
+    app.include_router(gator_agent.router, prefix="/gator-agent")  # Backward compatibility
     app.include_router(analytics.router)
     app.include_router(diagnostics.router)
     app.include_router(content.router)

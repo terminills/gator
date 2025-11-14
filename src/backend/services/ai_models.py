@@ -1442,7 +1442,7 @@ class AIModelManager:
                         continue
 
                 # Try generation with this engine
-                if engine == "llama.cpp":
+                if engine in ["llama.cpp", "llama-cpp"]:  # Support both formats
                     return await self._generate_text_llamacpp(prompt, model, **kwargs)
                 elif engine == "vllm":
                     return await self._generate_text_vllm(prompt, model, **kwargs)
@@ -1989,6 +1989,9 @@ class AIModelManager:
             # Check if reference image is provided for visual consistency
             reference_image_path = kwargs.get("reference_image_path")
             use_controlnet = kwargs.get("use_controlnet", False)
+            
+            # Determine if we're using img2img for visual consistency (must be declared early)
+            use_img2img = reference_image_path is not None
 
             # Get device ID if specified for multi-GPU support
             device_id = kwargs.get("device_id", None)
@@ -2206,8 +2209,7 @@ class AIModelManager:
                     gen_device = "cuda" if torch.cuda.is_available() else "cpu"
                 generator = torch.Generator(device=gen_device).manual_seed(seed)
 
-            # Determine if we're using img2img for visual consistency
-            use_img2img = reference_image_path is not None
+            # Handle img2img mode with reference image
             init_image = None
             img2img_strength = kwargs.get("img2img_strength", 0.75)  # Default to 0.75
             

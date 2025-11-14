@@ -390,7 +390,7 @@ def check_inference_engine_available(engine: str, base_dir: Optional[Path] = Non
     Check if an inference engine is available.
     
     Args:
-        engine: Name of the inference engine (vllm, comfyui, diffusers, transformers, llama-cpp)
+        engine: Name of the inference engine (vllm, comfyui, diffusers, transformers, llama-cpp, llama.cpp)
         base_dir: Optional base directory for relative path checks
     
     Returns:
@@ -402,7 +402,7 @@ def check_inference_engine_available(engine: str, base_dir: Optional[Path] = Non
         return find_comfyui_installation(base_dir) is not None
     elif engine == "automatic1111":
         return find_automatic1111_installation(base_dir) is not None
-    elif engine == "llama-cpp":
+    elif engine in ["llama-cpp", "llama.cpp"]:  # Support both formats
         return find_llama_cpp_installation() is not None
     elif engine in ["diffusers", "transformers"]:
         try:
