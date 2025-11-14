@@ -9,7 +9,7 @@ This allows platform content rating rules to be managed dynamically without code
 import asyncio
 from sqlalchemy import text
 
-from backend.database.connection import get_db_session, engine
+from backend.database.connection import database_manager
 from backend.models.platform_policy import PlatformPolicyModel, DEFAULT_PLATFORM_POLICIES
 from backend.services.platform_policy_service import PlatformPolicyService
 from backend.config.logging import get_logger
@@ -24,15 +24,20 @@ async def migrate():
     logger.info("=" * 80)
     
     try:
+        # Connect to database
+        await database_manager.connect()
+        logger.info("✓ Connected to database")
+        
         # Create tables
         logger.info("Creating platform_policies table...")
-        async with engine.begin() as conn:
-            await conn.run_sync(PlatformPolicyModel.metadata.create_all)
+        from backend.database.connection import Base
+        async with database_manager.engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
         logger.info("✓ Table created successfully")
         
         # Seed with default policies
         logger.info("\nSeeding default platform policies...")
-        async with get_db_session() as db:
+        async with database_manager.get_session() as db:
             policy_service = PlatformPolicyService(db)
             created_count = await policy_service.initialize_default_policies()
             
@@ -43,7 +48,7 @@ async def migrate():
         
         # List all policies
         logger.info("\nVerifying platform policies...")
-        async with get_db_session() as db:
+        async with database_manager.get_session() as db:
             policy_service = PlatformPolicyService(db)
             policies = await policy_service.list_all_policies()
             
@@ -60,6 +65,8 @@ async def migrate():
     except Exception as e:
         logger.error(f"❌ Migration failed: {str(e)}")
         raise
+    finally:
+        await database_manager.disconnect()
 
 
 if __name__ == "__main__":
