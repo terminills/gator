@@ -673,7 +673,7 @@ class ACDService:
                         persona_id=persona_id,
                         content_type=content_type,
                         prompt=prompt or f"Generate content for {context.ai_phase}",
-                        content_rating=ContentRating.SFW,  # Default, can be overridden
+                        content_rating=None,  # Use persona's default
                         quality=ai_context.get("quality", "standard"),
                     )
                     

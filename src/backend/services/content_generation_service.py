@@ -87,13 +87,17 @@ class ContentModerationService:
         return ContentRating.SFW
 
     @staticmethod
-    def platform_content_filter(
+    async def platform_content_filter(
         content_rating: ContentRating,
         target_platform: str,
         persona_platform_restrictions: Optional[Dict[str, str]] = None,
+        platform_policy_service = None,
     ) -> bool:
         """
         Check if content is appropriate for target platform.
+        
+        Uses database-driven platform policies instead of hardcoded rules.
+        This allows platform rules to be updated dynamically without code changes.
 
         Args:
             content_rating: The content rating to check (SFW, MODERATE, NSFW)
@@ -101,6 +105,7 @@ class ContentModerationService:
             persona_platform_restrictions: Optional persona-specific platform restrictions.
                 Format: {"instagram": "sfw_only", "onlyfans": "both", "twitter": "moderate_allowed"}
                 Supported values: "sfw_only", "moderate_allowed", "both" (all ratings)
+            platform_policy_service: Optional PlatformPolicyService instance for database lookup
 
         Returns:
             bool: True if content is allowed, False otherwise
@@ -121,20 +126,29 @@ class ContentModerationService:
             elif restriction == "both" or restriction == "all":
                 # Allow all content types for this persona on this platform
                 return True
-            # If unrecognized restriction, fall through to default policies
+            # If unrecognized restriction, fall through to platform policies
 
-        # Default platform policies (global rules when no persona override exists)
-        platform_policies = {
-            "instagram": [ContentRating.SFW, ContentRating.MODERATE],
-            "facebook": [ContentRating.SFW],
-            "twitter": [ContentRating.SFW, ContentRating.MODERATE, ContentRating.NSFW],
-            "onlyfans": [ContentRating.SFW, ContentRating.MODERATE, ContentRating.NSFW],
-            "patreon": [ContentRating.SFW, ContentRating.MODERATE, ContentRating.NSFW],
-            "discord": [ContentRating.SFW, ContentRating.MODERATE],
-        }
-
-        allowed_ratings = platform_policies.get(platform_lower, [ContentRating.SFW])
-        return content_rating in allowed_ratings
+        # Use platform policy service if provided
+        if platform_policy_service:
+            try:
+                return await platform_policy_service.check_content_allowed(
+                    platform_lower, content_rating
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to check platform policy for {platform_lower}: {e}. "
+                    f"Falling back to safe default."
+                )
+                # Fallback to safe default if database lookup fails
+                return content_rating == ContentRating.SFW
+        
+        # Fallback: if no platform policy service provided, default to safe
+        # This should not happen in production but provides backwards compatibility
+        logger.warning(
+            f"No platform policy service provided for {platform_lower}. "
+            f"Defaulting to SFW-only. Please initialize platform policies."
+        )
+        return content_rating == ContentRating.SFW
 
 
 class GenerationRequest(BaseModel):
@@ -142,7 +156,7 @@ class GenerationRequest(BaseModel):
 
     persona_id: UUID
     content_type: ContentType  # 'image', 'video', 'audio', 'voice', 'text'
-    content_rating: ContentRating = ContentRating.SFW
+    content_rating: Optional[ContentRating] = None  # Use persona's default if not specified
     prompt: Optional[str] = None
     style_override: Optional[Dict[str, Any]] = None
     quality: str = "high"  # 'draft', 'standard', 'high', 'premium'
@@ -180,6 +194,10 @@ class ContentGenerationService:
 
         self.moderation_service = ContentModerationService()
         self.template_service = TemplateService()
+        
+        # Import here to avoid circular dependency
+        from backend.services.platform_policy_service import PlatformPolicyService
+        self.platform_policy_service = PlatformPolicyService(db_session)
 
     async def generate_content(self, request: GenerationRequest) -> ContentResponse:
         """
@@ -234,8 +252,13 @@ class ContentGenerationService:
                     if allowed_ratings:
                         persona_rating = random.choice(allowed_ratings)
                     else:
-                        # Last resort fallback to sfw
-                        persona_rating = "sfw"
+                        # Last resort: randomly pick from all available ratings
+                        # This should never happen if persona is properly configured
+                        persona_rating = random.choice([r.value for r in ContentRating])
+                        logger.warning(
+                            f"Persona {persona.name} has no content ratings configured. "
+                            f"Randomly selected: {persona_rating}"
+                        )
                 request.content_rating = ContentRating(persona_rating)
                 logger.info(
                     f"   ✓ Using content rating: {request.content_rating.value}"
@@ -330,7 +353,7 @@ class ContentGenerationService:
         self,
         content_type: ContentType = ContentType.IMAGE,
         quality: Optional[str] = "standard",
-        content_rating: Optional[ContentRating] = ContentRating.SFW,
+        content_rating: Optional[ContentRating] = None,  # Use persona defaults
     ) -> Dict[str, Any]:
         """
         Generate content for all active personas.
@@ -1355,8 +1378,12 @@ Generate the social media content now:"""
 
             # Check if content rating is appropriate for platform
             # Pass persona's platform_restrictions to enable per-site filtering
-            if not self.moderation_service.platform_content_filter(
-                content_rating, platform_lower, persona.platform_restrictions
+            # Uses database-driven platform policies
+            if not await self.moderation_service.platform_content_filter(
+                content_rating, 
+                platform_lower, 
+                persona.platform_restrictions,
+                self.platform_policy_service
             ):
                 adaptations[platform_lower] = {
                     "status": "blocked",

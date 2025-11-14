@@ -27,7 +27,7 @@ class TemplateService:
         pass
 
     def generate_fallback_text(
-        self, persona: PersonaModel, prompt: str = None, content_rating: str = "sfw"
+        self, persona: PersonaModel, prompt: str = None, content_rating: str = None
     ) -> str:
         """
         Create enhanced fallback text using persona characteristics and prompt analysis.
