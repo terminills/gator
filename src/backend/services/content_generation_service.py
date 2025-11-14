@@ -881,6 +881,18 @@ class ContentGenerationService:
                 # Generate image using AI model with enhanced prompt
                 image_result = await ai_models.generate_image(**generation_params)
 
+                # Validate image result
+                if not image_result:
+                    raise ValueError("Image generation returned None result")
+
+                if "image_data" not in image_result:
+                    raise ValueError(
+                        f"Image generation returned invalid result: missing 'image_data' key. Keys present: {list(image_result.keys())}"
+                    )
+
+                if not image_result["image_data"]:
+                    raise ValueError("Image generation returned empty image_data")
+
                 # Save the generated image
                 filename = f"image_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
                 file_path = self.content_dir / "images" / filename
