@@ -256,6 +256,10 @@ class ContentGenerationService:
 
             # Use persona's default content rating if not specified
             if request.content_rating is None:
+                logger.info(f"   No content_rating in request, using persona default...")
+                logger.info(f"   Persona default_content_rating: {persona.default_content_rating}")
+                logger.info(f"   Persona allowed_content_ratings: {getattr(persona, 'allowed_content_ratings', [])}")
+                
                 # Use persona's default, or randomly select from allowed ratings if no default is set
                 persona_rating = persona.default_content_rating
                 if not persona_rating:
@@ -263,6 +267,7 @@ class ContentGenerationService:
                     allowed_ratings = getattr(persona, "allowed_content_ratings", [])
                     if allowed_ratings:
                         persona_rating = random.choice(allowed_ratings)
+                        logger.info(f"   No default set, randomly selected from allowed: {persona_rating}")
                     else:
                         # Last resort: randomly pick from all available ratings
                         # This should never happen if persona is properly configured
@@ -273,8 +278,10 @@ class ContentGenerationService:
                         )
                 request.content_rating = ContentRating(persona_rating)
                 logger.info(
-                    f"   ✓ Using content rating: {request.content_rating.value}"
+                    f"   ✓ Using content rating from persona: {request.content_rating.value}"
                 )
+            else:
+                logger.info(f"   Using explicit content_rating from request: {request.content_rating.value}")
 
             # Generate prompt if not provided
             # Note: For IMAGE type, we skip this and let the image generation
@@ -434,8 +441,8 @@ class ContentGenerationService:
                     content_rating
                     if content_rating is not None
                     else (
-                        ContentRating(persona.content_rating)
-                        if hasattr(persona, "content_rating") and persona.content_rating
+                        ContentRating(persona.default_content_rating)
+                        if hasattr(persona, "default_content_rating") and persona.default_content_rating
                         else ContentRating.SFW
                     )
                 )
