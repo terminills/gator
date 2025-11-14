@@ -416,8 +416,19 @@ class PromptGenerationService:
             instruction_parts.append("Content Rating: SFW only (family-friendly)")
 
         # Add context if provided
+        # Interpret instruction-like text as hints rather than literal context
         if context:
-            instruction_parts.append(f"Context/Situation: {context}")
+            instruction_words = ["generate", "create", "make", "produce", "based on"]
+            context_lower = context.lower()
+            is_instruction = any(word in context_lower for word in instruction_words)
+            
+            if is_instruction:
+                # If context looks like an instruction, interpret it as guidance
+                instruction_parts.append(f"User Request: {context}")
+                instruction_parts.append("Note: Interpret the above as guidance for content direction, not literal text.")
+            else:
+                # Standard situational context
+                instruction_parts.append(f"Context/Situation: {context}")
 
         # Add RSS content if available - generate a reaction/engagement prompt
         if rss_content:
@@ -576,8 +587,14 @@ class PromptGenerationService:
             prompt_parts.append(f"expressing {personality_desc} personality")
 
         # Add context if provided
+        # Skip contexts that look like instructions (contain words like "generate", "create", "make")
         if context:
-            prompt_parts.append(f"in {context}")
+            instruction_words = ["generate", "create", "make", "produce", "based on"]
+            context_lower = context.lower()
+            # Only add context if it doesn't look like an instruction to the system
+            is_instruction = any(word in context_lower for word in instruction_words)
+            if not is_instruction:
+                prompt_parts.append(f"in {context}")
 
         # Add RSS-inspired reaction elements
         if rss_content:

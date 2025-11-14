@@ -2001,11 +2001,20 @@ class AIModelManager:
         self, prompt: str, model: Dict[str, Any], **kwargs
     ) -> Dict[str, Any]:
         """Generate image using Diffusers library with optional reference image for img2img consistency."""
+        # Initialize variables before try block to prevent UnboundLocalError in return statement
+        reference_image_path = kwargs.get("reference_image_path")
+        use_controlnet = kwargs.get("use_controlnet", False)
+        use_img2img = reference_image_path is not None
+        img2img_strength = kwargs.get("img2img_strength", 0.75)
+        
         try:
             from diffusers import (
                 StableDiffusionPipeline,
                 StableDiffusionImg2ImgPipeline,
                 StableDiffusionXLImg2ImgPipeline,
+                StableDiffusionControlNetPipeline,
+                StableDiffusionXLControlNetPipeline,
+                ControlNetModel,
                 DPMSolverMultistepScheduler,
                 DiffusionPipeline,
             )
@@ -2019,13 +2028,6 @@ class AIModelManager:
             model_path = Path(
                 model.get("path", str(self.models_dir / "image" / model_name))
             )
-
-            # Check if reference image is provided for visual consistency
-            reference_image_path = kwargs.get("reference_image_path")
-            use_controlnet = kwargs.get("use_controlnet", False)
-            
-            # Determine if we're using img2img for visual consistency (must be declared early)
-            use_img2img = reference_image_path is not None
 
             # Get device ID if specified for multi-GPU support
             device_id = kwargs.get("device_id", None)
@@ -2059,40 +2061,77 @@ class AIModelManager:
                     ),
                 }
 
-                # Select appropriate pipeline type based on img2img mode and model type
+                # Select appropriate pipeline type based on ControlNet, img2img mode and model type
                 # For SDXL models, use standard pipeline with dual text encoders:
                 # - CLIP ViT-L encoder: 77 tokens
                 # - OpenCLIP ViT-G encoder: 77 tokens
                 # Total: 154 tokens without truncation
                 # Note: For prompts >154 tokens, consider using the 'compel' library (pip install compel)
                 
-                if use_img2img:
-                    # Use img2img pipeline for visual consistency with reference image
-                    if is_sdxl:
-                        pipeline_type = "StableDiffusionXLImg2ImgPipeline"
-                        logger.info(f"Using SDXL img2img pipeline for visual consistency")
-                    else:
-                        pipeline_type = "StableDiffusionImg2ImgPipeline"
-                        logger.info(f"Using SD img2img pipeline for visual consistency")
-                        # Only add safety_checker params for SD 1.5 models (not SDXL)
-                        load_args["safety_checker"] = None  # Disable for performance
-                        load_args["requires_safety_checker"] = False  # Suppress warning
-                else:
-                    # Use text2img pipeline for standard generation
-                    if is_sdxl:
-                        pipeline_type = "StableDiffusionXLPipeline"
-                        logger.info(
-                            f"Using standard SDXL pipeline with dual text encoders (supports up to 154 tokens)"
+                # Track if we're using ControlNet for this generation
+                using_controlnet = False
+                controlnet = None
+                
+                if use_controlnet and reference_image_path:
+                    # Use ControlNet pipeline for maximum visual consistency
+                    # ControlNet provides structural guidance while allowing prompt control
+                    try:
+                        logger.info("Loading ControlNet for appearance consistency...")
+                        
+                        # Select appropriate ControlNet model
+                        if is_sdxl:
+                            # SDXL ControlNet for Canny edge detection (good for pose/structure)
+                            controlnet_model_id = "diffusers/controlnet-canny-sdxl-1.0"
+                            pipeline_type = "StableDiffusionXLControlNetPipeline"
+                        else:
+                            # SD 1.5 ControlNet for Canny
+                            controlnet_model_id = "lllyasviel/control_v11p_sd15_canny"
+                            pipeline_type = "StableDiffusionControlNetPipeline"
+                        
+                        # Load ControlNet model
+                        controlnet = ControlNetModel.from_pretrained(
+                            controlnet_model_id,
+                            torch_dtype=torch.float16 if "cuda" in device else torch.float32,
                         )
-                        logger.info(
-                            f"📝 For prompts exceeding 154 tokens, install 'compel' library for advanced prompt weighting"
-                        )
+                        load_args["controlnet"] = controlnet
+                        using_controlnet = True
+                        logger.info(f"✓ ControlNet loaded: {controlnet_model_id}")
+                        
+                    except Exception as e:
+                        logger.warning(f"Failed to load ControlNet: {e}")
+                        logger.warning("Falling back to img2img pipeline")
+                        use_controlnet = False
+                        using_controlnet = False
+                
+                if not using_controlnet:
+                    # Fall back to img2img or text2img pipelines
+                    if use_img2img:
+                        # Use img2img pipeline for visual consistency with reference image
+                        if is_sdxl:
+                            pipeline_type = "StableDiffusionXLImg2ImgPipeline"
+                            logger.info(f"Using SDXL img2img pipeline for visual consistency")
+                        else:
+                            pipeline_type = "StableDiffusionImg2ImgPipeline"
+                            logger.info(f"Using SD img2img pipeline for visual consistency")
+                            # Only add safety_checker params for SD 1.5 models (not SDXL)
+                            load_args["safety_checker"] = None  # Disable for performance
+                            load_args["requires_safety_checker"] = False  # Suppress warning
                     else:
-                        # For SD 1.5, use standard pipeline
-                        pipeline_type = "StableDiffusionPipeline"
-                        # Only add safety_checker params for SD 1.5 models (not SDXL)
-                        load_args["safety_checker"] = None  # Disable for performance
-                        load_args["requires_safety_checker"] = False  # Suppress warning
+                        # Use text2img pipeline for standard generation
+                        if is_sdxl:
+                            pipeline_type = "StableDiffusionXLPipeline"
+                            logger.info(
+                                f"Using standard SDXL pipeline with dual text encoders (supports up to 154 tokens)"
+                            )
+                            logger.info(
+                                f"📝 For prompts exceeding 154 tokens, install 'compel' library for advanced prompt weighting"
+                            )
+                        else:
+                            # For SD 1.5, use standard pipeline
+                            pipeline_type = "StableDiffusionPipeline"
+                            # Only add safety_checker params for SD 1.5 models (not SDXL)
+                            load_args["safety_checker"] = None  # Disable for performance
+                            load_args["requires_safety_checker"] = False  # Suppress warning
 
                 logger.info(f"Using pipeline: {pipeline_type} for model {model_name}")
 
@@ -2259,11 +2298,56 @@ class AIModelManager:
                     gen_device = "cuda" if torch.cuda.is_available() else "cpu"
                 generator = torch.Generator(device=gen_device).manual_seed(seed)
 
-            # Handle img2img mode with reference image
+            # Handle ControlNet and img2img mode with reference image
             init_image = None
-            img2img_strength = kwargs.get("img2img_strength", 0.75)  # Default to 0.75
+            control_image = None
             
-            if use_img2img:
+            # Process reference image for ControlNet if enabled
+            if using_controlnet and reference_image_path:
+                try:
+                    logger.info(
+                        f"🎨 ControlNet mode enabled with reference: {reference_image_path}"
+                    )
+                    
+                    # Load reference image
+                    reference_path = Path(reference_image_path)
+                    if not reference_path.exists():
+                        logger.warning(f"Reference image not found: {reference_image_path}")
+                        logger.warning("Falling back to standard generation")
+                        using_controlnet = False
+                        use_controlnet = False
+                    else:
+                        from PIL import Image
+                        import cv2
+                        import numpy as np
+                        
+                        # Load and prepare reference image
+                        ref_image = Image.open(reference_path).convert("RGB")
+                        ref_image = ref_image.resize((width, height), Image.Resampling.LANCZOS)
+                        
+                        # Extract Canny edges for structural guidance
+                        # Convert to numpy array for OpenCV
+                        image_np = np.array(ref_image)
+                        
+                        # Apply Canny edge detection
+                        # Lower threshold = 100, upper threshold = 200
+                        edges = cv2.Canny(image_np, 100, 200)
+                        
+                        # Convert back to PIL Image (3-channel for ControlNet)
+                        edges_rgb = cv2.cvtColor(edges, cv2.COLOR_GRAY2RGB)
+                        control_image = Image.fromarray(edges_rgb)
+                        
+                        logger.info(f"   ✓ ControlNet conditioning image prepared (Canny edges)")
+                        logger.info(f"   This will maintain pose/structure while allowing prompt control")
+                        
+                except Exception as e:
+                    logger.error(f"Failed to prepare ControlNet image: {str(e)}")
+                    logger.warning("Falling back to img2img generation")
+                    using_controlnet = False
+                    use_controlnet = False
+                    control_image = None
+            
+            if use_img2img and not using_controlnet:
                 try:
                     logger.info(
                         f"🖼️  Image-to-image mode enabled with reference: {reference_image_path}"
@@ -2281,13 +2365,6 @@ class AIModelManager:
                         # Resize to target dimensions if needed
                         init_image = init_image.resize((width, height), Image.Resampling.LANCZOS)
                         logger.info(f"   ✓ Reference image loaded: {init_image.size}")
-                        
-                        # Note about ControlNet
-                        if use_controlnet:
-                            logger.info(
-                                "   Note: ControlNet requested but not yet implemented. "
-                                "Using img2img for visual consistency."
-                            )
                 except Exception as e:
                     logger.error(f"Failed to load reference image: {str(e)}")
                     logger.warning("Falling back to text-to-image generation")
@@ -2401,11 +2478,33 @@ class AIModelManager:
                         logger.warning("Falling back to standard prompt encoding")
 
             # Generate image (run in thread pool to avoid blocking)
-            # Use different parameters for img2img vs text2img
+            # Use different parameters for ControlNet, img2img vs text2img
             try:
                 loop = asyncio.get_event_loop()
                 
-                if use_img2img and init_image:
+                if using_controlnet and control_image:
+                    # ControlNet generation with structural conditioning
+                    logger.info(f"Generating with ControlNet conditioning")
+                    
+                    # ControlNet conditioning strength (how much to follow the structure)
+                    controlnet_conditioning_scale = kwargs.get("controlnet_conditioning_scale", 0.8)
+                    
+                    image = await loop.run_in_executor(
+                        None,
+                        lambda: pipe(
+                            prompt=original_prompt,  # Use original text prompt
+                            negative_prompt=original_negative_prompt,
+                            image=control_image,  # ControlNet conditioning image (Canny edges)
+                            num_inference_steps=num_inference_steps,
+                            guidance_scale=guidance_scale,
+                            controlnet_conditioning_scale=controlnet_conditioning_scale,
+                            width=width,
+                            height=height,
+                            generator=generator,
+                        ).images[0],
+                    )
+                    logger.info("✓ Image generated successfully via ControlNet")
+                elif use_img2img and init_image:
                     # img2img generation with reference image
                     # Note: compel doesn't support img2img yet, use standard prompts
                     logger.info(f"Generating img2img with strength={img2img_strength}")
@@ -2504,8 +2603,9 @@ class AIModelManager:
                 "guidance_scale": guidance_scale,
                 "seed": seed,
                 "reference_image_used": bool(reference_image_path),
-                "img2img_mode": use_img2img,
-                "img2img_strength": img2img_strength if use_img2img else None,
+                "controlnet_used": using_controlnet,
+                "img2img_mode": use_img2img and not using_controlnet,
+                "img2img_strength": img2img_strength if (use_img2img and not using_controlnet) else None,
             }
         except Exception as e:
             logger.error(f"Diffusers generation failed: {str(e)}")
