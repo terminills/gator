@@ -659,14 +659,56 @@
                 // Fetch actual content from backend
                 const contentResponse = await fetch('/api/v1/content/?limit=20');
                 const contentData = await contentResponse.json();
-                const contents = contentData.content || [];
+                const contents = Array.isArray(contentData) ? contentData : (contentData.content || []);
                 
                 // Fetch personas to get names
                 const personasResponse = await fetch('/api/v1/personas/');
                 const personasData = await personasResponse.json();
-                const personas = personasData.personas || [];
+                const personas = Array.isArray(personasData) ? personasData : (personasData.personas || []);
                 
                 const feedContainer = document.getElementById('feed-container');
+                
+                if (contents.length === 0 && personas.length > 0) {
+                    // Show personas even if no content exists
+                    feedContainer.innerHTML = personas.map(persona => {
+                        const style = persona.image_style || persona.visual_style || 'artistic';
+                        const username = persona.name.toLowerCase().replace(/\s+/g, '_');
+                        const bio = persona.bio || 'AI content creator';
+                        
+                        return `
+                            <div class="post">
+                                <div class="post-container">
+                                    <div class="post-avatar" style="background: linear-gradient(135deg, ${getGradient(style)});">
+                                        ${getPersonaIcon(style)}
+                                    </div>
+                                    <div class="post-content">
+                                        <div class="post-header">
+                                            <span class="post-name">${persona.name}</span>
+                                            <span class="post-username">@${username}</span>
+                                            <span class="post-time">· New</span>
+                                        </div>
+                                        <div class="post-text">${bio}</div>
+                                        <div class="post-stats" style="margin-top: 15px;">
+                                            <button class="post-stat" title="View Profile" onclick="window.location.href='/gallery/persona/${persona.id}'">
+                                                <span>👤</span>
+                                                <span>Profile</span>
+                                            </button>
+                                            <button class="post-stat" title="Chat" onclick="openChat('${persona.id}', '${persona.name}')">
+                                                <span>💬</span>
+                                                <span>Chat</span>
+                                            </button>
+                                            <button class="post-stat" title="Themes">
+                                                <span>🏷️</span>
+                                                <span>${(persona.content_themes || []).length} themes</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    return;
+                }
                 
                 if (contents.length === 0) {
                     feedContainer.innerHTML = `
@@ -812,15 +854,16 @@
                 // Fetch featured personas from backend
                 const response = await fetch('/api/v1/personas/?limit=3');
                 const data = await response.json();
-                const personas = data.personas || [];
+                // Handle both array and object with personas field
+                const personas = Array.isArray(data) ? data : (data.personas || []);
                 
                 if (personas.length > 0) {
                     const suggestionsHTML = personas.map(persona => {
-                        const style = persona.visual_style || persona.style || 'artistic';
+                        const style = persona.image_style || persona.visual_style || 'artistic';
                         const username = persona.name.toLowerCase().replace(/\s+/g, '_');
                         
                         return `
-                            <div class="suggested-persona">
+                            <div class="suggested-persona" onclick="window.location.href='/gallery/persona/${persona.id}'">
                                 <div class="suggested-avatar" style="background: linear-gradient(135deg, ${getGradient(style)});">
                                     ${getPersonaIcon(style)}
                                 </div>
@@ -828,13 +871,13 @@
                                     <div class="suggested-name">${persona.name}</div>
                                     <div class="suggested-username">@${username}</div>
                                 </div>
-                                <button class="follow-btn" onclick="alert('Follow feature coming soon!')">Follow</button>
+                                <button class="follow-btn" onclick="event.stopPropagation(); openChat('${persona.id}', '${persona.name}')">Chat</button>
                             </div>
                         `;
                     }).join('');
                     
                     document.getElementById('suggestions-container').innerHTML = suggestionsHTML + 
-                        '<div class="show-more">Show more</div>';
+                        '<div class="show-more" onclick="window.location.href=\'/admin\'">Show more</div>';
                 } else {
                     document.getElementById('suggestions-container').innerHTML = 
                         '<div class="loading" style="padding: 20px;">No personas created yet. <a href="/admin" style="color: #1d9bf0;">Create one now!</a></div>';
@@ -922,6 +965,172 @@
                 }
             }
         });
+        
+        // Chat functionality
+        function openChat(personaId, personaName) {
+            const modal = document.getElementById('chat-modal');
+            if (!modal) return;
+            
+            document.getElementById('chat-persona-name').textContent = personaName;
+            document.getElementById('chat-messages').innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #71767b;">
+                    <div style="font-size: 3rem; margin-bottom: 10px;">👋</div>
+                    <div style="font-size: 1.2rem; margin-bottom: 10px;">Start a conversation with ${personaName}</div>
+                    <div style="font-size: 0.9rem;">Type a message below to begin chatting</div>
+                </div>
+            `;
+            modal.classList.add('active');
+            modal.dataset.personaId = personaId;
+            document.getElementById('chat-input').focus();
+        }
+        
+        function closeChat() {
+            const modal = document.getElementById('chat-modal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+        
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            const modal = document.getElementById('chat-modal');
+            const personaId = modal.dataset.personaId;
+            const personaName = document.getElementById('chat-persona-name').textContent;
+            const messagesContainer = document.getElementById('chat-messages');
+            
+            // Clear welcome message if present
+            if (messagesContainer.querySelector('div[style*="text-align: center"]')) {
+                messagesContainer.innerHTML = '';
+            }
+            
+            // Add user message
+            messagesContainer.innerHTML += `
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+                    <div style="background: #1d9bf0; color: white; padding: 12px 16px; border-radius: 18px; max-width: 70%;">
+                        ${message}
+                    </div>
+                </div>
+            `;
+            
+            input.value = '';
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // Show typing indicator
+            const typingId = 'typing-' + Date.now();
+            messagesContainer.innerHTML += `
+                <div id="${typingId}" style="display: flex; margin-bottom: 15px;">
+                    <div style="background: #16181c; padding: 12px 16px; border-radius: 18px;">
+                        <div style="display: flex; gap: 4px;">
+                            <div style="width: 8px; height: 8px; background: #71767b; border-radius: 50%; animation: bounce 1.4s infinite;"></div>
+                            <div style="width: 8px; height: 8px; background: #71767b; border-radius: 50%; animation: bounce 1.4s infinite 0.2s;"></div>
+                            <div style="width: 8px; height: 8px; background: #71767b; border-radius: 50%; animation: bounce 1.4s infinite 0.4s;"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // Send to backend (mock response for now)
+            setTimeout(() => {
+                document.getElementById(typingId)?.remove();
+                
+                const responses = [
+                    `That's an interesting thought! I'd love to explore that further.`,
+                    `Thanks for sharing! As an AI creator, I'm always inspired by conversations like this.`,
+                    `Great question! Let me think about that from my creative perspective...`,
+                    `I appreciate you reaching out! What aspect interests you most?`
+                ];
+                
+                const response = responses[Math.floor(Math.random() * responses.length)];
+                
+                messagesContainer.innerHTML += `
+                    <div style="display: flex; margin-bottom: 15px;">
+                        <div style="background: #16181c; padding: 12px 16px; border-radius: 18px; max-width: 70%;">
+                            ${response}
+                        </div>
+                    </div>
+                `;
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, 1000 + Math.random() * 1000);
+        }
+        
+        // Send message on Enter key
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatInput = document.getElementById('chat-input');
+            if (chatInput) {
+                chatInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendChatMessage();
+                    }
+                });
+            }
+        });
     </script>
+    
+    <!-- Chat Modal -->
+    <div id="chat-modal" class="modal" onclick="if(event.target === this) closeChat()">
+        <div class="modal-content" style="max-width: 600px;" onclick="event.stopPropagation()">
+            <div class="modal-header" style="border-bottom: 1px solid #2f3336; padding: 20px;">
+                <button class="modal-close" onclick="closeChat()" style="position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.1); border: none; color: #e7e9ea; font-size: 1.5rem; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+                <h2 class="modal-title" id="chat-persona-name" style="font-size: 1.5rem; color: #e7e9ea;">Chat</h2>
+            </div>
+            <div class="modal-body" style="padding: 0;">
+                <div id="chat-messages" style="height: 400px; overflow-y: auto; padding: 20px; background: #000000;">
+                    <!-- Messages will appear here -->
+                </div>
+                <div style="padding: 15px; border-top: 1px solid #2f3336; background: #16181c;">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input 
+                            type="text" 
+                            id="chat-input" 
+                            placeholder="Type a message..." 
+                            style="flex: 1; background: #000000; border: 1px solid #2f3336; color: #e7e9ea; padding: 12px 16px; border-radius: 20px; outline: none; font-size: 0.95rem;"
+                        />
+                        <button 
+                            onclick="sendChatMessage()" 
+                            style="background: #1d9bf0; color: white; border: none; padding: 12px 24px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 0.95rem;"
+                        >Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: #16181c;
+            border-radius: 16px;
+            max-height: 90vh;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+    </style>
 </body>
 </html>

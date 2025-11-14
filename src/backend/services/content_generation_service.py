@@ -7,8 +7,9 @@ using integrated AI models like Stable Diffusion and language models.
 
 import asyncio
 import os
+import random
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from uuid import UUID
 import json
 from pathlib import Path
@@ -225,10 +226,19 @@ class ContentGenerationService:
 
             # Use persona's default content rating if not specified
             if request.content_rating is None:
-                persona_rating = persona.default_content_rating or "sfw"
+                # Use persona's default, or randomly select from allowed ratings if no default is set
+                persona_rating = persona.default_content_rating
+                if not persona_rating:
+                    # If no default, randomly select from allowed ratings for variety
+                    allowed_ratings = getattr(persona, "allowed_content_ratings", [])
+                    if allowed_ratings:
+                        persona_rating = random.choice(allowed_ratings)
+                    else:
+                        # Last resort fallback to sfw
+                        persona_rating = "sfw"
                 request.content_rating = ContentRating(persona_rating)
                 logger.info(
-                    f"   ✓ Using persona's default content rating: {request.content_rating.value}"
+                    f"   ✓ Using content rating: {request.content_rating.value}"
                 )
 
             # Generate prompt if not provided
@@ -547,7 +557,6 @@ class ContentGenerationService:
                 FeedItemModel,
                 RSSFeedModel,
             )
-            from datetime import timedelta
 
             # Get RSS feeds assigned to this persona
             stmt = (
