@@ -181,7 +181,9 @@ class GenerationRequest(BaseModel):
 
     persona_id: Optional[uuid.UUID] = None
     content_type: ContentType
-    content_rating: ContentRating = ContentRating.SFW
+    content_rating: Optional[ContentRating] = (
+        None  # None = use persona's default rating
+    )
     prompt: Optional[str] = None
     style_override: Optional[Dict[str, Any]] = None
     quality: str = "high"  # 'draft', 'standard', 'high', 'premium'
