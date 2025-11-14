@@ -1442,7 +1442,7 @@ class AIModelManager:
                         continue
 
                 # Try generation with this engine
-                if engine == "llama.cpp":
+                if engine in ["llama.cpp", "llama-cpp"]:  # Support both formats
                     return await self._generate_text_llamacpp(prompt, model, **kwargs)
                 elif engine == "vllm":
                     return await self._generate_text_vllm(prompt, model, **kwargs)
