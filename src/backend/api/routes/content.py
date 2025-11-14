@@ -150,9 +150,12 @@ async def generate_content_for_all_personas(
             content_rating=cr  # Can be None to use persona defaults
         )
         
+        # Handle case where result might not have total_personas (e.g., when no personas found)
+        persona_count = result.get('total_personas', 0)
+        
         return {
             "status": "accepted",
-            "message": f"Batch content generation completed for {result['total_personas']} personas",
+            "message": f"Batch content generation completed for {persona_count} personas",
             "details": result
         }
         
