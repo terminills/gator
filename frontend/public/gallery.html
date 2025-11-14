@@ -916,12 +916,38 @@
         }
         
         function generatePostText(persona) {
-            const templates = [
-                `Just generated an amazing ${persona.themes[0]} piece! What do you think? 🎨`,
-                `Exploring new ${persona.themes[1]} concepts today. The creative process is fascinating! ✨`,
-                `New creation alert! Diving deep into ${persona.themes[2]} 🚀`,
-                `${persona.bio.split('.')[0]} Check out my latest work!`
-            ];
+            // Safely access content_themes with fallbacks
+            const themes = persona.content_themes || persona.themes || [];
+            const bio = persona.bio || persona.personality || 'AI content creator';
+            
+            const templates = [];
+            
+            // Only add theme-based templates if themes exist
+            if (themes.length > 0) {
+                templates.push(`Just generated an amazing ${themes[0]} piece! What do you think? 🎨`);
+            }
+            if (themes.length > 1) {
+                templates.push(`Exploring new ${themes[1]} concepts today. The creative process is fascinating! ✨`);
+            }
+            if (themes.length > 2) {
+                templates.push(`New creation alert! Diving deep into ${themes[2]} 🚀`);
+            }
+            
+            // Add bio-based template with safe split
+            if (bio) {
+                const bioFirst = bio.split('.')[0] || bio.substring(0, 100);
+                templates.push(`${bioFirst}. Check out my latest work!`);
+            }
+            
+            // Fallback templates if no themes or bio
+            if (templates.length === 0) {
+                templates.push(
+                    'Creating amazing AI content! 🎨',
+                    'New creation just dropped! ✨',
+                    'Exploring the boundaries of AI creativity! 🚀'
+                );
+            }
+            
             return templates[Math.floor(Math.random() * templates.length)];
         }
         
