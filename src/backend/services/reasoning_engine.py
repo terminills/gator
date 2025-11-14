@@ -513,6 +513,9 @@ Provide ONLY the JSON response, no other text.
         """
         Decompose a complex task into sub-tasks.
         
+        Uses the reasoning model to intelligently break down complex tasks
+        into manageable sub-tasks.
+        
         Args:
             context: ACD context
             decision: Orchestration decision
@@ -520,9 +523,96 @@ Provide ONLY the JSON response, no other text.
         Returns:
             List of sub-task specifications
         """
-        # This would use the reasoning model to break down complex tasks
-        # For now, return empty list (not implemented yet)
-        return []
+        logger.info(f"🔧 Decomposing task {context.id} (phase={context.ai_phase})")
+        
+        # Only decompose if model is available
+        if not self.model_available:
+            logger.info("Model not available, skipping decomposition")
+            return []
+        
+        try:
+            # Build decomposition prompt
+            prompt = f"""You are a task decomposition expert. Break down this complex task into manageable sub-tasks.
+
+## Current Task
+
+**Phase**: {context.ai_phase}
+**Complexity**: {context.ai_complexity}
+**Description**: {context.ai_note or 'No description'}
+
+**Context**:
+```json
+{json.dumps(context.ai_context or {}, indent=2)}
+```
+
+**Decision Made**: {decision.get('decision_type')}
+**Reasoning**: {decision.get('reasoning')}
+
+## Your Task
+
+Decompose this into 2-5 sub-tasks that can be executed sequentially or in parallel.
+
+For each sub-task provide:
+- **name**: Short task name
+- **description**: What needs to be done
+- **agent_type**: Type of agent needed (e.g., "image_generator", "text_writer", "validator")
+- **dependencies**: List of sub-task names that must complete first (or empty list)
+- **estimated_complexity**: LOW, MEDIUM, or HIGH
+- **required_capabilities**: List of required capabilities
+
+## Response Format
+
+Provide ONLY a JSON array of sub-tasks:
+
+```json
+[
+  {{
+    "name": "subtask_1",
+    "description": "Generate base image",
+    "agent_type": "image_generator",
+    "dependencies": [],
+    "estimated_complexity": "MEDIUM",
+    "required_capabilities": ["image_generation", "stable_diffusion"]
+  }},
+  {{
+    "name": "subtask_2",
+    "description": "Enhance image quality",
+    "agent_type": "image_enhancer",
+    "dependencies": ["subtask_1"],
+    "estimated_complexity": "LOW",
+    "required_capabilities": ["image_upscaling", "refinement"]
+  }}
+]
+```
+
+Provide ONLY the JSON array, no other text.
+"""
+            
+            # Call reasoning model for decomposition
+            response = await self.reasoning_model.generate_text(
+                prompt=prompt,
+                max_tokens=800,
+                temperature=0.4,
+                system_message="You are a task decomposition expert.",
+            )
+            
+            # Parse JSON response
+            start_idx = response.find('[')
+            end_idx = response.rfind(']') + 1
+            
+            if start_idx != -1 and end_idx > start_idx:
+                json_str = response[start_idx:end_idx]
+                subtasks = json.loads(json_str)
+                
+                logger.info(f"✅ Decomposed into {len(subtasks)} sub-tasks")
+                return subtasks
+            else:
+                logger.warning("No JSON array found in decomposition response")
+                return []
+        
+        except Exception as e:
+            logger.error(f"Task decomposition failed: {e}")
+            return []
     
     async def evaluate_capability_match(
         self,

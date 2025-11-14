@@ -135,6 +135,8 @@ class ReasoningOrchestrator:
         This is the core "basal ganglia" function that evaluates context and
         decides on action selection.
         
+        NOW USES THE REASONING ENGINE (THE BRAIN) FOR ALL DECISIONS.
+        
         Args:
             context: Current ACD context
             current_agent: Name of agent requesting decision
@@ -144,39 +146,112 @@ class ReasoningOrchestrator:
             OrchestrationDecision with recommended action
         """
         logger.info(
-            f"Orchestrating decision for context {context.id}, "
+            f"🧠 Orchestrating decision for context {context.id}, "
             f"phase={context.ai_phase}, state={context.ai_state}"
         )
         
-        # Step 1: Assess current situation
-        situation = await self._assess_situation(context, current_agent)
+        try:
+            # Import reasoning engine
+            from backend.services.reasoning_engine import ReasoningEngine
+            
+            # Step 1: Assess current situation
+            situation = await self._assess_situation(context, current_agent)
+            
+            # Step 2: Query learned patterns
+            patterns = await self._query_relevant_patterns(context)
+            
+            # Step 3: USE THE REASONING ENGINE (THE BRAIN)
+            logger.info("🧠 Calling reasoning engine for intelligent decision making...")
+            engine = ReasoningEngine(self.db)
+            
+            decision_dict = await engine.reason_about_context(
+                context=context,
+                current_agent=current_agent,
+                situation=situation,
+                patterns=patterns,
+            )
+            
+            # Step 4: Convert dict to OrchestrationDecision
+            decision = self._create_decision_from_dict(decision_dict)
+            
+            # Step 5: Decompose into subtasks if needed
+            if decision.decision_type in [DecisionType.REQUEST_COLLABORATION, DecisionType.HANDOFF_ESCALATION]:
+                logger.info(f"🔧 Decomposing task for {decision.decision_type.value}...")
+                subtasks = await engine.decompose_task(context, decision_dict)
+                if subtasks:
+                    decision.action_plan["subtasks"] = subtasks
+                    logger.info(f"✅ Task decomposed into {len(subtasks)} subtasks")
+            
+            # Step 6: Log decision for learning
+            await self._log_decision(context.id, decision)
+            
+            logger.info(
+                f"✅ Decision made by reasoning engine: {decision.decision_type.value} "
+                f"(confidence={decision.confidence.value})"
+            )
+            
+            return decision
+            
+        except Exception as e:
+            logger.error(f"❌ Reasoning engine failed: {e}")
+            logger.info("🔧 Using fallback reasoning...")
+            
+            # Fallback to simple rule-based reasoning
+            return await self._fallback_orchestration(context, current_agent)
+    
+    def _create_decision_from_dict(self, decision_dict: Dict[str, Any]) -> OrchestrationDecision:
+        """
+        Create OrchestrationDecision from reasoning engine output.
         
-        # Step 2: Query learned patterns
-        patterns = await self._query_relevant_patterns(context)
-        
-        # Step 3: Evaluate complexity and confidence
-        complexity_score = self._evaluate_complexity(context, situation)
-        confidence_score = self._evaluate_confidence(context, patterns)
-        
-        # Step 4: Select action based on reasoning
-        decision = await self._select_action(
-            context=context,
-            situation=situation,
-            patterns=patterns,
-            complexity_score=complexity_score,
-            confidence_score=confidence_score,
-            current_agent=current_agent,
+        Args:
+            decision_dict: Decision dictionary from reasoning engine
+            
+        Returns:
+            OrchestrationDecision object
+        """
+        return OrchestrationDecision(
+            decision_type=DecisionType(decision_dict["decision_type"]),
+            confidence=DecisionConfidence(decision_dict["confidence"]),
+            reasoning=decision_dict["reasoning"],
+            target_agent=decision_dict.get("target_agent"),
+            action_plan=decision_dict.get("action_plan", {}),
+            learned_patterns=decision_dict.get("learned_patterns", []),
+            risk_assessment=decision_dict.get("risk_assessment"),
         )
+    
+    async def _fallback_orchestration(
+        self,
+        context: ACDContextResponse,
+        current_agent: Optional[str] = None,
+    ) -> OrchestrationDecision:
+        """
+        Fallback orchestration when reasoning engine is unavailable.
         
-        # Step 5: Log decision for learning
-        await self._log_decision(context.id, decision)
+        This is the safety net - uses simple rules.
+        """
+        logger.info("🔧 Using fallback orchestration (simple rules)")
         
-        logger.info(
-            f"Decision made: {decision.decision_type.value} "
-            f"(confidence={decision.confidence.value})"
-        )
-        
-        return decision
+        # Simple rule: if FAILED, request review; otherwise execute locally
+        if context.ai_state == AIState.FAILED.value:
+            return OrchestrationDecision(
+                decision_type=DecisionType.REQUEST_REVIEW,
+                confidence=DecisionConfidence.MEDIUM,
+                reasoning="Task failed - requesting review (fallback reasoning)",
+                target_agent=None,
+                action_plan={"request_type": "REQUEST_REVIEW"},
+                learned_patterns=[],
+                risk_assessment="Medium - fallback reasoning used",
+            )
+        else:
+            return OrchestrationDecision(
+                decision_type=DecisionType.EXECUTE_LOCALLY,
+                confidence=DecisionConfidence.MEDIUM,
+                reasoning="Task appears manageable - executing locally (fallback reasoning)",
+                target_agent=current_agent,
+                action_plan={"execute_agent": current_agent or "default"},
+                learned_patterns=[],
+                risk_assessment="Medium - fallback reasoning used",
+            )
     
     async def _assess_situation(
         self,
