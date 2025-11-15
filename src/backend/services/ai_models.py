@@ -2734,7 +2734,14 @@ class AIModelManager:
                     )
 
                     # Use embeddings if available (from compel for long prompts), otherwise use text prompts
-                    if prompt_embeds is not None and is_sdxl:
+                    # For SDXL, we need all 4 embeddings (including pooled) to be non-None
+                    if (
+                        prompt_embeds is not None
+                        and negative_prompt_embeds is not None
+                        and pooled_prompt_embeds is not None
+                        and negative_pooled_prompt_embeds is not None
+                        and is_sdxl
+                    ):
                         # Using compel embeddings for long prompt support with ControlNet
                         result = await loop.run_in_executor(
                             None,
@@ -2779,7 +2786,14 @@ class AIModelManager:
                     logger.info(f"Generating img2img with strength={img2img_strength}")
 
                     # Use embeddings if available (from compel for long prompts), otherwise use text prompts
-                    if prompt_embeds is not None and is_sdxl:
+                    # For SDXL, we need all 4 embeddings (including pooled) to be non-None
+                    if (
+                        prompt_embeds is not None
+                        and negative_prompt_embeds is not None
+                        and pooled_prompt_embeds is not None
+                        and negative_pooled_prompt_embeds is not None
+                        and is_sdxl
+                    ):
                         # Using compel embeddings for long prompt support with img2img
                         result = await loop.run_in_executor(
                             None,
@@ -2818,7 +2832,13 @@ class AIModelManager:
                 else:
                     # Standard text2img generation
                     # Use embeddings if available (from compel), otherwise use text prompts
-                    if prompt_embeds is not None:
+                    # For SDXL models using embeddings, we need all 4 embeddings (including pooled) to be non-None
+                    if (
+                        prompt_embeds is not None
+                        and negative_prompt_embeds is not None
+                        and pooled_prompt_embeds is not None
+                        and negative_pooled_prompt_embeds is not None
+                    ):
                         # Using compel embeddings for long prompt support
                         result = await loop.run_in_executor(
                             None,
