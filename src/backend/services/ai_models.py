@@ -2696,17 +2696,35 @@ class AIModelManager:
                         conditioning, pooled = compel(prompt)
                         negative_conditioning, negative_pooled = compel(negative_prompt)
 
-                        # Set the embeddings to use
-                        prompt_embeds = conditioning
-                        pooled_prompt_embeds = pooled
-                        negative_prompt_embeds = negative_conditioning
-                        negative_pooled_prompt_embeds = negative_pooled
+                        # Validate that all embeddings are not None
+                        # The deprecated compel API with multiple encoders can return None for pooled embeddings
+                        if (
+                            conditioning is None
+                            or pooled is None
+                            or negative_conditioning is None
+                            or negative_pooled is None
+                        ):
+                            logger.warning(
+                                f"Compel returned None embeddings: conditioning={conditioning is not None}, "
+                                f"pooled={pooled is not None}, negative_conditioning={negative_conditioning is not None}, "
+                                f"negative_pooled={negative_pooled is not None}"
+                            )
+                            logger.warning("Falling back to standard prompt encoding")
+                            # Don't set embeddings if any are None - will use text prompts instead
+                        else:
+                            # Set the embeddings to use
+                            prompt_embeds = conditioning
+                            pooled_prompt_embeds = pooled
+                            negative_prompt_embeds = negative_conditioning
+                            negative_pooled_prompt_embeds = negative_pooled
 
-                        # Clear text prompts since we're using embeddings (but keep originals for return)
-                        prompt = None
-                        negative_prompt = None
+                            # Clear text prompts since we're using embeddings (but keep originals for return)
+                            prompt = None
+                            negative_prompt = None
 
-                        logger.info("✓ Long prompt encoded successfully with compel")
+                            logger.info(
+                                "✓ Long prompt encoded successfully with compel"
+                            )
 
                     except ImportError:
                         logger.warning(
