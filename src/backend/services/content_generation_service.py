@@ -1427,9 +1427,25 @@ Generate the social media content now:"""
         Delegates to TemplateService for sophisticated template-based generation.
         Uses base_appearance_description when appearance_locked is True for consistency.
         Leverages style_preferences for sophisticated content styling and tone.
+        
+        Note: Eagerly accesses all persona attributes in async context to prevent
+        greenlet_spawn errors when passing to synchronous template service.
         """
-        return self.template_service.generate_fallback_text(
-            persona=persona,
+        # Eagerly load all persona attributes we need to prevent lazy loading issues
+        # in the synchronous template service
+        persona_data = {
+            'appearance': persona.appearance,
+            'base_appearance_description': persona.base_appearance_description,
+            'appearance_locked': persona.appearance_locked,
+            'personality': persona.personality,
+            'content_themes': persona.content_themes if persona.content_themes else [],
+            'style_preferences': persona.style_preferences if persona.style_preferences else {},
+            'name': persona.name,
+        }
+        
+        # Pass extracted data instead of the model to avoid lazy loading
+        return self.template_service.generate_fallback_text_from_data(
+            persona_data=persona_data,
             prompt=request.prompt,
             content_rating=request.content_rating.value,
         )

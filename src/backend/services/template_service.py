@@ -95,6 +95,83 @@ class TemplateService:
 
         return customized_template
 
+    def generate_fallback_text_from_data(
+        self, persona_data: Dict[str, Any], prompt: str = None, content_rating: str = None
+    ) -> str:
+        """
+        Create enhanced fallback text using pre-extracted persona data.
+
+        This method is safe to call from async contexts as it doesn't access
+        SQLAlchemy models directly, preventing greenlet_spawn errors.
+
+        Args:
+            persona_data: Dictionary with pre-extracted persona attributes:
+                - appearance: str
+                - base_appearance_description: Optional[str]
+                - appearance_locked: bool
+                - personality: str
+                - content_themes: List[str]
+                - style_preferences: Dict[str, Any]
+                - name: str
+            prompt: Optional prompt for context-aware generation
+            content_rating: Content rating for the generated text
+
+        Returns:
+            str: Generated fallback text with persona-appropriate styling
+        """
+        # Extract key elements - use locked appearance if available
+        appearance_desc = (
+            persona_data.get('base_appearance_description')
+            if persona_data.get('appearance_locked') and persona_data.get('base_appearance_description')
+            else persona_data.get('appearance', '')
+        )
+
+        # Parse personality traits more comprehensively
+        personality = persona_data.get('personality', 'friendly')
+        personality_full = personality.lower()
+        personality_traits = [t.strip() for t in personality.split(",")]
+
+        themes = (
+            persona_data.get('content_themes', [])[:3]
+            if persona_data.get('content_themes')
+            else ["lifestyle", "thoughts"]
+        )
+        prompt_keywords = prompt.lower().split() if prompt else ["content"]
+
+        # Extract style preferences for sophisticated content styling
+        style_prefs = persona_data.get('style_preferences', {}) or {}
+        aesthetic = style_prefs.get("aesthetic", "").lower()
+        voice_style = style_prefs.get("voice_style", "").lower()
+        tone_pref = style_prefs.get("tone", "").lower()
+
+        # Determine content style using multi-attribute scoring
+        style = self._determine_content_style(
+            personality_traits, aesthetic, voice_style
+        )
+
+        # Generate appearance context (using data-only version)
+        appearance_context = self._generate_appearance_context_from_data(
+            persona_data, appearance_desc, aesthetic
+        )
+
+        # Determine voice modifiers
+        voice_modifiers = self._determine_voice_modifiers(tone_pref, personality_full)
+
+        # Generate templates based on style
+        templates = self._generate_templates_for_style(
+            style, themes, appearance_context, voice_modifiers
+        )
+
+        # Select template with sophisticated logic
+        selected_template = self._select_weighted_template(templates, prompt_keywords)
+
+        # Apply dynamic customization
+        customized_template = self._customize_template(
+            selected_template, prompt_keywords
+        )
+
+        return customized_template
+
     def _determine_content_style(
         self, personality_traits: List[str], aesthetic: str, voice_style: str
     ) -> str:
@@ -194,6 +271,50 @@ class TemplateService:
         appearance_keywords = appearance_desc.lower() if appearance_desc else ""
         is_visual_locked = (
             persona.appearance_locked and persona.base_appearance_description
+        )
+
+        appearance_context = ""
+        if is_visual_locked:
+            # Use style preferences and appearance keywords together
+            if "professional" in appearance_keywords or aesthetic == "professional":
+                appearance_context = " (staying true to my professional image)"
+            elif (
+                "creative" in appearance_keywords
+                or "artistic" in appearance_keywords
+                or aesthetic == "creative"
+            ):
+                appearance_context = " (expressing my creative side)"
+            elif (
+                "casual" in appearance_keywords
+                or "relaxed" in appearance_keywords
+                or aesthetic == "casual"
+            ):
+                appearance_context = " (keeping it authentic and real)"
+            elif "tech" in appearance_keywords or aesthetic in ["modern", "futuristic"]:
+                appearance_context = " (maintaining my tech-forward presence)"
+
+        return appearance_context
+
+    def _generate_appearance_context_from_data(
+        self, persona_data: Dict[str, Any], appearance_desc: str, aesthetic: str
+    ) -> str:
+        """
+        Generate dynamic appearance context based on multiple factors (data-only version).
+        
+        Safe to call from async contexts as it doesn't access SQLAlchemy models.
+
+        Args:
+            persona_data: Dictionary with persona data
+            appearance_desc: Appearance description text
+            aesthetic: Aesthetic preference
+
+        Returns:
+            str: Appearance context string to append to templates
+        """
+        appearance_keywords = appearance_desc.lower() if appearance_desc else ""
+        is_visual_locked = (
+            persona_data.get('appearance_locked', False) 
+            and persona_data.get('base_appearance_description')
         )
 
         appearance_context = ""
