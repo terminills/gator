@@ -390,3 +390,149 @@ class TestTemplateService:
         # Should still generate content with default themes
         assert isinstance(result, str)
         assert len(result) > 0
+
+    def test_generate_fallback_text_from_data_creative(self, template_service):
+        """Test data-only version with creative persona data."""
+        persona_data = {
+            'name': 'Creative Artist',
+            'appearance': 'Vibrant and artistic appearance',
+            'base_appearance_description': None,
+            'appearance_locked': False,
+            'personality': 'Creative, imaginative, passionate, expressive',
+            'content_themes': ['art', 'design', 'creativity'],
+            'style_preferences': {
+                'aesthetic': 'creative',
+                'voice_style': 'expressive',
+                'tone': 'passionate',
+            }
+        }
+        
+        result = template_service.generate_fallback_text_from_data(persona_data)
+        
+        # Check that result is valid
+        assert isinstance(result, str)
+        assert len(result) > 0
+        
+        # Should include creative indicators
+        result_lower = result.lower()
+        assert any(
+            keyword in result_lower
+            for keyword in ['creative', 'innovation', 'inspiration', 'breakthrough', 'passionate']
+        )
+
+    def test_generate_fallback_text_from_data_locked_appearance(self, template_service):
+        """Test data-only version with locked appearance."""
+        persona_data = {
+            'name': 'Brand Ambassador',
+            'appearance': 'Consistent brand appearance',
+            'base_appearance_description': 'Professional woman in her 30s, corporate attire, confident demeanor',
+            'appearance_locked': True,
+            'personality': 'Professional, confident, strategic',
+            'content_themes': ['business', 'branding', 'marketing'],
+            'style_preferences': {
+                'aesthetic': 'professional',
+                'voice_style': 'confident',
+                'tone': 'warm',
+            }
+        }
+        
+        result = template_service.generate_fallback_text_from_data(persona_data)
+        
+        # Check that result is valid
+        assert isinstance(result, str)
+        assert len(result) > 0
+        assert len(result) > 50  # Should be substantial content
+
+    def test_generate_fallback_text_from_data_with_prompt(self, template_service):
+        """Test data-only version with custom prompt."""
+        persona_data = {
+            'name': 'Tech Expert',
+            'appearance': 'Modern tech-savvy appearance',
+            'base_appearance_description': None,
+            'appearance_locked': False,
+            'personality': 'Analytical, tech-savvy, data-driven',
+            'content_themes': ['technology', 'software', 'engineering'],
+            'style_preferences': {
+                'aesthetic': 'modern',
+                'voice_style': 'technical',
+                'tone': 'analytical',
+            }
+        }
+        
+        result = template_service.generate_fallback_text_from_data(
+            persona_data, 
+            prompt="Discussion about artificial intelligence"
+        )
+        
+        # Check that result is valid
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_generate_appearance_context_from_data_locked(self, template_service):
+        """Test appearance context generation from data for locked appearance."""
+        persona_data = {
+            'appearance_locked': True,
+            'base_appearance_description': 'Professional woman in corporate attire'
+        }
+        
+        context = template_service._generate_appearance_context_from_data(
+            persona_data,
+            'Professional woman in corporate attire',
+            'professional'
+        )
+        
+        # Should return appearance context string
+        assert isinstance(context, str)
+        if context:  # May be empty if no matching keywords
+            assert 'professional' in context.lower()
+
+    def test_generate_appearance_context_from_data_not_locked(self, template_service):
+        """Test appearance context generation from data for unlocked appearance."""
+        persona_data = {
+            'appearance_locked': False,
+            'base_appearance_description': None
+        }
+        
+        context = template_service._generate_appearance_context_from_data(
+            persona_data,
+            'Casual appearance',
+            'casual'
+        )
+        
+        # Should return empty string since not locked
+        assert context == ""
+
+    def test_data_version_produces_similar_output_to_model_version(
+        self, template_service, creative_persona
+    ):
+        """Test that data version produces similar output to model version."""
+        # Extract data from persona
+        persona_data = {
+            'name': creative_persona.name,
+            'appearance': creative_persona.appearance,
+            'base_appearance_description': creative_persona.base_appearance_description,
+            'appearance_locked': creative_persona.appearance_locked,
+            'personality': creative_persona.personality,
+            'content_themes': creative_persona.content_themes,
+            'style_preferences': creative_persona.style_preferences,
+        }
+        
+        # Generate using both methods
+        result_from_model = template_service.generate_fallback_text(creative_persona)
+        result_from_data = template_service.generate_fallback_text_from_data(persona_data)
+        
+        # Both should be valid strings
+        assert isinstance(result_from_model, str)
+        assert isinstance(result_from_data, str)
+        assert len(result_from_model) > 0
+        assert len(result_from_data) > 0
+        
+        # Both should contain creative elements
+        assert any(
+            keyword in result_from_model.lower() 
+            for keyword in ['creative', 'innovation', 'art', 'design']
+        )
+        assert any(
+            keyword in result_from_data.lower() 
+            for keyword in ['creative', 'innovation', 'art', 'design']
+        )
