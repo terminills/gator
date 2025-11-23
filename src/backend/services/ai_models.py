@@ -2666,7 +2666,12 @@ class AIModelManager:
             # Standard SDXL has 2 CLIP encoders with 77 tokens each
             # Without compel, prompts are truncated at 77 tokens per encoder
             # With compel, we can handle much longer prompts (225+ tokens)
-            if is_sdxl:
+            # NOTE: The lpw_stable_diffusion_xl custom pipeline handles long prompts internally
+            # and expects text prompts, not embeddings. Skip compel for lpw pipelines.
+            pipeline_class_name = type(pipe).__name__
+            is_lpw_pipeline = "LongPromptWeighting" in pipeline_class_name
+            
+            if is_sdxl and not is_lpw_pipeline:
                 # Check if we should use compel for long prompt support
                 # Estimate token count (rough approximation: 1.3 tokens per word)
                 estimated_tokens = len(prompt.split()) * 1.3
@@ -2736,6 +2741,14 @@ class AIModelManager:
                     except Exception as e:
                         logger.warning(f"Failed to use compel: {e}")
                         logger.warning("Falling back to standard prompt encoding")
+            elif is_lpw_pipeline:
+                # lpw_stable_diffusion_xl pipeline handles long prompts internally
+                # It expects text prompts, not embeddings
+                estimated_tokens = len(prompt.split()) * 1.3
+                logger.info(
+                    f"Using lpw_stable_diffusion_xl pipeline for long prompt support (~{int(estimated_tokens)} tokens)"
+                )
+                logger.info("✓ lpw pipeline will handle prompt chunking internally")
 
             # Generate image (run in thread pool to avoid blocking)
             # Use different parameters for ControlNet, img2img vs text2img
