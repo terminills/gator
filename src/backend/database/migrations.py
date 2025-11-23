@@ -48,6 +48,40 @@ async def check_column_exists(
     return column_name in columns
 
 
+async def table_exists(conn, table_name: str, is_sqlite: bool) -> bool:
+    """
+    Check if a table exists in the database.
+
+    Args:
+        conn: Database connection
+        table_name: Name of the table
+        is_sqlite: Whether the database is SQLite
+
+    Returns:
+        bool: True if table exists, False otherwise
+    """
+    if is_sqlite:
+        result = await conn.execute(
+            text("SELECT name FROM sqlite_master WHERE type='table' AND name = :table_name"),
+            {"table_name": table_name}
+        )
+        tables = [row[0] for row in result.fetchall()]
+    else:
+        result = await conn.execute(
+            text(
+                """
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_name = :table_name
+            """
+            ),
+            {"table_name": table_name},
+        )
+        tables = [row[0] for row in result.fetchall()]
+
+    return table_name in tables
+
+
 async def add_personas_appearance_columns(conn, is_sqlite: bool) -> List[str]:
     """
     Add appearance locking columns to personas table if they don't exist.
@@ -60,6 +94,11 @@ async def add_personas_appearance_columns(conn, is_sqlite: bool) -> List[str]:
         List of columns that were added
     """
     added_columns = []
+
+    # Check if table exists first
+    if not await table_exists(conn, "personas", is_sqlite):
+        logger.debug("Personas table does not exist, skipping migration")
+        return added_columns
 
     # Check and add base_appearance_description
     if not await check_column_exists(
@@ -144,6 +183,65 @@ async def add_personas_appearance_columns(conn, is_sqlite: bool) -> List[str]:
     return added_columns
 
 
+async def add_acd_domain_columns(conn, is_sqlite: bool) -> List[str]:
+    """
+    Add domain classification columns to acd_contexts table if they don't exist.
+
+    Args:
+        conn: Database connection
+        is_sqlite: Whether the database is SQLite
+
+    Returns:
+        List of columns that were added
+    """
+    added_columns = []
+
+    # Check if table exists first
+    if not await table_exists(conn, "acd_contexts", is_sqlite):
+        logger.debug("acd_contexts table does not exist, skipping migration")
+        return added_columns
+
+    # Check and add ai_domain
+    if not await check_column_exists(conn, "acd_contexts", "ai_domain", is_sqlite):
+        logger.info("Adding ai_domain column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN ai_domain VARCHAR(50)")
+        )
+        added_columns.append("ai_domain")
+
+        # Create index for ai_domain
+        try:
+            logger.info("Creating index on ai_domain column")
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_acd_contexts_ai_domain ON acd_contexts (ai_domain)"
+                )
+            )
+        except Exception as e:
+            logger.warning(f"Could not create index on ai_domain: {e}")
+
+    # Check and add ai_subdomain
+    if not await check_column_exists(conn, "acd_contexts", "ai_subdomain", is_sqlite):
+        logger.info("Adding ai_subdomain column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN ai_subdomain VARCHAR(50)")
+        )
+        added_columns.append("ai_subdomain")
+
+        # Create index for ai_subdomain
+        try:
+            logger.info("Creating index on ai_subdomain column")
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_acd_contexts_ai_subdomain ON acd_contexts (ai_subdomain)"
+                )
+            )
+        except Exception as e:
+            logger.warning(f"Could not create index on ai_subdomain: {e}")
+
+    return added_columns
+
+
 async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
     """
     Run all pending migrations on the database.
@@ -204,6 +302,18 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                 )
             else:
                 logger.info("All personas table columns are up to date")
+
+            # Run ACD contexts table migrations
+            acd_columns_added = await add_acd_domain_columns(conn, is_sqlite)
+
+            if acd_columns_added:
+                results["migrations_run"].append("acd_contexts_domain_fields")
+                results["columns_added"].extend(acd_columns_added)
+                logger.info(
+                    f"Added {len(acd_columns_added)} column(s) to acd_contexts table: {', '.join(acd_columns_added)}"
+                )
+            else:
+                logger.info("All acd_contexts table columns are up to date")
 
         return results
 
