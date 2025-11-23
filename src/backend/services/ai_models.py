@@ -2668,6 +2668,8 @@ class AIModelManager:
             # With compel, we can handle much longer prompts (225+ tokens)
             # NOTE: The lpw_stable_diffusion_xl custom pipeline handles long prompts internally
             # and expects text prompts, not embeddings. Skip compel for lpw pipelines.
+            # We use string matching on class name since it's the most reliable way to detect
+            # the community pipeline (SDXLLongPromptWeightingPipeline) without dependencies.
             pipeline_class_name = type(pipe).__name__
             is_lpw_pipeline = "LongPromptWeighting" in pipeline_class_name
             
