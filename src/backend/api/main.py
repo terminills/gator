@@ -48,6 +48,7 @@ from backend.api.routes import (
     settings as settings_routes,
     system_monitoring,
     reasoning_orchestrator,
+    civitai,
 )
 from backend.api.websocket import websocket_endpoint
 
@@ -246,6 +247,7 @@ def create_app() -> FastAPI:
     app.include_router(reasoning_orchestrator.router)
     app.include_router(settings_routes.router, prefix="/api/v1")
     app.include_router(system_monitoring.router)
+    app.include_router(civitai.router, prefix="/api/v1")
 
     # WebSocket endpoint for real-time communication
     @app.websocket("/ws/{user_id}")

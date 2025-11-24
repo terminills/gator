@@ -73,7 +73,6 @@ async def download_model_from_huggingface(
         download_kwargs = {
             "repo_id": model_id,
             "local_dir": str(model_path),
-            "local_dir_use_symlinks": False,
             "resume_download": True,
         }
 
@@ -92,6 +91,74 @@ async def download_model_from_huggingface(
             logger.error("   This appears to be a gated model. Make sure to:")
             logger.error("   1. Accept the model license on HuggingFace")
             logger.error("   2. Configure your HuggingFace token in Settings")
+        return False
+
+
+async def download_model_from_civitai(
+    model_version_id: int,
+    model_path: Path,
+    model_type: str = "image",
+    api_key: Optional[str] = None,
+) -> bool:
+    """
+    Download a model from CivitAI.
+
+    Args:
+        model_version_id: CivitAI model version ID
+        model_path: Local path where model should be downloaded
+        model_type: Type of model (image, text, etc.)
+        api_key: Optional CivitAI API key
+
+    Returns:
+        bool: True if download successful, False otherwise
+    """
+    try:
+        from backend.utils.civitai_utils import download_civitai_model
+
+        logger.info(f"📥 Downloading CivitAI model version {model_version_id}...")
+        logger.info(f"   Target path: {model_path}")
+        logger.info(f"   This may take several minutes depending on model size...")
+
+        # Create parent directory
+        model_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Get API key from settings if not provided
+        if api_key is None:
+            try:
+                from backend.config.settings import get_settings
+                settings = get_settings()
+                api_key = getattr(settings, "civitai_api_key", None)
+            except Exception:
+                pass
+
+        # Download the model
+        downloaded_file, metadata = await download_civitai_model(
+            model_version_id=model_version_id,
+            output_dir=model_path,
+            api_key=api_key,
+        )
+
+        # Save metadata for tracking
+        metadata_file = model_path / f"{downloaded_file.stem}_metadata.json"
+        with open(metadata_file, "w") as f:
+            import json
+            json.dump(metadata, f, indent=2)
+
+        logger.info(f"✅ Model downloaded successfully to {downloaded_file}")
+        logger.info(f"   Metadata saved to {metadata_file}")
+
+        # Log usage tracking info
+        if metadata.get("trained_words"):
+            logger.info(f"   Trained words: {', '.join(metadata['trained_words'])}")
+        if metadata.get("license"):
+            logger.info(f"   License: {metadata['license']}")
+        if metadata.get("nsfw"):
+            logger.warning("   ⚠️  This model may generate NSFW content")
+
+        return True
+
+    except Exception as e:
+        logger.error(f"❌ Failed to download CivitAI model {model_version_id}: {str(e)}")
         return False
 
 
@@ -1391,6 +1458,22 @@ class AIModelManager:
         logger.info(f"   Max tokens: {kwargs.get('max_tokens', 1000)}")
         logger.info(f"   Temperature: {kwargs.get('temperature', 0.7)}")
 
+        # Check GPU compatibility and adjust inference engine preference
+        try:
+            from backend.utils.gpu_detection import should_use_ollama_fallback
+            
+            if should_use_ollama_fallback():
+                from backend.utils.model_detection import find_ollama_installation
+                ollama_info = find_ollama_installation()
+                
+                if ollama_info and ollama_info.get("installed"):
+                    logger.info("   🦙 GPU compatibility: Using Ollama (recommended for this hardware)")
+                    # Force Ollama usage by overriding inference_engine if not explicitly set
+                    if "inference_engine" not in kwargs:
+                        kwargs["inference_engine"] = "ollama"
+        except Exception as e:
+            logger.debug(f"   GPU detection skipped: {e}")
+
         try:
             # Find best available text model - LOCAL ONLY by default
             local_models = [
@@ -1591,6 +1674,13 @@ class AIModelManager:
                 logger.info(f"   🔄 Attempting fallback to Ollama...")
                 
                 from backend.utils.model_detection import find_ollama_installation
+                from backend.utils.gpu_detection import get_gpu_info
+                
+                # Log GPU information for diagnostics
+                gpu_info = get_gpu_info()
+                if gpu_info.get("architecture"):
+                    logger.info(f"   GPU detected: {gpu_info['architecture']} (Ollama recommended: {gpu_info.get('ollama_recommended', False)})")
+                
                 ollama_info = find_ollama_installation()
                 
                 if ollama_info and ollama_info.get("installed"):
