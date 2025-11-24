@@ -152,6 +152,30 @@ DEFAULT_SETTINGS = {
         "description": "Hugging Face API token",
         "is_sensitive": True,
     },
+    "civitai_api_key": {
+        "category": "ai_models",
+        "value": None,
+        "description": "CivitAI API key for downloading models",
+        "is_sensitive": True,
+    },
+    "civitai_allow_nsfw": {
+        "category": "ai_models",
+        "value": False,
+        "description": "Allow NSFW models from CivitAI",
+        "is_sensitive": False,
+    },
+    "civitai_track_usage": {
+        "category": "ai_models",
+        "value": True,
+        "description": "Track which models are from CivitAI for content attribution",
+        "is_sensitive": False,
+    },
+    "prefer_ollama_for_gfx1030": {
+        "category": "ai_models",
+        "value": True,
+        "description": "Use Ollama instead of vLLM for AMD gfx1030 GPUs (RX 6000 series)",
+        "is_sensitive": False,
+    },
     
     # Social Media
     "facebook_api_key": {
