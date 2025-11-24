@@ -910,7 +910,8 @@ async def browse_civitai_models(
             
             primary_file = files[0]
             size_kb = primary_file.get("sizeKB", 0)
-            size_gb = round(size_kb / (1024 * 1024), 2)
+            KB_TO_GB = 1024 * 1024  # KB to GB conversion factor
+            size_gb = round(size_kb / KB_TO_GB, 2)
             
             models.append({
                 "id": item.get("id"),

@@ -114,8 +114,8 @@ async def list_models(
             )
         
         # Parse model types and base models
-        type_list = model_types.split(",") if model_types else None
-        base_list = base_models.split(",") if base_models else None
+        type_list = model_types.split(",") if model_types and model_types.strip() else None
+        base_list = base_models.split(",") if base_models and base_models.strip() else None
         
         # Convert to enums
         type_enums = None

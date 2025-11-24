@@ -181,6 +181,7 @@ def get_gpu_info() -> Dict[str, Any]:
         info["ollama_recommended"] = not info["vllm_compatible"]
     
     # Try to get VRAM info
+    MB_TO_GB = 1024  # Conversion factor
     try:
         result = subprocess.run(
             ["rocm-smi", "--showmeminfo", "vram"],
@@ -194,7 +195,7 @@ def get_gpu_info() -> Dict[str, Any]:
             match = re.search(r"(\d+)\s*MB", result.stdout)
             if match:
                 vram_mb = int(match.group(1))
-                info["vram_gb"] = vram_mb / 1024
+                info["vram_gb"] = vram_mb / MB_TO_GB
                 
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass

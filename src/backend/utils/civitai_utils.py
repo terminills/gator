@@ -256,8 +256,8 @@ class CivitAIClient:
                             if progress_callback:
                                 progress_callback(downloaded_size, total_size)
                             
-                            # Log progress every 10%
-                            if total_size > 0 and downloaded_size % (total_size // 10) < 8192:
+                            # Log progress every 10% (avoid division by zero for small files)
+                            if total_size > 10 and downloaded_size % (total_size // 10) < 8192:
                                 progress_pct = (downloaded_size / total_size) * 100
                                 logger.info(f"   Progress: {progress_pct:.1f}%")
             
@@ -275,6 +275,7 @@ class CivitAIClient:
                 actual_hash = await self._calculate_file_hash(output_file)
                 if actual_hash.lower() != expected_hash.lower():
                     logger.error(f"   ❌ Hash mismatch! Expected: {expected_hash}, Got: {actual_hash}")
+                    logger.warning(f"   🗑️  Deleting corrupted file: {output_file}")
                     output_file.unlink()
                     raise ValueError("Downloaded file hash does not match expected hash")
                 logger.info("   ✅ File integrity verified")
