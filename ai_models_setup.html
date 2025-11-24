@@ -856,6 +856,71 @@
                 </div>
             </div>
             
+            <!-- CivitAI Models Section -->
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">🎨 CivitAI Model Browser</h2>
+                    <button class="btn btn-sm btn-secondary" onclick="refreshCivitAIModels()">🔄 Refresh</button>
+                </div>
+                
+                <!-- Search and Filter Controls -->
+                <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <input 
+                        type="text" 
+                        id="civitai-search" 
+                        placeholder="Search CivitAI models..." 
+                        style="flex: 1; min-width: 250px; padding: 10px 16px; background: var(--dark-card); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);"
+                    />
+                    <select 
+                        id="civitai-type-filter" 
+                        style="padding: 10px 16px; background: var(--dark-card); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);"
+                    >
+                        <option value="">All Types</option>
+                        <option value="Checkpoint">Checkpoint</option>
+                        <option value="LORA">LORA</option>
+                        <option value="TextualInversion">Textual Inversion</option>
+                        <option value="Hypernetwork">Hypernetwork</option>
+                        <option value="AestheticGradient">Aesthetic Gradient</option>
+                        <option value="Controlnet">ControlNet</option>
+                        <option value="Poses">Poses</option>
+                    </select>
+                    <select 
+                        id="civitai-base-filter" 
+                        style="padding: 10px 16px; background: var(--dark-card); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);"
+                    >
+                        <option value="">All Base Models</option>
+                        <option value="SD 1.5">SD 1.5</option>
+                        <option value="SDXL 1.0">SDXL 1.0</option>
+                        <option value="SD 2.1">SD 2.1</option>
+                        <option value="Flux.1 D">Flux.1 D</option>
+                        <option value="Pony">Pony</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="searchCivitAIModels()">
+                        🔍 Search
+                    </button>
+                </div>
+                
+                <div id="civitai-models">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading CivitAI models...
+                    </div>
+                </div>
+                
+                <!-- Pagination -->
+                <div id="civitai-pagination" style="display: none; justify-content: center; align-items: center; gap: 16px; margin-top: 24px;">
+                    <button class="btn btn-secondary" onclick="loadCivitAIPage(currentCivitAIPage - 1)" id="civitai-prev-btn">
+                        ← Previous
+                    </button>
+                    <span style="color: var(--text-secondary);">
+                        Page <span id="civitai-current-page">1</span>
+                    </span>
+                    <button class="btn btn-secondary" onclick="loadCivitAIPage(currentCivitAIPage + 1)" id="civitai-next-btn">
+                        Next →
+                    </button>
+                </div>
+            </div>
+            
             <!-- Quick Actions Section -->
             <div class="section">
                 <div class="section-header">
@@ -1590,7 +1655,7 @@
                 // Add informational note
                 html += `<div class="alert alert-info" style="margin-top: 20px;">`;
                 html += `<strong>ℹ️ About Inference Engines:</strong><br>`;
-                html += `• <strong>Text Engines:</strong> vLLM and llama.cpp-hip are used for running large language models locally<br>`;
+                html += `• <strong>Text Engines:</strong> Ollama, vLLM, and llama.cpp-hip are used for running large language models locally<br>`;
                 html += `• <strong>Image Engines:</strong> ComfyUI and Automatic1111 provide powerful interfaces for Stable Diffusion<br>`;
                 html += `• <strong>ROCm/HIP builds</strong> are optimized for AMD GPUs<br>`;
                 html += `• Python packages (transformers, diffusers) are lighter-weight alternatives<br>`;
@@ -1671,11 +1736,192 @@
             }
         }
         
+        // CivitAI Model Management
+        let currentCivitAIPage = 1;
+        let currentCivitAIQuery = '';
+        let currentCivitAITypeFilter = '';
+        let currentCivitAIBaseFilter = '';
+        
+        async function loadCivitAIModels() {
+            const modelsDiv = document.getElementById('civitai-models');
+            
+            try {
+                modelsDiv.innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading CivitAI models...
+                    </div>
+                `;
+                
+                const params = new URLSearchParams({
+                    page: currentCivitAIPage.toString(),
+                    limit: '20'
+                });
+                
+                if (currentCivitAIQuery) params.append('query', currentCivitAIQuery);
+                if (currentCivitAITypeFilter) params.append('model_types', currentCivitAITypeFilter);
+                if (currentCivitAIBaseFilter) params.append('base_models', currentCivitAIBaseFilter);
+                
+                const response = await fetch(`/api/v1/civitai/search?${params.toString()}`);
+                const data = await response.json();
+                
+                if (!data.models || data.models.length === 0) {
+                    modelsDiv.innerHTML = `
+                        <div class="alert alert-info">
+                            No models found. Try adjusting your search filters.
+                        </div>
+                    `;
+                    document.getElementById('civitai-pagination').style.display = 'none';
+                    return;
+                }
+                
+                let html = '<div class="models-grid">';
+                
+                data.models.forEach(model => {
+                    const latestVersion = model.model_versions && model.model_versions[0];
+                    const imageUrl = latestVersion && latestVersion.images && latestVersion.images[0] 
+                        ? latestVersion.images[0].url 
+                        : 'https://via.placeholder.com/300x400?text=No+Preview';
+                    
+                    const downloadCount = model.stats?.downloadCount || 0;
+                    const rating = model.stats?.rating || 0;
+                    
+                    html += `
+                        <div class="model-card">
+                            <div style="position: relative; margin-bottom: 12px;">
+                                <img 
+                                    src="${imageUrl}" 
+                                    alt="${model.name}"
+                                    style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px;"
+                                    onerror="this.src='https://via.placeholder.com/300x400?text=No+Preview'"
+                                />
+                                ${model.nsfw ? '<span style="position: absolute; top: 8px; right: 8px; padding: 4px 8px; background: rgba(239, 68, 68, 0.9); border-radius: 4px; font-size: 0.75rem; font-weight: 600;">NSFW</span>' : ''}
+                            </div>
+                            
+                            <div style="margin-bottom: 8px;">
+                                <span class="model-category ${model.type.toLowerCase()}">${model.type}</span>
+                            </div>
+                            
+                            <h3 class="model-name" style="margin-bottom: 8px; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${model.name}">
+                                ${model.name}
+                            </h3>
+                            
+                            <div style="display: flex; gap: 12px; margin-bottom: 12px; font-size: 0.85rem; color: var(--text-secondary);">
+                                <span title="Downloads">⬇️ ${downloadCount.toLocaleString()}</span>
+                                <span title="Rating">⭐ ${rating.toFixed(1)}</span>
+                            </div>
+                            
+                            ${latestVersion ? `
+                                <div style="margin-bottom: 12px; padding: 8px; background: var(--dark-surface); border-radius: 6px; font-size: 0.85rem;">
+                                    <div style="color: var(--text-secondary); margin-bottom: 4px;">Latest Version:</div>
+                                    <div style="font-weight: 600;">${latestVersion.name || 'v' + latestVersion.id}</div>
+                                    ${latestVersion.baseModel ? `<div style="color: var(--text-secondary); margin-top: 4px;">Base: ${latestVersion.baseModel}</div>` : ''}
+                                </div>
+                            ` : ''}
+                            
+                            <button 
+                                class="btn btn-primary btn-sm" 
+                                style="width: 100%;"
+                                onclick="downloadCivitAIModel(${model.id}, ${latestVersion ? latestVersion.id : 'null'})"
+                                ${!latestVersion ? 'disabled' : ''}
+                            >
+                                📥 Download Model
+                            </button>
+                            
+                            <button 
+                                class="btn btn-secondary btn-sm" 
+                                style="width: 100%; margin-top: 8px;"
+                                onclick="window.open('https://civitai.com/models/${model.id}', '_blank')"
+                            >
+                                🔗 View on CivitAI
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                modelsDiv.innerHTML = html;
+                
+                // Update pagination
+                document.getElementById('civitai-current-page').textContent = currentCivitAIPage;
+                document.getElementById('civitai-pagination').style.display = 'flex';
+                document.getElementById('civitai-prev-btn').disabled = currentCivitAIPage === 1;
+                document.getElementById('civitai-next-btn').disabled = data.models.length < 20;
+                
+            } catch (error) {
+                console.error('Failed to load CivitAI models:', error);
+                modelsDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        Failed to load CivitAI models: ${error.message}
+                        <br><br>
+                        <button class="btn btn-secondary" onclick="loadCivitAIModels()">🔄 Retry</button>
+                    </div>
+                `;
+                document.getElementById('civitai-pagination').style.display = 'none';
+            }
+        }
+        
+        async function searchCivitAIModels() {
+            currentCivitAIQuery = document.getElementById('civitai-search').value;
+            currentCivitAITypeFilter = document.getElementById('civitai-type-filter').value;
+            currentCivitAIBaseFilter = document.getElementById('civitai-base-filter').value;
+            currentCivitAIPage = 1;
+            await loadCivitAIModels();
+        }
+        
+        async function refreshCivitAIModels() {
+            currentCivitAIPage = 1;
+            await loadCivitAIModels();
+        }
+        
+        async function loadCivitAIPage(page) {
+            if (page < 1) return;
+            currentCivitAIPage = page;
+            await loadCivitAIModels();
+        }
+        
+        async function downloadCivitAIModel(modelId, versionId) {
+            if (!versionId) {
+                alert('No version available for download');
+                return;
+            }
+            
+            if (!confirm(`Download model from CivitAI?\n\nModel ID: ${modelId}\nVersion ID: ${versionId}\n\nThis may take some time depending on file size.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/v1/civitai/download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model_version_id: versionId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(`✅ Model downloaded successfully!\n\nFile: ${data.file_path || 'Saved to models directory'}`);
+                    // Refresh installed models
+                    loadSystemInfo();
+                } else {
+                    alert(`❌ Download failed: ${data.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Failed to download model:', error);
+                alert(`❌ Download failed: ${error.message}`);
+            }
+        }
+        
         // Load data on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadBranding();
             loadSystemInfo();
             loadInferenceEngines();
+            loadCivitAIModels();
         });
     </script>
 </body>

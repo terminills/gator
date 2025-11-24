@@ -497,6 +497,31 @@
             alert('Tenant switching coming soon! This will allow you to manage multiple tenants.');
         }
         
+        // Helper function to get icon for theme
+        function getThemeIcon(theme) {
+            const themeIcons = {
+                'fashion': '👗',
+                'fitness': '💪',
+                'technology': '💻',
+                'gaming': '🎮',
+                'cooking': '🍳',
+                'travel': '✈️',
+                'music': '🎵',
+                'art': '🎨',
+                'sports': '⚽',
+                'beauty': '💄',
+                'lifestyle': '🌟',
+                'business': '💼',
+                'education': '📚',
+                'health': '🏥',
+                'entertainment': '🎬',
+                'nature': '🌿'
+            };
+            
+            const lowercaseTheme = theme.toLowerCase();
+            return themeIcons[lowercaseTheme] || '🎭';
+        }
+        
         // Personas Management
         async function loadPersonas() {
             try {
@@ -526,13 +551,32 @@
                 personas.forEach(persona => {
                     const card = document.createElement('div');
                     card.className = 'card';
+                    
+                    // Get icon from style or theme
+                    const icon = persona.content_themes && persona.content_themes.length > 0 
+                        ? getThemeIcon(persona.content_themes[0]) 
+                        : '🎭';
+                    
+                    // Truncate personality for display
+                    const personalityPreview = persona.personality 
+                        ? (persona.personality.length > 100 ? persona.personality.substring(0, 100) + '...' : persona.personality)
+                        : 'No personality description';
+                    
                     card.innerHTML = `
                         <h3 style="margin-bottom: 12px; color: var(--text-primary);">
-                            ${persona.icon || '🎭'} ${persona.name}
+                            ${icon} ${persona.name}
                         </h3>
                         <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.9rem;">
-                            ${persona.bio || 'No bio available'}
+                            ${personalityPreview}
                         </p>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                            ${persona.content_themes && persona.content_themes.length > 0 ? 
+                                persona.content_themes.slice(0, 3).map(theme => 
+                                    `<span style="background: var(--dark-card); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem;">${theme}</span>`
+                                ).join('') 
+                                : '<span style="color: var(--text-secondary); font-size: 0.75rem;">No themes</span>'
+                            }
+                        </div>
                         <div style="display: flex; gap: 12px; margin-top: 16px;">
                             <button class="btn btn-secondary" onclick="editPersona('${persona.id}')">
                                 ✏️ Edit
