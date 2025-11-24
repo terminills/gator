@@ -35,6 +35,19 @@ from backend.utils.model_detection import (
 logger = get_logger(__name__)
 
 
+# Compile ANSI escape sequence pattern once at module level for performance
+# Pattern matches common ANSI escape sequences:
+# \x1b is the ESC character (27 in decimal, 0x1B in hex)
+# [ is the CSI (Control Sequence Introducer) start character
+_ANSI_ESCAPE_PATTERN = re.compile(r'''
+    \x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]  # Standard CSI: ESC [ params final
+    |\x1b\].*?(?:\x07|\x1b\\)                   # OSC sequences: ESC ] ... BEL/ST
+    |\x1b[PX^_].*?\x1b\\                        # String sequences
+    |\x1b[@-_]                                   # Fe sequences: ESC + single char
+    |\x9b[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]    # Single-byte CSI (rare)
+''', re.VERBOSE)
+
+
 def strip_ansi_codes(text: str) -> str:
     """
     Remove ANSI escape codes from text.
@@ -51,19 +64,7 @@ def strip_ansi_codes(text: str) -> str:
     Returns:
         Clean text without ANSI codes
     """
-    # Pattern matches common ANSI escape sequences:
-    # \x1b is the ESC character (27 in decimal, 0x1B in hex)
-    # [ is the CSI (Control Sequence Introducer) start character
-    # The pattern handles both standard ESC+[ sequences and bare [ sequences
-    ansi_escape = re.compile(r'''
-        \x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]  # Standard CSI: ESC [ params final
-        |\x1b\].*?(?:\x07|\x1b\\)                   # OSC sequences: ESC ] ... BEL/ST
-        |\x1b[PX^_].*?\x1b\\                        # String sequences
-        |\x1b[@-_]                                   # Fe sequences: ESC + single char
-        |\x9b[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]    # Single-byte CSI (rare)
-        |\x1b                                        # Lone ESC character
-    ''', re.VERBOSE)
-    return ansi_escape.sub('', text)
+    return _ANSI_ESCAPE_PATTERN.sub('', text)
 
 
 async def download_model_from_huggingface(
