@@ -203,7 +203,8 @@ def create_app() -> FastAPI:
         app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 
     # Mount content directory for generated content (images, videos, etc.)
-    content_path = os.path.join(project_root, "data", "content")
+    # Content is generated in src/generated_content by ContentGenerationService
+    content_path = os.path.join(project_root, "src", "generated_content")
     if os.path.exists(content_path):
         app.mount("/content", StaticFiles(directory=content_path), name="content")
         print(f"Mounted content directory: {content_path}")
