@@ -728,6 +728,11 @@ class ModelSetupManager:
         if models_to_install is None:
             models_to_install = ["gpt2-medium", "distilbert-sentiment"]
 
+        # Get HuggingFace token from environment
+        hf_token = os.environ.get("HUGGING_FACE_TOKEN") or os.environ.get(
+            "GATOR_HUGGING_FACE_TOKEN"
+        )
+
         try:
             from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 
@@ -745,20 +750,35 @@ class ModelSetupManager:
                 model_path.mkdir(parents=True, exist_ok=True)
 
                 try:
+                    # Prepare authentication token for gated models
+                    auth_token = hf_token if hf_token else None
+
                     # Download tokenizer and model
-                    tokenizer = AutoTokenizer.from_pretrained(model_config["model_id"])
+                    tokenizer = AutoTokenizer.from_pretrained(
+                        model_config["model_id"], token=auth_token
+                    )
                     tokenizer.save_pretrained(model_path)
 
                     if "gpt2" in model_name:
                         model = AutoModelForCausalLM.from_pretrained(
-                            model_config["model_id"]
+                            model_config["model_id"], token=auth_token
                         )
                         model.save_pretrained(model_path)
 
                     print(f"✓ Installed {model_name}")
 
                 except Exception as e:
-                    print(f"✗ Failed to install {model_name}: {str(e)}")
+                    error_msg = str(e)
+                    print(f"✗ Failed to install {model_name}: {error_msg}")
+                    if "gated" in error_msg.lower() or "401" in error_msg:
+                        print(f"   This appears to be a gated model.")
+                        print(
+                            f"   Make sure to have access to it at https://huggingface.co/{model_config['model_id']}"
+                        )
+                        if not hf_token:
+                            print(
+                                f"   Set HUGGING_FACE_TOKEN environment variable or configure in Settings"
+                            )
 
         except ImportError as e:
             print(f"Missing dependencies for text models: {str(e)}")
@@ -837,13 +857,22 @@ class ModelSetupManager:
                         # XTTS-v2 installation
                         print(f"   Downloading XTTS-v2 from Coqui...")
 
+                        # Get HuggingFace token from environment
+                        hf_token = os.environ.get(
+                            "HUGGING_FACE_TOKEN"
+                        ) or os.environ.get("GATOR_HUGGING_FACE_TOKEN")
+
                         # Download the model files from HuggingFace
-                        snapshot_path = snapshot_download(
-                            repo_id=model_config["model_id"],
-                            cache_dir=model_path / "cache",
-                            local_dir=model_path,
-                            local_dir_use_symlinks=False,
-                        )
+                        download_kwargs = {
+                            "repo_id": model_config["model_id"],
+                            "cache_dir": model_path / "cache",
+                            "local_dir": model_path,
+                            "local_dir_use_symlinks": False,
+                        }
+                        if hf_token:
+                            download_kwargs["token"] = hf_token
+
+                        snapshot_path = snapshot_download(**download_kwargs)
 
                         # Create a simple config file for the model
                         config_data = {

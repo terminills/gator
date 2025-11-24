@@ -35,7 +35,10 @@ logger = get_logger(__name__)
 
 
 async def download_model_from_huggingface(
-    model_id: str, model_path: Path, model_type: str = "text"
+    model_id: str,
+    model_path: Path,
+    model_type: str = "text",
+    token: Optional[str] = None,
 ) -> bool:
     """
     Download a model from Hugging Face Hub.
@@ -44,6 +47,7 @@ async def download_model_from_huggingface(
         model_id: Hugging Face model ID (e.g., "meta-llama/Llama-3.1-8B-Instruct")
         model_path: Local path where model should be downloaded
         model_type: Type of model (text, image, voice)
+        token: Optional HuggingFace token for accessing gated models
 
     Returns:
         bool: True if download successful, False otherwise
@@ -58,19 +62,94 @@ async def download_model_from_huggingface(
         # Create parent directory
         model_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Download model
-        downloaded_path = snapshot_download(
-            repo_id=model_id,
-            local_dir=str(model_path),
-            local_dir_use_symlinks=False,
-            resume_download=True,
-        )
+        # Get token from settings if not provided
+        if token is None:
+            from backend.config.settings import get_settings
+
+            settings = get_settings()
+            token = settings.hugging_face_token
+
+        # Download model with authentication token for gated repos
+        download_kwargs = {
+            "repo_id": model_id,
+            "local_dir": str(model_path),
+            "local_dir_use_symlinks": False,
+            "resume_download": True,
+        }
+
+        if token:
+            download_kwargs["token"] = token
+            logger.info("   Using HuggingFace authentication token")
+
+        downloaded_path = snapshot_download(**download_kwargs)
 
         logger.info(f"✅ Model downloaded successfully to {downloaded_path}")
         return True
 
     except Exception as e:
         logger.error(f"❌ Failed to download model {model_id}: {str(e)}")
+        if "gated" in str(e).lower() or "401" in str(e):
+            logger.error("   This appears to be a gated model. Make sure to:")
+            logger.error("   1. Accept the model license on HuggingFace")
+            logger.error("   2. Configure your HuggingFace token in Settings")
+        return False
+
+
+def verify_model_files_exist(model_path: Path, model_type: str = "text") -> bool:
+    """
+    Verify that a model directory actually contains required model files.
+
+    Args:
+        model_path: Path to the model directory
+        model_type: Type of model (text, image, voice)
+
+    Returns:
+        bool: True if model files exist, False if directory is empty or incomplete
+    """
+    if not model_path.exists() or not model_path.is_dir():
+        return False
+
+    # Check for required files based on model type
+    if model_type == "text":
+        # Text models should have at least tokenizer and config files
+        required_files = [
+            "tokenizer.json",
+            "tokenizer_config.json",
+        ]
+        # At least one of these should exist
+        optional_indicators = [
+            "chat_template.jinja",  # Common in newer models
+            "config.json",  # Model configuration
+            "model.safetensors",  # Model weights
+            "pytorch_model.bin",  # Legacy model weights
+            "model.gguf",  # GGUF format
+        ]
+
+        # Check required files
+        has_required = all((model_path / f).exists() for f in required_files)
+        # Check at least one optional indicator
+        has_indicator = any((model_path / f).exists() for f in optional_indicators)
+
+        return has_required or has_indicator
+
+    elif model_type == "image":
+        # Image models should have model config and weights
+        required_files = [
+            "model_index.json",  # Diffusers pipeline config
+        ]
+        return all((model_path / f).exists() for f in required_files)
+
+    elif model_type == "voice":
+        # Voice models should have config
+        required_files = [
+            "config.json",
+        ]
+        return all((model_path / f).exists() for f in required_files)
+
+    # Default: check if directory is not empty
+    try:
+        return any(model_path.iterdir())
+    except Exception:
         return False
 
 
@@ -405,10 +484,15 @@ class AIModelManager:
                     model_path_direct = self.models_dir / model_name
 
                     # Prefer category subdirectory if it exists, fallback to direct
-                    if model_path_with_category.exists():
+                    # IMPORTANT: Verify model files actually exist, not just directory
+                    if model_path_with_category.exists() and verify_model_files_exist(
+                        model_path_with_category, "text"
+                    ):
                         model_path = model_path_with_category
                         is_downloaded = True
-                    elif model_path_direct.exists():
+                    elif model_path_direct.exists() and verify_model_files_exist(
+                        model_path_direct, "text"
+                    ):
                         model_path = model_path_direct
                         is_downloaded = True
                     else:
@@ -416,6 +500,14 @@ class AIModelManager:
                             model_path_with_category  # Default for future downloads
                         )
                         is_downloaded = False
+                        # Log warning if directory exists but no files
+                        if model_path_with_category.exists():
+                            logger.warning(
+                                f"   ⚠️  Model directory exists but no model files found: {model_name}"
+                            )
+                            logger.warning(
+                                f"       Directory may be incomplete from failed download"
+                            )
 
                     inference_engine = config.get("inference_engine", "transformers")
 
