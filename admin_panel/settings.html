@@ -654,40 +654,34 @@
         }
         
         async function loadAPIKeys() {
-            try {
-                // Load OpenAI key
-                const openaiResponse = await fetch('/api/v1/settings/openai_api_key');
-                if (openaiResponse.ok) {
-                    const openai = await openaiResponse.json();
-                    // Show masked value if exists
-                    if (openai.value) {
-                        document.getElementById('openai-key').placeholder = '••••••••' + openai.value.slice(-4);
+            // Helper function to load a single setting without logging 404 errors
+            async function loadSetting(key, elementId, defaultPlaceholder) {
+                try {
+                    const response = await fetch(`/api/v1/settings/${key}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.value) {
+                            const maskedValue = data.value.length > 4 ? data.value.slice(-4) : '••••';
+                            document.getElementById(elementId).placeholder = '••••••••' + maskedValue;
+                            return true;
+                        }
+                    } else if (response.status === 404) {
+                        // Setting doesn't exist yet - this is normal for first-time setup
+                        return false;
                     }
+                } catch (error) {
+                    // Silently handle errors - setting just won't show as saved
+                    return false;
                 }
-                
-                // Load HF token
-                const hfResponse = await fetch('/api/v1/settings/hugging_face_token');
-                if (hfResponse.ok) {
-                    const hf = await hfResponse.json();
-                    // Show masked value if exists
-                    if (hf.value) {
-                        document.getElementById('hf-token').placeholder = '••••••••' + hf.value.slice(-4);
-                    }
-                }
-                
-                // Load CivitAI key
-                const civitaiResponse = await fetch('/api/v1/settings/civitai_api_key');
-                if (civitaiResponse.ok) {
-                    const civitai = await civitaiResponse.json();
-                    // Show masked value if exists
-                    if (civitai.value) {
-                        const maskedValue = civitai.value.length > 4 ? civitai.value.slice(-4) : '••••';
-                        document.getElementById('civitai-key').placeholder = '••••••••' + maskedValue;
-                    }
-                }
-            } catch (error) {
-                console.log('No saved API keys found');
+                return false;
             }
+            
+            // Load all API keys
+            await Promise.all([
+                loadSetting('openai_api_key', 'openai-key', 'sk-...'),
+                loadSetting('hugging_face_token', 'hf-token', 'hf_...'),
+                loadSetting('civitai_api_key', 'civitai-key', 'Enter your CivitAI API key...')
+            ]);
         }
         
         async function backupDatabase() {
@@ -797,45 +791,41 @@
         }
         
         async function loadIPMICredentials() {
-            try {
-                // Load IPMI host
-                const hostResponse = await fetch('/api/v1/settings/ipmi_host');
-                if (hostResponse.ok) {
-                    const host = await hostResponse.json();
-                    if (host.value) {
-                        document.getElementById('ipmi-host').value = host.value;
+            // Helper function to load a single IPMI setting without logging 404 errors
+            async function loadIPMISetting(key, elementId, isMasked = false) {
+                try {
+                    const response = await fetch(`/api/v1/settings/${key}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.value) {
+                            if (isMasked) {
+                                // Show masked password
+                                const maskedValue = data.value.length > 4 ? data.value.slice(-4) : '••••';
+                                document.getElementById(elementId).placeholder = '••••••••' + maskedValue;
+                            } else {
+                                // Show actual value for non-sensitive fields
+                                document.getElementById(elementId).value = data.value;
+                            }
+                            return true;
+                        }
+                    } else if (response.status === 404) {
+                        // Setting doesn't exist yet - this is normal for first-time setup
+                        return false;
                     }
+                } catch (error) {
+                    // Silently handle errors
+                    return false;
                 }
-                
-                // Load IPMI username
-                const usernameResponse = await fetch('/api/v1/settings/ipmi_username');
-                if (usernameResponse.ok) {
-                    const username = await usernameResponse.json();
-                    if (username.value) {
-                        document.getElementById('ipmi-username').value = username.value;
-                    }
-                }
-                
-                // Load IPMI password (show masked)
-                const passwordResponse = await fetch('/api/v1/settings/ipmi_password');
-                if (passwordResponse.ok) {
-                    const password = await passwordResponse.json();
-                    if (password.value) {
-                        document.getElementById('ipmi-password').placeholder = '••••••••' + password.value.slice(-4);
-                    }
-                }
-                
-                // Load IPMI interface
-                const interfaceResponse = await fetch('/api/v1/settings/ipmi_interface');
-                if (interfaceResponse.ok) {
-                    const interfaceData = await interfaceResponse.json();
-                    if (interfaceData.value) {
-                        document.getElementById('ipmi-interface').value = interfaceData.value;
-                    }
-                }
-            } catch (error) {
-                console.log('No saved IPMI credentials found');
+                return false;
             }
+            
+            // Load all IPMI settings
+            await Promise.all([
+                loadIPMISetting('ipmi_host', 'ipmi-host'),
+                loadIPMISetting('ipmi_username', 'ipmi-username'),
+                loadIPMISetting('ipmi_password', 'ipmi-password', true),
+                loadIPMISetting('ipmi_interface', 'ipmi-interface')
+            ]);
         }
         
         // Load on page load
