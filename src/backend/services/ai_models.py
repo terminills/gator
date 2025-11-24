@@ -1836,7 +1836,7 @@ class AIModelManager:
             logger.info(f"   " + "=" * 76)
             
             # Build Ollama command
-            # Using 'ollama run' with prompt via stdin for better control
+            # Using 'ollama run' with prompt as command argument for simplicity
             cmd = [
                 ollama_binary,
                 "run",

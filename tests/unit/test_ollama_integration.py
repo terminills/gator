@@ -259,8 +259,9 @@ class TestOllamaTextGeneration:
                 
                 # Mock empty output (model not pulled)
                 async def async_lines():
-                    return
-                    yield  # Make it a generator
+                    # Empty generator - no output
+                    if False:
+                        yield  # Make it a generator but never yield
                 
                 mock_process.stdout = async_lines()
                 mock_subprocess.return_value = mock_process

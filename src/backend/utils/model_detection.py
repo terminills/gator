@@ -381,7 +381,7 @@ def find_ollama_installation() -> Optional[Dict[str, Any]]:
                     "available_models": available_models,
                     "server_running": list_result.returncode == 0,
                 }
-            except (subprocess.TimeoutExpired, Exception) as e:
+            except (subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError, FileNotFoundError) as e:
                 # Ollama is installed but server might not be running
                 return {
                     "installed": True,
@@ -401,7 +401,7 @@ def find_ollama_installation() -> Optional[Dict[str, Any]]:
                 "available_models": [],
                 "server_running": False,
             }
-    except (subprocess.TimeoutExpired, Exception):
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError, FileNotFoundError):
         # Binary exists but failed to execute
         return {
             "installed": True,
