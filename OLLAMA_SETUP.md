@@ -88,6 +88,25 @@ Test that Ollama can generate text:
 ollama run llama3:8b "Write a short poem about AI"
 ```
 
+### Verify Integration with Gator
+
+Run the manual test script to verify Ollama integration:
+
+```bash
+python test_ollama_manual.py
+```
+
+This script will:
+- Verify Ollama is detected
+- Check that Ollama appears in inference engines
+- Test actual text generation
+- Verify fallback mechanism is in place
+
+Expected output:
+```
+🎉 All tests passed! Ollama integration is working correctly.
+```
+
 ## Integration with Gator
 
 ### Automatic Fallback
