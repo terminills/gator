@@ -1515,10 +1515,73 @@ class AIModelManager:
         logger.error(f"   ❌ {error_msg}")
         raise ValueError(error_msg)
 
+    def _filter_llamacpp_output(self, lines: List[str]) -> str:
+        """
+        Filter llama.cpp output to extract only generated text.
+        
+        Filters out:
+        - GGML initialization messages (ggml_cuda_init, ggml_*)
+        - llama.cpp system info (llama_*, system_info:)
+        - Debug/log messages
+        - Empty lines at start/end
+        
+        Args:
+            lines: List of output lines from llama.cpp
+            
+        Returns:
+            Cleaned generated text
+        """
+        # Patterns to filter out (initialization/debug output)
+        filter_patterns = [
+            'ggml_',           # GGML library initialization
+            'llama_',          # llama.cpp initialization
+            'system_info:',    # System information
+            'sampling:',       # Sampling parameters
+            'generate:',       # Generation metadata
+            'Device ',         # GPU device info
+            'compute:',        # Compute backend info
+            'backend:',        # Backend info
+        ]
+        
+        filtered_lines = []
+        generation_started = False
+        
+        for line in lines:
+            line_stripped = line.strip()
+            
+            # Skip empty lines
+            if not line_stripped:
+                continue
+            
+            # Check if line matches any filter pattern
+            should_filter = False
+            for pattern in filter_patterns:
+                if pattern.lower() in line_stripped.lower():
+                    should_filter = True
+                    break
+            
+            # Skip filtered lines
+            if should_filter:
+                continue
+            
+            # This is likely generated text
+            generation_started = True
+            filtered_lines.append(line)
+        
+        # Join the filtered lines and clean up
+        result = "\n".join(filtered_lines).strip()
+        
+        # If we got nothing after filtering, return a message
+        if not result:
+            logger.warning("   ⚠️  No generated text found after filtering initialization logs")
+            return ""
+        
+        return result
+
     async def _generate_text_llamacpp(
         self, prompt: str, model: Dict[str, Any], **kwargs
     ) -> str:
-        """Generate text using llama.cpp with full raw output streaming."""
+        """Generate text using llama.cpp with filtered output."""
         try:
             logger.info(f"   🦙 Starting llama.cpp engine for {model['name']}...")
             logger.info(f"   Model path: {model.get('path', 'Not specified')}")
@@ -1566,13 +1629,13 @@ class AIModelManager:
                 cwd=str(Path(model_file).parent),
             )
 
-            generated_text = []
+            raw_output_lines = []
             async for line in process.stdout:
                 line_text = line.decode("utf-8", errors="ignore").rstrip()
                 if line_text:
-                    # Print raw llama.cpp output
+                    # Print raw llama.cpp output to logs
                     logger.info(f"   {line_text}")
-                    generated_text.append(line_text)
+                    raw_output_lines.append(line_text)
 
             await process.wait()
 
@@ -1581,8 +1644,15 @@ class AIModelManager:
                 f"   ✓ llama.cpp generation complete (exit code: {process.returncode})"
             )
 
-            full_output = "\n".join(generated_text)
-            return full_output
+            # Filter out initialization logs and extract generated text
+            generated_text = self._filter_llamacpp_output(raw_output_lines)
+            
+            if not generated_text:
+                logger.warning("   ⚠️  No text generated after filtering")
+                # Return raw output if filtering removed everything
+                return "\n".join(raw_output_lines)
+            
+            return generated_text
 
         except Exception as e:
             logger.error(f"   ❌ llama.cpp generation failed: {str(e)}")
