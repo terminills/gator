@@ -491,7 +491,7 @@
                         <input type="password" class="search-input" id="civitai-key" placeholder="Enter your CivitAI API key..." style="width: 100%; max-width: 400px;">
                         <div style="margin-top: 8px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-left: 4px solid var(--primary); border-radius: 4px;">
                             <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0;">
-                                📌 <strong>Get your API key:</strong> Visit <a href="https://civitai.com/user/account" target="_blank" style="color: var(--primary);">civitai.com/user/account</a><br>
+                                📌 <strong>Get your API key:</strong> Visit <a href="https://civitai.com/user/account" target="_blank" rel="noopener noreferrer" style="color: var(--primary);">civitai.com/user/account</a><br>
                                 💡 Required for downloading models from the <a href="/ai-models-setup" style="color: var(--primary);">AI Models Setup</a> page
                             </p>
                         </div>
@@ -681,7 +681,8 @@
                     const civitai = await civitaiResponse.json();
                     // Show masked value if exists
                     if (civitai.value) {
-                        document.getElementById('civitai-key').placeholder = '••••••••' + civitai.value.slice(-4);
+                        const maskedValue = civitai.value.length > 4 ? civitai.value.slice(-4) : '••••';
+                        document.getElementById('civitai-key').placeholder = '••••••••' + maskedValue;
                     }
                 }
             } catch (error) {
