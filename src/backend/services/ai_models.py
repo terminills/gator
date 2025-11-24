@@ -631,6 +631,54 @@ class AIModelManager:
                         logger.info(
                             f"Local text model {model_name} needs setup: engine={engine_available}, downloaded={is_downloaded}"
                         )
+            
+            # Check for Ollama installation and register available models
+            try:
+                from backend.utils.model_detection import find_ollama_installation
+                
+                ollama_info = find_ollama_installation()
+                
+                if ollama_info and ollama_info.get("installed"):
+                    logger.info("   🦙 Ollama installation detected")
+                    logger.info(f"   Ollama version: {ollama_info.get('version', 'unknown')}")
+                    logger.info(f"   Ollama binary: {ollama_info.get('path')}")
+                    logger.info(f"   Server running: {ollama_info.get('server_running', False)}")
+                    
+                    available_ollama_models = ollama_info.get("available_models", [])
+                    
+                    if available_ollama_models:
+                        logger.info(f"   Found {len(available_ollama_models)} Ollama model(s):")
+                        
+                        for ollama_model in available_ollama_models:
+                            logger.info(f"     • {ollama_model}")
+                            
+                            # Register each Ollama model as available for text generation
+                            # Use a simple naming convention: the Ollama model name as-is
+                            self.available_models["text"].append({
+                                "name": ollama_model,
+                                "type": "text-generation",
+                                "model_id": ollama_model,
+                                "provider": "local",
+                                "inference_engine": "ollama",
+                                "loaded": True,  # Ollama models are immediately available
+                                "can_load": True,
+                                "lazy_load": False,
+                                "size_gb": 0,  # Size is managed by Ollama
+                                "description": f"Ollama model: {ollama_model}",
+                                "device": "cuda" if sys_req["gpu_memory_gb"] > 0 else "cpu",
+                                "ollama_model": ollama_model,  # Store original Ollama model name
+                                "path": ollama_info.get("path"),  # Ollama binary path
+                            })
+                        
+                        logger.info(f"   ✓ Registered {len(available_ollama_models)} Ollama model(s) for text generation")
+                    else:
+                        logger.info("   ⚠️  Ollama is installed but no models are pulled")
+                        logger.info("   To use Ollama, pull a model: ollama pull llama2")
+                else:
+                    logger.info("   Ollama not detected (optional)")
+                    
+            except Exception as ollama_error:
+                logger.warning(f"   Failed to check Ollama availability: {str(ollama_error)}")
 
         except Exception as e:
             logger.error(f"Failed to initialize local text models: {str(e)}")
@@ -1129,6 +1177,48 @@ class AIModelManager:
 
         # For text models
         elif content_type == "text":
+            # Check if user explicitly requested Ollama via inference_engine parameter
+            requested_engine = kwargs.get("inference_engine")
+            
+            # Prioritize Ollama models for chat/conversational tasks
+            # Ollama is optimized for interactive use and provides good performance
+            ollama_models = [m for m in available_models if m.get("inference_engine") == "ollama"]
+            
+            if requested_engine == "ollama" and ollama_models:
+                # User explicitly requested Ollama - use first available Ollama model
+                logger.info(
+                    f"🎯 Model selection: {ollama_models[0]['name']} (reason: Ollama explicitly requested)"
+                )
+                return ollama_models[0]
+            elif ollama_models and not requested_engine:
+                # Ollama available and no specific engine requested
+                # Prefer Ollama for chat/conversational tasks (default use case)
+                # Check GPU compatibility to confirm Ollama is recommended
+                try:
+                    from backend.utils.gpu_detection import should_use_ollama_fallback
+                    
+                    if should_use_ollama_fallback():
+                        logger.info(
+                            f"🎯 Model selection: {ollama_models[0]['name']} (reason: Ollama recommended for GPU compatibility)"
+                        )
+                        return ollama_models[0]
+                except Exception:
+                    pass
+                
+                # Even without GPU issues, prefer Ollama for simple conversational tasks
+                # (it's optimized for this use case)
+                prompt_length = len(prompt.split())
+                max_tokens = kwargs.get("max_tokens", 500)
+                
+                # Simple conversational task detection
+                is_simple_chat = prompt_length < 100 and max_tokens <= 500
+                
+                if is_simple_chat:
+                    logger.info(
+                        f"🎯 Model selection: {ollama_models[0]['name']} (reason: Ollama optimized for chat)"
+                    )
+                    return ollama_models[0]
+            
             # Longer prompts or complex tasks need larger models
             prompt_length = len(prompt.split())
             max_tokens = kwargs.get("max_tokens", 500)
