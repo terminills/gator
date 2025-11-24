@@ -2083,7 +2083,13 @@ class AIModelManager:
                 if line_text:
                     # Strip ANSI codes before logging and storing
                     clean_line = strip_ansi_codes(line_text)
-                    if clean_line:  # Only log non-empty lines after stripping
+                    if clean_line:
+                        # Filter out lines that are just spinner characters or loading messages
+                        # (these are transient and get overwritten in real terminal)
+                        stripped = clean_line.strip()
+                        # Skip if line is just a single spinner character or "Loading model..."
+                        if len(stripped) <= 2 or "Loading model" in stripped:
+                            continue
                         # Print cleaned Ollama output to logs
                         logger.info(f"   {clean_line}")
                         raw_output_lines.append(clean_line)
