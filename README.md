@@ -287,6 +287,20 @@ bash scripts/install_vllm_rocm.sh
 - 10-30 minute build time
 - See [Installation Scripts Guide](docs/INSTALLATION_SCRIPTS_GUIDE.md)
 
+**Ollama (Reliable LLM Runtime with Automatic Fallback)**:
+```bash
+# Install Ollama (simple one-line install)
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull a model
+ollama pull llama3:8b
+```
+- **Automatic fallback** when llama.cpp encounters errors (e.g., floating point exceptions)
+- Simple installation and model management
+- Compatible with a wide range of models (Llama 3, Qwen, CodeLlama, etc.)
+- Works alongside llama.cpp - no configuration needed
+- See [Ollama Setup Guide](OLLAMA_SETUP.md) for detailed instructions
+
 **ComfyUI (Node-Based Stable Diffusion)**:
 ```bash
 # Install ComfyUI with ROCm support

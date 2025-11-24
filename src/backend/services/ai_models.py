@@ -1581,9 +1581,32 @@ class AIModelManager:
                 logger.error(f"   ❌ {error_msg}")
                 raise ValueError(error_msg)
 
-        # Try generation with the primary engine (fail fast, no fallbacks)
+        # Try generation with the primary engine
         if inference_engine in ["llama.cpp", "llama-cpp"]:  # Support both formats
-            return await self._generate_text_llamacpp(prompt, model, **kwargs)
+            try:
+                return await self._generate_text_llamacpp(prompt, model, **kwargs)
+            except Exception as e:
+                # If llama.cpp fails, try Ollama as fallback
+                logger.warning(f"   ⚠️  llama.cpp failed: {str(e)}")
+                logger.info(f"   🔄 Attempting fallback to Ollama...")
+                
+                from backend.utils.model_detection import find_ollama_installation
+                ollama_info = find_ollama_installation()
+                
+                if ollama_info and ollama_info.get("installed"):
+                    try:
+                        # Try Ollama with the same prompt
+                        return await self._generate_text_ollama(prompt, model, **kwargs)
+                    except Exception as ollama_error:
+                        logger.error(f"   ❌ Ollama fallback also failed: {str(ollama_error)}")
+                        # Re-raise the original llama.cpp error since fallback failed too
+                        raise e
+                else:
+                    logger.warning(f"   ⚠️  Ollama not available for fallback")
+                    # Re-raise the original error
+                    raise e
+        elif inference_engine == "ollama":
+            return await self._generate_text_ollama(prompt, model, **kwargs)
         elif inference_engine == "vllm":
             return await self._generate_text_vllm(prompt, model, **kwargs)
         elif inference_engine == "transformers":
@@ -1765,6 +1788,128 @@ class AIModelManager:
 
         except Exception as e:
             logger.error(f"   ❌ llama.cpp generation failed: {str(e)}")
+            raise
+
+    async def _generate_text_ollama(
+        self, prompt: str, model: Dict[str, Any], **kwargs
+    ) -> str:
+        """
+        Generate text using Ollama.
+        
+        Ollama provides a simple CLI and API for running LLMs locally.
+        This method uses the CLI interface for compatibility.
+        
+        Args:
+            prompt: Text prompt for generation
+            model: Model configuration dict (must include 'name' or 'ollama_model')
+            **kwargs: Additional generation parameters (temperature, max_tokens, etc.)
+        
+        Returns:
+            Generated text
+        
+        Raises:
+            ValueError: If Ollama is not installed or model not available
+            RuntimeError: If generation fails
+        """
+        try:
+            logger.info(f"   🦙 Starting Ollama engine for {model['name']}...")
+            
+            # Check for Ollama binary
+            ollama_binary = shutil.which("ollama")
+            if not ollama_binary:
+                logger.warning(f"   ⚠️  Ollama not found in PATH")
+                logger.warning(f"   Install Ollama from https://ollama.com/download")
+                raise ValueError("Ollama not found")
+            
+            logger.info(f"   ✓ Found Ollama at: {ollama_binary}")
+            
+            # Determine which Ollama model to use
+            # Priority: explicit ollama_model config > model name
+            ollama_model = model.get("ollama_model", model.get("name", ""))
+            
+            if not ollama_model:
+                raise ValueError("No Ollama model specified in configuration")
+            
+            logger.info(f"   📦 Using Ollama model: {ollama_model}")
+            logger.info(f"   " + "=" * 76)
+            logger.info(f"   RAW OLLAMA ENGINE OUTPUT (LIVE):")
+            logger.info(f"   " + "=" * 76)
+            
+            # Build Ollama command
+            # Using 'ollama run' with prompt as command argument for simplicity
+            cmd = [
+                ollama_binary,
+                "run",
+                ollama_model,
+                prompt,
+            ]
+            
+            # Run subprocess and capture output
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+                stdin=asyncio.subprocess.PIPE,
+            )
+            
+            # Close stdin immediately since we pass prompt as argument
+            process.stdin.close()
+            
+            raw_output_lines = []
+            async for line in process.stdout:
+                line_text = line.decode("utf-8", errors="ignore").rstrip()
+                if line_text:
+                    # Print raw Ollama output to logs
+                    logger.info(f"   {line_text}")
+                    raw_output_lines.append(line_text)
+            
+            await process.wait()
+            
+            logger.info(f"   " + "=" * 76)
+            
+            # Check if Ollama succeeded (exit code 0 = success)
+            if process.returncode != 0:
+                logger.error(
+                    f"   ❌ Ollama generation FAILED (exit code: {process.returncode})"
+                )
+                logger.error(
+                    f"   The model may not be available or Ollama server may not be running"
+                )
+                # Show the raw output for debugging
+                MAX_ERROR_LINES = 10
+                error_output = (
+                    "\n".join(raw_output_lines[-MAX_ERROR_LINES:])
+                    if raw_output_lines
+                    else "No output"
+                )
+                logger.error(f"   Last output lines: {error_output}")
+                raise RuntimeError(
+                    f"Ollama failed with exit code {process.returncode}. "
+                    f"Model may not be pulled or server may not be running. "
+                    f"Try: ollama pull {ollama_model}"
+                )
+            
+            logger.info(
+                f"   ✓ Ollama generation complete (exit code: {process.returncode})"
+            )
+            
+            # Ollama output is cleaner than llama.cpp - just join lines
+            generated_text = "\n".join(raw_output_lines).strip()
+            
+            if not generated_text:
+                logger.warning("   ⚠️  No text generated by Ollama")
+                logger.warning(
+                    "   This may mean the model needs to be pulled first"
+                )
+                logger.warning(f"   Try: ollama pull {ollama_model}")
+                raise RuntimeError(
+                    f"No text generated by Ollama. Try pulling the model first: ollama pull {ollama_model}"
+                )
+            
+            return generated_text
+        
+        except Exception as e:
+            logger.error(f"   ❌ Ollama generation failed: {str(e)}")
             raise
 
     async def _generate_image_local(
