@@ -15,6 +15,7 @@ import subprocess
 import platform
 import shutil
 import time
+import re
 from typing import Dict, List, Optional, Any, Union
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +33,37 @@ from backend.utils.model_detection import (
 )
 
 logger = get_logger(__name__)
+
+
+def strip_ansi_codes(text: str) -> str:
+    """
+    Remove ANSI escape codes from text.
+    
+    This includes:
+    - Color codes
+    - Cursor positioning
+    - Terminal control sequences
+    - Spinners and progress indicators
+    
+    Args:
+        text: Text potentially containing ANSI codes
+        
+    Returns:
+        Clean text without ANSI codes
+    """
+    # Pattern matches common ANSI escape sequences:
+    # \x1b is the ESC character (27 in decimal, 0x1B in hex)
+    # [ is the CSI (Control Sequence Introducer) start character
+    # The pattern handles both standard ESC+[ sequences and bare [ sequences
+    ansi_escape = re.compile(r'''
+        \x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]  # Standard CSI: ESC [ params final
+        |\x1b\].*?(?:\x07|\x1b\\)                   # OSC sequences: ESC ] ... BEL/ST
+        |\x1b[PX^_].*?\x1b\\                        # String sequences
+        |\x1b[@-_]                                   # Fe sequences: ESC + single char
+        |\x9b[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]    # Single-byte CSI (rare)
+        |\x1b                                        # Lone ESC character
+    ''', re.VERBOSE)
+    return ansi_escape.sub('', text)
 
 
 async def download_model_from_huggingface(
@@ -1922,9 +1954,12 @@ class AIModelManager:
             async for line in process.stdout:
                 line_text = line.decode("utf-8", errors="ignore").rstrip()
                 if line_text:
-                    # Print raw llama.cpp output to logs
-                    logger.info(f"   {line_text}")
-                    raw_output_lines.append(line_text)
+                    # Strip ANSI codes before logging and storing
+                    clean_line = strip_ansi_codes(line_text)
+                    if clean_line:  # Only log non-empty lines after stripping
+                        # Print cleaned llama.cpp output to logs
+                        logger.info(f"   {clean_line}")
+                        raw_output_lines.append(clean_line)
 
             await process.wait()
 
@@ -2046,9 +2081,12 @@ class AIModelManager:
             async for line in process.stdout:
                 line_text = line.decode("utf-8", errors="ignore").rstrip()
                 if line_text:
-                    # Print raw Ollama output to logs
-                    logger.info(f"   {line_text}")
-                    raw_output_lines.append(line_text)
+                    # Strip ANSI codes before logging and storing
+                    clean_line = strip_ansi_codes(line_text)
+                    if clean_line:  # Only log non-empty lines after stripping
+                        # Print cleaned Ollama output to logs
+                        logger.info(f"   {clean_line}")
+                        raw_output_lines.append(clean_line)
             
             await process.wait()
             
