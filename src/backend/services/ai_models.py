@@ -271,6 +271,11 @@ class AIModelManager:
                     "flux.1-dev",  # 12GB - less frequently used
                 ]
             )
+        
+        # Chat model selection thresholds
+        # Used to determine if Ollama should be preferred for simple conversational tasks
+        self.CHAT_SIMPLE_PROMPT_MAX_WORDS = int(os.environ.get("AI_CHAT_SIMPLE_MAX_WORDS", "100"))
+        self.CHAT_SIMPLE_MAX_TOKENS = int(os.environ.get("AI_CHAT_SIMPLE_MAX_TOKENS", "500"))
 
         # Model configurations based on recommendations
         self.local_model_configs = {
@@ -665,7 +670,7 @@ class AIModelManager:
                                 "lazy_load": False,
                                 "size_gb": 0,  # Size is managed by Ollama
                                 "description": f"Ollama model: {ollama_model}",
-                                "device": "cuda" if sys_req["gpu_memory_gb"] > 0 else "cpu",
+                                "device": "gpu" if sys_req["gpu_memory_gb"] > 0 else "cpu",  # Generic GPU (Ollama handles CUDA/ROCm/Metal)
                                 "ollama_model": ollama_model,  # Store original Ollama model name
                                 "path": ollama_info.get("path"),  # Ollama binary path
                             })
@@ -1211,8 +1216,11 @@ class AIModelManager:
                 
                 # Even without GPU issues, prefer Ollama for simple conversational tasks
                 # (it's optimized for this use case)
-                # Simple conversational task detection
-                is_simple_chat = prompt_length < 100 and max_tokens <= 500
+                # Simple conversational task detection using configurable thresholds
+                is_simple_chat = (
+                    prompt_length < self.CHAT_SIMPLE_PROMPT_MAX_WORDS 
+                    and max_tokens <= self.CHAT_SIMPLE_MAX_TOKENS
+                )
                 
                 if is_simple_chat:
                     logger.info(
