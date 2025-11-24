@@ -35,7 +35,10 @@ logger = get_logger(__name__)
 
 
 async def download_model_from_huggingface(
-    model_id: str, model_path: Path, model_type: str = "text"
+    model_id: str,
+    model_path: Path,
+    model_type: str = "text",
+    token: Optional[str] = None,
 ) -> bool:
     """
     Download a model from Hugging Face Hub.
@@ -44,6 +47,7 @@ async def download_model_from_huggingface(
         model_id: Hugging Face model ID (e.g., "meta-llama/Llama-3.1-8B-Instruct")
         model_path: Local path where model should be downloaded
         model_type: Type of model (text, image, voice)
+        token: Optional HuggingFace token for accessing gated models
 
     Returns:
         bool: True if download successful, False otherwise
@@ -58,19 +62,94 @@ async def download_model_from_huggingface(
         # Create parent directory
         model_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Download model
-        downloaded_path = snapshot_download(
-            repo_id=model_id,
-            local_dir=str(model_path),
-            local_dir_use_symlinks=False,
-            resume_download=True,
-        )
+        # Get token from settings if not provided
+        if token is None:
+            from backend.config.settings import get_settings
+
+            settings = get_settings()
+            token = settings.hugging_face_token
+
+        # Download model with authentication token for gated repos
+        download_kwargs = {
+            "repo_id": model_id,
+            "local_dir": str(model_path),
+            "local_dir_use_symlinks": False,
+            "resume_download": True,
+        }
+
+        if token:
+            download_kwargs["token"] = token
+            logger.info("   Using HuggingFace authentication token")
+
+        downloaded_path = snapshot_download(**download_kwargs)
 
         logger.info(f"✅ Model downloaded successfully to {downloaded_path}")
         return True
 
     except Exception as e:
         logger.error(f"❌ Failed to download model {model_id}: {str(e)}")
+        if "gated" in str(e).lower() or "401" in str(e):
+            logger.error("   This appears to be a gated model. Make sure to:")
+            logger.error("   1. Accept the model license on HuggingFace")
+            logger.error("   2. Configure your HuggingFace token in Settings")
+        return False
+
+
+def verify_model_files_exist(model_path: Path, model_type: str = "text") -> bool:
+    """
+    Verify that a model directory actually contains required model files.
+
+    Args:
+        model_path: Path to the model directory
+        model_type: Type of model (text, image, voice)
+
+    Returns:
+        bool: True if model files exist, False if directory is empty or incomplete
+    """
+    if not model_path.exists() or not model_path.is_dir():
+        return False
+
+    # Check for required files based on model type
+    if model_type == "text":
+        # Text models should have at least tokenizer and config files
+        required_files = [
+            "tokenizer.json",
+            "tokenizer_config.json",
+        ]
+        # At least one of these should exist
+        optional_indicators = [
+            "chat_template.jinja",  # Common in newer models
+            "config.json",  # Model configuration
+            "model.safetensors",  # Model weights
+            "pytorch_model.bin",  # Legacy model weights
+            "model.gguf",  # GGUF format
+        ]
+
+        # Check required files
+        has_required = all((model_path / f).exists() for f in required_files)
+        # Check at least one optional indicator
+        has_indicator = any((model_path / f).exists() for f in optional_indicators)
+
+        return has_required or has_indicator
+
+    elif model_type == "image":
+        # Image models should have model config and weights
+        required_files = [
+            "model_index.json",  # Diffusers pipeline config
+        ]
+        return all((model_path / f).exists() for f in required_files)
+
+    elif model_type == "voice":
+        # Voice models should have config
+        required_files = [
+            "config.json",
+        ]
+        return all((model_path / f).exists() for f in required_files)
+
+    # Default: check if directory is not empty
+    try:
+        return any(model_path.iterdir())
+    except Exception:
         return False
 
 
@@ -160,7 +239,7 @@ class AIModelManager:
                     "min_gpu_memory_gb": 8,
                     "min_ram_gb": 16,
                     "inference_engine": "llama.cpp",  # Changed from vllm to llama.cpp
-                    "fallback_engines": ["vllm", "transformers"],  # Fallback order
+                    # "fallback_engines": ["vllm", "transformers"],  # DISABLED: No fallbacks during debugging
                     "description": "Snappy persona worker for fast mode",
                 },
             },
@@ -405,10 +484,15 @@ class AIModelManager:
                     model_path_direct = self.models_dir / model_name
 
                     # Prefer category subdirectory if it exists, fallback to direct
-                    if model_path_with_category.exists():
+                    # IMPORTANT: Verify model files actually exist, not just directory
+                    if model_path_with_category.exists() and verify_model_files_exist(
+                        model_path_with_category, "text"
+                    ):
                         model_path = model_path_with_category
                         is_downloaded = True
-                    elif model_path_direct.exists():
+                    elif model_path_direct.exists() and verify_model_files_exist(
+                        model_path_direct, "text"
+                    ):
                         model_path = model_path_direct
                         is_downloaded = True
                     else:
@@ -416,6 +500,14 @@ class AIModelManager:
                             model_path_with_category  # Default for future downloads
                         )
                         is_downloaded = False
+                        # Log warning if directory exists but no files
+                        if model_path_with_category.exists():
+                            logger.warning(
+                                f"   ⚠️  Model directory exists but no model files found: {model_name}"
+                            )
+                            logger.warning(
+                                f"       Directory may be incomplete from failed download"
+                            )
 
                     inference_engine = config.get("inference_engine", "transformers")
 
@@ -1460,65 +1552,115 @@ class AIModelManager:
         """Generate text using local models with raw engine output streaming and intelligent fallback."""
         model_name = model["name"]
         inference_engine = model.get("inference_engine", "transformers")
-        fallback_engines = model.get("fallback_engines", [])
+        # FALLBACKS DISABLED FOR DEBUGGING
+        # We want to see all failures clearly without masking them with fallbacks
+        # Once everything works, we can re-enable fallback_engines
+        fallback_engines = []  # model.get("fallback_engines", [])
 
-        # Build priority list: primary engine + fallbacks
-        engines_to_try = [inference_engine] + fallback_engines
+        # Use only the primary engine (no fallbacks during debugging)
+        logger.info(f"   Trying inference engine: {inference_engine}")
 
-        last_error = None
-        for engine in engines_to_try:
-            try:
-                logger.info(f"   Trying inference engine: {engine}")
+        # Check if model is downloaded, download if needed
+        model_path = Path(model.get("path", ""))
+        if not model_path.exists():
+            logger.warning(f"   Model not found at {model_path}")
 
-                # Check if model is downloaded, download if needed
-                model_path = Path(model.get("path", ""))
-                if not model_path.exists():
-                    logger.warning(f"   Model not found at {model_path}")
+            # Attempt to download model
+            model_id = model.get("model_id")
+            if model_id:
+                logger.info(f"   Attempting to download model {model_id}...")
+                success = await download_model_from_huggingface(
+                    model_id=model_id, model_path=model_path, model_type="text"
+                )
+                if not success:
+                    error_msg = f"Failed to download model {model_name} from {model_id}"
+                    logger.error(f"   ❌ {error_msg}")
+                    raise ValueError(error_msg)
+            else:
+                error_msg = f"Model {model_name} not found and no model_id for download"
+                logger.error(f"   ❌ {error_msg}")
+                raise ValueError(error_msg)
 
-                    # Attempt to download model
-                    model_id = model.get("model_id")
-                    if model_id:
-                        logger.info(f"   Attempting to download model {model_id}...")
-                        success = await download_model_from_huggingface(
-                            model_id=model_id, model_path=model_path, model_type="text"
-                        )
-                        if not success:
-                            logger.warning(
-                                f"   Failed to download model, trying next engine..."
-                            )
-                            continue
-                    else:
-                        logger.warning(f"   No model_id available for download")
-                        continue
+        # Try generation with the primary engine (fail fast, no fallbacks)
+        if inference_engine in ["llama.cpp", "llama-cpp"]:  # Support both formats
+            return await self._generate_text_llamacpp(prompt, model, **kwargs)
+        elif inference_engine == "vllm":
+            return await self._generate_text_vllm(prompt, model, **kwargs)
+        elif inference_engine == "transformers":
+            return await self._generate_text_transformers(prompt, model, **kwargs)
+        else:
+            error_msg = f"Unknown inference engine: {inference_engine}"
+            logger.error(f"   ❌ {error_msg}")
+            raise ValueError(error_msg)
 
-                # Try generation with this engine
-                if engine in ["llama.cpp", "llama-cpp"]:  # Support both formats
-                    return await self._generate_text_llamacpp(prompt, model, **kwargs)
-                elif engine == "vllm":
-                    return await self._generate_text_vllm(prompt, model, **kwargs)
-                elif engine == "transformers":
-                    return await self._generate_text_transformers(
-                        prompt, model, **kwargs
-                    )
-                else:
-                    logger.warning(f"   Unknown inference engine: {engine}")
-                    continue
+    def _filter_llamacpp_output(self, lines: List[str]) -> str:
+        """
+        Filter llama.cpp output to extract only generated text.
 
-            except Exception as e:
-                last_error = e
-                logger.warning(f"   {engine} failed: {str(e)}")
-                logger.info(f"   Trying next fallback engine...")
+        Filters out:
+        - GGML initialization messages (ggml_cuda_init, ggml_*)
+        - llama.cpp system info (llama_*, system_info:)
+        - Debug/log messages
+        - Empty lines at start/end
+
+        Args:
+            lines: List of output lines from llama.cpp
+
+        Returns:
+            Cleaned generated text
+        """
+        # Patterns to filter out (initialization/debug output)
+        # Pre-converted to lowercase for efficient case-insensitive matching
+        filter_patterns = [
+            "ggml_",  # GGML library initialization
+            "llama_",  # llama.cpp initialization
+            "system_info:",  # System information
+            "sampling:",  # Sampling parameters
+            "generate:",  # Generation metadata
+            "device",  # GPU device info (matches Device, device, DEVICE, etc.)
+            "compute:",  # Compute backend info
+            "backend:",  # Backend info
+        ]
+
+        filtered_lines = []
+
+        for line in lines:
+            line_stripped = line.strip()
+
+            # Skip empty lines
+            if not line_stripped:
                 continue
 
-        # All engines failed
-        error_msg = f"All inference engines failed for {model_name}. Last error: {str(last_error)}"
-        logger.error(f"   ❌ {error_msg}")
-        raise ValueError(error_msg)
+            # Check if line matches any filter pattern
+            should_filter = False
+            for pattern in filter_patterns:
+                if pattern.lower() in line_stripped.lower():
+                    should_filter = True
+                    break
+
+            # Skip filtered lines
+            if should_filter:
+                continue
+
+            # This is likely generated text
+            filtered_lines.append(line)
+
+        # Join the filtered lines and clean up
+        result = "\n".join(filtered_lines).strip()
+
+        # If we got nothing after filtering, return a message
+        if not result:
+            logger.warning(
+                "   ⚠️  No generated text found after filtering initialization logs"
+            )
+            return ""
+
+        return result
 
     async def _generate_text_llamacpp(
         self, prompt: str, model: Dict[str, Any], **kwargs
     ) -> str:
-        """Generate text using llama.cpp with full raw output streaming."""
+        """Generate text using llama.cpp with filtered output."""
         try:
             logger.info(f"   🦙 Starting llama.cpp engine for {model['name']}...")
             logger.info(f"   Model path: {model.get('path', 'Not specified')}")
@@ -1566,23 +1708,60 @@ class AIModelManager:
                 cwd=str(Path(model_file).parent),
             )
 
-            generated_text = []
+            raw_output_lines = []
             async for line in process.stdout:
                 line_text = line.decode("utf-8", errors="ignore").rstrip()
                 if line_text:
-                    # Print raw llama.cpp output
+                    # Print raw llama.cpp output to logs
                     logger.info(f"   {line_text}")
-                    generated_text.append(line_text)
+                    raw_output_lines.append(line_text)
 
             await process.wait()
 
             logger.info(f"   " + "=" * 76)
+
+            # Check if llama.cpp succeeded (exit code 0 = success)
+            if process.returncode != 0:
+                logger.error(
+                    f"   ❌ llama.cpp generation FAILED (exit code: {process.returncode})"
+                )
+                logger.error(
+                    f"   The model may have encountered an error during generation"
+                )
+                # Show the raw output for debugging
+                MAX_ERROR_LINES = 10  # Number of output lines to show for debugging
+                error_output = (
+                    "\n".join(raw_output_lines[-MAX_ERROR_LINES:])
+                    if raw_output_lines
+                    else "No output"
+                )
+                logger.error(f"   Last output lines: {error_output}")
+                raise RuntimeError(
+                    f"llama.cpp failed with exit code {process.returncode}. "
+                    f"The model may be incompatible or corrupted."
+                )
+
             logger.info(
                 f"   ✓ llama.cpp generation complete (exit code: {process.returncode})"
             )
 
-            full_output = "\n".join(generated_text)
-            return full_output
+            # Filter out initialization logs and extract generated text
+            generated_text = self._filter_llamacpp_output(raw_output_lines)
+
+            if not generated_text:
+                logger.warning("   ⚠️  No text generated after filtering")
+                logger.warning(
+                    "   This usually means llama.cpp only output initialization logs"
+                )
+                logger.warning(
+                    "   Check if the model file is compatible with llama.cpp"
+                )
+                # Don't return raw output - raise an error instead
+                raise RuntimeError(
+                    "No text generated by llama.cpp. Model may be incompatible or prompt may be invalid."
+                )
+
+            return generated_text
 
         except Exception as e:
             logger.error(f"   ❌ llama.cpp generation failed: {str(e)}")
@@ -2148,7 +2327,7 @@ class AIModelManager:
                             # This is the recommended solution for long prompts, replacing the older
                             # compel library approach. The lpw pipeline properly handles prompts > 77 tokens
                             # by chunking and merging embeddings from both CLIP encoders.
-                            # 
+                            #
                             # Benefits over compel:
                             # - Handles prompts up to 225+ tokens (vs 154 with compel)
                             # - Better weight distribution for long prompts
@@ -2682,13 +2861,13 @@ class AIModelManager:
             # the community pipeline (SDXLLongPromptWeightingPipeline) without dependencies.
             pipeline_class_name = type(pipe).__name__
             is_lpw_pipeline = "LongPromptWeighting" in pipeline_class_name
-            
+
             if is_sdxl and not is_lpw_pipeline:
                 # Fallback to compel for long prompt support when lpw pipeline is not available
                 # Note: lpw_stable_diffusion_xl (Long Prompt Weighting) is the preferred method
                 # and is automatically used when available. This compel fallback handles cases
                 # where lpw pipeline failed to load.
-                # 
+                #
                 # Estimate token count (rough approximation: 1.3 tokens per word)
                 estimated_tokens = len(prompt.split()) * 1.3
 
@@ -2733,7 +2912,9 @@ class AIModelManager:
                                 f"pooled={pooled is not None}, negative_conditioning={negative_conditioning is not None}, "
                                 f"negative_pooled={negative_pooled is not None}"
                             )
-                            logger.warning("Falling back to standard prompt encoding (will truncate at 77 tokens)")
+                            logger.warning(
+                                "Falling back to standard prompt encoding (will truncate at 77 tokens)"
+                            )
                             # Don't set embeddings if any are None - will use text prompts instead
                         else:
                             # Set the embeddings to use
