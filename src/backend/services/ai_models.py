@@ -1518,64 +1518,66 @@ class AIModelManager:
     def _filter_llamacpp_output(self, lines: List[str]) -> str:
         """
         Filter llama.cpp output to extract only generated text.
-        
+
         Filters out:
         - GGML initialization messages (ggml_cuda_init, ggml_*)
         - llama.cpp system info (llama_*, system_info:)
         - Debug/log messages
         - Empty lines at start/end
-        
+
         Args:
             lines: List of output lines from llama.cpp
-            
+
         Returns:
             Cleaned generated text
         """
         # Patterns to filter out (initialization/debug output)
         filter_patterns = [
-            'ggml_',           # GGML library initialization
-            'llama_',          # llama.cpp initialization
-            'system_info:',    # System information
-            'sampling:',       # Sampling parameters
-            'generate:',       # Generation metadata
-            'Device ',         # GPU device info
-            'compute:',        # Compute backend info
-            'backend:',        # Backend info
+            "ggml_",  # GGML library initialization
+            "llama_",  # llama.cpp initialization
+            "system_info:",  # System information
+            "sampling:",  # Sampling parameters
+            "generate:",  # Generation metadata
+            "Device ",  # GPU device info
+            "compute:",  # Compute backend info
+            "backend:",  # Backend info
         ]
-        
+
         filtered_lines = []
         generation_started = False
-        
+
         for line in lines:
             line_stripped = line.strip()
-            
+
             # Skip empty lines
             if not line_stripped:
                 continue
-            
+
             # Check if line matches any filter pattern
             should_filter = False
             for pattern in filter_patterns:
                 if pattern.lower() in line_stripped.lower():
                     should_filter = True
                     break
-            
+
             # Skip filtered lines
             if should_filter:
                 continue
-            
+
             # This is likely generated text
             generation_started = True
             filtered_lines.append(line)
-        
+
         # Join the filtered lines and clean up
         result = "\n".join(filtered_lines).strip()
-        
+
         # If we got nothing after filtering, return a message
         if not result:
-            logger.warning("   ⚠️  No generated text found after filtering initialization logs")
+            logger.warning(
+                "   ⚠️  No generated text found after filtering initialization logs"
+            )
             return ""
-        
+
         return result
 
     async def _generate_text_llamacpp(
@@ -1646,12 +1648,12 @@ class AIModelManager:
 
             # Filter out initialization logs and extract generated text
             generated_text = self._filter_llamacpp_output(raw_output_lines)
-            
+
             if not generated_text:
                 logger.warning("   ⚠️  No text generated after filtering")
                 # Return raw output if filtering removed everything
                 return "\n".join(raw_output_lines)
-            
+
             return generated_text
 
         except Exception as e:
@@ -2218,7 +2220,7 @@ class AIModelManager:
                             # This is the recommended solution for long prompts, replacing the older
                             # compel library approach. The lpw pipeline properly handles prompts > 77 tokens
                             # by chunking and merging embeddings from both CLIP encoders.
-                            # 
+                            #
                             # Benefits over compel:
                             # - Handles prompts up to 225+ tokens (vs 154 with compel)
                             # - Better weight distribution for long prompts
@@ -2752,13 +2754,13 @@ class AIModelManager:
             # the community pipeline (SDXLLongPromptWeightingPipeline) without dependencies.
             pipeline_class_name = type(pipe).__name__
             is_lpw_pipeline = "LongPromptWeighting" in pipeline_class_name
-            
+
             if is_sdxl and not is_lpw_pipeline:
                 # Fallback to compel for long prompt support when lpw pipeline is not available
                 # Note: lpw_stable_diffusion_xl (Long Prompt Weighting) is the preferred method
                 # and is automatically used when available. This compel fallback handles cases
                 # where lpw pipeline failed to load.
-                # 
+                #
                 # Estimate token count (rough approximation: 1.3 tokens per word)
                 estimated_tokens = len(prompt.split()) * 1.3
 
@@ -2803,7 +2805,9 @@ class AIModelManager:
                                 f"pooled={pooled is not None}, negative_conditioning={negative_conditioning is not None}, "
                                 f"negative_pooled={negative_pooled is not None}"
                             )
-                            logger.warning("Falling back to standard prompt encoding (will truncate at 77 tokens)")
+                            logger.warning(
+                                "Falling back to standard prompt encoding (will truncate at 77 tokens)"
+                            )
                             # Don't set embeddings if any are None - will use text prompts instead
                         else:
                             # Set the embeddings to use
