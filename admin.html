@@ -2542,7 +2542,25 @@
                     // For images, try to show the actual image or placeholder
                     if (content.file_path && !content.file_path.endsWith('.txt')) {
                         const img = document.createElement('img');
-                        img.src = content.file_path;
+                        // Convert file path to web-accessible URL
+                        // Handle different path formats:
+                        // 1. Already web path: /content/images/... -> use as-is
+                        // 2. Relative path: images/... -> prepend /content/
+                        // 3. Absolute path: /path/to/generated_content/images/... -> extract relative part
+                        let imageSrc;
+                        if (content.file_path.startsWith('/content/')) {
+                            imageSrc = content.file_path;
+                        } else if (content.file_path.includes('/images/') || content.file_path.includes('/videos/') || 
+                                   content.file_path.includes('/audio/') || content.file_path.includes('/voice/') || 
+                                   content.file_path.includes('/text/')) {
+                            // Extract relative path from absolute path (e.g., /path/to/generated_content/images/file.png -> images/file.png)
+                            const match = content.file_path.match(/(images|videos|audio|voice|text)\/.+$/);
+                            imageSrc = match ? `/content/${match[0]}` : `/content/${content.file_path}`;
+                        } else {
+                            // Assume it's already relative (images/file.png)
+                            imageSrc = `/content/${content.file_path}`;
+                        }
+                        img.src = imageSrc;
                         img.alt = content.title;
                         img.style.maxWidth = '100%';
                         img.style.borderRadius = '8px';
