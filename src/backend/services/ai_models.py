@@ -1532,13 +1532,14 @@ class AIModelManager:
             Cleaned generated text
         """
         # Patterns to filter out (initialization/debug output)
+        # Pre-converted to lowercase for efficient case-insensitive matching
         filter_patterns = [
             "ggml_",  # GGML library initialization
             "llama_",  # llama.cpp initialization
             "system_info:",  # System information
             "sampling:",  # Sampling parameters
             "generate:",  # Generation metadata
-            "Device ",  # GPU device info
+            "device",  # GPU device info (matches Device, device, DEVICE, etc.)
             "compute:",  # Compute backend info
             "backend:",  # Backend info
         ]
@@ -1650,8 +1651,9 @@ class AIModelManager:
                     f"   The model may have encountered an error during generation"
                 )
                 # Show the raw output for debugging
+                MAX_ERROR_LINES = 10  # Number of output lines to show for debugging
                 error_output = (
-                    "\n".join(raw_output_lines[-10:])
+                    "\n".join(raw_output_lines[-MAX_ERROR_LINES:])
                     if raw_output_lines
                     else "No output"
                 )
