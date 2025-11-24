@@ -15,6 +15,7 @@ import subprocess
 import platform
 import shutil
 import time
+import re
 from typing import Dict, List, Optional, Any, Union
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +33,41 @@ from backend.utils.model_detection import (
 )
 
 logger = get_logger(__name__)
+
+
+# Compile ANSI escape sequence pattern once at module level for performance
+# Pattern matches common ANSI escape sequences:
+# \x1b is the ESC character (27 in decimal, 0x1B in hex)
+# [ is the CSI (Control Sequence Introducer) start character
+_ANSI_ESCAPE_PATTERN = re.compile(
+    r"""
+    \x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]  # Standard CSI: ESC [ params final
+    |\x1b\].*?(?:\x07|\x1b\\)                   # OSC sequences: ESC ] ... BEL/ST
+    |\x1b[PX^_].*?\x1b\\                        # String sequences
+    |\x1b[@-_]                                   # Fe sequences: ESC + single char
+    |\x9b[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]    # Single-byte CSI (rare)
+""",
+    re.VERBOSE,
+)
+
+
+def strip_ansi_codes(text: str) -> str:
+    """
+    Remove ANSI escape codes from text.
+
+    This includes:
+    - Color codes
+    - Cursor positioning
+    - Terminal control sequences
+    - Spinners and progress indicators
+
+    Args:
+        text: Text potentially containing ANSI codes
+
+    Returns:
+        Clean text without ANSI codes
+    """
+    return _ANSI_ESCAPE_PATTERN.sub("", text)
 
 
 async def download_model_from_huggingface(
@@ -126,6 +162,7 @@ async def download_model_from_civitai(
         if api_key is None:
             try:
                 from backend.config.settings import get_settings
+
                 settings = get_settings()
                 api_key = getattr(settings, "civitai_api_key", None)
             except Exception:
@@ -142,6 +179,7 @@ async def download_model_from_civitai(
         metadata_file = model_path / f"{downloaded_file.stem}_metadata.json"
         with open(metadata_file, "w") as f:
             import json
+
             json.dump(metadata, f, indent=2)
 
         logger.info(f"✅ Model downloaded successfully to {downloaded_file}")
@@ -158,7 +196,9 @@ async def download_model_from_civitai(
         return True
 
     except Exception as e:
-        logger.error(f"❌ Failed to download CivitAI model {model_version_id}: {str(e)}")
+        logger.error(
+            f"❌ Failed to download CivitAI model {model_version_id}: {str(e)}"
+        )
         return False
 
 
@@ -271,11 +311,15 @@ class AIModelManager:
                     "flux.1-dev",  # 12GB - less frequently used
                 ]
             )
-        
+
         # Chat model selection thresholds
         # Used to determine if Ollama should be preferred for simple conversational tasks
-        self.CHAT_SIMPLE_PROMPT_MAX_WORDS = int(os.environ.get("AI_CHAT_SIMPLE_MAX_WORDS", "100"))
-        self.CHAT_SIMPLE_MAX_TOKENS = int(os.environ.get("AI_CHAT_SIMPLE_MAX_TOKENS", "500"))
+        self.CHAT_SIMPLE_PROMPT_MAX_WORDS = int(
+            os.environ.get("AI_CHAT_SIMPLE_MAX_WORDS", "100")
+        )
+        self.CHAT_SIMPLE_MAX_TOKENS = int(
+            os.environ.get("AI_CHAT_SIMPLE_MAX_TOKENS", "500")
+        )
 
         # Model configurations based on recommendations
         self.local_model_configs = {
@@ -636,54 +680,74 @@ class AIModelManager:
                         logger.info(
                             f"Local text model {model_name} needs setup: engine={engine_available}, downloaded={is_downloaded}"
                         )
-            
+
             # Check for Ollama installation and register available models
             try:
                 from backend.utils.model_detection import find_ollama_installation
-                
+
                 ollama_info = find_ollama_installation()
-                
+
                 if ollama_info and ollama_info.get("installed"):
                     logger.info("   🦙 Ollama installation detected")
-                    logger.info(f"   Ollama version: {ollama_info.get('version', 'unknown')}")
+                    logger.info(
+                        f"   Ollama version: {ollama_info.get('version', 'unknown')}"
+                    )
                     logger.info(f"   Ollama binary: {ollama_info.get('path')}")
-                    logger.info(f"   Server running: {ollama_info.get('server_running', False)}")
-                    
+                    logger.info(
+                        f"   Server running: {ollama_info.get('server_running', False)}"
+                    )
+
                     available_ollama_models = ollama_info.get("available_models", [])
-                    
+
                     if available_ollama_models:
-                        logger.info(f"   Found {len(available_ollama_models)} Ollama model(s):")
-                        
+                        logger.info(
+                            f"   Found {len(available_ollama_models)} Ollama model(s):"
+                        )
+
                         for ollama_model in available_ollama_models:
                             logger.info(f"     • {ollama_model}")
-                            
+
                             # Register each Ollama model as available for text generation
                             # Use a simple naming convention: the Ollama model name as-is
-                            self.available_models["text"].append({
-                                "name": ollama_model,
-                                "type": "text-generation",
-                                "model_id": ollama_model,
-                                "provider": "local",
-                                "inference_engine": "ollama",
-                                "loaded": True,  # Ollama models are immediately available
-                                "can_load": True,
-                                "lazy_load": False,
-                                "size_gb": 0,  # Size is managed by Ollama
-                                "description": f"Ollama model: {ollama_model}",
-                                "device": "gpu" if sys_req["gpu_memory_gb"] > 0 else "cpu",  # Generic GPU (Ollama handles CUDA/ROCm/Metal)
-                                "ollama_model": ollama_model,  # Store original Ollama model name
-                                "path": ollama_info.get("path"),  # Ollama binary path
-                            })
-                        
-                        logger.info(f"   ✓ Registered {len(available_ollama_models)} Ollama model(s) for text generation")
+                            self.available_models["text"].append(
+                                {
+                                    "name": ollama_model,
+                                    "type": "text-generation",
+                                    "model_id": ollama_model,
+                                    "provider": "local",
+                                    "inference_engine": "ollama",
+                                    "loaded": True,  # Ollama models are immediately available
+                                    "can_load": True,
+                                    "lazy_load": False,
+                                    "size_gb": 0,  # Size is managed by Ollama
+                                    "description": f"Ollama model: {ollama_model}",
+                                    "device": (
+                                        "gpu" if sys_req["gpu_memory_gb"] > 0 else "cpu"
+                                    ),  # Generic GPU (Ollama handles CUDA/ROCm/Metal)
+                                    "ollama_model": ollama_model,  # Store original Ollama model name
+                                    "path": ollama_info.get(
+                                        "path"
+                                    ),  # Ollama binary path
+                                }
+                            )
+
+                        logger.info(
+                            f"   ✓ Registered {len(available_ollama_models)} Ollama model(s) for text generation"
+                        )
                     else:
-                        logger.info("   ⚠️  Ollama is installed but no models are pulled")
-                        logger.info("   To use Ollama, pull a model: ollama pull llama2")
+                        logger.info(
+                            "   ⚠️  Ollama is installed but no models are pulled"
+                        )
+                        logger.info(
+                            "   To use Ollama, pull a model: ollama pull llama2"
+                        )
                 else:
                     logger.info("   Ollama not detected (optional)")
-                    
+
             except Exception as ollama_error:
-                logger.warning(f"   Failed to check Ollama availability: {str(ollama_error)}")
+                logger.warning(
+                    f"   Failed to check Ollama availability: {str(ollama_error)}"
+                )
 
         except Exception as e:
             logger.error(f"Failed to initialize local text models: {str(e)}")
@@ -1185,14 +1249,16 @@ class AIModelManager:
             # Calculate prompt characteristics once for all selection logic
             prompt_length = len(prompt.split())
             max_tokens = kwargs.get("max_tokens", 500)
-            
+
             # Check if user explicitly requested Ollama via inference_engine parameter
             requested_engine = kwargs.get("inference_engine")
-            
+
             # Prioritize Ollama models for chat/conversational tasks
             # Ollama is optimized for interactive use and provides good performance
-            ollama_models = [m for m in available_models if m.get("inference_engine") == "ollama"]
-            
+            ollama_models = [
+                m for m in available_models if m.get("inference_engine") == "ollama"
+            ]
+
             if requested_engine == "ollama" and ollama_models:
                 # User explicitly requested Ollama - use first available Ollama model
                 logger.info(
@@ -1205,7 +1271,7 @@ class AIModelManager:
                 # Check GPU compatibility to confirm Ollama is recommended
                 try:
                     from backend.utils.gpu_detection import should_use_ollama_fallback
-                    
+
                     if should_use_ollama_fallback():
                         logger.info(
                             f"🎯 Model selection: {ollama_models[0]['name']} (reason: Ollama recommended for GPU compatibility)"
@@ -1213,21 +1279,21 @@ class AIModelManager:
                         return ollama_models[0]
                 except Exception:
                     pass
-                
+
                 # Even without GPU issues, prefer Ollama for simple conversational tasks
                 # (it's optimized for this use case)
                 # Simple conversational task detection using configurable thresholds
                 is_simple_chat = (
-                    prompt_length < self.CHAT_SIMPLE_PROMPT_MAX_WORDS 
+                    prompt_length < self.CHAT_SIMPLE_PROMPT_MAX_WORDS
                     and max_tokens <= self.CHAT_SIMPLE_MAX_TOKENS
                 )
-                
+
                 if is_simple_chat:
                     logger.info(
                         f"🎯 Model selection: {ollama_models[0]['name']} (reason: Ollama optimized for chat)"
                     )
                     return ollama_models[0]
-            
+
             # Longer prompts or complex tasks need larger models
 
             complexity_keywords = [
@@ -1558,13 +1624,16 @@ class AIModelManager:
         # Check GPU compatibility and adjust inference engine preference
         try:
             from backend.utils.gpu_detection import should_use_ollama_fallback
-            
+
             if should_use_ollama_fallback():
                 from backend.utils.model_detection import find_ollama_installation
+
                 ollama_info = find_ollama_installation()
-                
+
                 if ollama_info and ollama_info.get("installed"):
-                    logger.info("   🦙 GPU compatibility: Using Ollama (recommended for this hardware)")
+                    logger.info(
+                        "   🦙 GPU compatibility: Using Ollama (recommended for this hardware)"
+                    )
                     # Force Ollama usage by overriding inference_engine if not explicitly set
                     if "inference_engine" not in kwargs:
                         kwargs["inference_engine"] = "ollama"
@@ -1769,23 +1838,27 @@ class AIModelManager:
                 # If llama.cpp fails, try Ollama as fallback
                 logger.warning(f"   ⚠️  llama.cpp failed: {str(e)}")
                 logger.info(f"   🔄 Attempting fallback to Ollama...")
-                
+
                 from backend.utils.model_detection import find_ollama_installation
                 from backend.utils.gpu_detection import get_gpu_info
-                
+
                 # Log GPU information for diagnostics
                 gpu_info = get_gpu_info()
                 if gpu_info.get("architecture"):
-                    logger.info(f"   GPU detected: {gpu_info['architecture']} (Ollama recommended: {gpu_info.get('ollama_recommended', False)})")
-                
+                    logger.info(
+                        f"   GPU detected: {gpu_info['architecture']} (Ollama recommended: {gpu_info.get('ollama_recommended', False)})"
+                    )
+
                 ollama_info = find_ollama_installation()
-                
+
                 if ollama_info and ollama_info.get("installed"):
                     try:
                         # Try Ollama with the same prompt
                         return await self._generate_text_ollama(prompt, model, **kwargs)
                     except Exception as ollama_error:
-                        logger.error(f"   ❌ Ollama fallback also failed: {str(ollama_error)}")
+                        logger.error(
+                            f"   ❌ Ollama fallback also failed: {str(ollama_error)}"
+                        )
                         # Re-raise the original llama.cpp error since fallback failed too
                         raise e
                 else:
@@ -1922,9 +1995,12 @@ class AIModelManager:
             async for line in process.stdout:
                 line_text = line.decode("utf-8", errors="ignore").rstrip()
                 if line_text:
-                    # Print raw llama.cpp output to logs
-                    logger.info(f"   {line_text}")
-                    raw_output_lines.append(line_text)
+                    # Strip ANSI codes before logging and storing
+                    clean_line = strip_ansi_codes(line_text)
+                    if clean_line:  # Only log non-empty lines after stripping
+                        # Print cleaned llama.cpp output to logs
+                        logger.info(f"   {clean_line}")
+                        raw_output_lines.append(clean_line)
 
             await process.wait()
 
@@ -1982,46 +2058,46 @@ class AIModelManager:
     ) -> str:
         """
         Generate text using Ollama.
-        
+
         Ollama provides a simple CLI and API for running LLMs locally.
         This method uses the CLI interface for compatibility.
-        
+
         Args:
             prompt: Text prompt for generation
             model: Model configuration dict (must include 'name' or 'ollama_model')
             **kwargs: Additional generation parameters (temperature, max_tokens, etc.)
-        
+
         Returns:
             Generated text
-        
+
         Raises:
             ValueError: If Ollama is not installed or model not available
             RuntimeError: If generation fails
         """
         try:
             logger.info(f"   🦙 Starting Ollama engine for {model['name']}...")
-            
+
             # Check for Ollama binary
             ollama_binary = shutil.which("ollama")
             if not ollama_binary:
                 logger.warning(f"   ⚠️  Ollama not found in PATH")
                 logger.warning(f"   Install Ollama from https://ollama.com/download")
                 raise ValueError("Ollama not found")
-            
+
             logger.info(f"   ✓ Found Ollama at: {ollama_binary}")
-            
+
             # Determine which Ollama model to use
             # Priority: explicit ollama_model config > model name
             ollama_model = model.get("ollama_model", model.get("name", ""))
-            
+
             if not ollama_model:
                 raise ValueError("No Ollama model specified in configuration")
-            
+
             logger.info(f"   📦 Using Ollama model: {ollama_model}")
             logger.info(f"   " + "=" * 76)
             logger.info(f"   RAW OLLAMA ENGINE OUTPUT (LIVE):")
             logger.info(f"   " + "=" * 76)
-            
+
             # Build Ollama command
             # Using 'ollama run' with prompt as command argument for simplicity
             cmd = [
@@ -2030,7 +2106,7 @@ class AIModelManager:
                 ollama_model,
                 prompt,
             ]
-            
+
             # Run subprocess and capture output
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -2038,22 +2114,31 @@ class AIModelManager:
                 stderr=asyncio.subprocess.STDOUT,
                 stdin=asyncio.subprocess.PIPE,
             )
-            
+
             # Close stdin immediately since we pass prompt as argument
             process.stdin.close()
-            
+
             raw_output_lines = []
             async for line in process.stdout:
                 line_text = line.decode("utf-8", errors="ignore").rstrip()
                 if line_text:
-                    # Print raw Ollama output to logs
-                    logger.info(f"   {line_text}")
-                    raw_output_lines.append(line_text)
-            
+                    # Strip ANSI codes before logging and storing
+                    clean_line = strip_ansi_codes(line_text)
+                    if clean_line:
+                        # Filter out lines that are just spinner characters or loading messages
+                        # (these are transient and get overwritten in real terminal)
+                        stripped = clean_line.strip()
+                        # Skip if line is just a single spinner character or "Loading model..."
+                        if len(stripped) <= 2 or "Loading model" in stripped:
+                            continue
+                        # Print cleaned Ollama output to logs
+                        logger.info(f"   {clean_line}")
+                        raw_output_lines.append(clean_line)
+
             await process.wait()
-            
+
             logger.info(f"   " + "=" * 76)
-            
+
             # Check if Ollama succeeded (exit code 0 = success)
             if process.returncode != 0:
                 logger.error(
@@ -2075,26 +2160,24 @@ class AIModelManager:
                     f"Model may not be pulled or server may not be running. "
                     f"Try: ollama pull {ollama_model}"
                 )
-            
+
             logger.info(
                 f"   ✓ Ollama generation complete (exit code: {process.returncode})"
             )
-            
+
             # Ollama output is cleaner than llama.cpp - just join lines
             generated_text = "\n".join(raw_output_lines).strip()
-            
+
             if not generated_text:
                 logger.warning("   ⚠️  No text generated by Ollama")
-                logger.warning(
-                    "   This may mean the model needs to be pulled first"
-                )
+                logger.warning("   This may mean the model needs to be pulled first")
                 logger.warning(f"   Try: ollama pull {ollama_model}")
                 raise RuntimeError(
                     f"No text generated by Ollama. Try pulling the model first: ollama pull {ollama_model}"
                 )
-            
+
             return generated_text
-        
+
         except Exception as e:
             logger.error(f"   ❌ Ollama generation failed: {str(e)}")
             raise

@@ -144,3 +144,4 @@ test_content_features.py
 *.bak
 test_settings_fix.py
 test_diagnostics_chat.py
+test_ansi_stripping.py
