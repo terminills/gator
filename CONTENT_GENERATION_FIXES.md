@@ -25,7 +25,7 @@ else:
 
 ### 2. ✅ FIXED: Long Prompt Support - lpw_stable_diffusion_xl vs compel
 
-**Problem**: The issue mentioned that "compel is depreciated and we should be using compelfor or the community based long prompts CLIP long propts".
+**Problem**: The issue mentioned that "compel is deprecated and we should be using the community-based long prompts CLIP solution".
 
 **Reality**: The code **already uses** the community-based long prompt solution (`lpw_stable_diffusion_xl`), which is the recommended approach. Compel is only used as a fallback.
 
@@ -67,6 +67,10 @@ else:
 ```
 ./models/text/llama-3.1-8b/*.gguf
 ./models/text/qwen2.5-72b/*.gguf
+```
+
+Alternative locations (legacy):
+```
 ./models/llama-3.1-8b/*.gguf
 ./models/qwen2.5-72b/*.gguf
 ```

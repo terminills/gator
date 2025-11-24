@@ -18,7 +18,7 @@ def check_none_prompt_fix():
     # Check for the fix around line 1531
     if "if request.prompt:" in content and "For IMAGE type, prompt might be None" in content:
         print("✓ None prompt fix is in place")
-        print("  - Checks if request.prompt exists before subscribing")
+        print("  - Checks if request.prompt exists before slicing")
         print("  - Handles IMAGE type gracefully when prompt is None")
         return True
     else:
@@ -56,8 +56,15 @@ def check_compel_fallback():
     with open("src/backend/services/ai_models.py", "r") as f:
         content = f.read()
     
-    # Check for fallback indication
-    compel_section = content[content.find("if is_sdxl and not is_lpw_pipeline"):content.find("elif is_lpw_pipeline")]
+    # Check for fallback indication with bounds checking
+    start_pos = content.find("if is_sdxl and not is_lpw_pipeline")
+    end_pos = content.find("elif is_lpw_pipeline")
+    
+    if start_pos == -1 or end_pos == -1 or end_pos <= start_pos:
+        print("✗ Could not find compel section in code")
+        return False
+    
+    compel_section = content[start_pos:end_pos]
     
     if "fallback" in compel_section.lower():
         print("✓ Compel documented as fallback")
@@ -122,15 +129,21 @@ def check_template_fallback():
     if "_generate_with_template" in content:
         print("✓ Template-based fallback method exists")
         
-        # Check if it includes RSS content support
-        template_method = content[content.find("def _generate_with_template"):content.find("def _generate_fallback_prompt")]
+        # Check if it includes RSS content support with bounds checking
+        start_pos = content.find("def _generate_with_template")
+        end_pos = content.find("def _generate_fallback_prompt")
         
-        if "rss_content" in template_method:
-            print("✓ Template method supports RSS content")
-        if "appearance" in template_method:
-            print("✓ Template method uses appearance")
-        if "personality" in template_method:
-            print("✓ Template method uses personality")
+        if start_pos != -1 and end_pos != -1 and end_pos > start_pos:
+            template_method = content[start_pos:end_pos]
+            
+            if "rss_content" in template_method:
+                print("✓ Template method supports RSS content")
+            if "appearance" in template_method:
+                print("✓ Template method uses appearance")
+            if "personality" in template_method:
+                print("✓ Template method uses personality")
+        else:
+            print("⚠ Could not extract template method for detailed checking")
         
         return True
     else:
