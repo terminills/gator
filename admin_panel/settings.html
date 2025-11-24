@@ -486,6 +486,16 @@
                         <label style="display: block; margin-bottom: 8px; font-weight: 600;">Hugging Face Token</label>
                         <input type="password" class="search-input" id="hf-token" placeholder="hf_..." style="width: 100%; max-width: 400px;">
                     </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">CivitAI API Key</label>
+                        <input type="password" class="search-input" id="civitai-key" placeholder="Enter your CivitAI API key..." style="width: 100%; max-width: 400px;">
+                        <div style="margin-top: 8px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-left: 4px solid var(--primary); border-radius: 4px;">
+                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0;">
+                                📌 <strong>Get your API key:</strong> Visit <a href="https://civitai.com/user/account" target="_blank" style="color: var(--primary);">civitai.com/user/account</a><br>
+                                💡 Required for downloading models from the <a href="/ai-models-setup" style="color: var(--primary);">AI Models Setup</a> page
+                            </p>
+                        </div>
+                    </div>
                     <button class="btn btn-primary" onclick="saveAPIKeys()">
                         💾 Save API Keys
                     </button>
@@ -606,8 +616,9 @@
         async function saveAPIKeys() {
             const openaiKey = document.getElementById('openai-key').value;
             const hfToken = document.getElementById('hf-token').value;
+            const civitaiKey = document.getElementById('civitai-key').value;
             
-            if (!openaiKey && !hfToken) {
+            if (!openaiKey && !hfToken && !civitaiKey) {
                 alert('⚠️ Please enter at least one API key');
                 return;
             }
@@ -616,6 +627,7 @@
                 const settings = {};
                 if (openaiKey) settings.openai_api_key = openaiKey;
                 if (hfToken) settings.hugging_face_token = hfToken;
+                if (civitaiKey) settings.civitai_api_key = civitaiKey;
                 
                 const response = await fetch('/api/v1/settings/bulk-update', {
                     method: 'POST',
@@ -630,6 +642,7 @@
                     // Clear password fields for security
                     document.getElementById('openai-key').value = '';
                     document.getElementById('hf-token').value = '';
+                    document.getElementById('civitai-key').value = '';
                     loadAPIKeys(); // Reload to show saved values
                 } else {
                     alert('❌ Failed to save API keys:\n' + (result.message || 'Unknown error'));
@@ -659,6 +672,16 @@
                     // Show masked value if exists
                     if (hf.value) {
                         document.getElementById('hf-token').placeholder = '••••••••' + hf.value.slice(-4);
+                    }
+                }
+                
+                // Load CivitAI key
+                const civitaiResponse = await fetch('/api/v1/settings/civitai_api_key');
+                if (civitaiResponse.ok) {
+                    const civitai = await civitaiResponse.json();
+                    // Show masked value if exists
+                    if (civitai.value) {
+                        document.getElementById('civitai-key').placeholder = '••••••••' + civitai.value.slice(-4);
                     }
                 }
             } catch (error) {
