@@ -2144,9 +2144,16 @@ class AIModelManager:
                     else:
                         # Use text2img pipeline for standard generation
                         if is_sdxl:
-                            # Use Long Prompt Weighting pipeline for SDXL
-                            # This community pipeline properly handles prompts > 77 tokens
-                            # by chunking and merging embeddings from both CLIP encoders
+                            # PREFERRED: Use Long Prompt Weighting (lpw) community pipeline for SDXL
+                            # This is the recommended solution for long prompts, replacing the older
+                            # compel library approach. The lpw pipeline properly handles prompts > 77 tokens
+                            # by chunking and merging embeddings from both CLIP encoders.
+                            # 
+                            # Benefits over compel:
+                            # - Handles prompts up to 225+ tokens (vs 154 with compel)
+                            # - Better weight distribution for long prompts
+                            # - Integrated directly into pipeline (no separate embedding step)
+                            # - Community-maintained and actively supported
                             pipeline_type = (
                                 "StableDiffusionXLPipeline"  # Base type for reference
                             )
@@ -2156,6 +2163,9 @@ class AIModelManager:
                             )
                             logger.info(
                                 f"✓ Supports prompts > 77 tokens without truncation via prompt chunking"
+                            )
+                            logger.info(
+                                f"✓ Recommended method for long prompts (replaces compel library)"
                             )
                         else:
                             # For SD 1.5, use standard pipeline
@@ -2674,7 +2684,11 @@ class AIModelManager:
             is_lpw_pipeline = "LongPromptWeighting" in pipeline_class_name
             
             if is_sdxl and not is_lpw_pipeline:
-                # Check if we should use compel for long prompt support
+                # Fallback to compel for long prompt support when lpw pipeline is not available
+                # Note: lpw_stable_diffusion_xl (Long Prompt Weighting) is the preferred method
+                # and is automatically used when available. This compel fallback handles cases
+                # where lpw pipeline failed to load.
+                # 
                 # Estimate token count (rough approximation: 1.3 tokens per word)
                 estimated_tokens = len(prompt.split()) * 1.3
 
@@ -2683,11 +2697,14 @@ class AIModelManager:
                 # but they still truncate at 77 tokens per encoder. Compel merges them properly.
                 if estimated_tokens > 75:
                     try:
-                        # Try to use compel for long prompt handling
+                        # Try to use compel for long prompt handling as fallback
                         from compel import Compel, ReturnedEmbeddingsType
 
                         logger.info(
-                            f"Using compel for long prompt support (~{int(estimated_tokens)} tokens)"
+                            f"Using compel (fallback) for long prompt support (~{int(estimated_tokens)} tokens)"
+                        )
+                        logger.info(
+                            "Note: For better long prompt support, ensure lpw_stable_diffusion_xl pipeline is available"
                         )
 
                         # Create compel instance for SDXL
@@ -2704,7 +2721,7 @@ class AIModelManager:
                         negative_conditioning, negative_pooled = compel(negative_prompt)
 
                         # Validate that all embeddings are not None
-                        # The deprecated compel API with multiple encoders can return None for pooled embeddings
+                        # Note: compel may return None embeddings with certain configurations
                         if (
                             conditioning is None
                             or pooled is None
@@ -2716,7 +2733,7 @@ class AIModelManager:
                                 f"pooled={pooled is not None}, negative_conditioning={negative_conditioning is not None}, "
                                 f"negative_pooled={negative_pooled is not None}"
                             )
-                            logger.warning("Falling back to standard prompt encoding")
+                            logger.warning("Falling back to standard prompt encoding (will truncate at 77 tokens)")
                             # Don't set embeddings if any are None - will use text prompts instead
                         else:
                             # Set the embeddings to use
@@ -2730,7 +2747,7 @@ class AIModelManager:
                             negative_prompt = None
 
                             logger.info(
-                                "✓ Long prompt encoded successfully with compel"
+                                "✓ Long prompt encoded successfully with compel (fallback method)"
                             )
 
                     except ImportError:
@@ -2739,6 +2756,9 @@ class AIModelManager:
                         )
                         logger.warning(
                             f"Prompt may be truncated to CLIP's token limit (prompt has ~{int(estimated_tokens)} tokens)"
+                        )
+                        logger.warning(
+                            "Recommended: Use lpw_stable_diffusion_xl pipeline for better long prompt support"
                         )
                     except Exception as e:
                         logger.warning(f"Failed to use compel: {e}")

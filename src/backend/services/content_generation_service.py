@@ -1528,11 +1528,18 @@ Generate the social media content now:"""
             else:
                 serializable_content_data[key] = value
 
+        # Generate description - handle None prompt for IMAGE type
+        if request.prompt:
+            description = f"AI-generated {request.content_type.value} using prompt: {request.prompt[:100]}..."
+        else:
+            # For IMAGE type, prompt might be None as it's generated internally
+            description = f"AI-generated {request.content_type.value} for {persona.name}"
+        
         content = ContentModel(
             persona_id=persona.id,
             content_type=request.content_type.value,
             title=f"Generated {request.content_type.value} for {persona.name}",
-            description=f"AI-generated {request.content_type.value} using prompt: {request.prompt[:100]}...",
+            description=description,
             content_rating=request.content_rating.value,
             file_path=content_data.get("file_path"),
             file_size=content_data.get("file_size"),
