@@ -239,7 +239,7 @@ class AIModelManager:
                     "min_gpu_memory_gb": 8,
                     "min_ram_gb": 16,
                     "inference_engine": "llama.cpp",  # Changed from vllm to llama.cpp
-                    "fallback_engines": ["vllm", "transformers"],  # Fallback order
+                    # "fallback_engines": ["vllm", "transformers"],  # DISABLED: No fallbacks during debugging
                     "description": "Snappy persona worker for fast mode",
                 },
             },
@@ -1552,60 +1552,46 @@ class AIModelManager:
         """Generate text using local models with raw engine output streaming and intelligent fallback."""
         model_name = model["name"]
         inference_engine = model.get("inference_engine", "transformers")
-        fallback_engines = model.get("fallback_engines", [])
+        # FALLBACKS DISABLED FOR DEBUGGING
+        # We want to see all failures clearly without masking them with fallbacks
+        # Once everything works, we can re-enable fallback_engines
+        fallback_engines = []  # model.get("fallback_engines", [])
 
-        # Build priority list: primary engine + fallbacks
-        engines_to_try = [inference_engine] + fallback_engines
+        # Use only the primary engine (no fallbacks during debugging)
+        logger.info(f"   Trying inference engine: {inference_engine}")
 
-        last_error = None
-        for engine in engines_to_try:
-            try:
-                logger.info(f"   Trying inference engine: {engine}")
+        # Check if model is downloaded, download if needed
+        model_path = Path(model.get("path", ""))
+        if not model_path.exists():
+            logger.warning(f"   Model not found at {model_path}")
 
-                # Check if model is downloaded, download if needed
-                model_path = Path(model.get("path", ""))
-                if not model_path.exists():
-                    logger.warning(f"   Model not found at {model_path}")
+            # Attempt to download model
+            model_id = model.get("model_id")
+            if model_id:
+                logger.info(f"   Attempting to download model {model_id}...")
+                success = await download_model_from_huggingface(
+                    model_id=model_id, model_path=model_path, model_type="text"
+                )
+                if not success:
+                    error_msg = f"Failed to download model {model_name} from {model_id}"
+                    logger.error(f"   ❌ {error_msg}")
+                    raise ValueError(error_msg)
+            else:
+                error_msg = f"Model {model_name} not found and no model_id for download"
+                logger.error(f"   ❌ {error_msg}")
+                raise ValueError(error_msg)
 
-                    # Attempt to download model
-                    model_id = model.get("model_id")
-                    if model_id:
-                        logger.info(f"   Attempting to download model {model_id}...")
-                        success = await download_model_from_huggingface(
-                            model_id=model_id, model_path=model_path, model_type="text"
-                        )
-                        if not success:
-                            logger.warning(
-                                f"   Failed to download model, trying next engine..."
-                            )
-                            continue
-                    else:
-                        logger.warning(f"   No model_id available for download")
-                        continue
-
-                # Try generation with this engine
-                if engine in ["llama.cpp", "llama-cpp"]:  # Support both formats
-                    return await self._generate_text_llamacpp(prompt, model, **kwargs)
-                elif engine == "vllm":
-                    return await self._generate_text_vllm(prompt, model, **kwargs)
-                elif engine == "transformers":
-                    return await self._generate_text_transformers(
-                        prompt, model, **kwargs
-                    )
-                else:
-                    logger.warning(f"   Unknown inference engine: {engine}")
-                    continue
-
-            except Exception as e:
-                last_error = e
-                logger.warning(f"   {engine} failed: {str(e)}")
-                logger.info(f"   Trying next fallback engine...")
-                continue
-
-        # All engines failed
-        error_msg = f"All inference engines failed for {model_name}. Last error: {str(last_error)}"
-        logger.error(f"   ❌ {error_msg}")
-        raise ValueError(error_msg)
+        # Try generation with the primary engine (fail fast, no fallbacks)
+        if inference_engine in ["llama.cpp", "llama-cpp"]:  # Support both formats
+            return await self._generate_text_llamacpp(prompt, model, **kwargs)
+        elif inference_engine == "vllm":
+            return await self._generate_text_vllm(prompt, model, **kwargs)
+        elif inference_engine == "transformers":
+            return await self._generate_text_transformers(prompt, model, **kwargs)
+        else:
+            error_msg = f"Unknown inference engine: {inference_engine}"
+            logger.error(f"   ❌ {error_msg}")
+            raise ValueError(error_msg)
 
     def _filter_llamacpp_output(self, lines: List[str]) -> str:
         """
