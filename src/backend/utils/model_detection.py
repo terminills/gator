@@ -319,6 +319,100 @@ def find_llama_cpp_installation() -> Optional[Dict[str, Any]]:
     return None
 
 
+def find_ollama_installation() -> Optional[Dict[str, Any]]:
+    """
+    Detect Ollama installation and get version info.
+    
+    Ollama is a local LLM runtime that provides a simple API for running
+    various language models. It can serve as a fallback when llama.cpp fails.
+    
+    Returns:
+        Dictionary with Ollama info if installed, None otherwise
+    """
+    # Check for Ollama binary in PATH
+    ollama_binary = shutil.which("ollama")
+    
+    if not ollama_binary:
+        return None
+    
+    try:
+        # Try to get version info
+        result = subprocess.run(
+            [ollama_binary, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if result.returncode == 0:
+            version_output = result.stdout.strip()
+            # Parse version from output like "ollama version is 0.12.10"
+            version = "unknown"
+            if "version" in version_output.lower():
+                parts = version_output.split()
+                if len(parts) >= 3:
+                    version = parts[-1]
+            
+            # Check if Ollama server is running by trying to list models
+            try:
+                list_result = subprocess.run(
+                    [ollama_binary, "list"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                # Parse available models from output
+                available_models = []
+                if list_result.returncode == 0:
+                    lines = list_result.stdout.strip().split('\n')
+                    # Skip header line and parse model names
+                    for line in lines[1:]:  # Skip first line (header)
+                        if line.strip():
+                            # Model name is the first column
+                            model_name = line.split()[0]
+                            available_models.append(model_name)
+                
+                return {
+                    "installed": True,
+                    "type": "ollama",
+                    "version": version,
+                    "path": ollama_binary,
+                    "available_models": available_models,
+                    "server_running": list_result.returncode == 0,
+                }
+            except (subprocess.TimeoutExpired, Exception) as e:
+                # Ollama is installed but server might not be running
+                return {
+                    "installed": True,
+                    "type": "ollama",
+                    "version": version,
+                    "path": ollama_binary,
+                    "available_models": [],
+                    "server_running": False,
+                }
+        else:
+            # Version check failed but binary exists
+            return {
+                "installed": True,
+                "type": "ollama",
+                "version": "unknown",
+                "path": ollama_binary,
+                "available_models": [],
+                "server_running": False,
+            }
+    except (subprocess.TimeoutExpired, Exception):
+        # Binary exists but failed to execute
+        return {
+            "installed": True,
+            "type": "ollama",
+            "version": "unknown",
+            "path": ollama_binary,
+            "available_models": [],
+            "server_running": False,
+        }
+
+
 def get_inference_engines_status(base_dir: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
     """
     Get status of all inference engines.
@@ -362,6 +456,23 @@ def get_inference_engines_status(base_dir: Optional[Path] = None) -> Dict[str, D
             "name": "llama.cpp",
             "status": "not_installed",
             "install_url": "https://github.com/ggerganov/llama.cpp"
+        }
+    
+    # Ollama (alternative text generation engine)
+    ollama_info = find_ollama_installation()
+    if ollama_info:
+        engines["ollama"] = {
+            "category": "text",
+            "name": "Ollama",
+            "status": "installed",
+            **ollama_info
+        }
+    else:
+        engines["ollama"] = {
+            "category": "text",
+            "name": "Ollama",
+            "status": "not_installed",
+            "install_url": "https://ollama.com/download"
         }
     
     # Image generation engines
@@ -430,7 +541,7 @@ def check_inference_engine_available(engine: str, base_dir: Optional[Path] = Non
     Check if an inference engine is available.
     
     Args:
-        engine: Name of the inference engine (vllm, comfyui, diffusers, transformers, llama-cpp, llama.cpp)
+        engine: Name of the inference engine (vllm, comfyui, diffusers, transformers, llama-cpp, llama.cpp, ollama)
         base_dir: Optional base directory for relative path checks
         check_api: For ComfyUI, also check if API is running (default: False)
     
@@ -455,6 +566,8 @@ def check_inference_engine_available(engine: str, base_dir: Optional[Path] = Non
         return find_automatic1111_installation(base_dir) is not None
     elif engine in ["llama-cpp", "llama.cpp"]:  # Support both formats
         return find_llama_cpp_installation() is not None
+    elif engine == "ollama":
+        return find_ollama_installation() is not None
     elif engine in ["diffusers", "transformers"]:
         try:
             __import__(engine)
