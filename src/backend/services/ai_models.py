@@ -1177,6 +1177,10 @@ class AIModelManager:
 
         # For text models
         elif content_type == "text":
+            # Calculate prompt characteristics once for all selection logic
+            prompt_length = len(prompt.split())
+            max_tokens = kwargs.get("max_tokens", 500)
+            
             # Check if user explicitly requested Ollama via inference_engine parameter
             requested_engine = kwargs.get("inference_engine")
             
@@ -1207,9 +1211,6 @@ class AIModelManager:
                 
                 # Even without GPU issues, prefer Ollama for simple conversational tasks
                 # (it's optimized for this use case)
-                prompt_length = len(prompt.split())
-                max_tokens = kwargs.get("max_tokens", 500)
-                
                 # Simple conversational task detection
                 is_simple_chat = prompt_length < 100 and max_tokens <= 500
                 
@@ -1220,8 +1221,6 @@ class AIModelManager:
                     return ollama_models[0]
             
             # Longer prompts or complex tasks need larger models
-            prompt_length = len(prompt.split())
-            max_tokens = kwargs.get("max_tokens", 500)
 
             complexity_keywords = [
                 "analyze",
