@@ -655,7 +655,7 @@
         
         async function loadAPIKeys() {
             // Helper function to load a single setting without logging 404 errors
-            async function loadSetting(key, elementId, defaultPlaceholder) {
+            async function loadSetting(key, elementId) {
                 try {
                     const response = await fetch(`/api/v1/settings/${key}`);
                     if (response.ok) {
@@ -671,16 +671,15 @@
                     }
                 } catch (error) {
                     // Silently handle errors - setting just won't show as saved
-                    return false;
                 }
                 return false;
             }
             
             // Load all API keys
             await Promise.all([
-                loadSetting('openai_api_key', 'openai-key', 'sk-...'),
-                loadSetting('hugging_face_token', 'hf-token', 'hf_...'),
-                loadSetting('civitai_api_key', 'civitai-key', 'Enter your CivitAI API key...')
+                loadSetting('openai_api_key', 'openai-key'),
+                loadSetting('hugging_face_token', 'hf-token'),
+                loadSetting('civitai_api_key', 'civitai-key')
             ]);
         }
         
@@ -814,7 +813,6 @@
                     }
                 } catch (error) {
                     // Silently handle errors
-                    return false;
                 }
                 return false;
             }
