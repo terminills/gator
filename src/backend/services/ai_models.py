@@ -73,7 +73,6 @@ async def download_model_from_huggingface(
         download_kwargs = {
             "repo_id": model_id,
             "local_dir": str(model_path),
-            "local_dir_use_symlinks": False,
             "resume_download": True,
         }
 

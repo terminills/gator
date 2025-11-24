@@ -236,15 +236,15 @@ def should_use_ollama_fallback(force: bool = False) -> bool:
     if not is_vllm_compatible_gpu():
         return True
     
-    # Check user preference from settings
+    # Check user preference from settings (if available)
     try:
-        from backend.services.settings_service import SettingsService
-        settings_service = SettingsService()
-        
-        # Get preference setting (default to True for gfx1030)
-        prefer_ollama = settings_service.get_setting("prefer_ollama_for_gfx1030")
-        if prefer_ollama and detect_amd_gpu_architecture() == "gfx1030":
-            return True
+        # Try to get setting from environment or config
+        # Don't access database here as it may not be initialized yet
+        import os
+        prefer_ollama_env = os.environ.get("PREFER_OLLAMA_FOR_GFX1030", "").lower()
+        if prefer_ollama_env in ("true", "1", "yes"):
+            if detect_amd_gpu_architecture() == "gfx1030":
+                return True
             
     except Exception:
         # Settings not available or error accessing them

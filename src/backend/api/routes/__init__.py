@@ -11,6 +11,7 @@ from . import (
     segments,
     friend_groups,
     enhanced_persona,
+    civitai,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "segments",
     "friend_groups",
     "enhanced_persona",
+    "civitai",
 ]

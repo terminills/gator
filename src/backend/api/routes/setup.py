@@ -856,6 +856,97 @@ async def get_model_recommendations() -> Dict[str, Any]:
         )
 
 
+@router.get("/ai-models/civitai-browse")
+async def browse_civitai_models(
+    query: Optional[str] = None,
+    model_type: Optional[str] = None,
+    limit: int = 12,
+) -> Dict[str, Any]:
+    """
+    Browse popular models from CivitAI for easy installation.
+    
+    Returns a curated list of models suitable for the AI models setup page.
+    """
+    try:
+        from backend.utils.civitai_utils import CivitAIClient, CivitAIModelType
+        from backend.config.settings import get_settings
+        
+        settings = get_settings()
+        api_key = getattr(settings, "civitai_api_key", None)
+        allow_nsfw = getattr(settings, "civitai_allow_nsfw", False)
+        
+        client = CivitAIClient(api_key=api_key)
+        
+        # Convert model type string to enum if provided
+        type_filter = None
+        if model_type:
+            try:
+                type_filter = [CivitAIModelType(model_type)]
+            except ValueError:
+                logger.warning(f"Invalid CivitAI model type: {model_type}")
+        
+        # Get models from CivitAI
+        result = await client.list_models(
+            limit=limit,
+            query=query or "stable diffusion",
+            model_types=type_filter,
+            sort="Highest Rated",
+            period="Month",
+            nsfw=False,  # Always false for setup page
+        )
+        
+        # Transform models into setup-friendly format
+        models = []
+        for item in result.get("items", []):
+            # Get the latest version
+            versions = item.get("modelVersions", [])
+            if not versions:
+                continue
+            
+            latest_version = versions[0]
+            files = latest_version.get("files", [])
+            if not files:
+                continue
+            
+            primary_file = files[0]
+            size_kb = primary_file.get("sizeKB", 0)
+            size_gb = round(size_kb / (1024 * 1024), 2)
+            
+            models.append({
+                "id": item.get("id"),
+                "name": item.get("name"),
+                "type": item.get("type"),
+                "description": (item.get("description", "")[:150] + "...") if item.get("description") else "No description",
+                "version_id": latest_version.get("id"),
+                "version_name": latest_version.get("name"),
+                "size_gb": size_gb,
+                "creator": item.get("creator", {}).get("username", "Unknown"),
+                "stats": {
+                    "downloads": item.get("stats", {}).get("downloadCount", 0),
+                    "rating": item.get("stats", {}).get("rating", 0),
+                    "favorites": item.get("stats", {}).get("favoriteCount", 0),
+                },
+                "base_model": latest_version.get("baseModel", "Unknown"),
+                "download_url": f"/api/v1/civitai/download",
+                "nsfw": item.get("nsfw", False),
+            })
+        
+        return {
+            "success": True,
+            "models": models,
+            "source": "civitai",
+            "total": len(models),
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to browse CivitAI models: {str(e)}")
+        return {
+            "success": False,
+            "models": [],
+            "error": str(e),
+        }
+
+
 class ModelInstallRequest(BaseModel):
     """Request to install AI models."""
 

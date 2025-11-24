@@ -867,7 +867,6 @@ class ModelSetupManager:
                             "repo_id": model_config["model_id"],
                             "cache_dir": model_path / "cache",
                             "local_dir": model_path,
-                            "local_dir_use_symlinks": False,
                         }
                         if hf_token:
                             download_kwargs["token"] = hf_token
@@ -910,7 +909,6 @@ class ModelSetupManager:
                                 filename=f"{nested_path}/{model_filename}",
                                 cache_dir=model_path / "cache",
                                 local_dir=model_path,
-                                local_dir_use_symlinks=False,
                             )
 
                             # Download config file with correct nested path
@@ -919,7 +917,6 @@ class ModelSetupManager:
                                 filename=f"{nested_path}/{config_filename}",
                                 cache_dir=model_path / "cache",
                                 local_dir=model_path,
-                                local_dir_use_symlinks=False,
                             )
 
                             # Create model info file
@@ -976,7 +973,6 @@ class ModelSetupManager:
                             repo_id=model_config["model_id"],
                             cache_dir=model_path / "cache",
                             local_dir=model_path,
-                            local_dir_use_symlinks=False,
                         )
 
                         # Create config file
