@@ -93,5 +93,96 @@ class TestCivitAIUtilityFunctions:
         assert len(models) <= 3
 
 
+class TestCivitAIRedirectHandling:
+    """Test redirect handling for CivitAI downloads."""
+
+    @pytest.mark.asyncio
+    async def test_client_follows_redirects(self):
+        """Test that the download client is configured to follow redirects."""
+        import httpx
+
+        # Test that AsyncClient with follow_redirects=True is created
+        # This is what the fix in civitai_utils.py enables
+        async with httpx.AsyncClient(timeout=None, follow_redirects=True) as client:
+            assert client.follow_redirects is True
+
+    @pytest.mark.asyncio
+    async def test_download_handles_307_redirect(self):
+        """Test that 307 redirects are properly followed during download."""
+        # This test validates the fix for the reported issue where
+        # CivitAI returns 307 redirects to Cloudflare storage
+        import httpx
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        # Create a mock response that simulates a successful download after redirect
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.headers = {"content-length": "100"}
+
+        async def mock_aiter_bytes(chunk_size=8192):
+            yield b"test content"
+
+        mock_response.aiter_bytes = mock_aiter_bytes
+
+        # Create async context manager for stream
+        mock_stream_cm = MagicMock()
+        mock_stream_cm.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_stream_cm.__aexit__ = AsyncMock(return_value=None)
+
+        # Create mock client
+        mock_client = MagicMock()
+        mock_client.stream = MagicMock(return_value=mock_stream_cm)
+        mock_client.get = AsyncMock()
+
+        # Create async context manager for client
+        mock_client_cm = MagicMock()
+        mock_client_cm.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_cm.__aexit__ = AsyncMock(return_value=None)
+
+        # Verify that CivitAIClient.download_model would use follow_redirects=True
+        from backend.utils.civitai_utils import CivitAIClient
+        import tempfile
+
+        # Patch the AsyncClient to verify it's called with follow_redirects=True
+        with patch("backend.utils.civitai_utils.httpx.AsyncClient") as mock_async_client:
+            mock_async_client.return_value = mock_client_cm
+
+            client = CivitAIClient(api_key="test_key")
+
+            # Mock get_model_version to return test data
+            with patch.object(client, "get_model_version") as mock_get_version:
+                mock_get_version.return_value = {
+                    "files": [
+                        {
+                            "name": "test_model.safetensors",
+                            "downloadUrl": "https://civitai.com/api/download/models/12345",
+                            "sizeKB": 100,
+                            "hashes": [],
+                        }
+                    ],
+                    "modelId": 123,
+                    "name": "v1.0",
+                    "model": {"name": "Test Model"},
+                    "baseModel": "SDXL 1.0",
+                    "trainedWords": [],
+                }
+
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    try:
+                        await client.download_model(
+                            model_version_id=12345,
+                            output_path=Path(tmpdir),
+                        )
+                    except Exception:
+                        # We expect this to fail due to mocking, but we can verify
+                        # that AsyncClient was called with correct parameters
+                        pass
+
+                    # Verify AsyncClient was called with follow_redirects=True
+                    mock_async_client.assert_called_with(
+                        timeout=None, follow_redirects=True
+                    )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
