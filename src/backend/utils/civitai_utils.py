@@ -87,34 +87,46 @@ class CivitAIClient:
         sort: str = "Highest Rated",
         period: str = "AllTime",
         nsfw: bool = True,  # Default to True for private server mode
+        cursor: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         List models from CivitAI.
         
         Args:
             limit: Number of models to return (max 100)
-            page: Page number for pagination
+            page: Page number for pagination (only used when query is not provided)
             query: Search query string
             model_types: Filter by model types
             base_models: Filter by base model architectures
             sort: Sort order (Highest Rated, Most Downloaded, Newest)
             period: Time period (AllTime, Year, Month, Week, Day)
             nsfw: Include NSFW models (default True for private server)
+            cursor: Cursor for pagination (required when using query parameter)
             
         Returns:
             Dictionary with 'items' (list of models) and 'metadata' (pagination info)
+            
+        Note:
+            CivitAI API does not allow using 'page' parameter with 'query' parameter.
+            When a query is provided, cursor-based pagination must be used instead.
         """
         try:
             params = {
                 "limit": min(limit, 100),
-                "page": page,
                 "sort": sort,
                 "period": period,
                 "nsfw": nsfw,
             }
             
             if query:
+                # When query is provided, use cursor-based pagination
+                # CivitAI API does not allow page param with query
                 params["query"] = query
+                if cursor:
+                    params["cursor"] = cursor
+            else:
+                # When no query, use page-based pagination
+                params["page"] = page
                 
             if model_types:
                 params["types"] = ",".join([t.value for t in model_types])

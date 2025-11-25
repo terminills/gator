@@ -35,6 +35,11 @@ from backend.utils.model_detection import (
 logger = get_logger(__name__)
 
 
+# Preferred uncensored model for NSFW content generation
+# dolphin-mixtral is uncensored and ideal for private servers
+PREFERRED_UNCENSORED_MODEL_PREFIX = "dolphin"
+
+
 # Compile ANSI escape sequence pattern once at module level for performance
 # Pattern matches common ANSI escape sequences:
 # \x1b is the ESC character (27 in decimal, 0x1B in hex)
@@ -1258,6 +1263,18 @@ class AIModelManager:
             ollama_models = [
                 m for m in available_models if m.get("inference_engine") == "ollama"
             ]
+
+            # PRIORITY: Prefer uncensored models (like dolphin-mixtral) for unrestricted content generation
+            # These models are uncensored and ideal for NSFW content on private servers
+            uncensored_models = [
+                m for m in ollama_models
+                if PREFERRED_UNCENSORED_MODEL_PREFIX in m["name"].lower()
+            ]
+            if uncensored_models:
+                logger.info(
+                    f"🎯 Model selection: {uncensored_models[0]['name']} (reason: uncensored model preferred for unrestricted content)"
+                )
+                return uncensored_models[0]
 
             if requested_engine == "ollama" and ollama_models:
                 # User explicitly requested Ollama - use first available Ollama model
