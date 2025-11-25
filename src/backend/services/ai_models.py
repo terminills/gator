@@ -1259,6 +1259,18 @@ class AIModelManager:
                 m for m in available_models if m.get("inference_engine") == "ollama"
             ]
 
+            # PRIORITY: Prefer dolphin-mixtral for unrestricted content generation
+            # dolphin-mixtral is uncensored and ideal for NSFW content on private servers
+            dolphin_models = [
+                m for m in ollama_models
+                if "dolphin" in m["name"].lower()
+            ]
+            if dolphin_models:
+                logger.info(
+                    f"🎯 Model selection: {dolphin_models[0]['name']} (reason: dolphin model preferred for unrestricted content)"
+                )
+                return dolphin_models[0]
+
             if requested_engine == "ollama" and ollama_models:
                 # User explicitly requested Ollama - use first available Ollama model
                 logger.info(
