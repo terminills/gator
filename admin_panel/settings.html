@@ -326,6 +326,53 @@
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
         }
+        
+        /* Toggle Switch Styles */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #444;
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: var(--accent);
+        }
+        
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
     </style>
 </head>
 <body>
@@ -532,6 +579,104 @@
                     </div>
                     <button class="btn btn-primary" onclick="saveIPMICredentials()">
                         💾 Save IPMI Credentials
+                    </button>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">🔓 Content Filtering (Private Server Mode)</h2>
+                </div>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    This is a private server. NSFW filtering is disabled by default for all content types.
+                    Toggle individual filters if needed for specific content types.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--dark-card); border-radius: 8px; border: 1px solid var(--border-color);">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="nsfw-filter-global" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <div>
+                            <div style="font-weight: 600;">🔓 Disable All NSFW Filtering (Master Switch)</div>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary);">Private server mode - bypasses all content restrictions</div>
+                        </div>
+                    </div>
+                    
+                    <div style="padding: 16px; background: var(--dark-card); border-radius: 8px; border: 1px solid var(--border-color);">
+                        <div style="font-weight: 600; margin-bottom: 16px;">Per-Content Type Settings:</div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="nsfw-filter-text" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <div>
+                                    <div style="font-weight: 500;">📝 Text</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Disable filter</div>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="nsfw-filter-chat" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <div>
+                                    <div style="font-weight: 500;">💬 Chat</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Disable filter</div>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="nsfw-filter-voice" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <div>
+                                    <div style="font-weight: 500;">🎙️ Voice</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Disable filter</div>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="nsfw-filter-image" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <div>
+                                    <div style="font-weight: 500;">🖼️ Image</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Disable filter</div>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="nsfw-filter-video" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <div>
+                                    <div style="font-weight: 500;">🎬 Video</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Disable filter</div>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="civitai-allow-nsfw" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <div>
+                                    <div style="font-weight: 500;">🎨 CivitAI NSFW</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Allow NSFW models</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="saveNSFWSettings()">
+                        💾 Save Content Filter Settings
                     </button>
                 </div>
             </div>
@@ -826,11 +971,80 @@
             ]);
         }
         
+        // NSFW Settings Management
+        async function saveNSFWSettings() {
+            try {
+                const settings = {
+                    nsfw_filter_disabled_global: document.getElementById('nsfw-filter-global').checked,
+                    nsfw_filter_disabled_text: document.getElementById('nsfw-filter-text').checked,
+                    nsfw_filter_disabled_chat: document.getElementById('nsfw-filter-chat').checked,
+                    nsfw_filter_disabled_voice: document.getElementById('nsfw-filter-voice').checked,
+                    nsfw_filter_disabled_image: document.getElementById('nsfw-filter-image').checked,
+                    nsfw_filter_disabled_video: document.getElementById('nsfw-filter-video').checked,
+                    civitai_allow_nsfw: document.getElementById('civitai-allow-nsfw').checked
+                };
+                
+                const response = await fetch('/api/v1/settings/bulk-update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    alert('✅ Content filter settings saved successfully!\n\nPrivate server mode: ' + 
+                          (settings.nsfw_filter_disabled_global ? 'ENABLED (all filters disabled)' : 'DISABLED (filters active)'));
+                } else {
+                    alert('❌ Failed to save content filter settings:\n' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving NSFW settings:', error);
+                alert('❌ Failed to save content filter settings: ' + error.message);
+            }
+        }
+        
+        async function loadNSFWSettings() {
+            // Helper function to load a boolean toggle setting
+            async function loadToggleSetting(key, elementId, defaultValue = true) {
+                try {
+                    const response = await fetch(`/api/v1/settings/${key}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        // Handle both boolean and truthy values
+                        const value = data.value === true || data.value === 'true' || data.value === 1;
+                        document.getElementById(elementId).checked = value;
+                        return true;
+                    } else if (response.status === 404) {
+                        // Setting doesn't exist yet - use default (enabled for private server)
+                        document.getElementById(elementId).checked = defaultValue;
+                        return false;
+                    }
+                } catch (error) {
+                    // On error, use default value
+                    document.getElementById(elementId).checked = defaultValue;
+                }
+                return false;
+            }
+            
+            // Load all NSFW filter settings (default to checked/disabled for private server)
+            await Promise.all([
+                loadToggleSetting('nsfw_filter_disabled_global', 'nsfw-filter-global', true),
+                loadToggleSetting('nsfw_filter_disabled_text', 'nsfw-filter-text', true),
+                loadToggleSetting('nsfw_filter_disabled_chat', 'nsfw-filter-chat', true),
+                loadToggleSetting('nsfw_filter_disabled_voice', 'nsfw-filter-voice', true),
+                loadToggleSetting('nsfw_filter_disabled_image', 'nsfw-filter-image', true),
+                loadToggleSetting('nsfw_filter_disabled_video', 'nsfw-filter-video', true),
+                loadToggleSetting('civitai_allow_nsfw', 'civitai-allow-nsfw', true)
+            ]);
+        }
+        
         // Load on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadSettings();
             loadAPIKeys();
             loadIPMICredentials();
+            loadNSFWSettings();
         });
     </script>
 </body>

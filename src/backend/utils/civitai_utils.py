@@ -86,7 +86,7 @@ class CivitAIClient:
         base_models: Optional[List[CivitAIBaseModel]] = None,
         sort: str = "Highest Rated",
         period: str = "AllTime",
-        nsfw: bool = False,
+        nsfw: bool = True,  # Default to True for private server mode
     ) -> Dict[str, Any]:
         """
         List models from CivitAI.
@@ -99,7 +99,7 @@ class CivitAIClient:
             base_models: Filter by base model architectures
             sort: Sort order (Highest Rated, Most Downloaded, Newest)
             period: Time period (AllTime, Year, Month, Week, Day)
-            nsfw: Include NSFW models
+            nsfw: Include NSFW models (default True for private server)
             
         Returns:
             Dictionary with 'items' (list of models) and 'metadata' (pagination info)

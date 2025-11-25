@@ -190,6 +190,8 @@ async def bulk_update_settings(
                 category = SettingCategory.DNS
             elif "facebook" in key.lower() or "instagram" in key.lower() or "twitter" in key.lower():
                 category = SettingCategory.SOCIAL_MEDIA
+            elif key.startswith("nsfw_") or key in ["civitai_allow_nsfw"]:
+                category = SettingCategory.CONTENT
             else:
                 category = SettingCategory.AI_MODELS  # Default
 

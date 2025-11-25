@@ -469,18 +469,25 @@
                     <button class="activity-btn" onclick="testACDContext()">🔄 Test ACD Context</button>
                     <button class="activity-btn" onclick="runFullDiagnostic()">🔍 Run Full Diagnostic</button>
                 </div>
-                <div style="padding: 10px 0; display: flex; align-items: center; gap: 10px;">
+                <div class="activity-triggers" style="margin-top: 8px;">
+                    <button class="activity-btn" style="background: #10b981;" onclick="generatePrompt()">✨ Generate Prompt</button>
+                    <button class="activity-btn" style="background: #8b5cf6;" onclick="generateImage()">🖼️ Generate Image</button>
+                    <button class="activity-btn" style="background: #f59e0b;" onclick="searchCivitAI()">🎯 Search CivitAI</button>
+                    <button class="activity-btn" style="background: #ec4899;" onclick="searchHuggingFace()">🤗 Search HuggingFace</button>
+                </div>
+                <div style="padding: 10px 0; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                         <input type="checkbox" id="verbose-mode" checked style="cursor: pointer;">
                         <span style="font-size: 0.9em; color: #666;">CLI Mode (Show execution details)</span>
                     </label>
+                    <span id="nsfw-mode-indicator" style="padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600; background: #10b981; color: white;">🔓 NSFW Filters Disabled</span>
                 </div>
                 <div class="chat-input-form">
                     <input 
                         type="text" 
                         class="chat-input" 
                         id="chat-input" 
-                        placeholder="Ask Gator about the platform or AI status..."
+                        placeholder="Try: 'generate image of sunset', 'search civitai SDXL', 'install model 12345'..."
                         onkeypress="if(event.key === 'Enter') sendMessage()"
                     />
                     <button class="chat-send-btn" id="send-btn" onclick="sendMessage()">Send</button>
@@ -1449,8 +1456,163 @@
             return badges[status] || '<span class="badge info">' + status + '</span>';
         }
         
+        // Check NSFW filter settings and update indicator
+        async function checkNSFWFilterStatus() {
+            const indicator = document.getElementById('nsfw-mode-indicator');
+            try {
+                const response = await fetch('/api/v1/settings/nsfw_filter_disabled_global');
+                if (response.ok) {
+                    const data = await response.json();
+                    const isDisabled = data.value === true || data.value === 'true';
+                    if (isDisabled) {
+                        indicator.textContent = '🔓 NSFW Filters Disabled';
+                        indicator.style.background = '#10b981';
+                    } else {
+                        indicator.textContent = '🔒 NSFW Filters Active';
+                        indicator.style.background = '#ef4444';
+                    }
+                } else {
+                    // Setting not found - default to disabled (private server)
+                    indicator.textContent = '🔓 NSFW Filters Disabled (Default)';
+                    indicator.style.background = '#10b981';
+                }
+            } catch (error) {
+                indicator.textContent = '🔓 NSFW Filters Disabled (Default)';
+                indicator.style.background = '#10b981';
+            }
+        }
+        
+        // Generate prompts via Gator chat
+        async function generatePrompt() {
+            const promptTypes = [
+                'Create a creative image generation prompt for a beautiful landscape',
+                'Generate a text prompt for an engaging social media post',
+                'Create a voice script prompt for a product announcement',
+                'Generate a video concept prompt for a short-form content piece',
+                'Create a chat conversation starter prompt for audience engagement'
+            ];
+            
+            const selectedPrompt = promptTypes[Math.floor(Math.random() * promptTypes.length)];
+            
+            addChatMessage('user', `Generate prompt: ${selectedPrompt}`);
+            const typingIndicator = document.getElementById('typing-indicator');
+            typingIndicator.classList.add('active');
+            const verboseMode = document.getElementById('verbose-mode').checked;
+            
+            let log = [];
+            log.push('[ACTIVITY] Prompt Generation via Gator Chat');
+            log.push('[TIMESTAMP] ' + new Date().toISOString());
+            log.push('[NSFW MODE] Filters disabled for private server');
+            log.push('');
+            
+            try {
+                log.push('[STEP 1] Sending prompt request to Gator agent...');
+                log.push('[REQUEST] ' + selectedPrompt);
+                log.push('');
+                
+                const startTime = Date.now();
+                const response = await fetch(`${GATOR_API}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: selectedPrompt,
+                        context: { 
+                            page: 'diagnostics', 
+                            timestamp: new Date().toISOString(),
+                            nsfw_filters_disabled: true,
+                            mode: 'prompt_generation'
+                        },
+                        verbose: verboseMode
+                    })
+                });
+                
+                const elapsed = Date.now() - startTime;
+                
+                if (!response.ok) {
+                    throw new Error(`AI Agent Error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log.push(`[STEP 1] ✓ Response received (${elapsed}ms)`);
+                log.push('');
+                log.push('[GENERATED PROMPT]');
+                log.push(data.response);
+                log.push('');
+                log.push('[COMPLETE] Prompt generated successfully!');
+                log.push('[TIP] You can use this prompt directly in content generation.');
+                
+                if (verboseMode) {
+                    addChatMessage('gator', log.join('\n'), false, true);
+                } else {
+                    addChatMessage('gator', data.response);
+                }
+                
+            } catch (error) {
+                log.push('');
+                log.push('[FATAL ERROR] ' + error.message);
+                
+                if (verboseMode) {
+                    addChatMessage('gator', log.join('\n'), true, true);
+                } else {
+                    addChatMessage('gator', `❌ FAILED: ${error.message}. Prompt generation failed!`, true);
+                }
+            } finally {
+                typingIndicator.classList.remove('active');
+            }
+        }
+        
+        // Generate image via Gator chat
+        async function generateImage() {
+            const prompts = [
+                'generate an image of a beautiful sunset over mountains',
+                'generate an image of a futuristic city at night',
+                'create an image of a serene forest with a stream',
+                'generate an image of an abstract art piece',
+                'create an image of a cozy cabin in winter'
+            ];
+            
+            const selectedPrompt = prompts[Math.floor(Math.random() * prompts.length)];
+            document.getElementById('chat-input').value = selectedPrompt;
+            sendMessage();
+        }
+        
+        // Search CivitAI models
+        async function searchCivitAI() {
+            const queries = [
+                'search civitai stable diffusion xl',
+                'search civitai realistic portrait',
+                'search civitai anime style',
+                'search civitai flux',
+                'search civitai checkpoint'
+            ];
+            
+            const selectedQuery = queries[Math.floor(Math.random() * queries.length)];
+            document.getElementById('chat-input').value = selectedQuery;
+            sendMessage();
+        }
+        
+        // Search HuggingFace models
+        async function searchHuggingFace() {
+            const queries = [
+                'search huggingface stable diffusion',
+                'search huggingface flux',
+                'search huggingface text-to-image',
+                'search huggingface llama',
+                'search huggingface mistral'
+            ];
+            
+            const selectedQuery = queries[Math.floor(Math.random() * queries.length)];
+            document.getElementById('chat-input').value = selectedQuery;
+            sendMessage();
+        }
+        
         // Auto-refresh every 30 seconds
         setInterval(loadData, 30000);
+        
+        // Check NSFW filter status on load
+        checkNSFWFilterStatus();
         
         // Load data on page load
         loadData();
