@@ -7,13 +7,16 @@ Provides assistance and guidance with characteristic directness.
 
 import random
 from typing import Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 import os
 
 from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Constants for persona display
+PERSONA_PERSONALITY_TRUNCATE_LENGTH = 100
 
 
 class GatorAgentService:
@@ -184,18 +187,20 @@ class GatorAgentService:
         Returns:
             List of persona dictionaries with name, appearance, personality, etc.
         """
+        # Import database modules at module level would cause circular imports
+        # These are lazy-loaded only when needed
+        from backend.database.connection import get_db_session
+        from backend.services.persona_service import PersonaService
+        
         try:
-            # Check if cache is still valid
-            now = datetime.now()
+            # Check if cache is still valid (use UTC for consistency)
+            now = datetime.now(timezone.utc)
             if (self._personas_cache_time and 
                 (now - self._personas_cache_time).total_seconds() < self._personas_cache_ttl and
                 self._personas_cache):
                 return self._personas_cache
             
             # Fetch from database
-            from backend.database.connection import get_db_session
-            from backend.services.persona_service import PersonaService
-            
             async with get_db_session() as db:
                 persona_service = PersonaService(db)
                 personas = await persona_service.list_personas(limit=100, active_only=True)
@@ -261,8 +266,8 @@ The Gator platform helps users:
         # Add persona knowledge if available
         if personas_info:
             persona_list = "\n".join([
-                f"  - {p['name']}: {p.get('personality', 'No personality set')[:100]}..."
-                if len(p.get('personality', '')) > 100 
+                f"  - {p['name']}: {p.get('personality', 'No personality set')[:PERSONA_PERSONALITY_TRUNCATE_LENGTH]}..."
+                if len(p.get('personality', '')) > PERSONA_PERSONALITY_TRUNCATE_LENGTH 
                 else f"  - {p['name']}: {p.get('personality', 'No personality set')}"
                 for p in personas_info[:10]  # Limit to 10 personas to avoid token limits
             ])
