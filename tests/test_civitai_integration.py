@@ -168,17 +168,22 @@ class TestCivitAIRedirectHandling:
                 }
 
                 with tempfile.TemporaryDirectory() as tmpdir:
+                    # The download will fail due to incomplete mocking (file write issues),
+                    # but we only need to verify that AsyncClient was called correctly
                     try:
                         await client.download_model(
                             model_version_id=12345,
                             output_path=Path(tmpdir),
                         )
-                    except Exception:
-                        # We expect this to fail due to mocking, but we can verify
-                        # that AsyncClient was called with correct parameters
+                    except (OSError, TypeError, AttributeError):
+                        # Expected failures from incomplete mocking:
+                        # - OSError: file write operations
+                        # - TypeError: mock method calls
+                        # - AttributeError: missing mock attributes
                         pass
 
                     # Verify AsyncClient was called with follow_redirects=True
+                    # This is the key assertion that validates the fix for the 307 redirect issue
                     mock_async_client.assert_called_with(
                         timeout=None, follow_redirects=True
                     )
