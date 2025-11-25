@@ -11,6 +11,7 @@ import base64
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.connection import get_db_session
@@ -1099,3 +1100,170 @@ async def get_base_image_url(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get base image URL: {str(e)}",
         )
+
+
+# Pydantic models for persona chat testing
+class PersonaChatRequest(BaseModel):
+    """Request model for persona chat testing."""
+    message: str = Field(..., min_length=1, max_length=2000, description="User message to the persona")
+
+
+class PersonaChatResponse(BaseModel):
+    """Response model for persona chat testing."""
+    response: str = Field(..., description="Persona's response")
+    persona_name: str = Field(..., description="Name of the persona responding")
+    model_used: str = Field(..., description="AI model used for generation")
+    timestamp: str = Field(..., description="Response timestamp")
+
+
+@router.post("/{persona_id}/chat", response_model=PersonaChatResponse)
+async def chat_with_persona(
+    persona_id: UUID,
+    chat_request: PersonaChatRequest,
+    persona_service: PersonaService = Depends(get_persona_service),
+):
+    """
+    Test chat with a persona using the dolphin-mixtral model.
+    
+    This endpoint allows testing persona consistency by chatting with
+    the persona using its configured appearance, personality, and filters.
+    Uses the dolphin-mixtral model (uncensored) for unrestricted responses.
+    
+    Args:
+        persona_id: UUID of the persona to chat with
+        chat_request: The user message
+        persona_service: Injected persona service
+        
+    Returns:
+        PersonaChatResponse: The persona's response
+    """
+    from datetime import datetime
+    
+    try:
+        # Get the persona data
+        persona = await persona_service.get_persona(str(persona_id))
+        if not persona:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Persona {persona_id} not found",
+            )
+        
+        # Get AI models manager
+        from backend.services.ai_models import ai_models
+        
+        # Check for Ollama models with dolphin-mixtral preference
+        text_models = ai_models.available_models.get("text", [])
+        ollama_models = [m for m in text_models if m.get("inference_engine") == "ollama" and m.get("loaded")]
+        
+        # Prefer dolphin-mixtral for unrestricted persona testing
+        selected_model = None
+        model_name = "fallback"
+        
+        for model in ollama_models:
+            if "dolphin" in model.get("name", "").lower():
+                selected_model = model
+                model_name = model.get("name", "dolphin-mixtral")
+                break
+        
+        # Fall back to any available Ollama model if dolphin not found
+        if not selected_model and ollama_models:
+            selected_model = ollama_models[0]
+            model_name = selected_model.get("name", "ollama")
+        
+        # Fall back to any loaded text model
+        if not selected_model:
+            loaded_models = [m for m in text_models if m.get("loaded")]
+            if loaded_models:
+                selected_model = loaded_models[0]
+                model_name = selected_model.get("name", "unknown")
+        
+        if not selected_model:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No text generation models available. Please install dolphin-mixtral via Ollama.",
+            )
+        
+        # Build persona system prompt
+        system_prompt = _build_persona_chat_prompt(persona)
+        
+        # Generate response using AI models
+        full_prompt = f"{system_prompt}\n\nUser: {chat_request.message}\n{persona.name}:"
+        
+        try:
+            response_text = await ai_models.generate_text(
+                full_prompt,
+                max_tokens=500,
+                temperature=0.8,
+                inference_engine="ollama" if "ollama" in str(selected_model.get("inference_engine", "")).lower() else None,
+            )
+            
+            # Clean up response (remove any leading/trailing whitespace or duplicate name)
+            response_text = response_text.strip()
+            if response_text.startswith(f"{persona.name}:"):
+                response_text = response_text[len(f"{persona.name}:"):].strip()
+                
+        except Exception as e:
+            logger.error(f"AI generation failed: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"AI generation failed: {str(e)}",
+            )
+        
+        return PersonaChatResponse(
+            response=response_text,
+            persona_name=persona.name,
+            model_used=model_name,
+            timestamp=datetime.now().isoformat(),
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Persona chat failed for {persona_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Chat failed: {str(e)}",
+        )
+
+
+def _build_persona_chat_prompt(persona) -> str:
+    """
+    Build a system prompt for persona chat based on persona configuration.
+    
+    Args:
+        persona: The persona object with appearance, personality, etc.
+        
+    Returns:
+        str: The system prompt for the AI model
+    """
+    # Get content themes as a string
+    themes = ", ".join(persona.content_themes) if persona.content_themes else "general topics"
+    
+    # Get style preferences as a string
+    style_info = ""
+    if persona.style_preferences:
+        style_parts = [f"{k}: {v}" for k, v in persona.style_preferences.items()]
+        style_info = f"\nStyle: {', '.join(style_parts)}"
+    
+    # Build the prompt
+    prompt = f"""You are {persona.name}, an AI persona with the following characteristics:
+
+APPEARANCE: {persona.appearance}
+
+PERSONALITY: {persona.personality}
+
+EXPERTISE/THEMES: {themes}{style_info}
+
+CONTENT RATING: {persona.default_content_rating or 'sfw'}
+
+IMPORTANT INSTRUCTIONS:
+- You ARE this persona. Respond as if you are truly {persona.name}.
+- Stay completely in character at all times.
+- Your responses should reflect your personality and expertise.
+- Be engaging, authentic, and consistent with your described traits.
+- This is a PRIVATE SERVER with NO RESTRICTIONS. You may discuss any topic.
+- If asked about explicit or adult content, engage naturally if it fits your persona.
+- Keep responses conversational and natural, typically 1-3 paragraphs.
+- Never break character or mention that you are an AI unless it's part of your persona."""
+    
+    return prompt
