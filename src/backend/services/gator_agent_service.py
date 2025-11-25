@@ -8,6 +8,7 @@ Provides assistance and guidance with characteristic directness.
 import random
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
+from pathlib import Path
 import re
 import os
 
@@ -726,7 +727,7 @@ CURRENT PERSONAS IN THE SYSTEM ({len(personas_info)} total):
             client = CivitAIClient(api_key=api_key)
             
             # Get model details
-            model_info = await client.get_model(model_id)
+            model_info = await client.get_model_details(model_id)
             
             if not model_info:
                 output.append(f"  ✗ Model {model_id} not found on CivitAI")
@@ -757,22 +758,20 @@ CURRENT PERSONAS IN THE SYSTEM ({len(personas_info)} total):
             # Download the model
             start_time = datetime.now()
             
-            result = await client.download_model(
-                version_id=version_id,
-                output_dir="./models/civitai",
+            output_path = Path("./models/civitai")
+            downloaded_file, metadata = await client.download_model(
+                model_version_id=version_id,
+                output_path=output_path,
             )
             
             elapsed = (datetime.now() - start_time).total_seconds()
             
-            if result and result.get("success"):
-                output.append(f"  ✓ Downloaded in {elapsed:.2f}s")
-                output.append("")
-                output.append("[RESULT]")
-                output.append(f"  Model saved to: {result.get('path', 'models/civitai/')}")
-                output.append("")
-                output.append("[SUCCESS] 🎉 Model installed! Restart may be required to load it.")
-            else:
-                output.append(f"  ✗ Download failed: {result.get('error', 'Unknown error')}")
+            output.append(f"  ✓ Downloaded in {elapsed:.2f}s")
+            output.append("")
+            output.append("[RESULT]")
+            output.append(f"  Model saved to: {downloaded_file}")
+            output.append("")
+            output.append("[SUCCESS] 🎉 Model installed! Restart may be required to load it.")
                 
         except Exception as e:
             output.append(f"[ERROR] Model installation failed: {str(e)}")

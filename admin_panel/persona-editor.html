@@ -842,6 +842,156 @@
             border-radius: 10px;
             font-size: 0.7rem;
         }
+        
+        /* Persona Chat Testing Styles */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 400px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: var(--dark-card);
+            overflow: hidden;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .chat-message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        .chat-message.user {
+            align-self: flex-end;
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .chat-message.persona {
+            align-self: flex-start;
+            background: var(--dark-surface);
+            color: var(--text-primary);
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .chat-message .sender {
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            opacity: 0.8;
+        }
+        
+        .chat-message.persona .sender {
+            color: var(--accent);
+        }
+        
+        .chat-message .model-info {
+            font-size: 0.7rem;
+            opacity: 0.6;
+            margin-top: 6px;
+        }
+        
+        .chat-input-area {
+            display: flex;
+            gap: 12px;
+            padding: 16px;
+            border-top: 1px solid var(--border-color);
+            background: var(--dark-surface);
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            resize: none;
+            min-height: 44px;
+            max-height: 100px;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .chat-send-btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .chat-send-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .chat-send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .chat-empty-state {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 40px 20px;
+        }
+        
+        .chat-empty-state .icon {
+            font-size: 3rem;
+            margin-bottom: 12px;
+        }
+        
+        .chat-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--dark-surface);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+        
+        .chat-status.loading {
+            color: var(--primary);
+        }
+        
+        .chat-status .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+        
+        .chat-status.loading .dot {
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
     </style>
 </head>
 <body>
@@ -1392,6 +1542,59 @@
                                 <input type="checkbox" id="is_active" name="is_active" checked>
                                 <span>Persona is active and available for content generation</span>
                             </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Persona Chat Testing (Edit Mode Only) -->
+                    <div class="section" id="chat-testing-section" style="display: none;">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>💬</span>
+                                Test Persona Chat
+                            </h2>
+                        </div>
+                        <p class="section-description">
+                            Test how your persona responds in conversations. Uses the <strong>dolphin-mixtral</strong> model for unrestricted, 
+                            uncensored responses. This helps verify persona consistency and behavior before deployment.
+                        </p>
+                        
+                        <div class="chat-status" id="chat-status">
+                            <span class="dot"></span>
+                            <span id="chat-status-text">Ready to chat</span>
+                        </div>
+                        
+                        <div class="chat-container">
+                            <div class="chat-messages" id="chat-messages">
+                                <div class="chat-empty-state" id="chat-empty">
+                                    <div class="icon">💬</div>
+                                    <div>Start a conversation with your persona</div>
+                                    <div style="font-size: 0.8rem; margin-top: 8px;">
+                                        Type a message below to see how they respond
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="chat-input-area">
+                                <textarea 
+                                    class="chat-input" 
+                                    id="chat-input" 
+                                    placeholder="Type a message to test your persona..."
+                                    rows="1"
+                                    onkeydown="handleChatKeydown(event)"
+                                ></textarea>
+                                <button type="button" class="chat-send-btn" id="chat-send-btn" onclick="sendChatMessage()">
+                                    Send
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-secondary" onclick="clearChatHistory()" style="padding: 8px 16px; font-size: 0.85rem;">
+                                🗑️ Clear Chat
+                            </button>
+                            <span style="color: var(--text-secondary); font-size: 0.8rem; align-self: center;" id="chat-model-info">
+                                Prefers: dolphin-mixtral (uncensored) | Save persona to enable chat
+                            </span>
                         </div>
                     </div>
                     
@@ -2241,6 +2444,165 @@
             }
         });
         
+        // Persona Chat Testing Functions
+        let chatHistory = [];
+        let isChatting = false;
+        
+        function showChatSection() {
+            // Only show chat section in edit mode (when persona exists)
+            if (editorMode === 'edit' && personaId) {
+                document.getElementById('chat-testing-section').style.display = 'block';
+            }
+        }
+        
+        function handleChatKeydown(event) {
+            // Send message on Enter (without Shift)
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendChatMessage();
+            }
+        }
+        
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (!message || isChatting) return;
+            
+            if (!personaId) {
+                showAlert('Please save the persona first before testing chat.', 'error');
+                return;
+            }
+            
+            isChatting = true;
+            const sendBtn = document.getElementById('chat-send-btn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+            
+            // Update status
+            const statusEl = document.getElementById('chat-status');
+            const statusText = document.getElementById('chat-status-text');
+            statusEl.classList.add('loading');
+            statusText.textContent = 'Generating response...';
+            
+            // Clear input
+            input.value = '';
+            
+            // Hide empty state
+            document.getElementById('chat-empty').style.display = 'none';
+            
+            // Add user message to chat
+            addChatMessage(message, 'user');
+            
+            try {
+                const response = await fetch(`/api/v1/personas/${personaId}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Chat request failed');
+                }
+                
+                const data = await response.json();
+                
+                // Add persona response to chat
+                addChatMessage(data.response, 'persona', data.persona_name, data.model_used);
+                
+                // Update status
+                statusEl.classList.remove('loading');
+                statusText.textContent = `Last model: ${data.model_used}`;
+                
+            } catch (error) {
+                console.error('Chat error:', error);
+                addChatMessage(`Error: ${error.message}`, 'persona', 'System', 'error');
+                
+                // Update status
+                statusEl.classList.remove('loading');
+                statusText.textContent = 'Error occurred - try again';
+                
+                showAlert(`Chat error: ${error.message}`, 'error');
+            } finally {
+                isChatting = false;
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send';
+                input.focus();
+            }
+        }
+        
+        function addChatMessage(text, type, senderName = null, modelInfo = null) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${type}`;
+            
+            let html = '';
+            
+            if (type === 'persona' && senderName) {
+                html += `<div class="sender">${senderName}</div>`;
+            } else if (type === 'user') {
+                html += `<div class="sender">You</div>`;
+            }
+            
+            html += `<div class="content">${escapeHtml(text)}</div>`;
+            
+            if (modelInfo && type === 'persona') {
+                html += `<div class="model-info">via ${modelInfo}</div>`;
+            }
+            
+            messageDiv.innerHTML = html;
+            messagesContainer.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // Store in history
+            chatHistory.push({
+                type: type,
+                text: text,
+                sender: senderName,
+                model: modelInfo,
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        function escapeHtml(text) {
+            // First escape the HTML entities
+            const div = document.createElement('div');
+            div.textContent = text;
+            const escaped = div.innerHTML;
+            // Then convert newlines to <br> tags (safe since input was escaped)
+            return escaped.split('\n').map(line => {
+                // Each line is already escaped, join with <br>
+                return line;
+            }).join('<br>');
+        }
+        
+        function clearChatHistory() {
+            chatHistory = [];
+            const messagesContainer = document.getElementById('chat-messages');
+            messagesContainer.innerHTML = `
+                <div class="chat-empty-state" id="chat-empty">
+                    <div class="icon">💬</div>
+                    <div>Start a conversation with your persona</div>
+                    <div style="font-size: 0.8rem; margin-top: 8px;">
+                        Type a message below to see how they respond
+                    </div>
+                </div>
+            `;
+            
+            // Reset status
+            const statusEl = document.getElementById('chat-status');
+            const statusText = document.getElementById('chat-status-text');
+            statusEl.classList.remove('loading');
+            statusText.textContent = 'Ready to chat';
+        }
+        
         // Initialize page
         document.addEventListener('DOMContentLoaded', () => {
             loadBranding();
@@ -2252,6 +2614,11 @@
             if (editorMode === 'create') {
                 renderAssignedFeeds();
             }
+            
+            // Show chat section after a short delay (after persona loads)
+            setTimeout(() => {
+                showChatSection();
+            }, 500);
         });
     </script>
 </body>
