@@ -1592,8 +1592,8 @@
                             <button type="button" class="btn btn-secondary" onclick="clearChatHistory()" style="padding: 8px 16px; font-size: 0.85rem;">
                                 🗑️ Clear Chat
                             </button>
-                            <span style="color: var(--text-secondary); font-size: 0.8rem; align-self: center;">
-                                Model: dolphin-mixtral (uncensored) | Tip: Save your persona first to enable chat testing
+                            <span style="color: var(--text-secondary); font-size: 0.8rem; align-self: center;" id="chat-model-info">
+                                Prefers: dolphin-mixtral (uncensored) | Save persona to enable chat
                             </span>
                         </div>
                     </div>
@@ -2572,9 +2572,15 @@
         }
         
         function escapeHtml(text) {
+            // First escape the HTML entities
             const div = document.createElement('div');
             div.textContent = text;
-            return div.innerHTML.replace(/\n/g, '<br>');
+            const escaped = div.innerHTML;
+            // Then convert newlines to <br> tags (safe since input was escaped)
+            return escaped.split('\n').map(line => {
+                // Each line is already escaped, join with <br>
+                return line;
+            }).join('<br>');
         }
         
         function clearChatHistory() {
