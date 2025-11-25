@@ -90,7 +90,8 @@ async def search_models(
         description="Comma-separated base models (SDXL 1.0,SD 1.5,etc.)"
     ),
     limit: int = Query(20, ge=1, le=100, description="Number of results"),
-    page: int = Query(1, ge=1, description="Page number"),
+    page: int = Query(1, ge=1, description="Page number (ignored when query is provided)"),
+    cursor: Optional[str] = Query(None, description="Cursor for pagination (use with query parameter)"),
     sort: str = Query("Highest Rated", description="Sort order"),
     period: str = Query("AllTime", description="Time period"),
     nsfw: bool = Query(True, description="Include NSFW models (enabled by default for private server)"),
@@ -100,6 +101,10 @@ async def search_models(
     
     NSFW is enabled by default for private server mode.
     Returns paginated list of models matching the search criteria.
+    
+    Note: When using 'query' parameter, page-based pagination is not supported
+    by CivitAI API. Use 'cursor' parameter instead for pagination with search queries.
+    The response metadata will contain 'nextCursor' for the next page of results.
     """
     # Call the list_models function directly
     return await list_models(
@@ -108,6 +113,7 @@ async def search_models(
         base_models=base_models,
         limit=limit,
         page=page,
+        cursor=cursor,
         sort=sort,
         period=period,
         nsfw=nsfw,
@@ -126,7 +132,8 @@ async def list_models(
         description="Comma-separated base models (SDXL 1.0,SD 1.5,etc.)"
     ),
     limit: int = Query(20, ge=1, le=100, description="Number of results"),
-    page: int = Query(1, ge=1, description="Page number"),
+    page: int = Query(1, ge=1, description="Page number (ignored when query is provided)"),
+    cursor: Optional[str] = Query(None, description="Cursor for pagination (use with query parameter)"),
     sort: str = Query("Highest Rated", description="Sort order"),
     period: str = Query("AllTime", description="Time period"),
     nsfw: bool = Query(False, description="Include NSFW models"),
@@ -135,6 +142,10 @@ async def list_models(
     List models from CivitAI with filtering options.
     
     Returns paginated list of models matching the search criteria.
+    
+    Note: When using 'query' parameter, page-based pagination is not supported
+    by CivitAI API. Use 'cursor' parameter instead for pagination with search queries.
+    The response metadata will contain 'nextCursor' for the next page of results.
     """
     try:
         # Get CivitAI API key from settings
@@ -187,6 +198,7 @@ async def list_models(
             sort=sort,
             period=period,
             nsfw=nsfw,
+            cursor=cursor,
         )
         
         return result
