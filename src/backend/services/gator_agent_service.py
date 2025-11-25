@@ -27,6 +27,14 @@ class GatorAgentService:
     def __init__(self):
         self.conversation_history: List[Dict[str, str]] = []
         
+        # Constants for image generation
+        self.IMAGE_PROMPT_PREFIXES = [
+            "generate an image of", "generate image of", "create an image of",
+            "create image of", "make an image of", "make image of",
+            "draw", "paint", "show me an image of", "show me"
+        ]
+        self.DEFAULT_IMAGE_PROMPT = "a beautiful landscape with mountains and a sunset"
+        
         # Always use the AI models manager which handles local models
         self.ai_models = None
         self.models_available = False
@@ -348,18 +356,15 @@ class GatorAgentService:
         output.append("[ACTION] Image Generation")
         output.append("")
         
-        # Extract prompt from the message
-        # Remove common prefixes
+        # Extract prompt from the message using class constants
         clean_prompt = original_message
-        for prefix in ["generate an image of", "generate image of", "create an image of", 
-                       "create image of", "make an image of", "make image of", 
-                       "draw", "paint", "show me an image of", "show me"]:
+        for prefix in self.IMAGE_PROMPT_PREFIXES:
             if clean_prompt.lower().startswith(prefix):
                 clean_prompt = clean_prompt[len(prefix):].strip()
                 break
         
         if not clean_prompt:
-            clean_prompt = "a beautiful landscape with mountains and a sunset"
+            clean_prompt = self.DEFAULT_IMAGE_PROMPT
         
         output.append(f"[PROMPT] {clean_prompt}")
         output.append("")
@@ -788,15 +793,13 @@ class GatorAgentService:
                 if self.ai_models:
                     # Extract prompt
                     clean_prompt = original_message
-                    for prefix in ["generate an image of", "generate image of", "create an image of", 
-                                   "create image of", "make an image of", "make image of", 
-                                   "draw", "paint", "show me an image of", "show me"]:
+                    for prefix in self.IMAGE_PROMPT_PREFIXES:
                         if clean_prompt.lower().startswith(prefix):
                             clean_prompt = clean_prompt[len(prefix):].strip()
                             break
                     
                     if not clean_prompt:
-                        clean_prompt = "a beautiful landscape"
+                        clean_prompt = self.DEFAULT_IMAGE_PROMPT
                     
                     result = await self.ai_models.generate_image(prompt=clean_prompt)
                     if result and result.get("image_path"):
