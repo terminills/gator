@@ -160,8 +160,8 @@ DEFAULT_SETTINGS = {
     },
     "civitai_allow_nsfw": {
         "category": "ai_models",
-        "value": False,
-        "description": "Allow NSFW models from CivitAI",
+        "value": True,
+        "description": "Allow NSFW models from CivitAI (enabled for private server)",
         "is_sensitive": False,
     },
     "civitai_track_usage": {
@@ -266,6 +266,43 @@ DEFAULT_SETTINGS = {
         "category": "content",
         "value": 0.8,
         "description": "Toxicity detection threshold (0-1)",
+        "is_sensitive": False,
+    },
+    # NSFW Filtering - Disabled by default for private server use
+    "nsfw_filter_disabled_text": {
+        "category": "content",
+        "value": True,
+        "description": "Disable NSFW filter for text content generation (private server)",
+        "is_sensitive": False,
+    },
+    "nsfw_filter_disabled_chat": {
+        "category": "content",
+        "value": True,
+        "description": "Disable NSFW filter for chat/conversation content (private server)",
+        "is_sensitive": False,
+    },
+    "nsfw_filter_disabled_voice": {
+        "category": "content",
+        "value": True,
+        "description": "Disable NSFW filter for voice synthesis (private server)",
+        "is_sensitive": False,
+    },
+    "nsfw_filter_disabled_image": {
+        "category": "content",
+        "value": True,
+        "description": "Disable NSFW filter for image generation (private server)",
+        "is_sensitive": False,
+    },
+    "nsfw_filter_disabled_video": {
+        "category": "content",
+        "value": True,
+        "description": "Disable NSFW filter for video generation (private server)",
+        "is_sensitive": False,
+    },
+    "nsfw_filter_disabled_global": {
+        "category": "content",
+        "value": True,
+        "description": "Master switch: Disable all NSFW filtering (private server mode)",
         "is_sensitive": False,
     },
     

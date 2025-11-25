@@ -78,6 +78,42 @@ class DownloadStatus(BaseModel):
     error: Optional[str]
 
 
+@router.get("/search", response_model=dict)
+async def search_models(
+    query: Optional[str] = Query(None, description="Search query"),
+    model_types: Optional[str] = Query(
+        None,
+        description="Comma-separated model types (Checkpoint,LORA,etc.)"
+    ),
+    base_models: Optional[str] = Query(
+        None,
+        description="Comma-separated base models (SDXL 1.0,SD 1.5,etc.)"
+    ),
+    limit: int = Query(20, ge=1, le=100, description="Number of results"),
+    page: int = Query(1, ge=1, description="Page number"),
+    sort: str = Query("Highest Rated", description="Sort order"),
+    period: str = Query("AllTime", description="Time period"),
+    nsfw: bool = Query(True, description="Include NSFW models (enabled by default for private server)"),
+):
+    """
+    Search models from CivitAI (alias for /models endpoint).
+    
+    NSFW is enabled by default for private server mode.
+    Returns paginated list of models matching the search criteria.
+    """
+    # Call the list_models function directly
+    return await list_models(
+        query=query,
+        model_types=model_types,
+        base_models=base_models,
+        limit=limit,
+        page=page,
+        sort=sort,
+        period=period,
+        nsfw=nsfw,
+    )
+
+
 @router.get("/models", response_model=dict)
 async def list_models(
     query: Optional[str] = Query(None, description="Search query"),
@@ -105,9 +141,13 @@ async def list_models(
         settings = get_settings()
         api_key = getattr(settings, "civitai_api_key", None)
         
-        # Check NSFW preference
-        allow_nsfw = getattr(settings, "civitai_allow_nsfw", False)
-        if nsfw and not allow_nsfw:
+        # Check NSFW preference - default to True for private server mode
+        # First check environment settings, defaults to True for private server
+        allow_nsfw = getattr(settings, "civitai_allow_nsfw", True)
+        
+        # Note: Database settings will be checked by the settings service
+        # For private server, NSFW is enabled by default
+        if not allow_nsfw and nsfw:
             raise HTTPException(
                 status_code=403,
                 detail="NSFW models are disabled in settings"
@@ -218,8 +258,8 @@ async def download_model(request: CivitAIDownloadRequest):
         settings = get_settings()
         api_key = getattr(settings, "civitai_api_key", None)
         
-        # Check NSFW settings
-        allow_nsfw = getattr(settings, "civitai_allow_nsfw", False)
+        # Check NSFW settings - default to True for private server mode
+        allow_nsfw = getattr(settings, "civitai_allow_nsfw", True)
         
         # Get model info to check NSFW status
         client = CivitAIClient(api_key=api_key)

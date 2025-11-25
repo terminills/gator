@@ -119,6 +119,43 @@ class GatorAgentService:
                 "connection": "Connection problems? Check your internet, check your firewall, check your DNS. Basic networking, people.",
             },
         }
+        
+        # Action patterns for command detection
+        self.action_patterns = {
+            "generate_image": [
+                r"generate\s+(?:an?\s+)?image",
+                r"create\s+(?:an?\s+)?image",
+                r"make\s+(?:an?\s+)?(?:me\s+)?(?:an?\s+)?image",
+                r"draw\s+(?:me\s+)?",
+                r"paint\s+(?:me\s+)?",
+                r"show\s+me\s+(?:an?\s+)?image",
+            ],
+            "search_models": [
+                r"search\s+(?:for\s+)?models?",
+                r"find\s+(?:me\s+)?(?:a\s+)?models?",
+                r"look\s+(?:for\s+)?models?",
+                r"list\s+(?:available\s+)?models?",
+                r"show\s+(?:me\s+)?(?:available\s+)?models?",
+            ],
+            "search_civitai": [
+                r"search\s+civitai",
+                r"civitai\s+models?",
+                r"find\s+(?:on\s+)?civitai",
+                r"browse\s+civitai",
+            ],
+            "search_huggingface": [
+                r"search\s+(?:hugging\s*face|hf)",
+                r"hugging\s*face\s+models?",
+                r"find\s+(?:on\s+)?(?:hugging\s*face|hf)",
+                r"browse\s+(?:hugging\s*face|hf)",
+            ],
+            "install_model": [
+                r"install\s+(?:the\s+)?model",
+                r"download\s+(?:the\s+)?model",
+                r"get\s+(?:the\s+)?model",
+                r"add\s+(?:the\s+)?model",
+            ],
+        }
 
     async def process_message(
         self, message: str, context: Optional[Dict] = None, verbose: bool = False
@@ -164,6 +201,13 @@ class GatorAgentService:
         output.append(f"[TIMESTAMP] {datetime.now().isoformat()}")
         output.append(f"[CONTEXT] {context if context else 'None'}")
         output.append("")
+        
+        # Check for action commands first
+        action = self._detect_action(message_lower)
+        if action:
+            output.append(f"[ACTION DETECTED] {action['type']}")
+            output.append("")
+            return await self._execute_action(action, message, output)
         
         # Check for AI model availability
         output.append("[SYSTEM CHECK] Checking AI models...")
@@ -256,6 +300,360 @@ class GatorAgentService:
             
             return "\n".join(output)
     
+    def _detect_action(self, message_lower: str) -> Optional[Dict]:
+        """Detect if the message contains an action command."""
+        for action_type, patterns in self.action_patterns.items():
+            for pattern in patterns:
+                match = re.search(pattern, message_lower)
+                if match:
+                    # Extract any additional context from the message
+                    # Get everything after the matched pattern as the query/prompt
+                    remaining = message_lower[match.end():].strip()
+                    # Also check for content before the match
+                    before = message_lower[:match.start()].strip()
+                    
+                    return {
+                        "type": action_type,
+                        "match": match.group(),
+                        "query": remaining if remaining else before,
+                        "full_message": message_lower,
+                    }
+        return None
+    
+    async def _execute_action(
+        self, action: Dict, original_message: str, output: List[str]
+    ) -> str:
+        """Execute a detected action and return verbose output."""
+        action_type = action["type"]
+        query = action.get("query", "")
+        
+        if action_type == "generate_image":
+            return await self._action_generate_image(query, original_message, output)
+        elif action_type == "search_models":
+            return await self._action_search_models(query, output)
+        elif action_type == "search_civitai":
+            return await self._action_search_civitai(query, output)
+        elif action_type == "search_huggingface":
+            return await self._action_search_huggingface(query, output)
+        elif action_type == "install_model":
+            return await self._action_install_model(query, output)
+        else:
+            output.append(f"[ERROR] Unknown action type: {action_type}")
+            return "\n".join(output)
+    
+    async def _action_generate_image(
+        self, prompt: str, original_message: str, output: List[str]
+    ) -> str:
+        """Generate an image using the AI models."""
+        output.append("[ACTION] Image Generation")
+        output.append("")
+        
+        # Extract prompt from the message
+        # Remove common prefixes
+        clean_prompt = original_message
+        for prefix in ["generate an image of", "generate image of", "create an image of", 
+                       "create image of", "make an image of", "make image of", 
+                       "draw", "paint", "show me an image of", "show me"]:
+            if clean_prompt.lower().startswith(prefix):
+                clean_prompt = clean_prompt[len(prefix):].strip()
+                break
+        
+        if not clean_prompt:
+            clean_prompt = "a beautiful landscape with mountains and a sunset"
+        
+        output.append(f"[PROMPT] {clean_prompt}")
+        output.append("")
+        
+        try:
+            output.append("[STEP 1] Checking image generation models...")
+            
+            if not self.ai_models:
+                output.append("  ✗ AI models manager not available")
+                output.append("")
+                output.append("[ERROR] Cannot generate images without AI models!")
+                return "\n".join(output)
+            
+            image_models = self.ai_models.available_models.get("image", [])
+            loaded_models = [m for m in image_models if m.get("loaded")]
+            
+            if not loaded_models:
+                output.append(f"  ✗ No image models loaded ({len(image_models)} available)")
+                output.append("")
+                output.append("[SUGGESTION] Install an image model first:")
+                output.append("  - Use 'search civitai stable diffusion' to find models")
+                output.append("  - Or go to AI Models Setup page")
+                return "\n".join(output)
+            
+            output.append(f"  ✓ Found {len(loaded_models)} loaded image model(s)")
+            for model in loaded_models[:3]:
+                output.append(f"    • {model.get('name')}")
+            
+            output.append("")
+            output.append("[STEP 2] Generating image...")
+            start_time = datetime.now()
+            
+            # Generate the image
+            result = await self.ai_models.generate_image(
+                prompt=clean_prompt,
+                width=512,
+                height=512,
+            )
+            
+            elapsed = (datetime.now() - start_time).total_seconds()
+            
+            if result and result.get("image_path"):
+                output.append(f"  ✓ Image generated in {elapsed:.2f}s")
+                output.append("")
+                output.append("[RESULT]")
+                output.append(f"  Image saved to: {result['image_path']}")
+                if result.get("model_used"):
+                    output.append(f"  Model used: {result['model_used']}")
+                output.append("")
+                output.append("[SUCCESS] 🎨 Image generated! Check the generated_content folder.")
+            else:
+                output.append(f"  ✗ Image generation failed after {elapsed:.2f}s")
+                output.append("")
+                output.append("[ERROR] Failed to generate image. Check model configuration.")
+                
+        except Exception as e:
+            output.append(f"[ERROR] Image generation failed: {str(e)}")
+        
+        return "\n".join(output)
+    
+    async def _action_search_models(self, query: str, output: List[str]) -> str:
+        """Search for available models (local, CivitAI, HuggingFace)."""
+        output.append("[ACTION] Model Search")
+        output.append(f"[QUERY] {query if query else 'all models'}")
+        output.append("")
+        
+        # Show local models first
+        output.append("[LOCAL MODELS]")
+        if self.ai_models:
+            for model_type, models in self.ai_models.available_models.items():
+                if models:
+                    output.append(f"  {model_type.upper()}:")
+                    for model in models[:5]:
+                        status = "✓ loaded" if model.get("loaded") else "○ available"
+                        output.append(f"    • {model.get('name')} [{status}]")
+        else:
+            output.append("  No AI models manager available")
+        
+        output.append("")
+        output.append("[TIP] Use these commands for more:")
+        output.append("  • 'search civitai <query>' - Search CivitAI models")
+        output.append("  • 'search huggingface <query>' - Search HuggingFace models")
+        
+        return "\n".join(output)
+    
+    async def _action_search_civitai(self, query: str, output: List[str]) -> str:
+        """Search CivitAI for models."""
+        output.append("[ACTION] CivitAI Model Search")
+        output.append(f"[QUERY] {query if query else 'popular models'}")
+        output.append("")
+        
+        try:
+            from backend.utils.civitai_utils import CivitAIClient
+            from backend.config.settings import get_settings
+            
+            settings = get_settings()
+            api_key = getattr(settings, "civitai_api_key", None)
+            
+            output.append("[STEP 1] Connecting to CivitAI...")
+            client = CivitAIClient(api_key=api_key)
+            
+            output.append("[STEP 2] Searching models...")
+            start_time = datetime.now()
+            
+            result = await client.list_models(
+                limit=10,
+                query=query if query else "stable diffusion",
+                sort="Highest Rated",
+                nsfw=True,  # Private server - NSFW enabled
+            )
+            
+            elapsed = (datetime.now() - start_time).total_seconds()
+            output.append(f"  ✓ Search completed in {elapsed:.2f}s")
+            output.append("")
+            
+            models = result.get("items", [])
+            if models:
+                output.append(f"[RESULTS] Found {len(models)} models:")
+                output.append("")
+                for i, model in enumerate(models[:10], 1):
+                    name = model.get("name", "Unknown")
+                    model_type = model.get("type", "Unknown")
+                    downloads = model.get("stats", {}).get("downloadCount", 0)
+                    rating = model.get("stats", {}).get("rating", 0)
+                    model_id = model.get("id")
+                    nsfw_tag = " [NSFW]" if model.get("nsfw") else ""
+                    
+                    output.append(f"  {i}. {name}{nsfw_tag}")
+                    output.append(f"     Type: {model_type} | Downloads: {downloads:,} | Rating: {rating:.1f}")
+                    output.append(f"     ID: {model_id}")
+                    output.append("")
+                
+                output.append("[TIP] To install a model, use: 'install model <model_id>'")
+            else:
+                output.append("[NO RESULTS] No models found matching your query.")
+                output.append("[TIP] Try a different search term.")
+                
+        except Exception as e:
+            output.append(f"[ERROR] CivitAI search failed: {str(e)}")
+            output.append("[TIP] Make sure you have a CivitAI API key in Settings.")
+        
+        return "\n".join(output)
+    
+    async def _action_search_huggingface(self, query: str, output: List[str]) -> str:
+        """Search HuggingFace for models."""
+        output.append("[ACTION] HuggingFace Model Search")
+        output.append(f"[QUERY] {query if query else 'diffusion models'}")
+        output.append("")
+        
+        try:
+            import httpx
+            
+            output.append("[STEP 1] Connecting to HuggingFace...")
+            
+            search_query = query if query else "stable-diffusion"
+            
+            output.append("[STEP 2] Searching models...")
+            start_time = datetime.now()
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(
+                    "https://huggingface.co/api/models",
+                    params={
+                        "search": search_query,
+                        "limit": 10,
+                        "sort": "downloads",
+                        "direction": -1,
+                    }
+                )
+                
+                elapsed = (datetime.now() - start_time).total_seconds()
+                
+                if response.status_code == 200:
+                    models = response.json()
+                    output.append(f"  ✓ Search completed in {elapsed:.2f}s")
+                    output.append("")
+                    
+                    if models:
+                        output.append(f"[RESULTS] Found {len(models)} models:")
+                        output.append("")
+                        for i, model in enumerate(models[:10], 1):
+                            model_id = model.get("modelId", model.get("id", "Unknown"))
+                            downloads = model.get("downloads", 0)
+                            likes = model.get("likes", 0)
+                            pipeline = model.get("pipeline_tag", "unknown")
+                            
+                            output.append(f"  {i}. {model_id}")
+                            output.append(f"     Pipeline: {pipeline} | Downloads: {downloads:,} | Likes: {likes}")
+                            output.append("")
+                        
+                        output.append("[TIP] To use a HuggingFace model, note the model ID and configure it in AI Models Setup.")
+                    else:
+                        output.append("[NO RESULTS] No models found matching your query.")
+                else:
+                    output.append(f"[ERROR] HuggingFace API returned status {response.status_code}")
+                    
+        except Exception as e:
+            output.append(f"[ERROR] HuggingFace search failed: {str(e)}")
+        
+        return "\n".join(output)
+    
+    async def _action_install_model(self, query: str, output: List[str]) -> str:
+        """Install a model from CivitAI."""
+        output.append("[ACTION] Model Installation")
+        output.append(f"[TARGET] {query if query else 'No model specified'}")
+        output.append("")
+        
+        if not query:
+            output.append("[ERROR] Please specify a model ID to install.")
+            output.append("[USAGE] install model <civitai_model_id>")
+            output.append("[TIP] Use 'search civitai' to find model IDs.")
+            return "\n".join(output)
+        
+        # Try to extract model ID from query
+        model_id = None
+        try:
+            # Check if it's a numeric ID
+            model_id = int(query.strip())
+        except ValueError:
+            # Try to find a number in the query
+            numbers = re.findall(r'\d+', query)
+            if numbers:
+                model_id = int(numbers[0])
+        
+        if not model_id:
+            output.append(f"[ERROR] Could not parse model ID from: {query}")
+            output.append("[USAGE] install model <civitai_model_id>")
+            return "\n".join(output)
+        
+        try:
+            from backend.utils.civitai_utils import CivitAIClient
+            from backend.config.settings import get_settings
+            
+            settings = get_settings()
+            api_key = getattr(settings, "civitai_api_key", None)
+            
+            output.append(f"[STEP 1] Fetching model info for ID: {model_id}")
+            client = CivitAIClient(api_key=api_key)
+            
+            # Get model details
+            model_info = await client.get_model(model_id)
+            
+            if not model_info:
+                output.append(f"  ✗ Model {model_id} not found on CivitAI")
+                return "\n".join(output)
+            
+            model_name = model_info.get("name", "Unknown")
+            model_type = model_info.get("type", "Unknown")
+            nsfw = model_info.get("nsfw", False)
+            
+            output.append(f"  ✓ Found: {model_name}")
+            output.append(f"    Type: {model_type}")
+            output.append(f"    NSFW: {'Yes' if nsfw else 'No'}")
+            output.append("")
+            
+            # Get latest version
+            versions = model_info.get("modelVersions", [])
+            if not versions:
+                output.append("[ERROR] No downloadable versions found for this model.")
+                return "\n".join(output)
+            
+            latest_version = versions[0]
+            version_id = latest_version.get("id")
+            version_name = latest_version.get("name", "Unknown")
+            
+            output.append(f"[STEP 2] Downloading version: {version_name}")
+            output.append(f"  Version ID: {version_id}")
+            
+            # Download the model
+            start_time = datetime.now()
+            
+            result = await client.download_model(
+                version_id=version_id,
+                output_dir="./models/civitai",
+            )
+            
+            elapsed = (datetime.now() - start_time).total_seconds()
+            
+            if result and result.get("success"):
+                output.append(f"  ✓ Downloaded in {elapsed:.2f}s")
+                output.append("")
+                output.append("[RESULT]")
+                output.append(f"  Model saved to: {result.get('path', 'models/civitai/')}")
+                output.append("")
+                output.append("[SUCCESS] 🎉 Model installed! Restart may be required to load it.")
+            else:
+                output.append(f"  ✗ Download failed: {result.get('error', 'Unknown error')}")
+                
+        except Exception as e:
+            output.append(f"[ERROR] Model installation failed: {str(e)}")
+            output.append("[TIP] Make sure you have a CivitAI API key configured in Settings.")
+        
+        return "\n".join(output)
+    
     async def _generate_rule_based_response(
         self, message: str, context: Optional[Dict] = None, log_output: Optional[List[str]] = None
     ) -> str:
@@ -342,6 +740,12 @@ class GatorAgentService:
     ) -> str:
         """Generate Gator's response based on message analysis."""
         
+        # Check for action commands first
+        action = self._detect_action(message)
+        if action:
+            # For non-verbose mode, return a simplified action response
+            return await self._execute_action_simple(action, message)
+        
         # Use AI models manager which handles local models
         if self.models_available and self.ai_models:
             try:
@@ -371,6 +775,52 @@ class GatorAgentService:
         
         # Fallback to rule-based response when no models available
         return await self._generate_rule_based_response(message, context)
+    
+    async def _execute_action_simple(self, action: Dict, original_message: str) -> str:
+        """Execute action and return a simple response (non-verbose mode)."""
+        action_type = action["type"]
+        query = action.get("query", "")
+        
+        gator_start = random.choice(self.gator_phrases)
+        
+        if action_type == "generate_image":
+            try:
+                if self.ai_models:
+                    # Extract prompt
+                    clean_prompt = original_message
+                    for prefix in ["generate an image of", "generate image of", "create an image of", 
+                                   "create image of", "make an image of", "make image of", 
+                                   "draw", "paint", "show me an image of", "show me"]:
+                        if clean_prompt.lower().startswith(prefix):
+                            clean_prompt = clean_prompt[len(prefix):].strip()
+                            break
+                    
+                    if not clean_prompt:
+                        clean_prompt = "a beautiful landscape"
+                    
+                    result = await self.ai_models.generate_image(prompt=clean_prompt)
+                    if result and result.get("image_path"):
+                        return f"{gator_start}. 🎨 Image generated! Saved to: {result['image_path']}"
+                    else:
+                        return f"{gator_start}. Image generation failed. Check if you have image models loaded."
+                else:
+                    return f"{gator_start}. No AI models available. Install image models first."
+            except Exception as e:
+                return f"{gator_start}. Image generation failed: {str(e)}"
+        
+        elif action_type == "search_models":
+            return f"{gator_start}. To search for models, use 'search civitai <query>' or 'search huggingface <query>'. Enable CLI mode for detailed results."
+        
+        elif action_type == "search_civitai":
+            return f"{gator_start}. Enable CLI mode (checkbox) to see CivitAI search results. I'll show you the top models for '{query}'."
+        
+        elif action_type == "search_huggingface":
+            return f"{gator_start}. Enable CLI mode (checkbox) to see HuggingFace search results. I'll find models matching '{query}'."
+        
+        elif action_type == "install_model":
+            return f"{gator_start}. Enable CLI mode (checkbox) to install models. Provide a model ID like 'install model 12345'."
+        
+        return f"{gator_start}. I detected an action but couldn't process it. Try enabling CLI mode for more details."
 
     async def _handle_help_request(
         self, message: str, context: Optional[Dict] = None
@@ -595,12 +1045,14 @@ Keep responses concise (2-3 sentences max). Use phrases like "Listen here", "Pay
     def get_quick_help_topics(self) -> List[Dict[str, str]]:
         """Get a list of quick help topics for the UI."""
         return [
-            {"topic": "Creating Personas", "message": "How do I create a new persona?"},
-            {"topic": "Generating Content", "message": "How do I generate content?"},
-            {"topic": "DNS Setup", "message": "Help me set up DNS"},
-            {"topic": "System Status", "message": "How do I check system status?"},
-            {"topic": "GoDaddy Integration", "message": "How do I configure GoDaddy?"},
-            {"topic": "Troubleshooting", "message": "Something's not working right"},
+            {"topic": "🎨 Generate Image", "message": "generate an image of a sunset over mountains"},
+            {"topic": "🔍 Search CivitAI", "message": "search civitai stable diffusion xl"},
+            {"topic": "🤗 Search HuggingFace", "message": "search huggingface diffusion models"},
+            {"topic": "📦 Install Model", "message": "How do I install a model?"},
+            {"topic": "🎭 Creating Personas", "message": "How do I create a new persona?"},
+            {"topic": "📝 Generate Content", "message": "How do I generate content?"},
+            {"topic": "🔧 System Status", "message": "How do I check system status?"},
+            {"topic": "❓ Troubleshooting", "message": "Something's not working right"},
         ]
 
 

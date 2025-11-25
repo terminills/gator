@@ -54,6 +54,49 @@ class ContentModerationService:
     """Service for content moderation and rating classification."""
 
     @staticmethod
+    async def is_nsfw_filter_disabled(
+        content_type: Optional[str] = None,
+        db_session=None,
+    ) -> bool:
+        """
+        Check if NSFW filtering is disabled for a content type.
+        
+        For private server mode, NSFW filtering is disabled by default.
+        
+        Args:
+            content_type: Optional content type (text, chat, voice, image, video)
+            db_session: Optional database session for settings lookup
+            
+        Returns:
+            bool: True if NSFW filtering is disabled, False otherwise
+        """
+        # If we have a database session, check the settings
+        if db_session:
+            try:
+                from backend.services.settings_service import SettingsService
+                settings_service = SettingsService(db_session)
+                
+                # First check global setting
+                global_setting = await settings_service.get_setting("nsfw_filter_disabled_global")
+                if global_setting and global_setting.value:
+                    return True
+                
+                # Check content-type specific setting
+                if content_type:
+                    content_type_key = f"nsfw_filter_disabled_{content_type.lower()}"
+                    type_setting = await settings_service.get_setting(content_type_key)
+                    if type_setting and type_setting.value:
+                        return True
+                        
+            except Exception as e:
+                logger.warning(f"Error checking NSFW filter settings: {e}")
+                # Default to disabled for private server
+                return True
+        
+        # Default: NSFW filtering is disabled for private server
+        return True
+
+    @staticmethod
     def analyze_content_rating(prompt: str, persona_rating: str) -> ContentRating:
         """
         Analyze content to determine appropriate rating.
@@ -101,12 +144,15 @@ class ContentModerationService:
         target_platform: str,
         persona_platform_restrictions: Optional[Dict[str, str]] = None,
         platform_policy_service=None,
+        db_session=None,
     ) -> bool:
         """
         Check if content is appropriate for target platform.
 
         Uses database-driven platform policies instead of hardcoded rules.
         This allows platform rules to be updated dynamically without code changes.
+        
+        For private server mode, NSFW filtering is disabled by default.
 
         Args:
             content_rating: The content rating to check (SFW, MODERATE, NSFW)
@@ -115,10 +161,16 @@ class ContentModerationService:
                 Format: {"instagram": "sfw_only", "onlyfans": "both", "twitter": "moderate_allowed"}
                 Supported values: "sfw_only", "moderate_allowed", "both" (all ratings)
             platform_policy_service: Optional PlatformPolicyService instance for database lookup
+            db_session: Optional database session for checking NSFW filter settings
 
         Returns:
             bool: True if content is allowed, False otherwise
         """
+        # Check if NSFW filtering is disabled globally (private server mode)
+        if await ContentModerationService.is_nsfw_filter_disabled(db_session=db_session):
+            # All content is allowed when NSFW filtering is disabled
+            return True
+        
         platform_lower = target_platform.lower()
 
         # Check persona-specific restrictions first (per-site override)
