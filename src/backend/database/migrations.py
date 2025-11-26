@@ -499,6 +499,249 @@ async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
     return added_columns
 
 
+async def add_persona_physical_appearance_columns(conn, is_sqlite: bool) -> List[str]:
+    """
+    Add detailed physical appearance fields to personas table for fine-grained
+    control over persona appearance generation.
+    
+    Added in PR #402: 18 new fields for physical characteristics like height,
+    weight, hair color, eye color, body type, etc.
+
+    Args:
+        conn: Database connection
+        is_sqlite: Whether the database is SQLite
+
+    Returns:
+        List of columns that were added
+    """
+    added_columns = []
+
+    # Check if table exists first
+    if not await table_exists(conn, "personas", is_sqlite):
+        logger.debug("Personas table does not exist, skipping physical appearance migration")
+        return added_columns
+
+    # ==================== BASIC PHYSICAL ATTRIBUTES ====================
+    
+    if not await check_column_exists(conn, "personas", "height", is_sqlite):
+        logger.info("Adding height column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN height VARCHAR(50)")
+        )
+        added_columns.append("height")
+
+    if not await check_column_exists(conn, "personas", "weight", is_sqlite):
+        logger.info("Adding weight column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN weight VARCHAR(50)")
+        )
+        added_columns.append("weight")
+
+    if not await check_column_exists(conn, "personas", "hair_color", is_sqlite):
+        logger.info("Adding hair_color column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN hair_color VARCHAR(50)")
+        )
+        added_columns.append("hair_color")
+
+    if not await check_column_exists(conn, "personas", "hair_style", is_sqlite):
+        logger.info("Adding hair_style column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN hair_style VARCHAR(100)")
+        )
+        added_columns.append("hair_style")
+
+    if not await check_column_exists(conn, "personas", "eye_color", is_sqlite):
+        logger.info("Adding eye_color column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN eye_color VARCHAR(50)")
+        )
+        added_columns.append("eye_color")
+
+    if not await check_column_exists(conn, "personas", "skin_tone", is_sqlite):
+        logger.info("Adding skin_tone column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN skin_tone VARCHAR(50)")
+        )
+        added_columns.append("skin_tone")
+
+    # ==================== BODY MEASUREMENTS ====================
+    
+    if not await check_column_exists(conn, "personas", "measurements", is_sqlite):
+        logger.info("Adding measurements column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN measurements VARCHAR(100)")
+        )
+        added_columns.append("measurements")
+
+    if not await check_column_exists(conn, "personas", "cup_size", is_sqlite):
+        logger.info("Adding cup_size column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN cup_size VARCHAR(20)")
+        )
+        added_columns.append("cup_size")
+
+    if not await check_column_exists(conn, "personas", "muscle_tone", is_sqlite):
+        logger.info("Adding muscle_tone column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN muscle_tone VARCHAR(50)")
+        )
+        added_columns.append("muscle_tone")
+
+    if not await check_column_exists(conn, "personas", "build_type", is_sqlite):
+        logger.info("Adding build_type column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN build_type VARCHAR(50)")
+        )
+        added_columns.append("build_type")
+
+    # ==================== IDENTITY & SEXUALITY ====================
+    
+    if not await check_column_exists(conn, "personas", "sex", is_sqlite):
+        logger.info("Adding sex column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN sex VARCHAR(20)")
+        )
+        added_columns.append("sex")
+
+    if not await check_column_exists(conn, "personas", "sexual_orientation", is_sqlite):
+        logger.info("Adding sexual_orientation column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN sexual_orientation VARCHAR(50)")
+        )
+        added_columns.append("sexual_orientation")
+
+    if not await check_column_exists(conn, "personas", "turn_ons", is_sqlite):
+        logger.info("Adding turn_ons column to personas table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN turn_ons JSON DEFAULT '[]'")
+            )
+            await conn.execute(
+                text("UPDATE personas SET turn_ons = '[]' WHERE turn_ons IS NULL")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN turn_ons JSON NOT NULL DEFAULT '[]'")
+            )
+        added_columns.append("turn_ons")
+
+    if not await check_column_exists(conn, "personas", "turn_offs", is_sqlite):
+        logger.info("Adding turn_offs column to personas table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN turn_offs JSON DEFAULT '[]'")
+            )
+            await conn.execute(
+                text("UPDATE personas SET turn_offs = '[]' WHERE turn_offs IS NULL")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN turn_offs JSON NOT NULL DEFAULT '[]'")
+            )
+        added_columns.append("turn_offs")
+
+    # ==================== DISTINCTIVE FEATURES ====================
+    
+    if not await check_column_exists(conn, "personas", "distinctive_features", is_sqlite):
+        logger.info("Adding distinctive_features column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN distinctive_features TEXT")
+        )
+        added_columns.append("distinctive_features")
+
+    if not await check_column_exists(conn, "personas", "age_appearance", is_sqlite):
+        logger.info("Adding age_appearance column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN age_appearance VARCHAR(50)")
+        )
+        added_columns.append("age_appearance")
+
+    if not await check_column_exists(conn, "personas", "ethnicity", is_sqlite):
+        logger.info("Adding ethnicity column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN ethnicity VARCHAR(100)")
+        )
+        added_columns.append("ethnicity")
+
+    if not await check_column_exists(conn, "personas", "body_modifications", is_sqlite):
+        logger.info("Adding body_modifications column to personas table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN body_modifications JSON DEFAULT '[]'")
+            )
+            await conn.execute(
+                text("UPDATE personas SET body_modifications = '[]' WHERE body_modifications IS NULL")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN body_modifications JSON NOT NULL DEFAULT '[]'")
+            )
+        added_columns.append("body_modifications")
+
+    if added_columns:
+        logger.info(f"✓ Added {len(added_columns)} physical appearance columns for detailed persona control")
+
+    return added_columns
+
+
+async def add_persona_ai_model_preference_columns(conn, is_sqlite: bool) -> List[str]:
+    """
+    Add AI model preference fields to personas table for per-persona
+    model selection across different content generation types.
+    
+    Added in PR #402: 4 new fields for text, image, video, and voice model preferences.
+
+    Args:
+        conn: Database connection
+        is_sqlite: Whether the database is SQLite
+
+    Returns:
+        List of columns that were added
+    """
+    added_columns = []
+
+    # Check if table exists first
+    if not await table_exists(conn, "personas", is_sqlite):
+        logger.debug("Personas table does not exist, skipping AI model preference migration")
+        return added_columns
+
+    # ==================== AI MODEL PREFERENCES ====================
+    
+    if not await check_column_exists(conn, "personas", "text_model_preference", is_sqlite):
+        logger.info("Adding text_model_preference column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN text_model_preference VARCHAR(200)")
+        )
+        added_columns.append("text_model_preference")
+
+    if not await check_column_exists(conn, "personas", "image_model_preference", is_sqlite):
+        logger.info("Adding image_model_preference column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN image_model_preference VARCHAR(200)")
+        )
+        added_columns.append("image_model_preference")
+
+    if not await check_column_exists(conn, "personas", "video_model_preference", is_sqlite):
+        logger.info("Adding video_model_preference column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN video_model_preference VARCHAR(200)")
+        )
+        added_columns.append("video_model_preference")
+
+    if not await check_column_exists(conn, "personas", "voice_model_preference", is_sqlite):
+        logger.info("Adding voice_model_preference column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN voice_model_preference VARCHAR(200)")
+        )
+        added_columns.append("voice_model_preference")
+
+    if added_columns:
+        logger.info(f"✓ Added {len(added_columns)} AI model preference columns for per-persona model selection")
+
+    return added_columns
+
+
 async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
     """
     Run all pending migrations on the database.
@@ -583,6 +826,30 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                 )
             else:
                 logger.info("All acd_contexts table columns are up to date")
+
+            # Run physical appearance fields migration (PR #402)
+            physical_columns_added = await add_persona_physical_appearance_columns(conn, is_sqlite)
+
+            if physical_columns_added:
+                results["migrations_run"].append("personas_physical_appearance")
+                results["columns_added"].extend(physical_columns_added)
+                logger.info(
+                    f"Added {len(physical_columns_added)} physical appearance column(s): {', '.join(physical_columns_added)}"
+                )
+            else:
+                logger.info("All physical appearance columns are up to date")
+
+            # Run AI model preference fields migration (PR #402)
+            ai_model_columns_added = await add_persona_ai_model_preference_columns(conn, is_sqlite)
+
+            if ai_model_columns_added:
+                results["migrations_run"].append("personas_ai_model_preferences")
+                results["columns_added"].extend(ai_model_columns_added)
+                logger.info(
+                    f"Added {len(ai_model_columns_added)} AI model preference column(s): {', '.join(ai_model_columns_added)}"
+                )
+            else:
+                logger.info("All AI model preference columns are up to date")
 
         return results
 
