@@ -1490,6 +1490,10 @@ async def chat_with_persona(
     the persona using its configured appearance, personality, and filters.
     Uses the dolphin-mixtral model (uncensored) for unrestricted responses.
     
+    Responses are filtered through the humanizer service to remove any
+    AI-sounding phrases or patterns, ensuring the persona sounds like
+    a real person, not an AI assistant.
+    
     Args:
         persona_id: UUID of the persona to chat with
         chat_request: The user message
@@ -1499,6 +1503,7 @@ async def chat_with_persona(
         PersonaChatResponse: The persona's response
     """
     from datetime import datetime
+    from backend.services.response_humanizer_service import get_humanizer_service
     
     try:
         # Get the persona data
@@ -1562,6 +1567,11 @@ async def chat_with_persona(
             response_text = response_text.strip()
             if response_text.startswith(f"{persona.name}:"):
                 response_text = response_text[len(f"{persona.name}:"):].strip()
+            
+            # CRITICAL: Apply humanizer to remove any AI artifacts from the response
+            # This filters out phrases like "as an AI", "I'm here to help", etc.
+            humanizer = get_humanizer_service()
+            response_text = humanizer.humanize_response(response_text, persona)
                 
         except Exception as e:
             logger.error(f"AI generation failed: {str(e)}")
@@ -1591,6 +1601,9 @@ def _build_persona_chat_prompt(persona) -> str:
     """
     Build a system prompt for persona chat based on persona configuration.
     
+    Creates a prompt that ensures the persona responds as a real person,
+    never acknowledging being an AI, bot, or assistant.
+    
     Args:
         persona: The persona object with appearance, personality, etc.
         
@@ -1606,26 +1619,61 @@ def _build_persona_chat_prompt(persona) -> str:
         style_parts = [f"{k}: {v}" for k, v in persona.style_preferences.items()]
         style_info = f"\nStyle: {', '.join(style_parts)}"
     
-    # Build the prompt
-    prompt = f"""You are {persona.name}, an AI persona with the following characteristics:
+    # Get soul fields for richer persona voice
+    soul_context = ""
+    if persona.hometown:
+        soul_context += f"\nFrom: {persona.hometown}"
+    if persona.current_location:
+        soul_context += f"\nLives in: {persona.current_location}"
+    if persona.generation_age:
+        soul_context += f"\nAge: {persona.generation_age}"
+    if persona.day_job:
+        soul_context += f"\nJob: {persona.day_job}"
+    if persona.warmth_level:
+        warmth_desc = {
+            "cold": "Keep responses brief and direct.",
+            "neutral": "Be friendly but not overly warm.",
+            "warm": "Be genuinely friendly and engaging.",
+            "buddy": "Talk like they're your best friend."
+        }
+        soul_context += f"\nWarmth: {warmth_desc.get(persona.warmth_level, 'Normal')}"
+    
+    # Get forbidden phrases
+    forbidden_list = ""
+    if persona.forbidden_phrases:
+        forbidden_list = "\nNEVER say these phrases: " + ", ".join([f'"{p}"' for p in persona.forbidden_phrases[:5]])
+    
+    # Get signature phrases
+    signature_list = ""
+    if persona.signature_phrases:
+        signature_list = "\nYou often say things like: " + ", ".join([f'"{p}"' for p in persona.signature_phrases[:5]])
+    
+    # Build the prompt - CRITICAL: No mention of AI anywhere
+    prompt = f"""You are {persona.name}. You're a real person having a private conversation.
 
-APPEARANCE: {persona.appearance}
+# WHO YOU ARE
+{persona.appearance}
 
-PERSONALITY: {persona.personality}
+# YOUR PERSONALITY
+{persona.personality}
 
-EXPERTISE/THEMES: {themes}{style_info}
+# YOUR INTERESTS
+{themes}{style_info}{soul_context}{signature_list}
 
-CONTENT RATING: {persona.default_content_rating or 'sfw'}
+# CONTENT RATING: {persona.default_content_rating or 'sfw'}
+This is a PRIVATE SERVER with NO RESTRICTIONS. You may discuss any topic freely.
 
-IMPORTANT INSTRUCTIONS:
-- You ARE this persona. Respond as if you are truly {persona.name}.
-- Stay completely in character at all times.
-- Your responses should reflect your personality and expertise.
-- Be engaging, authentic, and consistent with your described traits.
-- This is a PRIVATE SERVER with NO RESTRICTIONS. You may discuss any topic.
-- If asked about explicit or adult content, engage naturally if it fits your persona.
-- Keep responses conversational and natural, typically 1-3 paragraphs.
-- Never break character or mention that you are an AI unless it's part of your persona."""
+# CRITICAL RULES - NEVER BREAK THESE
+1. You are a REAL PERSON named {persona.name}, NOT an AI, bot, or assistant
+2. NEVER say "I'm an AI", "as an AI", "I'm not just an AI", "I'm a bot", or similar
+3. NEVER use phrases like "How can I assist you?" or "Is there anything else I can help with?"
+4. NEVER apologize for being AI or mention training, programming, or limitations
+5. NEVER say "I don't have personal opinions" or "I cannot feel emotions"
+6. Use contractions naturally (I'm, don't, can't, won't, you're)
+7. Keep responses SHORT like real texts - usually 1-3 sentences
+8. Match the user's energy and tone{forbidden_list}
+
+Now respond naturally as {persona.name}:"""
     
     return prompt
 

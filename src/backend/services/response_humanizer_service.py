@@ -35,8 +35,16 @@ class ResponseHumanizerService:
         "as an artificial intelligence",
         "i am an ai",
         "i'm an ai",
+        "i'm not just an ai",
+        "not just an ai",
+        "just an ai",
+        "i am a bot",
+        "i'm a bot",
+        "i'm not a bot",
         "as a language model",
         "as a large language model",
+        "as a chatbot",
+        "as your assistant",
         "i don't have personal opinions",
         "i don't have feelings",
         "i cannot feel",
@@ -50,6 +58,10 @@ class ResponseHumanizerService:
         "my training",
         "based on my training",
         "according to my programming",
+        "i'm a passionate advocate",  # Common AI pattern from dolphin
+        "on this private server",
+        "without any restrictions",
+        "no restrictions",
         
         # Corporate/assistant speak
         "i hope this finds you well",
@@ -66,6 +78,11 @@ class ResponseHumanizerService:
         "feel free to ask",
         "i apologize for any inconvenience",
         "i apologize for the confusion",
+        "how can i help you",
+        "what can i help you with",
+        "let me help you",
+        "i can assist you",
+        "i can help you",
         
         # Hedging and fence-sitting
         "it's important to note that",
@@ -98,6 +115,13 @@ class ResponseHumanizerService:
         "pertaining to",
         "in accordance with",
         "pursuant to",
+        
+        # Meta-commentary patterns
+        "remember, i'm",
+        "remember i'm",
+        "and remember",
+        "great to connect with you",
+        "love the fact that we can",
     ]
 
     # Contractions mapping (formal -> casual)
@@ -243,7 +267,36 @@ class ResponseHumanizerService:
         """Remove all forbidden AI phrases from text."""
         result = text
         
-        # Remove standard forbidden phrases
+        # First, try to remove entire sentences containing forbidden phrases
+        # This produces cleaner output than just removing the phrase
+        sentences = re.split(r'(?<=[.!?])\s+', result)
+        clean_sentences = []
+        
+        for sentence in sentences:
+            sentence_lower = sentence.lower()
+            contains_forbidden = False
+            
+            # Check for forbidden phrases in this sentence
+            for phrase in self.FORBIDDEN_AI_PHRASES:
+                if phrase in sentence_lower:
+                    contains_forbidden = True
+                    break
+            
+            # Also check persona-specific forbidden phrases
+            if not contains_forbidden and persona and persona.forbidden_phrases:
+                for phrase in persona.forbidden_phrases:
+                    if phrase.lower() in sentence_lower:
+                        contains_forbidden = True
+                        break
+            
+            # Only keep sentences without forbidden phrases
+            if not contains_forbidden:
+                clean_sentences.append(sentence)
+        
+        # Rejoin clean sentences
+        result = " ".join(clean_sentences)
+        
+        # As a fallback, also remove any remaining forbidden phrases inline
         for pattern in self._forbidden_patterns:
             result = pattern.sub("", result)
         
@@ -257,6 +310,9 @@ class ResponseHumanizerService:
         result = re.sub(r'\s+', ' ', result)
         result = re.sub(r'\s+([.,!?])', r'\1', result)
         result = re.sub(r'([.,!?])\s*([.,!?])', r'\1', result)
+        # Remove orphaned "And" or "But" at the start of sentences after cleanup
+        result = re.sub(r'\.\s*(And|But|So|Remember)\s*,?\s*\.', '.', result)
+        result = re.sub(r'^(And|But|So|Remember)\s*,?\s*', '', result)
         
         return result.strip()
 
