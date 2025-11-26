@@ -277,11 +277,17 @@ class CivitAIClient:
             logger.info(f"✅ Downloaded successfully to {output_file}")
             
             # Verify file hash if provided
+            # CivitAI API returns hashes as a dictionary: {"SHA256": "hash", "AutoV2": "hash", ...}
             expected_hash = None
-            for hash_info in file_info.get("hashes", []):
-                if hash_info.get("type") == "SHA256":
-                    expected_hash = hash_info.get("hash")
-                    break
+            hashes = file_info.get("hashes", {})
+            if isinstance(hashes, dict):
+                expected_hash = hashes.get("SHA256")
+            elif isinstance(hashes, list):
+                # Handle legacy list format for backwards compatibility
+                for hash_info in hashes:
+                    if isinstance(hash_info, dict) and hash_info.get("type") == "SHA256":
+                        expected_hash = hash_info.get("hash")
+                        break
             
             if expected_hash:
                 logger.info("   Verifying file integrity...")
