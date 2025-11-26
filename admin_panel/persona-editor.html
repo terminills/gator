@@ -1862,7 +1862,9 @@
                         </div>
                         <p class="section-description">
                             Test how your persona responds in conversations. Uses the <strong>dolphin-mixtral</strong> model for unrestricted, 
-                            uncensored responses. This helps verify persona consistency and behavior before deployment.
+                            uncensored responses. <strong>Conversation context is maintained</strong> for fluid conversations. 
+                            <br><br>
+                            <strong>📸 Image triggers:</strong> Try phrases like "take a picture", "send me a selfie", or "show me a pic" to generate images!
                         </p>
                         
                         <div class="chat-status" id="chat-status">
@@ -1877,6 +1879,9 @@
                                     <div>Start a conversation with your persona</div>
                                     <div style="font-size: 0.8rem; margin-top: 8px;">
                                         Type a message below to see how they respond
+                                    </div>
+                                    <div style="font-size: 0.75rem; margin-top: 4px; color: var(--accent);">
+                                        💡 Try "send me a selfie" to trigger image generation!
                                     </div>
                                 </div>
                             </div>
@@ -1900,7 +1905,7 @@
                                 🗑️ Clear Chat
                             </button>
                             <span style="color: var(--text-secondary); font-size: 0.8rem; align-self: center;" id="chat-model-info">
-                                Prefers: dolphin-mixtral (uncensored) | Save persona to enable chat
+                                dolphin-mixtral | Context: last 10 messages | 📸 Image triggers enabled
                             </span>
                         </div>
                     </div>
@@ -3194,6 +3199,21 @@
         let chatHistory = [];
         let isChatting = false;
         
+        // Build conversation history for context window
+        function buildConversationHistory() {
+            // Convert chatHistory to the format expected by the API
+            // Only include the last 10 messages for context
+            const recentMessages = chatHistory.slice(-10);
+            // Filter out image-only messages and only include text messages for context
+            return recentMessages
+                .filter(msg => msg.type !== 'image')  // Exclude image-only messages
+                .map(msg => ({
+                    role: msg.type === 'user' ? 'user' : 'persona',
+                    content: msg.text,
+                    timestamp: msg.timestamp
+                }));
+        }
+        
         function showChatSection() {
             // Only show chat section in edit mode (when persona exists)
             if (editorMode === 'edit' && personaId) {
@@ -3247,7 +3267,8 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        message: message
+                        message: message,
+                        conversation_history: buildConversationHistory()
                     })
                 });
                 
@@ -3261,9 +3282,15 @@
                 // Add persona response to chat
                 addChatMessage(data.response, 'persona', data.persona_name, data.model_used);
                 
+                // If an image was generated, display it
+                if (data.image_generated && data.image_data) {
+                    addChatImage(data.image_data, data.persona_name, data.image_prompt);
+                }
+                
                 // Update status
                 statusEl.classList.remove('loading');
-                statusText.textContent = `Last model: ${data.model_used}`;
+                const imageNote = data.image_generated ? ' + 📸' : '';
+                statusText.textContent = `Last model: ${data.model_used}${imageNote}`;
                 
             } catch (error) {
                 console.error('Chat error:', error);
@@ -3313,6 +3340,40 @@
                 text: text,
                 sender: senderName,
                 model: modelInfo,
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        function addChatImage(imageData, senderName, imagePrompt = null) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message persona';
+            
+            let html = `<div class="sender">${senderName} 📸</div>`;
+            html += `<div class="content">`;
+            html += `<img src="${imageData}" alt="Generated image" style="max-width: 100%; border-radius: 8px; margin: 8px 0;" />`;
+            if (imagePrompt) {
+                // Safely truncate prompt to ~100 chars without cutting multi-byte characters
+                const truncatedPrompt = imagePrompt.length > 100 
+                    ? [...imagePrompt].slice(0, 100).join('') + '...'
+                    : imagePrompt;
+                html += `<div class="image-prompt" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; font-style: italic;">Prompt: ${escapeHtml(truncatedPrompt)}</div>`;
+            }
+            html += `</div>`;
+            
+            messageDiv.innerHTML = html;
+            messagesContainer.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // Store image in history as special message
+            chatHistory.push({
+                type: 'image',
+                text: '[Image]',
+                sender: senderName,
+                imageData: imageData,
+                imagePrompt: imagePrompt,
                 timestamp: new Date().toISOString()
             });
         }

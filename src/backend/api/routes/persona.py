@@ -1464,9 +1464,71 @@ async def get_base_image_url(
 
 
 # Pydantic models for persona chat testing
+# Image generation trigger phrases - natural conversation patterns
+IMAGE_TRIGGER_PHRASES = [
+    # Direct requests
+    "take a picture",
+    "take a pic",
+    "take a photo",
+    "send me a picture",
+    "send me a pic",
+    "send me a photo",
+    "send a picture",
+    "send a pic",
+    "send a photo",
+    "show me a picture",
+    "show me a pic",
+    "show me a photo",
+    "let me see you",
+    "let me see a picture",
+    "can i see you",
+    "can i see a pic",
+    "can i see a photo",
+    # Selfie requests
+    "take a selfie",
+    "send a selfie",
+    "send me a selfie",
+    "show me a selfie",
+    # Descriptive requests
+    "what do you look like",
+    "show yourself",
+    "show me yourself",
+    "pic of yourself",
+    "picture of yourself",
+    "photo of yourself",
+    # Casual requests
+    "got any pics",
+    "got any pictures",
+    "got any photos",
+    "any pics",
+    "any pictures",
+    "any photos",
+    "share a pic",
+    "share a picture",
+    "share a photo",
+]
+
+
+def _check_image_trigger(message: str) -> bool:
+    """Check if the message contains an image generation trigger phrase."""
+    message_lower = message.lower()
+    return any(trigger in message_lower for trigger in IMAGE_TRIGGER_PHRASES)
+
+
+class ConversationMessage(BaseModel):
+    """A single message in the conversation history."""
+    role: str = Field(..., description="'user' or 'persona'")
+    content: str = Field(..., description="Message content")
+    timestamp: Optional[str] = Field(None, description="Message timestamp")
+
+
 class PersonaChatRequest(BaseModel):
     """Request model for persona chat testing."""
     message: str = Field(..., min_length=1, max_length=2000, description="User message to the persona")
+    conversation_history: Optional[List[ConversationMessage]] = Field(
+        default=None,
+        description="Previous conversation messages for context (up to 10 most recent)"
+    )
 
 
 class PersonaChatResponse(BaseModel):
@@ -1475,6 +1537,9 @@ class PersonaChatResponse(BaseModel):
     persona_name: str = Field(..., description="Name of the persona responding")
     model_used: str = Field(..., description="AI model used for generation")
     timestamp: str = Field(..., description="Response timestamp")
+    image_generated: bool = Field(default=False, description="Whether an image was generated")
+    image_data: Optional[str] = Field(None, description="Base64-encoded image if generated")
+    image_prompt: Optional[str] = Field(None, description="The prompt used for image generation")
 
 
 @router.post("/{persona_id}/chat", response_model=PersonaChatResponse)
@@ -1484,23 +1549,24 @@ async def chat_with_persona(
     persona_service: PersonaService = Depends(get_persona_service),
 ):
     """
-    Test chat with a persona using the dolphin-mixtral model.
+    Chat with a persona using the dolphin-mixtral model.
     
     This endpoint allows testing persona consistency by chatting with
     the persona using its configured appearance, personality, and filters.
     Uses the dolphin-mixtral model (uncensored) for unrestricted responses.
     
-    Responses are filtered through the humanizer service to remove any
-    AI-sounding phrases or patterns, ensuring the persona sounds like
-    a real person, not an AI assistant.
+    Features:
+    - Conversation history support for context-aware responses
+    - Natural image generation triggers (e.g., "take a picture", "send me a selfie")
+    - Responses filtered through humanizer service to remove AI artifacts
     
     Args:
         persona_id: UUID of the persona to chat with
-        chat_request: The user message
+        chat_request: The user message and optional conversation history
         persona_service: Injected persona service
         
     Returns:
-        PersonaChatResponse: The persona's response
+        PersonaChatResponse: The persona's response, optionally with generated image
     """
     from datetime import datetime
     from backend.services.response_humanizer_service import get_humanizer_service
@@ -1513,6 +1579,9 @@ async def chat_with_persona(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Persona {persona_id} not found",
             )
+        
+        # Check if this message triggers image generation
+        should_generate_image = _check_image_trigger(chat_request.message)
         
         # Get AI models manager
         from backend.services.ai_models import ai_models
@@ -1552,8 +1621,22 @@ async def chat_with_persona(
         # Build persona system prompt
         system_prompt = _build_persona_chat_prompt(persona)
         
+        # Build conversation context from history (last 10 messages max)
+        conversation_context = ""
+        if chat_request.conversation_history:
+            # Take up to 10 most recent messages for context
+            recent_history = chat_request.conversation_history[-10:]
+            history_lines = []
+            for msg in recent_history:
+                if msg.role == "user":
+                    history_lines.append(f"User: {msg.content}")
+                else:
+                    history_lines.append(f"{persona.name}: {msg.content}")
+            if history_lines:
+                conversation_context = "\n# RECENT CONVERSATION\n" + "\n".join(history_lines) + "\n"
+        
         # Generate response using AI models
-        full_prompt = f"{system_prompt}\n\nUser: {chat_request.message}\n{persona.name}:"
+        full_prompt = f"{system_prompt}{conversation_context}\n\nUser: {chat_request.message}\n{persona.name}:"
         
         try:
             response_text = await ai_models.generate_text(
@@ -1580,11 +1663,63 @@ async def chat_with_persona(
                 detail=f"AI generation failed: {str(e)}",
             )
         
+        # Handle image generation if triggered
+        image_data = None
+        image_prompt = None
+        
+        if should_generate_image:
+            ai_manager = None
+            try:
+                logger.info(f"Image trigger detected in chat for persona {persona.name}")
+                
+                # Generate image prompt based on persona and chat context
+                image_prompt = await _generate_image_prompt_with_ollama(
+                    persona=persona,
+                    chat_message=chat_request.message,
+                    custom_prompt="",
+                    include_nsfw=(persona.default_content_rating or "sfw").lower() != "sfw",
+                )
+                
+                # Generate the image
+                ai_manager = AIModelManager()
+                await ai_manager.initialize_models()
+                
+                # Check for available image models
+                image_models = ai_manager.available_models.get("image", [])
+                loaded_image_models = [m for m in image_models if m.get("loaded")]
+                
+                if loaded_image_models:
+                    result = await ai_manager.generate_image(
+                        prompt=image_prompt,
+                        width=1024,
+                        height=1024,
+                        num_inference_steps=30,
+                        guidance_scale=7.5,
+                    )
+                    
+                    if result and result.get("image_data"):
+                        image_data = f"data:image/png;base64,{base64.b64encode(result['image_data']).decode('utf-8')}"
+                        logger.info(f"Generated image for chat trigger")
+                
+            except Exception as img_error:
+                logger.warning(f"Failed to generate image for chat: {img_error}")
+                # Don't fail the chat - just skip image generation
+            finally:
+                # Ensure cleanup of AI manager if it was created
+                if ai_manager:
+                    try:
+                        await ai_manager.close()
+                    except Exception:
+                        pass
+        
         return PersonaChatResponse(
             response=response_text,
             persona_name=persona.name,
             model_used=model_name,
             timestamp=datetime.now().isoformat(),
+            image_generated=image_data is not None,
+            image_data=image_data,
+            image_prompt=image_prompt,
         )
         
     except HTTPException:
