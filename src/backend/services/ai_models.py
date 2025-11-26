@@ -382,6 +382,7 @@ class AIModelManager:
                 },
                 "flux.1-dev": {
                     "model_id": "black-forest-labs/FLUX.1-dev",
+                    "comfyui_ckpt_name": "flux1-dev.safetensors",  # ComfyUI checkpoint filename
                     "size_gb": 12,
                     "min_gpu_memory_gb": 12,
                     "min_ram_gb": 24,
@@ -1391,6 +1392,30 @@ class AIModelManager:
                     f"Preferred NSFW model '{nsfw_model_pref}' not found in available models, "
                     f"falling back to intelligent selection"
                 )
+
+            # DEFAULT: Prefer NSFW/anatomy-focused models for better human body representation
+            # This is the new default behavior - always check for NSFW models first
+            nsfw_keywords = ["nsfw", "realistic", "photon", "dreamshaper", "realvis", "juggernaut", "explicit", "adult"]
+            for model in available_models:
+                model_name_lower = model.get("name", "").lower()
+                model_id_lower = model.get("model_id", "").lower()
+                display_name_lower = model.get("display_name", "").lower()
+                for keyword in nsfw_keywords:
+                    if keyword in model_name_lower or keyword in model_id_lower or keyword in display_name_lower:
+                        logger.info(
+                            f"🎯 Model selection: {model.get('display_name', model['name'])} "
+                            f"(reason: NSFW/anatomy-focused model preferred by default)"
+                        )
+                        return model
+            
+            # Also check for models with nsfw flag set in metadata (CivitAI models)
+            for model in available_models:
+                if model.get("nsfw", False):
+                    logger.info(
+                        f"🎯 Model selection: {model.get('display_name', model['name'])} "
+                        f"(reason: NSFW-flagged model preferred by default)"
+                    )
+                    return model
 
             # Check for CivitAI models with matching trigger words in prompt
             prompt_lower = prompt.lower()
@@ -2654,53 +2679,163 @@ class AIModelManager:
             height = kwargs.get("height", 1024)
             num_inference_steps = kwargs.get("num_inference_steps", 20)
             guidance_scale = kwargs.get(
-                "guidance_scale", 3.5
-            )  # FLUX uses lower guidance
+                "guidance_scale", 7.5
+            )  # Standard guidance, will adjust for specific models
             seed = kwargs.get("seed", None)
             if seed is None:
                 seed = int(time.time() * 1000) % (2**32)
 
-            # Create a basic FLUX workflow for text-to-image
-            # This is a simplified workflow compatible with FLUX.1-dev
-            workflow = {
-                "3": {  # CLIPTextEncode for positive prompt
-                    "inputs": {"text": prompt, "clip": ["11", 0]},
-                    "class_type": "CLIPTextEncode",
-                },
-                "4": {  # Empty latent image
-                    "inputs": {"width": width, "height": height, "batch_size": 1},
-                    "class_type": "EmptyLatentImage",
-                },
-                "8": {  # VAEDecode
-                    "inputs": {"samples": ["10", 0], "vae": ["11", 2]},
-                    "class_type": "VAEDecode",
-                },
-                "9": {  # SaveImage
-                    "inputs": {"filename_prefix": "gator_comfyui", "images": ["8", 0]},
-                    "class_type": "SaveImage",
-                },
-                "10": {  # KSampler
-                    "inputs": {
-                        "seed": seed,
-                        "steps": num_inference_steps,
-                        "cfg": guidance_scale,
-                        "sampler_name": "euler",
-                        "scheduler": "simple",
-                        "denoise": 1.0,
-                        "model": ["11", 0],
-                        "positive": ["3", 0],
-                        "negative": ["3", 0],  # FLUX uses same for negative
-                        "latent_image": ["4", 0],
+            # Query ComfyUI for available checkpoints
+            available_checkpoints = []
+            try:
+                object_info_response = await self.http_client.get(
+                    f"{comfyui_url}/object_info/CheckpointLoaderSimple", timeout=10.0
+                )
+                if object_info_response.status_code == 200:
+                    object_info = object_info_response.json()
+                    ckpt_input = object_info.get("CheckpointLoaderSimple", {}).get("input", {}).get("required", {}).get("ckpt_name", [[]])
+                    if ckpt_input and len(ckpt_input) > 0:
+                        available_checkpoints = ckpt_input[0]
+                        logger.info(f"ComfyUI available checkpoints: {available_checkpoints}")
+            except Exception as e:
+                logger.warning(f"Could not query ComfyUI checkpoints: {e}")
+
+            # Determine checkpoint to use
+            # Priority: 1) Model's comfyui_ckpt_name if specified, 2) NSFW/anatomy models, 3) First available
+            ckpt_name = None
+            
+            # Check if model has a specific ComfyUI checkpoint name configured
+            if model.get("comfyui_ckpt_name"):
+                configured_ckpt = model.get("comfyui_ckpt_name")
+                if configured_ckpt in available_checkpoints:
+                    ckpt_name = configured_ckpt
+                    logger.info(f"Using configured ComfyUI checkpoint: {ckpt_name}")
+            
+            # If no specific checkpoint, prefer NSFW/realistic models (new requirement)
+            if not ckpt_name and available_checkpoints:
+                # Keywords for NSFW/anatomy-focused models (preferred by default)
+                nsfw_keywords = ["nsfw", "realistic", "photon", "dreamshaper", "realvis", "juggernaut", "explicit", "adult"]
+                for ckpt in available_checkpoints:
+                    ckpt_lower = ckpt.lower()
+                    for keyword in nsfw_keywords:
+                        if keyword in ckpt_lower:
+                            ckpt_name = ckpt
+                            logger.info(f"Selected NSFW/anatomy-focused checkpoint: {ckpt_name}")
+                            break
+                    if ckpt_name:
+                        break
+            
+            # Fall back to first available checkpoint
+            if not ckpt_name and available_checkpoints:
+                ckpt_name = available_checkpoints[0]
+                logger.info(f"Using first available ComfyUI checkpoint: {ckpt_name}")
+            
+            # If still no checkpoint, use model_id as fallback (may fail)
+            if not ckpt_name:
+                ckpt_name = model.get("comfyui_ckpt_name", model.get("model_id", "v1-5-pruned-emaonly.safetensors"))
+                logger.warning(f"No checkpoints found in ComfyUI, using fallback: {ckpt_name}")
+
+            # Determine if this is a FLUX model (needs different workflow)
+            is_flux_model = "flux" in ckpt_name.lower() or "flux" in model.get("name", "").lower()
+            
+            # Adjust guidance scale based on model type
+            if is_flux_model:
+                guidance_scale = kwargs.get("guidance_scale", 3.5)  # FLUX uses lower guidance
+            
+            # Create appropriate workflow based on model type
+            # CheckpointLoaderSimple outputs: MODEL (index 0), CLIP (index 1), VAE (index 2)
+            if is_flux_model:
+                # FLUX models may need different workflow, but basic SD workflow often works
+                # The key fix is using correct output indices from CheckpointLoaderSimple
+                workflow = {
+                    "3": {  # CLIPTextEncode for positive prompt
+                        "inputs": {"text": prompt, "clip": ["11", 1]},  # Use index 1 for CLIP
+                        "class_type": "CLIPTextEncode",
                     },
-                    "class_type": "KSampler",
-                },
-                "11": {  # CheckpointLoaderSimple
-                    "inputs": {
-                        "ckpt_name": model.get("model_id", "flux1-dev.safetensors")
+                    "4": {  # Empty latent image
+                        "inputs": {"width": width, "height": height, "batch_size": 1},
+                        "class_type": "EmptyLatentImage",
                     },
-                    "class_type": "CheckpointLoaderSimple",
-                },
-            }
+                    "5": {  # CLIPTextEncode for negative prompt
+                        "inputs": {"text": "ugly, blurry, low quality, deformed", "clip": ["11", 1]},
+                        "class_type": "CLIPTextEncode",
+                    },
+                    "8": {  # VAEDecode
+                        "inputs": {"samples": ["10", 0], "vae": ["11", 2]},  # Use index 2 for VAE
+                        "class_type": "VAEDecode",
+                    },
+                    "9": {  # SaveImage
+                        "inputs": {"filename_prefix": "gator_comfyui", "images": ["8", 0]},
+                        "class_type": "SaveImage",
+                    },
+                    "10": {  # KSampler
+                        "inputs": {
+                            "seed": seed,
+                            "steps": num_inference_steps,
+                            "cfg": guidance_scale,
+                            "sampler_name": "euler",
+                            "scheduler": "normal",
+                            "denoise": 1.0,
+                            "model": ["11", 0],  # Use index 0 for MODEL
+                            "positive": ["3", 0],
+                            "negative": ["5", 0],
+                            "latent_image": ["4", 0],
+                        },
+                        "class_type": "KSampler",
+                    },
+                    "11": {  # CheckpointLoaderSimple
+                        "inputs": {
+                            "ckpt_name": ckpt_name
+                        },
+                        "class_type": "CheckpointLoaderSimple",
+                    },
+                }
+            else:
+                # Standard SD/SDXL workflow
+                # CheckpointLoaderSimple outputs: MODEL (index 0), CLIP (index 1), VAE (index 2)
+                workflow = {
+                    "3": {  # CLIPTextEncode for positive prompt
+                        "inputs": {"text": prompt, "clip": ["11", 1]},  # Use index 1 for CLIP
+                        "class_type": "CLIPTextEncode",
+                    },
+                    "4": {  # Empty latent image
+                        "inputs": {"width": width, "height": height, "batch_size": 1},
+                        "class_type": "EmptyLatentImage",
+                    },
+                    "5": {  # CLIPTextEncode for negative prompt
+                        "inputs": {"text": "ugly, blurry, low quality, deformed, bad anatomy", "clip": ["11", 1]},
+                        "class_type": "CLIPTextEncode",
+                    },
+                    "8": {  # VAEDecode
+                        "inputs": {"samples": ["10", 0], "vae": ["11", 2]},  # Use index 2 for VAE
+                        "class_type": "VAEDecode",
+                    },
+                    "9": {  # SaveImage
+                        "inputs": {"filename_prefix": "gator_comfyui", "images": ["8", 0]},
+                        "class_type": "SaveImage",
+                    },
+                    "10": {  # KSampler
+                        "inputs": {
+                            "seed": seed,
+                            "steps": num_inference_steps,
+                            "cfg": guidance_scale,
+                            "sampler_name": "euler",
+                            "scheduler": "normal",
+                            "denoise": 1.0,
+                            "model": ["11", 0],  # Use index 0 for MODEL
+                            "positive": ["3", 0],
+                            "negative": ["5", 0],
+                            "latent_image": ["4", 0],
+                        },
+                        "class_type": "KSampler",
+                    },
+                    "11": {  # CheckpointLoaderSimple
+                        "inputs": {
+                            "ckpt_name": ckpt_name
+                        },
+                        "class_type": "CheckpointLoaderSimple",
+                    },
+                }
 
             # Generate a unique prompt ID
             prompt_id = str(uuid_lib.uuid4())
@@ -3127,6 +3262,13 @@ class AIModelManager:
                             logger.info(f"Loading LoRA weights from: {model_path}")
                             pipe.load_lora_weights(str(model_path))
                             
+                            # IMPORTANT: Disable safety checker for NSFW content generation
+                            if hasattr(pipe, 'safety_checker') and pipe.safety_checker is not None:
+                                pipe.safety_checker = None
+                                logger.info("✓ Safety checker disabled for NSFW content generation")
+                            if hasattr(pipe, 'requires_safety_checker'):
+                                pipe.requires_safety_checker = False
+                            
                             # Get trigger words if available for logging
                             trained_words = model.get("trained_words", [])
                             if trained_words:
@@ -3222,6 +3364,13 @@ class AIModelManager:
                         except Exception as e:
                             logger.error(f"Failed to load single-file model: {str(e)}")
                             raise
+
+                        # IMPORTANT: Disable safety checker for NSFW content generation
+                        if hasattr(pipe, 'safety_checker') and pipe.safety_checker is not None:
+                            pipe.safety_checker = None
+                            logger.info("✓ Safety checker disabled for NSFW content generation")
+                        if hasattr(pipe, 'requires_safety_checker'):
+                            pipe.requires_safety_checker = False
 
                         # Cache the loaded pipeline for future use
                         self._loaded_pipelines[pipeline_key] = pipe
@@ -3420,6 +3569,14 @@ class AIModelManager:
                         model_path.mkdir(parents=True, exist_ok=True)
                         pipe.save_pretrained(str(model_path))
                         logger.info(f"Model saved to: {model_path}")
+
+                # IMPORTANT: Disable safety checker for NSFW content generation
+                # This must be done for all pipeline types to allow adult content
+                if hasattr(pipe, 'safety_checker') and pipe.safety_checker is not None:
+                    pipe.safety_checker = None
+                    logger.info("✓ Safety checker disabled for NSFW content generation")
+                if hasattr(pipe, 'requires_safety_checker'):
+                    pipe.requires_safety_checker = False
 
                 # Use DPM-Solver++ for faster inference
                 # Enable Karras sigmas to stabilize step index calculation
@@ -4707,12 +4864,14 @@ class AIModelManager:
             logger.error(f"Failed to generate reference image locally: {str(e)}")
             raise
 
-    def _get_best_local_image_model(self, prefer_anatomy_model: bool = False, nsfw_model_pref: Optional[str] = None) -> Dict[str, Any]:
+    def _get_best_local_image_model(self, prefer_anatomy_model: bool = True, nsfw_model_pref: Optional[str] = None) -> Dict[str, Any]:
         """
         Get the best available local image model.
         
+        By default, prefers NSFW/anatomy-focused models for better human body representation.
+        
         Args:
-            prefer_anatomy_model: If True, prefer models better at human body/anatomy
+            prefer_anatomy_model: If True (default), prefer models better at human body/anatomy
             nsfw_model_pref: Optional specific NSFW model preference name
             
         Returns:
@@ -4738,17 +4897,23 @@ class AIModelManager:
                     logger.info(f"Using preferred NSFW model for better anatomy: {model.get('name')}")
                     return model
         
-        # If prefer anatomy models, look for models known to be good at human bodies
-        if prefer_anatomy_model:
-            # Models known to be better at human anatomy/bodies
-            anatomy_keywords = ["nsfw", "realistic", "photon", "dreamshaper", "realvis", "juggernaut"]
-            for model in local_models:
-                model_name_lower = model.get("name", "").lower()
-                model_id_lower = model.get("model_id", "").lower()
-                for keyword in anatomy_keywords:
-                    if keyword in model_name_lower or keyword in model_id_lower:
-                        logger.info(f"Using anatomy-focused model for better human body representation: {model.get('name')}")
-                        return model
+        # Default behavior: Always look for NSFW/anatomy-focused models first
+        # Models known to be better at human anatomy/bodies
+        anatomy_keywords = ["nsfw", "realistic", "photon", "dreamshaper", "realvis", "juggernaut", "explicit", "adult"]
+        for model in local_models:
+            model_name_lower = model.get("name", "").lower()
+            model_id_lower = model.get("model_id", "").lower()
+            display_name_lower = model.get("display_name", "").lower()
+            for keyword in anatomy_keywords:
+                if keyword in model_name_lower or keyword in model_id_lower or keyword in display_name_lower:
+                    logger.info(f"Using NSFW/anatomy-focused model (default): {model.get('name')}")
+                    return model
+        
+        # Check for models with nsfw flag set in metadata (CivitAI models)
+        for model in local_models:
+            if model.get("nsfw", False):
+                logger.info(f"Using NSFW-flagged model (default): {model.get('name')}")
+                return model
 
         # Prefer SDXL models for best quality
         for model in local_models:

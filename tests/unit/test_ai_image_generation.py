@@ -191,7 +191,8 @@ class TestImageGeneration:
 
         test_model = {
             "name": "flux.1-dev",
-            "model_id": "flux1-dev.safetensors",
+            "model_id": "black-forest-labs/FLUX.1-dev",
+            "comfyui_ckpt_name": "flux1-dev.safetensors",
         }
 
         # Mock http_client for successful ComfyUI interaction
@@ -200,6 +201,19 @@ class TestImageGeneration:
         # Mock system_stats call (ComfyUI available)
         stats_response = AsyncMock()
         stats_response.status_code = 200
+
+        # Mock object_info call (available checkpoints)
+        object_info_response = AsyncMock()
+        object_info_response.status_code = 200
+        object_info_response.json = Mock(return_value={
+            "CheckpointLoaderSimple": {
+                "input": {
+                    "required": {
+                        "ckpt_name": [["flux1-dev.safetensors", "v1-5-pruned-emaonly.safetensors"]]
+                    }
+                }
+            }
+        })
 
         # Mock prompt submission
         queue_response = AsyncMock()
@@ -236,8 +250,9 @@ class TestImageGeneration:
         model_manager.http_client.get = AsyncMock(
             side_effect=[
                 stats_response,  # First call: system_stats
-                history_response,  # Second call: history check
-                image_response,  # Third call: image download
+                object_info_response,  # Second call: object_info for checkpoints
+                history_response,  # Third call: history check
+                image_response,  # Fourth call: image download
             ]
         )
         model_manager.http_client.post = AsyncMock(return_value=queue_response)
@@ -400,6 +415,65 @@ class TestImageGeneration:
             # Some environments may not have all dependencies
             # This is acceptable for unit testing
             assert "diffusers" in str(e).lower() or "import" in str(e).lower()
+
+    @pytest.mark.asyncio
+    async def test_nsfw_model_preferred_by_default(self, model_manager):
+        """Test that NSFW/anatomy-focused models are preferred by default."""
+        # Setup mock models - regular and NSFW
+        model_manager.available_models["image"] = [
+            {
+                "name": "sdxl-1.0",
+                "provider": "local",
+                "loaded": True,
+                "can_load": True,
+                "inference_engine": "diffusers",
+            },
+            {
+                "name": "realistic-vision-nsfw",
+                "provider": "local",
+                "loaded": True,
+                "can_load": True,
+                "inference_engine": "diffusers",
+            },
+        ]
+
+        # Call _get_best_local_image_model which should prefer NSFW model
+        result = model_manager._get_best_local_image_model()
+        assert "nsfw" in result["name"].lower(), "Should prefer NSFW model by default"
+
+    @pytest.mark.asyncio
+    async def test_nsfw_model_selected_for_image_generation(self, model_manager):
+        """Test that image generation selects NSFW models by default."""
+        # Setup mock models with different types
+        model_manager.available_models["image"] = [
+            {
+                "name": "basic-model",
+                "provider": "local",
+                "loaded": True,
+                "can_load": True,
+                "inference_engine": "diffusers",
+                "model_id": "test/basic",
+            },
+            {
+                "name": "dreamshaper-model",
+                "provider": "local",
+                "loaded": True,
+                "can_load": True,
+                "inference_engine": "diffusers",
+                "model_id": "test/dreamshaper",
+            },
+        ]
+
+        with patch.object(model_manager, "_generate_image_diffusers") as mock_diffusers:
+            mock_diffusers.return_value = {"image_data": b"test", "model": "dreamshaper-model"}
+
+            result = await model_manager.generate_image("test prompt")
+
+            # Should have selected the dreamshaper model (keyword match)
+            call_args = mock_diffusers.call_args
+            model_arg = call_args[1].get("model", call_args[0][1] if len(call_args[0]) > 1 else None)
+            if model_arg:
+                assert "dreamshaper" in model_arg.get("name", "").lower(), "Should select anatomy-focused model"
 
 
 if __name__ == "__main__":
