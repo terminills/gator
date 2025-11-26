@@ -442,6 +442,42 @@ class TestImageGeneration:
         assert "nsfw" in result["name"].lower(), "Should prefer NSFW model by default"
 
     @pytest.mark.asyncio
+    async def test_preferred_civitai_model_selected(self, model_manager):
+        """Test that preferred CivitAI model (version 1257570) is selected when available."""
+        from backend.services.ai_models import PREFERRED_CIVITAI_VERSION_ID
+        
+        # Setup mock models - including preferred CivitAI model
+        model_manager.available_models["image"] = [
+            {
+                "name": "sdxl-1.0",
+                "provider": "local",
+                "loaded": True,
+                "can_load": True,
+                "inference_engine": "diffusers",
+            },
+            {
+                "name": "realistic-vision-nsfw",
+                "provider": "local",
+                "loaded": True,
+                "can_load": True,
+                "inference_engine": "diffusers",
+            },
+            {
+                "name": "civitai-preferred-model",
+                "provider": "local",
+                "loaded": True,
+                "can_load": True,
+                "inference_engine": "diffusers",
+                "civitai_version_id": PREFERRED_CIVITAI_VERSION_ID,
+            },
+        ]
+
+        # Call _get_best_local_image_model which should prefer CivitAI model
+        result = model_manager._get_best_local_image_model()
+        assert result.get("civitai_version_id") == PREFERRED_CIVITAI_VERSION_ID, \
+            "Should prefer CivitAI model version 1257570 when available"
+
+    @pytest.mark.asyncio
     async def test_nsfw_model_selected_for_image_generation(self, model_manager):
         """Test that image generation selects NSFW models by default."""
         # Setup mock models with different types

@@ -39,6 +39,18 @@ logger = get_logger(__name__)
 # dolphin-mixtral is uncensored and ideal for private servers
 PREFERRED_UNCENSORED_MODEL_PREFIX = "dolphin"
 
+# Keywords for identifying NSFW/anatomy-focused models
+# These models are better at generating human bodies and adult content
+NSFW_MODEL_KEYWORDS = [
+    "nsfw", "realistic", "photon", "dreamshaper", 
+    "realvis", "juggernaut", "explicit", "adult"
+]
+
+# Preferred CivitAI model version ID for image generation
+# When this model is installed, it will be used as the default
+# Model 1257570 is the preferred NSFW/anatomy model
+PREFERRED_CIVITAI_VERSION_ID = 1257570
+
 
 # Compile ANSI escape sequence pattern once at module level for performance
 # Pattern matches common ANSI escape sequences:
@@ -73,6 +85,29 @@ def strip_ansi_codes(text: str) -> str:
         Clean text without ANSI codes
     """
     return _ANSI_ESCAPE_PATTERN.sub("", text)
+
+
+def disable_safety_checker(pipe) -> bool:
+    """
+    Disable the safety checker on a diffusion pipeline for NSFW content generation.
+    
+    This function disables the built-in NSFW content filter that would otherwise
+    block or blur adult content in generated images.
+    
+    Args:
+        pipe: A diffusers pipeline instance
+        
+    Returns:
+        bool: True if safety checker was disabled, False if not present
+    """
+    disabled = False
+    if hasattr(pipe, 'safety_checker') and pipe.safety_checker is not None:
+        pipe.safety_checker = None
+        disabled = True
+        logger.info("✓ Safety checker disabled for NSFW content generation")
+    if hasattr(pipe, 'requires_safety_checker'):
+        pipe.requires_safety_checker = False
+    return disabled
 
 
 async def download_model_from_huggingface(
@@ -1372,6 +1407,15 @@ class AIModelManager:
 
         # For image models
         if content_type == "image":
+            # HIGHEST PRIORITY: Check for preferred CivitAI model (version 1257570)
+            for model in available_models:
+                if model.get("civitai_version_id") == PREFERRED_CIVITAI_VERSION_ID:
+                    logger.info(
+                        f"🎯 Model selection: {model.get('display_name', model['name'])} "
+                        f"(reason: preferred CivitAI model v{PREFERRED_CIVITAI_VERSION_ID})"
+                    )
+                    return model
+
             # Check for explicit NSFW model preference from persona settings
             nsfw_model_pref = kwargs.get("nsfw_model")
             if nsfw_model_pref:
@@ -1395,12 +1439,11 @@ class AIModelManager:
 
             # DEFAULT: Prefer NSFW/anatomy-focused models for better human body representation
             # This is the new default behavior - always check for NSFW models first
-            nsfw_keywords = ["nsfw", "realistic", "photon", "dreamshaper", "realvis", "juggernaut", "explicit", "adult"]
             for model in available_models:
                 model_name_lower = model.get("name", "").lower()
                 model_id_lower = model.get("model_id", "").lower()
                 display_name_lower = model.get("display_name", "").lower()
-                for keyword in nsfw_keywords:
+                for keyword in NSFW_MODEL_KEYWORDS:
                     if keyword in model_name_lower or keyword in model_id_lower or keyword in display_name_lower:
                         logger.info(
                             f"🎯 Model selection: {model.get('display_name', model['name'])} "
@@ -2714,10 +2757,9 @@ class AIModelManager:
             # If no specific checkpoint, prefer NSFW/realistic models (new requirement)
             if not ckpt_name and available_checkpoints:
                 # Keywords for NSFW/anatomy-focused models (preferred by default)
-                nsfw_keywords = ["nsfw", "realistic", "photon", "dreamshaper", "realvis", "juggernaut", "explicit", "adult"]
                 for ckpt in available_checkpoints:
                     ckpt_lower = ckpt.lower()
-                    for keyword in nsfw_keywords:
+                    for keyword in NSFW_MODEL_KEYWORDS:
                         if keyword in ckpt_lower:
                             ckpt_name = ckpt
                             logger.info(f"Selected NSFW/anatomy-focused checkpoint: {ckpt_name}")
@@ -2739,14 +2781,15 @@ class AIModelManager:
             is_flux_model = "flux" in ckpt_name.lower() or "flux" in model.get("name", "").lower()
             
             # Adjust guidance scale based on model type
-            if is_flux_model:
-                guidance_scale = kwargs.get("guidance_scale", 3.5)  # FLUX uses lower guidance
+            if is_flux_model and "guidance_scale" not in kwargs:
+                guidance_scale = 3.5  # FLUX uses lower guidance by default
             
             # Create appropriate workflow based on model type
             # CheckpointLoaderSimple outputs: MODEL (index 0), CLIP (index 1), VAE (index 2)
             if is_flux_model:
                 # FLUX models may need different workflow, but basic SD workflow often works
                 # The key fix is using correct output indices from CheckpointLoaderSimple
+                # FLUX uses 'simple' scheduler for best results
                 workflow = {
                     "3": {  # CLIPTextEncode for positive prompt
                         "inputs": {"text": prompt, "clip": ["11", 1]},  # Use index 1 for CLIP
@@ -2774,7 +2817,7 @@ class AIModelManager:
                             "steps": num_inference_steps,
                             "cfg": guidance_scale,
                             "sampler_name": "euler",
-                            "scheduler": "normal",
+                            "scheduler": "simple",  # FLUX uses simple scheduler
                             "denoise": 1.0,
                             "model": ["11", 0],  # Use index 0 for MODEL
                             "positive": ["3", 0],
@@ -3262,12 +3305,8 @@ class AIModelManager:
                             logger.info(f"Loading LoRA weights from: {model_path}")
                             pipe.load_lora_weights(str(model_path))
                             
-                            # IMPORTANT: Disable safety checker for NSFW content generation
-                            if hasattr(pipe, 'safety_checker') and pipe.safety_checker is not None:
-                                pipe.safety_checker = None
-                                logger.info("✓ Safety checker disabled for NSFW content generation")
-                            if hasattr(pipe, 'requires_safety_checker'):
-                                pipe.requires_safety_checker = False
+                            # Disable safety checker for NSFW content generation
+                            disable_safety_checker(pipe)
                             
                             # Get trigger words if available for logging
                             trained_words = model.get("trained_words", [])
@@ -3365,12 +3404,8 @@ class AIModelManager:
                             logger.error(f"Failed to load single-file model: {str(e)}")
                             raise
 
-                        # IMPORTANT: Disable safety checker for NSFW content generation
-                        if hasattr(pipe, 'safety_checker') and pipe.safety_checker is not None:
-                            pipe.safety_checker = None
-                            logger.info("✓ Safety checker disabled for NSFW content generation")
-                        if hasattr(pipe, 'requires_safety_checker'):
-                            pipe.requires_safety_checker = False
+                        # Disable safety checker for NSFW content generation
+                        disable_safety_checker(pipe)
 
                         # Cache the loaded pipeline for future use
                         self._loaded_pipelines[pipeline_key] = pipe
@@ -3570,13 +3605,9 @@ class AIModelManager:
                         pipe.save_pretrained(str(model_path))
                         logger.info(f"Model saved to: {model_path}")
 
-                # IMPORTANT: Disable safety checker for NSFW content generation
+                # Disable safety checker for NSFW content generation
                 # This must be done for all pipeline types to allow adult content
-                if hasattr(pipe, 'safety_checker') and pipe.safety_checker is not None:
-                    pipe.safety_checker = None
-                    logger.info("✓ Safety checker disabled for NSFW content generation")
-                if hasattr(pipe, 'requires_safety_checker'):
-                    pipe.requires_safety_checker = False
+                disable_safety_checker(pipe)
 
                 # Use DPM-Solver++ for faster inference
                 # Enable Karras sigmas to stabilize step index calculation
@@ -4886,6 +4917,12 @@ class AIModelManager:
         if not local_models:
             raise Exception("No local image models available")
 
+        # HIGHEST PRIORITY: Check for preferred CivitAI model (version 1257570)
+        for model in local_models:
+            if model.get("civitai_version_id") == PREFERRED_CIVITAI_VERSION_ID:
+                logger.info(f"Using preferred CivitAI model (v{PREFERRED_CIVITAI_VERSION_ID}): {model.get('name')}")
+                return model
+
         # If specific NSFW model preference provided, try to find it
         if nsfw_model_pref:
             for model in local_models:
@@ -4899,12 +4936,11 @@ class AIModelManager:
         
         # Default behavior: Always look for NSFW/anatomy-focused models first
         # Models known to be better at human anatomy/bodies
-        anatomy_keywords = ["nsfw", "realistic", "photon", "dreamshaper", "realvis", "juggernaut", "explicit", "adult"]
         for model in local_models:
             model_name_lower = model.get("name", "").lower()
             model_id_lower = model.get("model_id", "").lower()
             display_name_lower = model.get("display_name", "").lower()
-            for keyword in anatomy_keywords:
+            for keyword in NSFW_MODEL_KEYWORDS:
                 if keyword in model_name_lower or keyword in model_id_lower or keyword in display_name_lower:
                     logger.info(f"Using NSFW/anatomy-focused model (default): {model.get('name')}")
                     return model
