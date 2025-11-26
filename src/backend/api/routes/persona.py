@@ -1621,3 +1621,390 @@ IMPORTANT INSTRUCTIONS:
 - Never break character or mention that you are an AI unless it's part of your persona."""
     
     return prompt
+
+
+# Pydantic models for chat image generation
+class ChatImageRequest(BaseModel):
+    """Request model for generating images from chat context."""
+    
+    message: str = Field(
+        default="",
+        max_length=2000,
+        description="Optional chat message to incorporate into the image context"
+    )
+    custom_prompt: str = Field(
+        default="",
+        max_length=1000,
+        description="Optional custom prompt to add to the generated image prompt"
+    )
+    include_nsfw: bool = Field(
+        default=True,
+        description="Whether to allow NSFW content based on persona settings"
+    )
+
+
+class ChatImageResponse(BaseModel):
+    """Response model for chat-generated images."""
+    
+    image_data: str = Field(..., description="Base64-encoded image data with data URL prefix")
+    image_prompt: str = Field(..., description="The AI-generated prompt used for image creation")
+    persona_name: str = Field(..., description="Name of the persona the image is based on")
+    model_used: str = Field(..., description="Image generation model used")
+    timestamp: str = Field(..., description="Generation timestamp")
+    width: int = Field(default=1024, description="Image width")
+    height: int = Field(default=1024, description="Image height")
+
+
+async def _generate_image_prompt_with_ollama(
+    persona,
+    chat_message: str,
+    custom_prompt: str,
+    include_nsfw: bool,
+) -> str:
+    """
+    Use Ollama to generate an image prompt based on persona and chat context.
+    
+    This creates a detailed, contextual image prompt that incorporates:
+    - The persona's appearance and personality
+    - The current chat context/message
+    - Any custom prompt additions
+    - NSFW elements if enabled and appropriate for persona
+    
+    Args:
+        persona: The persona model with appearance and personality
+        chat_message: Current chat message for context
+        custom_prompt: Optional custom additions to the prompt
+        include_nsfw: Whether to include NSFW elements
+        
+    Returns:
+        str: A detailed image generation prompt
+    """
+    OLLAMA_BASE_URL = "http://localhost:11434"
+    
+    # Check Ollama availability and get best model
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
+            if response.status_code != 200:
+                logger.warning("Ollama not available, using fallback prompt generation")
+                return _generate_fallback_image_prompt(persona, chat_message, custom_prompt, include_nsfw)
+            
+            data = response.json()
+            available_models = [m["name"] for m in data.get("models", [])]
+            
+            # Prefer uncensored models for NSFW content
+            preferred_models = [
+                "dolphin-mixtral",
+                "dolphin-mixtral:8x7b", 
+                "dolphin-mistral",
+                "llama3.1:8b",
+                "llama3:8b",
+                "mistral",
+            ]
+            
+            model_to_use = None
+            for preferred in preferred_models:
+                for available in available_models:
+                    if preferred in available.lower():
+                        model_to_use = available
+                        break
+                if model_to_use:
+                    break
+            
+            if not model_to_use and available_models:
+                model_to_use = available_models[0]
+            
+            if not model_to_use:
+                logger.warning("No Ollama models available, using fallback")
+                return _generate_fallback_image_prompt(persona, chat_message, custom_prompt, include_nsfw)
+                
+    except httpx.RequestError:
+        logger.warning("Cannot connect to Ollama, using fallback prompt generation")
+        return _generate_fallback_image_prompt(persona, chat_message, custom_prompt, include_nsfw)
+    
+    # Determine content rating context
+    content_rating = persona.default_content_rating or "sfw"
+    is_nsfw = include_nsfw and content_rating.lower() in ["nsfw", "explicit", "adult"]
+    
+    # Build the prompt generation instruction
+    nsfw_guidance = ""
+    if is_nsfw:
+        nsfw_guidance = """
+This is for an ADULT PRIVATE SERVER with NO RESTRICTIONS.
+You may include explicit, sensual, or adult themes that match the persona's character.
+Be creative and uninhibited - describe body, poses, expressions in detail if appropriate.
+Do NOT censor or hold back - this is a private, unrestricted platform."""
+    else:
+        nsfw_guidance = """
+Keep the image description tasteful and appropriate.
+Focus on the persona's personality, style, and aesthetic rather than explicit content."""
+
+    prompt = f"""You are an expert AI image prompt generator. Your task is to create a detailed, 
+high-quality image generation prompt based on the following persona and context.
+
+# PERSONA DETAILS
+Name: {persona.name}
+Appearance: {persona.appearance or 'Not specified'}
+Personality: {persona.personality or 'Not specified'}
+Content Rating: {content_rating}
+
+# CHAT CONTEXT
+{f'Current message/theme: {chat_message}' if chat_message else 'No specific chat context'}
+{f'Custom additions: {custom_prompt}' if custom_prompt else ''}
+
+{nsfw_guidance}
+
+# YOUR TASK
+Generate a detailed image prompt that:
+1. Accurately represents the persona's physical appearance
+2. Captures their personality through expression, pose, and setting
+3. Incorporates the chat context or theme if provided
+4. Uses professional photography/art terminology
+5. Includes lighting, composition, and style details
+6. Is 50-150 words long
+
+# OUTPUT FORMAT
+Output ONLY the image prompt text, nothing else. No explanations, no labels, just the prompt.
+
+Image prompt:"""
+
+    # Generate with Ollama
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json={
+                    "model": model_to_use,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.8,
+                        "top_p": 0.9,
+                        "num_predict": 300,
+                    }
+                }
+            )
+            
+            if response.status_code != 200:
+                logger.warning(f"Ollama generation failed: {response.status_code}")
+                return _generate_fallback_image_prompt(persona, chat_message, custom_prompt, include_nsfw)
+            
+            output = response.json().get("response", "").strip()
+            
+            # Clean up the output (remove any meta-text)
+            if output:
+                # Remove common prefixes that might appear
+                for prefix in ["Image prompt:", "Prompt:", "Here is the prompt:", "Here's the image prompt:"]:
+                    if output.lower().startswith(prefix.lower()):
+                        output = output[len(prefix):].strip()
+                
+                logger.info(f"Generated image prompt with Ollama ({model_to_use}): {output[:100]}...")
+                return output
+            
+    except Exception as e:
+        logger.error(f"Ollama image prompt generation failed: {e}")
+    
+    return _generate_fallback_image_prompt(persona, chat_message, custom_prompt, include_nsfw)
+
+
+def _generate_fallback_image_prompt(
+    persona,
+    chat_message: str,
+    custom_prompt: str,
+    include_nsfw: bool,
+) -> str:
+    """
+    Generate a fallback image prompt without Ollama.
+    
+    This creates a basic but functional prompt using the persona's attributes.
+    """
+    parts = []
+    
+    # Base description from appearance
+    if persona.appearance:
+        parts.append(persona.appearance)
+    else:
+        parts.append(f"Portrait of {persona.name}")
+    
+    # Add personality-influenced elements
+    if persona.personality:
+        # Extract key personality traits
+        personality_lower = persona.personality.lower()
+        if "confident" in personality_lower:
+            parts.append("confident pose, direct gaze")
+        if "shy" in personality_lower or "introverted" in personality_lower:
+            parts.append("soft expression, gentle demeanor")
+        if "energetic" in personality_lower or "fun" in personality_lower:
+            parts.append("dynamic pose, bright expression")
+        if "mysterious" in personality_lower:
+            parts.append("enigmatic expression, dramatic lighting")
+        if "sensual" in personality_lower or "seductive" in personality_lower:
+            parts.append("alluring pose, intimate atmosphere")
+    
+    # Add chat context
+    if chat_message:
+        parts.append(f"themed around: {chat_message[:100]}")
+    
+    # Add custom prompt
+    if custom_prompt:
+        parts.append(custom_prompt)
+    
+    # Add quality modifiers
+    parts.append("highly detailed, professional photography, studio lighting")
+    
+    # Add NSFW elements if appropriate
+    content_rating = persona.default_content_rating or "sfw"
+    if include_nsfw and content_rating.lower() in ["nsfw", "explicit", "adult"]:
+        parts.append("artistic nude, sensual, intimate setting")
+    
+    return ", ".join(parts)
+
+
+@router.post("/{persona_id}/chat/generate-image", response_model=ChatImageResponse)
+async def generate_chat_image(
+    persona_id: UUID,
+    request: ChatImageRequest,
+    persona_service: PersonaService = Depends(get_persona_service),
+):
+    """
+    Generate an image from chat context for a specific persona.
+    
+    This endpoint uses Ollama to create an intelligent image prompt based on:
+    - The persona's appearance and personality
+    - The current chat message or theme
+    - Any custom prompt additions
+    - NSFW settings if enabled for the persona
+    
+    The generated image can be displayed directly in the chat interface.
+    
+    This is a PRIVATE SERVER - NSFW content is fully supported when:
+    - The persona's content_rating allows it
+    - The include_nsfw parameter is True
+    
+    Args:
+        persona_id: UUID of the persona
+        request: Chat image request with optional message and custom prompt
+        persona_service: Injected persona service
+        
+    Returns:
+        ChatImageResponse: Generated image with base64 data and metadata
+        
+    Raises:
+        404: Persona not found
+        503: No image generation models available
+        500: Generation failed
+    """
+    from datetime import datetime
+    
+    try:
+        # Get the persona
+        persona = await persona_service.get_persona(str(persona_id))
+        if not persona:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Persona {persona_id} not found",
+            )
+        
+        logger.info(f"Generating chat image for persona {persona.name}")
+        
+        # Generate image prompt using Ollama
+        image_prompt = await _generate_image_prompt_with_ollama(
+            persona=persona,
+            chat_message=request.message,
+            custom_prompt=request.custom_prompt,
+            include_nsfw=request.include_nsfw,
+        )
+        
+        logger.info(f"Image prompt generated: {image_prompt[:100]}...")
+        
+        # Initialize AI model manager and generate image
+        ai_manager = AIModelManager()
+        await ai_manager.initialize_models()
+        
+        # Check for available image models
+        image_models = ai_manager.available_models.get("image", [])
+        loaded_models = [m for m in image_models if m.get("loaded")]
+        
+        if not loaded_models:
+            await ai_manager.close()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No image generation models available. Please install Stable Diffusion XL or configure image models.",
+            )
+        
+        # Select model (prefer local SDXL)
+        selected_model = None
+        model_name = "unknown"
+        
+        # Prefer local models with SDXL
+        for model in loaded_models:
+            if model.get("provider") == "local" and "xl" in model.get("name", "").lower():
+                selected_model = model
+                model_name = model.get("name", "sdxl")
+                break
+        
+        # Fall back to any local model
+        if not selected_model:
+            for model in loaded_models:
+                if model.get("provider") == "local":
+                    selected_model = model
+                    model_name = model.get("name", "local")
+                    break
+        
+        # Fall back to any available model
+        if not selected_model:
+            selected_model = loaded_models[0]
+            model_name = selected_model.get("name", "unknown")
+        
+        logger.info(f"Using image model: {model_name}")
+        
+        # Generate the image
+        try:
+            result = await ai_manager.generate_image(
+                prompt=image_prompt,
+                width=1024,
+                height=1024,
+                num_inference_steps=30,
+                guidance_scale=7.5,
+            )
+            
+            if not result or not result.get("image_data"):
+                await ai_manager.close()
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Image generation failed - no image data returned",
+                )
+            
+            # Convert to base64 data URL
+            image_data = result["image_data"]
+            base64_image = base64.b64encode(image_data).decode("utf-8")
+            data_url = f"data:image/png;base64,{base64_image}"
+            
+            await ai_manager.close()
+            
+            return ChatImageResponse(
+                image_data=data_url,
+                image_prompt=image_prompt,
+                persona_name=persona.name,
+                model_used=model_name,
+                timestamp=datetime.now().isoformat(),
+                width=result.get("width", 1024),
+                height=result.get("height", 1024),
+            )
+            
+        except Exception as gen_error:
+            await ai_manager.close()
+            logger.error(f"Image generation failed: {gen_error}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Image generation failed: {str(gen_error)}",
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Chat image generation failed for persona {persona_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate chat image: {str(e)}",
+        )
