@@ -3287,10 +3287,10 @@
                     addChatImage(data.image_data, data.persona_name, data.image_prompt);
                 }
                 
-                // Update status
+                // Update status (show ready state without model name for clean UI)
                 statusEl.classList.remove('loading');
-                const imageNote = data.image_generated ? ' + 📸' : '';
-                statusText.textContent = `Last model: ${data.model_used}${imageNote}`;
+                const imageNote = data.image_generated ? ' 📸' : '';
+                statusText.textContent = `Ready${imageNote}`;
                 
             } catch (error) {
                 console.error('Chat error:', error);
@@ -3324,9 +3324,8 @@
             
             html += `<div class="content">${escapeHtml(text)}</div>`;
             
-            if (modelInfo && type === 'persona') {
-                html += `<div class="model-info">via ${modelInfo}</div>`;
-            }
+            // Model info is stored in history for debugging but not displayed in UI
+            // Users should see persona responses without technical model attribution
             
             messageDiv.innerHTML = html;
             messagesContainer.appendChild(messageDiv);
