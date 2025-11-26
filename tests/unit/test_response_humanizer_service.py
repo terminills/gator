@@ -300,3 +300,75 @@ class TestHumanizerIntegration:
         
         # Should remove overly friendly language based on forbidden_phrases
         assert "buddy" not in result.lower()
+
+
+class TestConversationTurnTruncation:
+    """Tests for conversation turn marker truncation."""
+
+    def test_truncates_at_user_marker(self, humanizer):
+        """Test that response is truncated at 'User:' marker."""
+        text = "Hey there, Timothy! It's great to meet you. User: hello Sydney: Hey!"
+        result = humanizer._truncate_at_conversation_turns(text, "Sydney")
+        
+        assert "User:" not in result
+        assert "Hey there, Timothy" in result
+
+    def test_truncates_at_persona_name_marker(self, humanizer):
+        """Test that response is truncated at persona name marker."""
+        text = "I'm doing great! What about you? Sydney: Oh I'm just chilling"
+        result = humanizer._truncate_at_conversation_turns(text, "Sydney")
+        
+        assert "Sydney:" not in result
+        assert "doing great" in result
+
+    def test_truncates_at_lowercase_user_marker(self, humanizer):
+        """Test that response is truncated at lowercase 'user:' marker."""
+        text = "That sounds fun! user: cool Sydney: thanks"
+        result = humanizer._truncate_at_conversation_turns(text, "Sydney")
+        
+        assert "user:" not in result
+        assert "sounds fun" in result
+
+    def test_preserves_text_without_markers(self, humanizer):
+        """Test that text without turn markers is preserved."""
+        text = "Hey there! I'm doing great, thanks for asking!"
+        result = humanizer._truncate_at_conversation_turns(text, "Sydney")
+        
+        assert result == text
+
+    def test_handles_empty_text(self, humanizer):
+        """Test handling of empty text."""
+        assert humanizer._truncate_at_conversation_turns("", "Sydney") == ""
+        assert humanizer._truncate_at_conversation_turns(None, "Sydney") is None
+
+    def test_handles_none_persona_name(self, humanizer):
+        """Test truncation works when persona name is None."""
+        text = "Hey there! User: hello"
+        result = humanizer._truncate_at_conversation_turns(text, None)
+        
+        assert "User:" not in result
+        assert "Hey there" in result
+
+    def test_full_pipeline_truncates_conversation_turns(self, humanizer, buddy_persona):
+        """Test that full humanization pipeline truncates conversation turns."""
+        # This is the exact pattern from the issue
+        text = """Hey there, Timothy! It's great to meet you. So, how have you been? Any fun plans for the weekend? Or maybe you just want to kick back and relax? Either way, I'm here to keep things lively! If you need any suggestions or just wanna chat, don't hesitate to reach out! 💬 User: hello Sydney, how are you? Sydney: Hey there! I'm pretty good, thanks for asking. Just been hanging out and doing some exploring around the city. How about yourself? What have you been up to lately?"""
+        
+        buddy_persona.name = "Sydney"
+        result = humanizer.humanize_response(text, persona=buddy_persona)
+        
+        # Should not contain the simulated conversation turns
+        assert "User:" not in result
+        assert "Sydney:" not in result
+        # Should still contain the original greeting
+        assert "Timothy" in result or "great to meet you" in result.lower()
+
+    def test_truncates_multiple_turn_markers(self, humanizer):
+        """Test truncation at first turn marker when multiple exist."""
+        text = "Hello there! User: hi Sydney: hey User: what's up Sydney: nothing much"
+        result = humanizer._truncate_at_conversation_turns(text, "Sydney")
+        
+        # Should truncate at the first marker
+        assert "User:" not in result
+        assert "Sydney:" not in result
+        assert "Hello there" in result

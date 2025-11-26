@@ -268,8 +268,9 @@ class CivitAIClient:
             
             # Download file with progress tracking
             # Enable follow_redirects to handle 307 redirects from CivitAI to Cloudflare storage
+            # IMPORTANT: Include Authorization header for NSFW models that require authentication
             async with httpx.AsyncClient(timeout=None, follow_redirects=True) as client:
-                async with client.stream("GET", download_url) as response:
+                async with client.stream("GET", download_url, headers=self._get_headers()) as response:
                     response.raise_for_status()
                     
                     total_size = int(response.headers.get("content-length", 0))

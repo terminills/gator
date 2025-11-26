@@ -371,6 +371,11 @@ class PersonaChatService:
         # Clean up common artifacts
         response = response.replace('[', '').replace(']', '')
         
+        # CRITICAL: Truncate at conversation turn markers that appear mid-text
+        # This prevents the AI from simulating additional conversation turns
+        # Use the humanizer's method to avoid code duplication
+        response = self._humanizer._truncate_at_conversation_turns(response, persona.name)
+        
         # Ensure reasonable length (truncate if too long)
         words = response.split()
         if len(words) > 150:
