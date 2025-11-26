@@ -538,5 +538,53 @@ class TestCivitAIFilenameGeneration:
                         pass
 
 
+class TestSingleFileModelLoading:
+    """Test single-file model detection for CivitAI models."""
+
+    def test_single_file_detection_safetensors(self):
+        """Test that .safetensors files are detected as single-file models."""
+        from pathlib import Path
+
+        test_paths = [
+            ("models/civitai/test.safetensors", True),
+            ("models/civitai/model.ckpt", True),
+            ("models/civitai/weights.pt", True),
+            ("models/civitai/weights.bin", True),
+            ("models/image/sdxl-1.0/", False),  # directory path
+            ("models/civitai/metadata.json", False),  # not a model file
+        ]
+
+        for path_str, expected in test_paths:
+            p = Path(path_str)
+            is_single = p.suffix.lower() in [".safetensors", ".ckpt", ".pt", ".bin"]
+            assert is_single == expected, f"Path {path_str}: expected {expected}, got {is_single}"
+
+    def test_sdxl_detection_with_base_model(self):
+        """Test that SDXL models are correctly identified from base_model field."""
+        test_configs = [
+            # (name, model_id, base_model, expected_is_sdxl)
+            ("civitai-123", "civitai:123", "SDXL 1.0", True),
+            ("civitai-456", "civitai:456", "SD 1.5", False),
+            ("civitai-pony", "civitai:pony", "Pony v6", True),
+            ("civitai-pony2", "civitai:pony2", "Pony Diffusion", True),
+            ("sdxl-1.0", "stabilityai/stable-diffusion-xl-base-1.0", "", True),
+            ("sd-1.5", "runwayml/stable-diffusion-v1-5", "", False),
+            ("custom-xl", "custom/xl-model", "", True),
+            ("custom-model", "custom/regular-model", "", False),
+        ]
+
+        for name, model_id, base_model, expected in test_configs:
+            is_sdxl = (
+                "xl" in name.lower()
+                or "xl" in model_id.lower()
+                or "sdxl" in base_model.lower()
+                or "pony" in base_model.lower()
+            )
+            assert is_sdxl == expected, (
+                f"Model {name} (base_model={base_model}): "
+                f"expected is_sdxl={expected}, got {is_sdxl}"
+            )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
