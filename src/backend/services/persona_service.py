@@ -83,6 +83,31 @@ class PersonaService:
                 video_types=persona_data.video_types,
                 nsfw_model_preference=persona_data.nsfw_model_preference,
                 generation_quality=persona_data.generation_quality,
+                # ==================== PERSONA SOUL FIELDS ====================
+                # Origin & Demographics
+                hometown=persona_data.hometown,
+                current_location=persona_data.current_location,
+                generation_age=persona_data.generation_age,
+                education_level=persona_data.education_level,
+                # Psychological Profile
+                mbti_type=persona_data.mbti_type,
+                enneagram_type=persona_data.enneagram_type,
+                political_alignment=persona_data.political_alignment,
+                risk_tolerance=persona_data.risk_tolerance,
+                optimism_cynicism_scale=persona_data.optimism_cynicism_scale,
+                # Voice & Speech Patterns
+                linguistic_register=persona_data.linguistic_register.value,
+                typing_quirks=persona_data.typing_quirks,
+                signature_phrases=persona_data.signature_phrases,
+                trigger_topics=persona_data.trigger_topics,
+                # Backstory & Lore
+                day_job=persona_data.day_job,
+                war_story=persona_data.war_story,
+                vices_hobbies=persona_data.vices_hobbies,
+                # Anti-Pattern
+                forbidden_phrases=persona_data.forbidden_phrases,
+                warmth_level=persona_data.warmth_level.value,
+                patience_level=persona_data.patience_level.value,
             )
 
             # Add to session and commit
@@ -249,6 +274,55 @@ class PersonaService:
                 update_data["nsfw_model_preference"] = updates.nsfw_model_preference
             if updates.generation_quality is not None:
                 update_data["generation_quality"] = updates.generation_quality
+
+            # ==================== PERSONA SOUL FIELDS ====================
+            # Origin & Demographics
+            if updates.hometown is not None:
+                update_data["hometown"] = updates.hometown
+            if updates.current_location is not None:
+                update_data["current_location"] = updates.current_location
+            if updates.generation_age is not None:
+                update_data["generation_age"] = updates.generation_age
+            if updates.education_level is not None:
+                update_data["education_level"] = updates.education_level
+
+            # Psychological Profile
+            if updates.mbti_type is not None:
+                update_data["mbti_type"] = updates.mbti_type
+            if updates.enneagram_type is not None:
+                update_data["enneagram_type"] = updates.enneagram_type
+            if updates.political_alignment is not None:
+                update_data["political_alignment"] = updates.political_alignment
+            if updates.risk_tolerance is not None:
+                update_data["risk_tolerance"] = updates.risk_tolerance
+            if updates.optimism_cynicism_scale is not None:
+                update_data["optimism_cynicism_scale"] = updates.optimism_cynicism_scale
+
+            # Voice & Speech Patterns
+            if updates.linguistic_register is not None:
+                update_data["linguistic_register"] = updates.linguistic_register.value
+            if updates.typing_quirks is not None:
+                update_data["typing_quirks"] = updates.typing_quirks
+            if updates.signature_phrases is not None:
+                update_data["signature_phrases"] = updates.signature_phrases
+            if updates.trigger_topics is not None:
+                update_data["trigger_topics"] = updates.trigger_topics
+
+            # Backstory & Lore
+            if updates.day_job is not None:
+                update_data["day_job"] = updates.day_job
+            if updates.war_story is not None:
+                update_data["war_story"] = updates.war_story
+            if updates.vices_hobbies is not None:
+                update_data["vices_hobbies"] = updates.vices_hobbies
+
+            # Anti-Pattern
+            if updates.forbidden_phrases is not None:
+                update_data["forbidden_phrases"] = updates.forbidden_phrases
+            if updates.warmth_level is not None:
+                update_data["warmth_level"] = updates.warmth_level.value
+            if updates.patience_level is not None:
+                update_data["patience_level"] = updates.patience_level.value
 
             if not update_data:
                 # No updates provided, return existing persona

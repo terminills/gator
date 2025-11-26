@@ -242,6 +242,244 @@ async def add_acd_domain_columns(conn, is_sqlite: bool) -> List[str]:
     return added_columns
 
 
+async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
+    """
+    Add persona soul fields for human-like response generation.
+    
+    These fields capture the "soul" of a persona:
+    1. Origin & Demographics (The "Roots")
+    2. Psychological Profile (The "Engine")
+    3. Voice & Speech Patterns (The "Interface")
+    4. Backstory & Lore (The "Context")
+    5. Anti-Pattern (What they are NOT)
+
+    Args:
+        conn: Database connection
+        is_sqlite: Whether the database is SQLite
+
+    Returns:
+        List of columns that were added
+    """
+    added_columns = []
+
+    # Check if table exists first
+    if not await table_exists(conn, "personas", is_sqlite):
+        logger.debug("Personas table does not exist, skipping soul fields migration")
+        return added_columns
+
+    # ==================== ORIGIN & DEMOGRAPHICS ====================
+    
+    if not await check_column_exists(conn, "personas", "hometown", is_sqlite):
+        logger.info("Adding hometown column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN hometown VARCHAR(200)")
+        )
+        added_columns.append("hometown")
+
+    if not await check_column_exists(conn, "personas", "current_location", is_sqlite):
+        logger.info("Adding current_location column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN current_location VARCHAR(200)")
+        )
+        added_columns.append("current_location")
+
+    if not await check_column_exists(conn, "personas", "generation_age", is_sqlite):
+        logger.info("Adding generation_age column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN generation_age VARCHAR(100)")
+        )
+        added_columns.append("generation_age")
+
+    if not await check_column_exists(conn, "personas", "education_level", is_sqlite):
+        logger.info("Adding education_level column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN education_level VARCHAR(200)")
+        )
+        added_columns.append("education_level")
+
+    # ==================== PSYCHOLOGICAL PROFILE ====================
+    
+    if not await check_column_exists(conn, "personas", "mbti_type", is_sqlite):
+        logger.info("Adding mbti_type column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN mbti_type VARCHAR(50)")
+        )
+        added_columns.append("mbti_type")
+
+    if not await check_column_exists(conn, "personas", "enneagram_type", is_sqlite):
+        logger.info("Adding enneagram_type column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN enneagram_type VARCHAR(50)")
+        )
+        added_columns.append("enneagram_type")
+
+    if not await check_column_exists(conn, "personas", "political_alignment", is_sqlite):
+        logger.info("Adding political_alignment column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN political_alignment VARCHAR(100)")
+        )
+        added_columns.append("political_alignment")
+
+    if not await check_column_exists(conn, "personas", "risk_tolerance", is_sqlite):
+        logger.info("Adding risk_tolerance column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN risk_tolerance VARCHAR(100)")
+        )
+        added_columns.append("risk_tolerance")
+
+    if not await check_column_exists(conn, "personas", "optimism_cynicism_scale", is_sqlite):
+        logger.info("Adding optimism_cynicism_scale column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN optimism_cynicism_scale INTEGER")
+        )
+        added_columns.append("optimism_cynicism_scale")
+
+    # ==================== VOICE & SPEECH PATTERNS ====================
+    
+    if not await check_column_exists(conn, "personas", "linguistic_register", is_sqlite):
+        logger.info("Adding linguistic_register column to personas table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN linguistic_register VARCHAR(50) DEFAULT 'blue_collar'")
+            )
+            await conn.execute(
+                text("UPDATE personas SET linguistic_register = 'blue_collar' WHERE linguistic_register IS NULL")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN linguistic_register VARCHAR(50) NOT NULL DEFAULT 'blue_collar'")
+            )
+        added_columns.append("linguistic_register")
+
+    if not await check_column_exists(conn, "personas", "typing_quirks", is_sqlite):
+        logger.info("Adding typing_quirks column to personas table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN typing_quirks JSON DEFAULT '{}'")
+            )
+            await conn.execute(
+                text("UPDATE personas SET typing_quirks = '{}' WHERE typing_quirks IS NULL")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN typing_quirks JSON NOT NULL DEFAULT '{}'")
+            )
+        added_columns.append("typing_quirks")
+
+    if not await check_column_exists(conn, "personas", "signature_phrases", is_sqlite):
+        logger.info("Adding signature_phrases column to personas table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN signature_phrases JSON DEFAULT '[]'")
+            )
+            await conn.execute(
+                text("UPDATE personas SET signature_phrases = '[]' WHERE signature_phrases IS NULL")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN signature_phrases JSON NOT NULL DEFAULT '[]'")
+            )
+        added_columns.append("signature_phrases")
+
+    if not await check_column_exists(conn, "personas", "trigger_topics", is_sqlite):
+        logger.info("Adding trigger_topics column to personas table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN trigger_topics JSON DEFAULT '[]'")
+            )
+            await conn.execute(
+                text("UPDATE personas SET trigger_topics = '[]' WHERE trigger_topics IS NULL")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN trigger_topics JSON NOT NULL DEFAULT '[]'")
+            )
+        added_columns.append("trigger_topics")
+
+    # ==================== BACKSTORY & LORE ====================
+    
+    if not await check_column_exists(conn, "personas", "day_job", is_sqlite):
+        logger.info("Adding day_job column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN day_job VARCHAR(200)")
+        )
+        added_columns.append("day_job")
+
+    if not await check_column_exists(conn, "personas", "war_story", is_sqlite):
+        logger.info("Adding war_story column to personas table")
+        await conn.execute(
+            text("ALTER TABLE personas ADD COLUMN war_story TEXT")
+        )
+        added_columns.append("war_story")
+
+    if not await check_column_exists(conn, "personas", "vices_hobbies", is_sqlite):
+        logger.info("Adding vices_hobbies column to personas table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN vices_hobbies JSON DEFAULT '[]'")
+            )
+            await conn.execute(
+                text("UPDATE personas SET vices_hobbies = '[]' WHERE vices_hobbies IS NULL")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN vices_hobbies JSON NOT NULL DEFAULT '[]'")
+            )
+        added_columns.append("vices_hobbies")
+
+    # ==================== ANTI-PATTERN ====================
+    
+    if not await check_column_exists(conn, "personas", "forbidden_phrases", is_sqlite):
+        logger.info("Adding forbidden_phrases column to personas table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN forbidden_phrases JSON DEFAULT '[]'")
+            )
+            await conn.execute(
+                text("UPDATE personas SET forbidden_phrases = '[]' WHERE forbidden_phrases IS NULL")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN forbidden_phrases JSON NOT NULL DEFAULT '[]'")
+            )
+        added_columns.append("forbidden_phrases")
+
+    if not await check_column_exists(conn, "personas", "warmth_level", is_sqlite):
+        logger.info("Adding warmth_level column to personas table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN warmth_level VARCHAR(20) DEFAULT 'warm'")
+            )
+            await conn.execute(
+                text("UPDATE personas SET warmth_level = 'warm' WHERE warmth_level IS NULL")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN warmth_level VARCHAR(20) NOT NULL DEFAULT 'warm'")
+            )
+        added_columns.append("warmth_level")
+
+    if not await check_column_exists(conn, "personas", "patience_level", is_sqlite):
+        logger.info("Adding patience_level column to personas table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN patience_level VARCHAR(20) DEFAULT 'normal'")
+            )
+            await conn.execute(
+                text("UPDATE personas SET patience_level = 'normal' WHERE patience_level IS NULL")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN patience_level VARCHAR(20) NOT NULL DEFAULT 'normal'")
+            )
+        added_columns.append("patience_level")
+
+    if added_columns:
+        logger.info(f"✓ Added {len(added_columns)} persona soul columns for human-like responses")
+
+    return added_columns
+
+
 async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
     """
     Run all pending migrations on the database.
@@ -301,7 +539,19 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                     f"Added {len(columns_added)} column(s) to personas table: {', '.join(columns_added)}"
                 )
             else:
-                logger.info("All personas table columns are up to date")
+                logger.info("All personas appearance columns are up to date")
+
+            # Run persona soul fields migration (for human-like responses)
+            soul_columns_added = await add_persona_soul_columns(conn, is_sqlite)
+
+            if soul_columns_added:
+                results["migrations_run"].append("personas_soul_fields")
+                results["columns_added"].extend(soul_columns_added)
+                logger.info(
+                    f"Added {len(soul_columns_added)} persona soul column(s): {', '.join(soul_columns_added)}"
+                )
+            else:
+                logger.info("All persona soul columns are up to date")
 
             # Run ACD contexts table migrations
             acd_columns_added = await add_acd_domain_columns(conn, is_sqlite)
