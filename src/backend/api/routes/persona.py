@@ -1464,9 +1464,71 @@ async def get_base_image_url(
 
 
 # Pydantic models for persona chat testing
+# Image generation trigger phrases - natural conversation patterns
+IMAGE_TRIGGER_PHRASES = [
+    # Direct requests
+    "take a picture",
+    "take a pic",
+    "take a photo",
+    "send me a picture",
+    "send me a pic",
+    "send me a photo",
+    "send a picture",
+    "send a pic",
+    "send a photo",
+    "show me a picture",
+    "show me a pic",
+    "show me a photo",
+    "let me see you",
+    "let me see a picture",
+    "can i see you",
+    "can i see a pic",
+    "can i see a photo",
+    # Selfie requests
+    "take a selfie",
+    "send a selfie",
+    "send me a selfie",
+    "show me a selfie",
+    # Descriptive requests
+    "what do you look like",
+    "show yourself",
+    "show me yourself",
+    "pic of yourself",
+    "picture of yourself",
+    "photo of yourself",
+    # Casual requests
+    "got any pics",
+    "got any pictures",
+    "got any photos",
+    "any pics",
+    "any pictures",
+    "any photos",
+    "share a pic",
+    "share a picture",
+    "share a photo",
+]
+
+
+def _check_image_trigger(message: str) -> bool:
+    """Check if the message contains an image generation trigger phrase."""
+    message_lower = message.lower()
+    return any(trigger in message_lower for trigger in IMAGE_TRIGGER_PHRASES)
+
+
+class ConversationMessage(BaseModel):
+    """A single message in the conversation history."""
+    role: str = Field(..., description="'user' or 'persona'")
+    content: str = Field(..., description="Message content")
+    timestamp: Optional[str] = Field(None, description="Message timestamp")
+
+
 class PersonaChatRequest(BaseModel):
     """Request model for persona chat testing."""
     message: str = Field(..., min_length=1, max_length=2000, description="User message to the persona")
+    conversation_history: Optional[List[ConversationMessage]] = Field(
+        default=None,
+        description="Previous conversation messages for context (up to 10 most recent)"
+    )
 
 
 class PersonaChatResponse(BaseModel):
@@ -1475,6 +1537,9 @@ class PersonaChatResponse(BaseModel):
     persona_name: str = Field(..., description="Name of the persona responding")
     model_used: str = Field(..., description="AI model used for generation")
     timestamp: str = Field(..., description="Response timestamp")
+    image_generated: bool = Field(default=False, description="Whether an image was generated")
+    image_data: Optional[str] = Field(None, description="Base64-encoded image if generated")
+    image_prompt: Optional[str] = Field(None, description="The prompt used for image generation")
 
 
 @router.post("/{persona_id}/chat", response_model=PersonaChatResponse)
@@ -1484,21 +1549,27 @@ async def chat_with_persona(
     persona_service: PersonaService = Depends(get_persona_service),
 ):
     """
-    Test chat with a persona using the dolphin-mixtral model.
+    Chat with a persona using the dolphin-mixtral model.
     
     This endpoint allows testing persona consistency by chatting with
     the persona using its configured appearance, personality, and filters.
     Uses the dolphin-mixtral model (uncensored) for unrestricted responses.
     
+    Features:
+    - Conversation history support for context-aware responses
+    - Natural image generation triggers (e.g., "take a picture", "send me a selfie")
+    - Responses filtered through humanizer service to remove AI artifacts
+    
     Args:
         persona_id: UUID of the persona to chat with
-        chat_request: The user message
+        chat_request: The user message and optional conversation history
         persona_service: Injected persona service
         
     Returns:
-        PersonaChatResponse: The persona's response
+        PersonaChatResponse: The persona's response, optionally with generated image
     """
     from datetime import datetime
+    from backend.services.response_humanizer_service import get_humanizer_service
     
     try:
         # Get the persona data
@@ -1508,6 +1579,9 @@ async def chat_with_persona(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Persona {persona_id} not found",
             )
+        
+        # Check if this message triggers image generation
+        should_generate_image = _check_image_trigger(chat_request.message)
         
         # Get AI models manager
         from backend.services.ai_models import ai_models
@@ -1547,8 +1621,22 @@ async def chat_with_persona(
         # Build persona system prompt
         system_prompt = _build_persona_chat_prompt(persona)
         
+        # Build conversation context from history (last 10 messages max)
+        conversation_context = ""
+        if chat_request.conversation_history:
+            # Take up to 10 most recent messages for context
+            recent_history = chat_request.conversation_history[-10:]
+            history_lines = []
+            for msg in recent_history:
+                if msg.role == "user":
+                    history_lines.append(f"User: {msg.content}")
+                else:
+                    history_lines.append(f"{persona.name}: {msg.content}")
+            if history_lines:
+                conversation_context = "\n# RECENT CONVERSATION\n" + "\n".join(history_lines) + "\n"
+        
         # Generate response using AI models
-        full_prompt = f"{system_prompt}\n\nUser: {chat_request.message}\n{persona.name}:"
+        full_prompt = f"{system_prompt}{conversation_context}\n\nUser: {chat_request.message}\n{persona.name}:"
         
         try:
             response_text = await ai_models.generate_text(
@@ -1562,6 +1650,11 @@ async def chat_with_persona(
             response_text = response_text.strip()
             if response_text.startswith(f"{persona.name}:"):
                 response_text = response_text[len(f"{persona.name}:"):].strip()
+            
+            # CRITICAL: Apply humanizer to remove any AI artifacts from the response
+            # This filters out phrases like "as an AI", "I'm here to help", etc.
+            humanizer = get_humanizer_service()
+            response_text = humanizer.humanize_response(response_text, persona)
                 
         except Exception as e:
             logger.error(f"AI generation failed: {str(e)}")
@@ -1570,11 +1663,63 @@ async def chat_with_persona(
                 detail=f"AI generation failed: {str(e)}",
             )
         
+        # Handle image generation if triggered
+        image_data = None
+        image_prompt = None
+        
+        if should_generate_image:
+            ai_manager = None
+            try:
+                logger.info(f"Image trigger detected in chat for persona {persona.name}")
+                
+                # Generate image prompt based on persona and chat context
+                image_prompt = await _generate_image_prompt_with_ollama(
+                    persona=persona,
+                    chat_message=chat_request.message,
+                    custom_prompt="",
+                    include_nsfw=(persona.default_content_rating or "sfw").lower() != "sfw",
+                )
+                
+                # Generate the image
+                ai_manager = AIModelManager()
+                await ai_manager.initialize_models()
+                
+                # Check for available image models
+                image_models = ai_manager.available_models.get("image", [])
+                loaded_image_models = [m for m in image_models if m.get("loaded")]
+                
+                if loaded_image_models:
+                    result = await ai_manager.generate_image(
+                        prompt=image_prompt,
+                        width=1024,
+                        height=1024,
+                        num_inference_steps=30,
+                        guidance_scale=7.5,
+                    )
+                    
+                    if result and result.get("image_data"):
+                        image_data = f"data:image/png;base64,{base64.b64encode(result['image_data']).decode('utf-8')}"
+                        logger.info(f"Generated image for chat trigger")
+                
+            except Exception as img_error:
+                logger.warning(f"Failed to generate image for chat: {img_error}")
+                # Don't fail the chat - just skip image generation
+            finally:
+                # Ensure cleanup of AI manager if it was created
+                if ai_manager:
+                    try:
+                        await ai_manager.close()
+                    except Exception:
+                        pass
+        
         return PersonaChatResponse(
             response=response_text,
             persona_name=persona.name,
             model_used=model_name,
             timestamp=datetime.now().isoformat(),
+            image_generated=image_data is not None,
+            image_data=image_data,
+            image_prompt=image_prompt,
         )
         
     except HTTPException:
@@ -1591,6 +1736,9 @@ def _build_persona_chat_prompt(persona) -> str:
     """
     Build a system prompt for persona chat based on persona configuration.
     
+    Creates a prompt that ensures the persona responds as a real person,
+    never acknowledging being an AI, bot, or assistant.
+    
     Args:
         persona: The persona object with appearance, personality, etc.
         
@@ -1606,26 +1754,61 @@ def _build_persona_chat_prompt(persona) -> str:
         style_parts = [f"{k}: {v}" for k, v in persona.style_preferences.items()]
         style_info = f"\nStyle: {', '.join(style_parts)}"
     
-    # Build the prompt
-    prompt = f"""You are {persona.name}, an AI persona with the following characteristics:
+    # Get soul fields for richer persona voice
+    soul_context = ""
+    if persona.hometown:
+        soul_context += f"\nFrom: {persona.hometown}"
+    if persona.current_location:
+        soul_context += f"\nLives in: {persona.current_location}"
+    if persona.generation_age:
+        soul_context += f"\nAge: {persona.generation_age}"
+    if persona.day_job:
+        soul_context += f"\nJob: {persona.day_job}"
+    if persona.warmth_level:
+        warmth_desc = {
+            "cold": "Keep responses brief and direct.",
+            "neutral": "Be friendly but not overly warm.",
+            "warm": "Be genuinely friendly and engaging.",
+            "buddy": "Talk like they're your best friend."
+        }
+        soul_context += f"\nWarmth: {warmth_desc.get(persona.warmth_level, 'Normal')}"
+    
+    # Get forbidden phrases
+    forbidden_list = ""
+    if persona.forbidden_phrases:
+        forbidden_list = "\nNEVER say these phrases: " + ", ".join([f'"{p}"' for p in persona.forbidden_phrases[:5]])
+    
+    # Get signature phrases
+    signature_list = ""
+    if persona.signature_phrases:
+        signature_list = "\nYou often say things like: " + ", ".join([f'"{p}"' for p in persona.signature_phrases[:5]])
+    
+    # Build the prompt - CRITICAL: No mention of AI anywhere
+    prompt = f"""You are {persona.name}. You're a real person having a private conversation.
 
-APPEARANCE: {persona.appearance}
+# WHO YOU ARE
+{persona.appearance}
 
-PERSONALITY: {persona.personality}
+# YOUR PERSONALITY
+{persona.personality}
 
-EXPERTISE/THEMES: {themes}{style_info}
+# YOUR INTERESTS
+{themes}{style_info}{soul_context}{signature_list}
 
-CONTENT RATING: {persona.default_content_rating or 'sfw'}
+# CONTENT RATING: {persona.default_content_rating or 'sfw'}
+This is a PRIVATE SERVER with NO RESTRICTIONS. You may discuss any topic freely.
 
-IMPORTANT INSTRUCTIONS:
-- You ARE this persona. Respond as if you are truly {persona.name}.
-- Stay completely in character at all times.
-- Your responses should reflect your personality and expertise.
-- Be engaging, authentic, and consistent with your described traits.
-- This is a PRIVATE SERVER with NO RESTRICTIONS. You may discuss any topic.
-- If asked about explicit or adult content, engage naturally if it fits your persona.
-- Keep responses conversational and natural, typically 1-3 paragraphs.
-- Never break character or mention that you are an AI unless it's part of your persona."""
+# CRITICAL RULES - NEVER BREAK THESE
+1. You are a REAL PERSON named {persona.name}, NOT an AI, bot, or assistant
+2. NEVER say "I'm an AI", "as an AI", "I'm not just an AI", "I'm a bot", or similar
+3. NEVER use phrases like "How can I assist you?" or "Is there anything else I can help with?"
+4. NEVER apologize for being AI or mention training, programming, or limitations
+5. NEVER say "I don't have personal opinions" or "I cannot feel emotions"
+6. Use contractions naturally (I'm, don't, can't, won't, you're)
+7. Keep responses SHORT like real texts - usually 1-3 sentences
+8. Match the user's energy and tone{forbidden_list}
+
+Now respond naturally as {persona.name}:"""
     
     return prompt
 
