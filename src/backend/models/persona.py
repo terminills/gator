@@ -47,6 +47,37 @@ class ImageStyle(str, Enum):
     CINEMATIC = "cinematic"  # Movie/cinematic style
 
 
+class LinguisticRegister(str, Enum):
+    """Linguistic register for persona voice/speech patterns."""
+
+    BLUE_COLLAR = "blue_collar"  # Casual, working-class speech
+    ACADEMIC = "academic"  # Formal, scholarly speech
+    TECH_BRO = "tech_bro"  # Silicon Valley tech speak
+    STREET = "street"  # Urban slang and colloquialisms
+    CORPORATE = "corporate"  # Business jargon
+    SOUTHERN = "southern"  # Southern U.S. dialect
+    MILLENNIAL = "millennial"  # Millennial internet speak
+    GEN_Z = "gen_z"  # Gen Z chaotic and ironic
+
+
+class WarmthLevel(str, Enum):
+    """Warmth level for persona interaction style."""
+
+    COLD = "cold"  # Distant, professional
+    NEUTRAL = "neutral"  # Neither warm nor cold
+    WARM = "warm"  # Friendly, approachable
+    BUDDY = "buddy"  # Very friendly, like a best friend
+
+
+class PatienceLevel(str, Enum):
+    """Patience level for persona interaction style."""
+
+    SHORT_FUSE = "short_fuse"  # Quick to frustration
+    NORMAL = "normal"  # Average patience
+    PATIENT = "patient"  # Tolerant and understanding
+    INFINITE = "infinite"  # Never gets frustrated
+
+
 class PersonaModel(Base):
     """
     SQLAlchemy model for AI personas.
@@ -114,6 +145,76 @@ class PersonaModel(Base):
 
     is_active = Column(Boolean, default=True, index=True)
     generation_count = Column(Integer, default=0)
+
+    # ==================== PERSONA SOUL FIELDS ====================
+    # These fields capture the "soul" of the persona for human-like responses
+
+    # Origin & Demographics (The "Roots")
+    hometown = Column(
+        String(200), nullable=True
+    )  # e.g., "South Boston", "Rural Texas", "Silicon Valley"
+    current_location = Column(
+        String(200), nullable=True
+    )  # e.g., "Moved to Florida for taxes", "Studio apartment in NYC"
+    generation_age = Column(
+        String(100), nullable=True
+    )  # e.g., "Gen X - cynical and latchkey", "Boomer - traditional"
+    education_level = Column(
+        String(200), nullable=True
+    )  # e.g., "PhD in Physics", "School of Hard Knocks", "College dropout"
+
+    # Psychological Profile (The "Engine")
+    mbti_type = Column(
+        String(50), nullable=True
+    )  # e.g., "ESTP - The Entrepreneur", "INTJ - The Architect"
+    enneagram_type = Column(
+        String(50), nullable=True
+    )  # e.g., "Type 8 - The Challenger", "Type 4 - The Individualist"
+    political_alignment = Column(
+        String(100), nullable=True
+    )  # e.g., "Libertarian-leaning", "Old School Liberal", "Apolitical Nihilist"
+    risk_tolerance = Column(
+        String(100), nullable=True
+    )  # e.g., "Safety First", "Move fast and break things", "Hold my beer"
+    optimism_cynicism_scale = Column(
+        Integer, nullable=True
+    )  # 1-10 scale: 1=deeply cynical, 10=eternally optimistic
+
+    # Voice & Speech Patterns (The "Interface")
+    linguistic_register = Column(
+        String(50), default="blue_collar", nullable=False
+    )  # blue_collar, academic, tech_bro, street, corporate, southern, millennial, gen_z
+    typing_quirks = Column(
+        JSON, nullable=False, default=dict
+    )  # {"capitalization": "all lowercase", "emoji_usage": "ironic only", "punctuation": "uses ... a lot"}
+    signature_phrases = Column(
+        JSON, nullable=False, default=list
+    )  # ["That dog won't hunt", "Clown world", "Big oof", "Let's rock and roll"]
+    trigger_topics = Column(
+        JSON, nullable=False, default=list
+    )  # Topics that get them excited or angry: ["Taxes", "Crypto", "Bad drivers"]
+
+    # Backstory & Lore (The "Context")
+    day_job = Column(
+        String(200), nullable=True
+    )  # e.g., "Small business owner", "Shift manager", "Retired cop"
+    war_story = Column(
+        Text, nullable=True
+    )  # Defining life event: "Lost a fortune in 2008", "Built their own house"
+    vices_hobbies = Column(
+        JSON, nullable=False, default=list
+    )  # ["Cigars and Poker", "Video games and Energy drinks", "Gardening and gossip"]
+
+    # Anti-Pattern (What they are NOT)
+    forbidden_phrases = Column(
+        JSON, nullable=False, default=list
+    )  # Phrases this persona would NEVER say: ["I feel that", "Synergy", "Holistic", "Safe space"]
+    warmth_level = Column(
+        String(20), default="warm", nullable=False
+    )  # cold, neutral, warm, buddy
+    patience_level = Column(
+        String(20), default="normal", nullable=False
+    )  # short_fuse, normal, patient, infinite
 
     # Timestamps
     created_at = Column(
@@ -209,6 +310,105 @@ class PersonaCreate(BaseModel):
         description="Default quality level for content generation (draft, standard, hd, premium)",
     )
 
+    # ==================== PERSONA SOUL FIELDS ====================
+    # Origin & Demographics (The "Roots")
+    hometown: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        description="Where they're from (e.g., 'South Boston', 'Nashville, TN', 'Silicon Valley')",
+    )
+    current_location: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        description="Where they live now (e.g., 'Miami, FL for the weather and liberty')",
+    )
+    generation_age: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Generation/age context (e.g., 'Gen X - cynical and latchkey', 'Millennial - 24 years old')",
+    )
+    education_level: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        description="Education background (e.g., 'PhD in Physics', 'School of Hard Knocks', 'Liberal arts college dropout')",
+    )
+
+    # Psychological Profile (The "Engine")
+    mbti_type: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        description="MBTI type (e.g., 'ESTP - The Entrepreneur', 'INTJ - The Architect')",
+    )
+    enneagram_type: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        description="Enneagram type (e.g., 'Type 8 - The Challenger', 'Type 4 - The Individualist')",
+    )
+    political_alignment: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Political/social alignment (e.g., 'Right-leaning / Liberty-focused', 'Apolitical Nihilist')",
+    )
+    risk_tolerance: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Risk attitude (e.g., 'Safety First', 'Move fast and break things', 'Hold my beer')",
+    )
+    optimism_cynicism_scale: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=10,
+        description="1-10 scale: 1=deeply cynical, 10=eternally optimistic",
+    )
+
+    # Voice & Speech Patterns (The "Interface")
+    linguistic_register: LinguisticRegister = Field(
+        default=LinguisticRegister.BLUE_COLLAR,
+        description="Speech style (blue_collar, academic, tech_bro, street, corporate, southern, millennial, gen_z)",
+    )
+    typing_quirks: Dict[str, Any] = Field(
+        default={},
+        description="Typing style quirks: {capitalization: 'lowercase for aesthetic', emoji_usage: 'uses 🇺🇸💅😂', punctuation: 'occasional ALL CAPS'}",
+    )
+    signature_phrases: List[str] = Field(
+        default=[],
+        description="Phrases they use often (e.g., ['Based', 'Cringe', 'Y\\'all', 'Facts', 'Bet'])",
+    )
+    trigger_topics: List[str] = Field(
+        default=[],
+        description="Topics that get them excited or angry (e.g., ['Cancel culture', 'Gas prices', 'Crypto'])",
+    )
+
+    # Backstory & Lore (The "Context")
+    day_job: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        description="What they do for work (e.g., 'Political Commentator / Streamer', 'Small business owner')",
+    )
+    war_story: Optional[str] = Field(
+        default=None,
+        max_length=2000,
+        description="Defining life event (e.g., 'Started posting rants in her car and went viral')",
+    )
+    vices_hobbies: List[str] = Field(
+        default=[],
+        description="Vices and hobbies (e.g., ['Range days', 'Debating leftists on Twitter', 'Country concerts'])",
+    )
+
+    # Anti-Pattern (What they are NOT)
+    forbidden_phrases: List[str] = Field(
+        default=[],
+        description="Phrases this persona would NEVER say (e.g., ['I feel that', 'Synergy', 'As an AI'])",
+    )
+    warmth_level: WarmthLevel = Field(
+        default=WarmthLevel.WARM,
+        description="Interaction warmth (cold, neutral, warm, buddy)",
+    )
+    patience_level: PatienceLevel = Field(
+        default=PatienceLevel.NORMAL,
+        description="Patience level (short_fuse, normal, patient, infinite)",
+    )
+
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
@@ -301,6 +501,105 @@ class PersonaUpdate(BaseModel):
         None, description="Default quality level for content generation"
     )
 
+    # ==================== PERSONA SOUL FIELDS ====================
+    # Origin & Demographics (The "Roots")
+    hometown: Optional[str] = Field(
+        None,
+        max_length=200,
+        description="Where they're from",
+    )
+    current_location: Optional[str] = Field(
+        None,
+        max_length=200,
+        description="Where they live now",
+    )
+    generation_age: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Generation/age context",
+    )
+    education_level: Optional[str] = Field(
+        None,
+        max_length=200,
+        description="Education background",
+    )
+
+    # Psychological Profile (The "Engine")
+    mbti_type: Optional[str] = Field(
+        None,
+        max_length=50,
+        description="MBTI type",
+    )
+    enneagram_type: Optional[str] = Field(
+        None,
+        max_length=50,
+        description="Enneagram type",
+    )
+    political_alignment: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Political/social alignment",
+    )
+    risk_tolerance: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Risk attitude",
+    )
+    optimism_cynicism_scale: Optional[int] = Field(
+        None,
+        ge=1,
+        le=10,
+        description="1-10 scale: 1=cynical, 10=optimistic",
+    )
+
+    # Voice & Speech Patterns (The "Interface")
+    linguistic_register: Optional[LinguisticRegister] = Field(
+        None,
+        description="Speech style",
+    )
+    typing_quirks: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Typing style quirks",
+    )
+    signature_phrases: Optional[List[str]] = Field(
+        None,
+        description="Phrases they use often",
+    )
+    trigger_topics: Optional[List[str]] = Field(
+        None,
+        description="Topics that excite/anger them",
+    )
+
+    # Backstory & Lore (The "Context")
+    day_job: Optional[str] = Field(
+        None,
+        max_length=200,
+        description="What they do for work",
+    )
+    war_story: Optional[str] = Field(
+        None,
+        max_length=2000,
+        description="Defining life event",
+    )
+    vices_hobbies: Optional[List[str]] = Field(
+        None,
+        description="Vices and hobbies",
+    )
+
+    # Anti-Pattern (What they are NOT)
+    forbidden_phrases: Optional[List[str]] = Field(
+        None,
+        description="Phrases this persona would NEVER say",
+    )
+    warmth_level: Optional[WarmthLevel] = Field(
+        None,
+        description="Interaction warmth",
+    )
+    patience_level: Optional[PatienceLevel] = Field(
+        None,
+        description="Patience level",
+    )
+
     @field_validator("platform_restrictions")
     @classmethod
     def validate_platform_restrictions(
@@ -349,5 +648,35 @@ class PersonaResponse(BaseModel):
     video_types: List[str] = []
     nsfw_model_preference: Optional[str] = None
     generation_quality: str = "standard"
+
+    # ==================== PERSONA SOUL FIELDS ====================
+    # Origin & Demographics (The "Roots")
+    hometown: Optional[str] = None
+    current_location: Optional[str] = None
+    generation_age: Optional[str] = None
+    education_level: Optional[str] = None
+
+    # Psychological Profile (The "Engine")
+    mbti_type: Optional[str] = None
+    enneagram_type: Optional[str] = None
+    political_alignment: Optional[str] = None
+    risk_tolerance: Optional[str] = None
+    optimism_cynicism_scale: Optional[int] = None
+
+    # Voice & Speech Patterns (The "Interface")
+    linguistic_register: str = "blue_collar"
+    typing_quirks: Dict[str, Any] = {}
+    signature_phrases: List[str] = []
+    trigger_topics: List[str] = []
+
+    # Backstory & Lore (The "Context")
+    day_job: Optional[str] = None
+    war_story: Optional[str] = None
+    vices_hobbies: List[str] = []
+
+    # Anti-Pattern (What they are NOT)
+    forbidden_phrases: List[str] = []
+    warmth_level: str = "warm"
+    patience_level: str = "normal"
 
     model_config = {"from_attributes": True}
