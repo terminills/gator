@@ -183,6 +183,70 @@ In summary, the key takeaway is that this is important."""
         assert " ." not in result
         assert " !" not in result
 
+    def test_final_cleanup_removes_braille_spinners(self, humanizer):
+        """Test that final cleanup removes Braille pattern spinner characters."""
+        # These are the exact spinner characters mentioned in the issue
+        text = "Hello ⠙ ⠹ ⠸ ⠸ ⠼ ⠴ ⠦ ⠇ ⠏ ⠋ ⠋ ⠙ ⠸ there"
+        result = humanizer._final_cleanup(text)
+        
+        # All Braille characters should be removed
+        assert "⠙" not in result
+        assert "⠹" not in result
+        assert "⠸" not in result
+        assert "⠼" not in result
+        assert "⠴" not in result
+        assert "⠦" not in result
+        assert "⠇" not in result
+        assert "⠏" not in result
+        assert "⠋" not in result
+        # Text content should remain
+        assert "Hello" in result
+        assert "there" in result
+
+    def test_final_cleanup_removes_all_braille_patterns(self, humanizer):
+        """Test that all Braille Unicode block characters are removed."""
+        # Test various Braille pattern characters (U+2800-U+28FF range)
+        text = "Hello ⠀⠁⠂⠃⣾⣿ world"
+        result = humanizer._final_cleanup(text)
+        
+        # All Braille pattern characters should be removed
+        assert "⠀" not in result
+        assert "⠁" not in result
+        assert "⣾" not in result
+        assert "⣿" not in result
+        # Text content should remain
+        assert "Hello" in result
+        assert "world" in result
+
+    def test_final_cleanup_removes_progress_bar_chars(self, humanizer):
+        """Test that progress bar block characters are removed."""
+        text = "Loading ▁▂▃▄▅▆▇█ complete"
+        result = humanizer._final_cleanup(text)
+        
+        # Progress bar characters should be removed
+        assert "▁" not in result
+        assert "█" not in result
+        # Text content should remain
+        assert "Loading" in result
+        assert "complete" in result
+
+    def test_humanize_response_strips_spinner_artifacts(self, humanizer):
+        """Test that full humanization pipeline removes spinner artifacts from chat."""
+        # Simulate a chat response with spinner artifacts embedded
+        ai_response = "⠙ ⠹ ⠸ That sounds great! ⠴ ⠦ ⠧ What would you like to know?"
+        result = humanizer.humanize_response(ai_response)
+        
+        # Spinner artifacts should be gone
+        assert "⠙" not in result
+        assert "⠹" not in result
+        assert "⠸" not in result
+        assert "⠴" not in result
+        assert "⠦" not in result
+        assert "⠧" not in result
+        # Actual message content should remain
+        assert "sounds great" in result
+        assert "know" in result
+
     def test_get_humanizer_service_singleton(self):
         """Test that get_humanizer_service returns a singleton."""
         service1 = get_humanizer_service()
