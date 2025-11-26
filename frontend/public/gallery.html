@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gator AI - Your Feed</title>
+    <title>Gator - Your Feed</title>
     <style>
         * {
             margin: 0;
@@ -544,7 +544,7 @@
         <aside class="sidebar">
             <div class="logo">
                 <span class="logo-icon">🐊</span>
-                <span>Gator AI</span>
+                <span>Gator</span>
             </div>
             
             <nav>
@@ -610,7 +610,7 @@
                 <div class="composer-container">
                     <div class="composer-avatar">🎨</div>
                     <div class="composer-input">
-                        <textarea class="composer-textarea" rows="3" placeholder="What's happening with your AI creations?"></textarea>
+                        <textarea class="composer-textarea" rows="3" placeholder="What's happening with your creations?"></textarea>
                         <div class="composer-actions">
                             <div class="composer-icons">
                                 <button class="composer-icon-btn" title="Add media">🖼️</button>
@@ -673,7 +673,7 @@
                     feedContainer.innerHTML = personas.map(persona => {
                         const style = persona.image_style || persona.visual_style || 'artistic';
                         const username = persona.name.toLowerCase().replace(/\s+/g, '_');
-                        const bio = persona.bio || 'AI content creator';
+                        const bio = persona.bio || 'Content creator';
                         
                         return `
                             <div class="post">
@@ -713,9 +713,9 @@
                 if (contents.length === 0) {
                     feedContainer.innerHTML = `
                         <div class="loading">
-                            No content generated yet. 
+                            No content created yet. 
                             <br><br>
-                            <a href="/admin" style="color: #1d9bf0;">Visit the admin panel</a> to create your first persona and generate content!
+                            <a href="/admin" style="color: #1d9bf0;">Visit the admin panel</a> to create your first persona and create content!
                         </div>
                     `;
                     return;
@@ -729,12 +729,12 @@
                 
                 const feedHTML = contents.map(content => {
                     const persona = personaMap[content.persona_id] || { 
-                        name: content.persona_name || 'AI Creator',
+                        name: content.persona_name || 'Creator',
                         style: 'artistic'
                     };
                     
                     const personaStyle = persona.visual_style || persona.style || 'artistic';
-                    const personaName = persona.name || 'AI Creator';
+                    const personaName = persona.name || 'Creator';
                     const username = personaName.toLowerCase().replace(/\s+/g, '_');
                     
                     return `
@@ -752,7 +752,7 @@
                                     <div class="post-text">${content.prompt || generatePostText(persona)}</div>
                                     ${content.file_path ? `
                                         <div class="post-media">
-                                            <img src="${content.file_path}" alt="Generated content" style="width: 100%; border-radius: 16px; margin-top: 12px;" />
+                                            <img src="${content.file_path}" alt="Created content" style="width: 100%; border-radius: 16px; margin-top: 12px;" />
                                         </div>
                                     ` : `
                                         <div class="post-media">
@@ -942,9 +942,9 @@
             // Fallback templates if no themes or bio
             if (templates.length === 0) {
                 templates.push(
-                    'Creating amazing AI content! 🎨',
+                    'Creating amazing content! 🎨',
                     'New creation just dropped! ✨',
-                    'Exploring the boundaries of AI creativity! 🚀'
+                    'Exploring the boundaries of creativity! 🚀'
                 );
             }
             
@@ -1065,7 +1065,7 @@
                 
                 const responses = [
                     `That's an interesting thought! I'd love to explore that further.`,
-                    `Thanks for sharing! As an AI creator, I'm always inspired by conversations like this.`,
+                    `Thanks for sharing! As a creator, I'm always inspired by conversations like this.`,
                     `Great question! Let me think about that from my creative perspective...`,
                     `I appreciate you reaching out! What aspect interests you most?`
                 ];

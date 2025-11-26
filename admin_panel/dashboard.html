@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Platform Control - Gator AI</title>
+    <title>Platform Control - Gator</title>
     <style>
         :root {
             --primary: #667eea;
@@ -447,7 +447,7 @@
         <div class="sidebar-header">
             <div class="logo">
                 <span class="logo-icon" id="brand-icon">🐊</span>
-                <span id="brand-name">AI Platform</span>
+                <span id="brand-name">Platform</span>
             </div>
             
             <div class="tenant-selector" onclick="switchTenant()">
@@ -583,7 +583,7 @@
                         <span class="stat-trend trend-up">↑ 28%</span>
                     </div>
                     <div class="stat-value" id="stat-content">-</div>
-                    <div class="stat-label">Generated Content</div>
+                    <div class="stat-label">Created Content</div>
                 </div>
                 
                 <div class="stat-card">
@@ -592,7 +592,7 @@
                         <span class="stat-trend trend-up">↑ 5%</span>
                     </div>
                     <div class="stat-value" id="stat-models">-</div>
-                    <div class="stat-label">AI Models Available</div>
+                    <div class="stat-label">Models Available</div>
                 </div>
                 
                 <div class="stat-card">
@@ -618,7 +618,7 @@
                     </div>
                     <div class="action-card" onclick="generateContent()">
                         <div class="action-icon">🎨</div>
-                        <div class="action-title">Generate Content</div>
+                        <div class="action-title">Create Content</div>
                         <div class="action-desc">Create now</div>
                     </div>
                     <div class="action-card" onclick="location.href='/admin/rss'">
@@ -655,10 +655,10 @@
                 const response = await fetch('/api/v1/branding');
                 const branding = await response.json();
                 
-                document.getElementById('brand-name').textContent = branding.site_name || 'AI Platform';
+                document.getElementById('brand-name').textContent = branding.site_name || 'Platform';
                 document.getElementById('brand-icon').textContent = branding.icon || '🐊';
                 document.getElementById('tenant-name').textContent = branding.instance_name || 'My Instance';
-                document.title = `Control Center - ${branding.site_name || 'AI Platform'}`;
+                document.title = `Control Center - ${branding.site_name || 'Platform'}`;
             } catch (e) {
                 // Fallback to defaults if branding endpoint doesn't exist
                 console.log('Using default branding');
@@ -803,17 +803,17 @@
                         persona_id: randomPersona.id,
                         content_type: 'image',
                         content_rating: contentRating,
-                        prompt: 'Generate trending content based on RSS feeds and persona style'
+                        prompt: 'Create trending content based on RSS feeds and persona style'
                     })
                 });
                 
                 if (response.ok) {
-                    alert(`✅ Content generation started for ${randomPersona.name} (${contentRating})!`);
+                    alert(`✅ Content creation started for ${randomPersona.name} (${contentRating})!`);
                     setTimeout(loadDashboard, 2000);
                 }
             } catch (error) {
-                console.error('Generation error:', error);
-                alert('❌ Failed to generate content');
+                console.error('Creation error:', error);
+                alert('❌ Failed to create content');
             }
         }
         
