@@ -217,6 +217,29 @@ class CivitAIClient:
             # Get version details to find download URL
             version_info = await self.get_model_version(model_version_id)
             
+            # Extract model metadata for detailed logging
+            model_info = version_info.get("model", {})
+            model_name = model_info.get("name", "Unknown")
+            is_nsfw = model_info.get("nsfw", False)
+            
+            # Check for access requirements that might cause 401 errors
+            # CivitAI models can have various access restrictions
+            availability = version_info.get("availability", "Public")
+            early_access_deadline = version_info.get("earlyAccessEndsAt")
+            requires_auth = early_access_deadline is not None or availability != "Public"
+            
+            # Log detailed authentication and model information
+            logger.info(f"🔍 CivitAI Download Request Details:")
+            logger.info(f"   Model: {model_name}")
+            logger.info(f"   Version ID: {model_version_id}")
+            logger.info(f"   NSFW: {is_nsfw}")
+            logger.info(f"   Availability: {availability}")
+            if early_access_deadline:
+                logger.info(f"   Early Access Until: {early_access_deadline}")
+            logger.info(f"   API Key Configured: {'Yes' if self.api_key else 'NO - This may cause 401 errors!'}")
+            if requires_auth and not self.api_key:
+                logger.warning(f"   ⚠️  This model may require authentication (early access or restricted)")
+            
             # Find the appropriate file to download
             files = version_info.get("files", [])
             if not files:
@@ -232,23 +255,40 @@ class CivitAIClient:
             file_info = files[0]
             download_url = file_info.get("downloadUrl")
             
+            # Log file-specific access information
+            # Some files have their own access restrictions
+            file_visibility = file_info.get("visibility", "Public")
+            logger.info(f"   File Visibility: {file_visibility}")
+            
             if not download_url:
                 # Construct download URL manually
                 download_url = f"{CIVITAI_CDN_BASE}/{model_version_id}"
                 if file_type:
                     download_url += f"?type={file_type}"
+                logger.info(f"   Download URL: Constructed manually (no downloadUrl in file info)")
+            else:
+                logger.info(f"   Download URL: Using provided downloadUrl from API")
             
             # Add API key to download URL if available
+            # Per CivitAI docs: token can be passed as query param OR Authorization header
+            # We do BOTH for maximum compatibility
             if self.api_key:
                 separator = "&" if "?" in download_url else "?"
                 download_url += f"{separator}token={self.api_key}"
+                logger.info(f"   Authentication: Token added to URL + Authorization header")
+            else:
+                logger.warning(f"   ⚠️  Authentication: NO API KEY - Downloads may fail for restricted models!")
+                logger.warning(f"   ⚠️  To fix: Add your CivitAI API key in Settings")
+            
+            # Log the download URL (redact token for security)
+            safe_url = re.sub(r'token=[^&]+', 'token=***REDACTED***', download_url)
+            logger.info(f"   Request URL: {safe_url}")
             
             # Get filename from file info, or generate one from model name
             filename = file_info.get("name")
             if not filename:
                 # Use model name for the filename instead of just version ID
-                model_name = version_info.get("model", {}).get("name", "")
-                if model_name:
+                if model_name and model_name != "Unknown":
                     # Sanitize model name to be filesystem-safe
                     safe_name = re.sub(r'[<>:"/\\|?*]', '', model_name)  # Remove invalid chars
                     safe_name = safe_name.strip()
@@ -270,24 +310,53 @@ class CivitAIClient:
             # Enable follow_redirects to handle 307 redirects from CivitAI to Cloudflare storage
             # IMPORTANT: Include Authorization header for NSFW models that require authentication
             async with httpx.AsyncClient(timeout=None, follow_redirects=True) as client:
-                async with client.stream("GET", download_url, headers=self._get_headers()) as response:
-                    response.raise_for_status()
+                try:
+                    async with client.stream("GET", download_url, headers=self._get_headers()) as response:
+                        # Log response status for debugging
+                        logger.info(f"   HTTP Response: {response.status_code}")
+                        response.raise_for_status()
+                        
+                        total_size = int(response.headers.get("content-length", 0))
+                        downloaded_size = 0
+                        
+                        with open(output_file, "wb") as f:
+                            async for chunk in response.aiter_bytes(chunk_size=8192):
+                                f.write(chunk)
+                                downloaded_size += len(chunk)
+                                
+                                if progress_callback:
+                                    progress_callback(downloaded_size, total_size)
+                                
+                                # Log progress every 10% (avoid division by zero for small files)
+                                if total_size > 10 and downloaded_size % (total_size // 10) < 8192:
+                                    progress_pct = (downloaded_size / total_size) * 100
+                                    logger.info(f"   Progress: {progress_pct:.1f}%")
+                except httpx.HTTPStatusError as http_err:
+                    # Provide detailed error information for debugging
+                    status_code = http_err.response.status_code
+                    logger.error(f"❌ HTTP Error {status_code} during download")
+                    logger.error(f"   URL: {safe_url}")
                     
-                    total_size = int(response.headers.get("content-length", 0))
-                    downloaded_size = 0
+                    if status_code == 401:
+                        logger.error("   🔐 401 Unauthorized - Authentication required!")
+                        logger.error("   Possible causes:")
+                        if not self.api_key:
+                            logger.error("   1. No CivitAI API key configured - Add your API key in Settings")
+                        else:
+                            logger.error("   1. API key may be invalid or expired - Check your CivitAI API key")
+                        logger.error("   2. Model may require you to accept terms on CivitAI website first")
+                        logger.error("   3. Model may be early access or require special permissions")
+                        logger.error("   4. Your CivitAI account may not have access to this model")
+                        logger.error(f"   Model NSFW status: {is_nsfw}")
+                        logger.error(f"   Model availability: {availability}")
+                    elif status_code == 403:
+                        logger.error("   🚫 403 Forbidden - Access denied!")
+                        logger.error("   The model may be restricted or your account lacks permissions")
+                    elif status_code == 404:
+                        logger.error("   🔍 404 Not Found - Model file not found")
+                        logger.error("   The model version may have been removed or the URL is incorrect")
                     
-                    with open(output_file, "wb") as f:
-                        async for chunk in response.aiter_bytes(chunk_size=8192):
-                            f.write(chunk)
-                            downloaded_size += len(chunk)
-                            
-                            if progress_callback:
-                                progress_callback(downloaded_size, total_size)
-                            
-                            # Log progress every 10% (avoid division by zero for small files)
-                            if total_size > 10 and downloaded_size % (total_size // 10) < 8192:
-                                progress_pct = (downloaded_size / total_size) * 100
-                                logger.info(f"   Progress: {progress_pct:.1f}%")
+                    raise
             
             logger.info(f"✅ Downloaded successfully to {output_file}")
             

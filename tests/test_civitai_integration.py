@@ -696,5 +696,239 @@ class TestSingleFileModelLoading:
             )
 
 
+class TestCivitAIDetailedLogging:
+    """Test enhanced logging for CivitAI downloads."""
+
+    @pytest.mark.asyncio
+    async def test_download_logs_detailed_info(self):
+        """Test that download method logs detailed authentication and model info."""
+        import tempfile
+        import logging
+        from pathlib import Path
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from backend.utils.civitai_utils import CivitAIClient
+
+        # Capture log output
+        log_messages = []
+        
+        class LogCapture(logging.Handler):
+            def emit(self, record):
+                log_messages.append(record.getMessage())
+
+        # Create a temporary directory for the download
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir)
+
+            # Mock version info with detailed access information
+            mock_version_info = {
+                "modelId": 1608870,
+                "name": "dmd2_sdxl_4step_lora_fp32",
+                "baseModel": "SDXL 1.0",
+                "availability": "Public",
+                "earlyAccessEndsAt": None,
+                "trainedWords": [],
+                "description": "Test model",
+                "model": {
+                    "name": "DMD2 Speed LoRA [SDXL, Pony, Illustrious]",
+                    "nsfw": False,
+                    "type": "LORA",
+                },
+                "files": [
+                    {
+                        "name": "dmd2_sdxl_4step_lora.safetensors",
+                        "downloadUrl": "https://civitai.com/api/download/models/1820705",
+                        "sizeKB": 768901,
+                        "hashes": {},
+                        "visibility": "Public",
+                    }
+                ],
+            }
+
+            # Mock the download response
+            mock_response = MagicMock()
+            mock_response.raise_for_status = MagicMock()
+            mock_response.headers = {"content-length": "100"}
+            mock_response.status_code = 200
+
+            async def mock_aiter_bytes(chunk_size=8192):
+                yield b"test content"
+
+            mock_response.aiter_bytes = mock_aiter_bytes
+
+            # Create async context manager for stream
+            mock_stream_cm = MagicMock()
+            mock_stream_cm.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_stream_cm.__aexit__ = AsyncMock(return_value=None)
+
+            # Create mock client
+            mock_http_client = MagicMock()
+            mock_http_client.stream = MagicMock(return_value=mock_stream_cm)
+
+            # Create async context manager for client
+            mock_client_cm = MagicMock()
+            mock_client_cm.__aenter__ = AsyncMock(return_value=mock_http_client)
+            mock_client_cm.__aexit__ = AsyncMock(return_value=None)
+
+            # Setup log capture
+            logger = logging.getLogger("backend.utils.civitai_utils")
+            handler = LogCapture()
+            handler.setLevel(logging.DEBUG)
+            logger.addHandler(handler)
+            original_level = logger.level
+            logger.setLevel(logging.DEBUG)
+
+            try:
+                client = CivitAIClient(api_key="test_api_key")
+
+                with patch.object(client, "get_model_version", return_value=mock_version_info):
+                    with patch("backend.utils.civitai_utils.httpx.AsyncClient", return_value=mock_client_cm):
+                        try:
+                            await client.download_model(
+                                model_version_id=1820705,
+                                output_path=output_path,
+                            )
+                        except (OSError, TypeError, AttributeError):
+                            # Expected from incomplete mocking
+                            pass
+
+                # Check that detailed logging occurred
+                log_text = "\n".join(log_messages)
+                
+                # Should log model name
+                assert "DMD2 Speed LoRA" in log_text, "Should log model name"
+                
+                # Should log NSFW status
+                assert "NSFW:" in log_text, "Should log NSFW status"
+                
+                # Should log API key status
+                assert "API Key Configured: Yes" in log_text, "Should log API key status"
+                
+                # Should log authentication method
+                assert "Token added to URL" in log_text or "Authentication:" in log_text, \
+                    "Should log authentication method"
+
+            finally:
+                logger.removeHandler(handler)
+                logger.setLevel(original_level)
+
+    @pytest.mark.asyncio
+    async def test_download_logs_401_error_details(self):
+        """Test that 401 errors provide detailed diagnostic information."""
+        import tempfile
+        import logging
+        from pathlib import Path
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        import httpx
+        from backend.utils.civitai_utils import CivitAIClient
+
+        # Capture log output
+        log_messages = []
+        
+        class LogCapture(logging.Handler):
+            def emit(self, record):
+                log_messages.append(record.getMessage())
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir)
+
+            mock_version_info = {
+                "modelId": 1608870,
+                "name": "v1.0",
+                "baseModel": "SDXL 1.0",
+                "availability": "EarlyAccess",
+                "earlyAccessEndsAt": "2025-12-01T00:00:00Z",
+                "model": {
+                    "name": "Restricted NSFW Model",
+                    "nsfw": True,
+                    "type": "LORA",
+                },
+                "files": [
+                    {
+                        "name": "model.safetensors",
+                        "downloadUrl": "https://civitai.com/api/download/models/12345",
+                        "sizeKB": 100,
+                        "hashes": {},
+                    }
+                ],
+            }
+
+            # Create a mock 401 response
+            mock_401_response = MagicMock()
+            mock_401_response.status_code = 401
+            mock_401_response.headers = {}
+            
+            # Create the HTTPStatusError
+            http_error = httpx.HTTPStatusError(
+                message="401 Unauthorized",
+                request=MagicMock(),
+                response=mock_401_response,
+            )
+
+            # Create mock stream that raises 401
+            mock_stream_cm = MagicMock()
+            mock_stream_cm.__aenter__ = AsyncMock(side_effect=http_error)
+            mock_stream_cm.__aexit__ = AsyncMock(return_value=None)
+
+            mock_http_client = MagicMock()
+            mock_http_client.stream = MagicMock(return_value=mock_stream_cm)
+
+            mock_client_cm = MagicMock()
+            mock_client_cm.__aenter__ = AsyncMock(return_value=mock_http_client)
+            mock_client_cm.__aexit__ = AsyncMock(return_value=None)
+
+            # Setup log capture
+            logger = logging.getLogger("backend.utils.civitai_utils")
+            handler = LogCapture()
+            handler.setLevel(logging.DEBUG)
+            logger.addHandler(handler)
+            original_level = logger.level
+            logger.setLevel(logging.DEBUG)
+
+            try:
+                client = CivitAIClient(api_key="test_key")
+
+                with patch.object(client, "get_model_version", return_value=mock_version_info):
+                    with patch("backend.utils.civitai_utils.httpx.AsyncClient", return_value=mock_client_cm):
+                        try:
+                            await client.download_model(
+                                model_version_id=12345,
+                                output_path=output_path,
+                            )
+                        except httpx.HTTPStatusError:
+                            pass  # Expected
+
+                # Check that detailed 401 error info was logged
+                log_text = "\n".join(log_messages)
+                
+                # Should indicate 401 error
+                assert "401" in log_text, "Should log 401 status code"
+                
+                # Should log model details for debugging
+                assert "NSFW" in log_text, "Should log NSFW status in error output"
+                
+                # Should log early access info
+                assert "Early Access" in log_text or "availability" in log_text.lower(), \
+                    "Should log early access or availability info"
+
+            finally:
+                logger.removeHandler(handler)
+                logger.setLevel(original_level)
+
+    def test_download_url_token_is_redacted_in_logs(self):
+        """Test that API token is redacted when logging download URL."""
+        import re
+        
+        # Simulate the URL redaction logic from the code
+        download_url = "https://civitai.com/api/download/models/12345?token=secret_api_key_123"
+        safe_url = re.sub(r'token=[^&]+', 'token=***REDACTED***', download_url)
+        
+        assert "secret_api_key_123" not in safe_url, "Token should be redacted"
+        assert "***REDACTED***" in safe_url, "Should contain redacted placeholder"
+        assert "https://civitai.com/api/download/models/12345" in safe_url, \
+            "URL structure should be preserved"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

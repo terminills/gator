@@ -726,6 +726,12 @@ CURRENT PERSONAS IN THE SYSTEM ({len(personas_info)} total):
             output.append(f"[STEP 1] Fetching model info for ID: {model_id}")
             client = CivitAIClient(api_key=api_key)
             
+            # Log API key status for diagnostics
+            if api_key:
+                output.append(f"  🔑 API Key: Configured")
+            else:
+                output.append(f"  ⚠️  API Key: NOT CONFIGURED - This may cause download failures!")
+            
             # Get model details
             model_info = await client.get_model_details(model_id)
             
@@ -752,8 +758,16 @@ CURRENT PERSONAS IN THE SYSTEM ({len(personas_info)} total):
             version_id = latest_version.get("id")
             version_name = latest_version.get("name", "Unknown")
             
+            # Check for access restrictions
+            availability = latest_version.get("availability", "Public")
+            early_access = latest_version.get("earlyAccessEndsAt")
+            
             output.append(f"[STEP 2] Downloading version: {version_name}")
             output.append(f"  Version ID: {version_id}")
+            output.append(f"  Availability: {availability}")
+            if early_access:
+                output.append(f"  ⚠️  Early Access until: {early_access}")
+                output.append(f"  Note: Early access models require a valid API key and may require special permissions")
             
             # Download the model
             start_time = datetime.now()
@@ -774,8 +788,40 @@ CURRENT PERSONAS IN THE SYSTEM ({len(personas_info)} total):
             output.append("[SUCCESS] 🎉 Model installed! Restart may be required to load it.")
                 
         except Exception as e:
-            output.append(f"[ERROR] Model installation failed: {str(e)}")
-            output.append("[TIP] Make sure you have a CivitAI API key configured in Settings.")
+            error_msg = str(e)
+            output.append(f"[ERROR] Model installation failed: {error_msg}")
+            output.append("")
+            
+            # Provide more specific guidance based on error type
+            if "401" in error_msg or "Unauthorized" in error_msg:
+                output.append("[DIAGNOSTICS] 401 Unauthorized Error")
+                output.append("  This usually means authentication is required or failed.")
+                output.append("")
+                output.append("  Possible solutions:")
+                output.append("  1. Add your CivitAI API key in Settings")
+                output.append("  2. Check if your API key is valid and not expired")
+                output.append("  3. Visit the model page on CivitAI and accept any terms/agreements")
+                output.append("  4. Ensure your CivitAI account has access to download this model")
+                output.append("  5. Some models may be early access or require special permissions")
+            elif "403" in error_msg or "Forbidden" in error_msg:
+                output.append("[DIAGNOSTICS] 403 Forbidden Error")
+                output.append("  Access to this model is denied.")
+                output.append("")
+                output.append("  Possible solutions:")
+                output.append("  1. The model may be restricted to certain users")
+                output.append("  2. Your CivitAI account may lack required permissions")
+                output.append("  3. Visit the model page on CivitAI to check access requirements")
+            elif "404" in error_msg or "Not Found" in error_msg:
+                output.append("[DIAGNOSTICS] 404 Not Found Error")
+                output.append("  The model or version was not found.")
+                output.append("")
+                output.append("  Possible solutions:")
+                output.append("  1. Double-check the model ID")
+                output.append("  2. The model may have been removed from CivitAI")
+                output.append("  3. Try searching for the model by name instead")
+            else:
+                output.append("[TIP] Make sure you have a CivitAI API key configured in Settings.")
+                output.append("[TIP] Check server logs for more detailed error information.")
         
         return "\n".join(output)
     
