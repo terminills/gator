@@ -1040,7 +1040,7 @@ class AIModelManager:
                         "display_name": model_name,
                         "type": model_capabilities["type"],
                         "model_type": model_type,  # CivitAI model type (Checkpoint, LORA, etc.)
-                        "model_id": f"civitai:{model_id}" if model_id else model_file.stem,
+                        "model_id": f"civitai:{model_id}" if model_id else f"civitai:{model_file.stem}",
                         "provider": "local",
                         "source": "civitai",
                         "inference_engine": inference_engine,
@@ -1378,7 +1378,10 @@ class AIModelManager:
             for model in civitai_models:
                 trained_words = model.get("trained_words", [])
                 for trigger_word in trained_words:
-                    if trigger_word.lower() in prompt_lower:
+                    # Use word boundary matching to avoid false positives
+                    # e.g., "art" should not match "heart" or "party"
+                    pattern = r'\b' + re.escape(trigger_word.lower()) + r'\b'
+                    if re.search(pattern, prompt_lower):
                         logger.info(
                             f"🎯 Model selection: {model.get('display_name', model['name'])} "
                             f"(reason: CivitAI trigger word '{trigger_word}' found in prompt)"

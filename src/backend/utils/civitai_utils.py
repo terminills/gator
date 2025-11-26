@@ -314,7 +314,23 @@ class CivitAIClient:
                 "trained_words": version_info.get("trainedWords", []),
                 "license": version_info.get("model", {}).get("allowCommercialUse"),
                 "nsfw": version_info.get("model", {}).get("nsfw", False),
+                "type": version_info.get("model", {}).get("type", "Checkpoint"),
+                "description": version_info.get("description", ""),
             }
+            
+            # Save metadata file alongside the model
+            # This enables AIModelManager to detect and register the model
+            metadata_filename = output_file.stem + "_metadata.json"
+            metadata_file = output_path / metadata_filename
+            
+            try:
+                import json
+                with open(metadata_file, "w") as f:
+                    json.dump(metadata, f, indent=2)
+                logger.info(f"   📄 Metadata saved to {metadata_file}")
+            except Exception as meta_error:
+                logger.warning(f"   ⚠️ Failed to save metadata file: {meta_error}")
+                # Don't fail the download if metadata save fails
             
             return output_file, metadata
             
