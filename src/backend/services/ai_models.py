@@ -51,6 +51,10 @@ NSFW_MODEL_KEYWORDS = [
 # Model 1257570 is the preferred NSFW/anatomy model
 PREFERRED_CIVITAI_VERSION_ID = 1257570
 
+# Default guidance scale values for different model types
+DEFAULT_GUIDANCE_SCALE = 7.5  # Standard SD/SDXL guidance
+DEFAULT_FLUX_GUIDANCE_SCALE = 3.5  # FLUX models use lower guidance
+
 
 # Compile ANSI escape sequence pattern once at module level for performance
 # Pattern matches common ANSI escape sequences:
@@ -87,7 +91,7 @@ def strip_ansi_codes(text: str) -> str:
     return _ANSI_ESCAPE_PATTERN.sub("", text)
 
 
-def disable_safety_checker(pipe) -> bool:
+def disable_safety_checker(pipe: Any) -> bool:
     """
     Disable the safety checker on a diffusion pipeline for NSFW content generation.
     
@@ -95,7 +99,7 @@ def disable_safety_checker(pipe) -> bool:
     block or blur adult content in generated images.
     
     Args:
-        pipe: A diffusers pipeline instance
+        pipe: A diffusers pipeline instance (any DiffusionPipeline subclass)
         
     Returns:
         bool: True if safety checker was disabled, False if not present
@@ -2721,9 +2725,7 @@ class AIModelManager:
             width = kwargs.get("width", 1024)
             height = kwargs.get("height", 1024)
             num_inference_steps = kwargs.get("num_inference_steps", 20)
-            guidance_scale = kwargs.get(
-                "guidance_scale", 7.5
-            )  # Standard guidance, will adjust for specific models
+            guidance_scale = kwargs.get("guidance_scale", DEFAULT_GUIDANCE_SCALE)
             seed = kwargs.get("seed", None)
             if seed is None:
                 seed = int(time.time() * 1000) % (2**32)
@@ -2756,16 +2758,15 @@ class AIModelManager:
             
             # If no specific checkpoint, prefer NSFW/realistic models (new requirement)
             if not ckpt_name and available_checkpoints:
-                # Keywords for NSFW/anatomy-focused models (preferred by default)
-                for ckpt in available_checkpoints:
-                    ckpt_lower = ckpt.lower()
-                    for keyword in NSFW_MODEL_KEYWORDS:
-                        if keyword in ckpt_lower:
-                            ckpt_name = ckpt
-                            logger.info(f"Selected NSFW/anatomy-focused checkpoint: {ckpt_name}")
-                            break
-                    if ckpt_name:
-                        break
+                # Find first checkpoint matching any NSFW keyword
+                nsfw_checkpoint = next(
+                    (ckpt for ckpt in available_checkpoints 
+                     if any(keyword in ckpt.lower() for keyword in NSFW_MODEL_KEYWORDS)),
+                    None
+                )
+                if nsfw_checkpoint:
+                    ckpt_name = nsfw_checkpoint
+                    logger.info(f"Selected NSFW/anatomy-focused checkpoint: {ckpt_name}")
             
             # Fall back to first available checkpoint
             if not ckpt_name and available_checkpoints:
@@ -2780,9 +2781,9 @@ class AIModelManager:
             # Determine if this is a FLUX model (needs different workflow)
             is_flux_model = "flux" in ckpt_name.lower() or "flux" in model.get("name", "").lower()
             
-            # Adjust guidance scale based on model type
+            # Adjust guidance scale based on model type (only if not user-specified)
             if is_flux_model and "guidance_scale" not in kwargs:
-                guidance_scale = 3.5  # FLUX uses lower guidance by default
+                guidance_scale = DEFAULT_FLUX_GUIDANCE_SCALE
             
             # Create appropriate workflow based on model type
             # CheckpointLoaderSimple outputs: MODEL (index 0), CLIP (index 1), VAE (index 2)

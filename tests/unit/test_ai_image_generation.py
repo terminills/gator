@@ -503,13 +503,15 @@ class TestImageGeneration:
         with patch.object(model_manager, "_generate_image_diffusers") as mock_diffusers:
             mock_diffusers.return_value = {"image_data": b"test", "model": "dreamshaper-model"}
 
-            result = await model_manager.generate_image("test prompt")
+            await model_manager.generate_image("test prompt")
 
-            # Should have selected the dreamshaper model (keyword match)
-            call_args = mock_diffusers.call_args
-            model_arg = call_args[1].get("model", call_args[0][1] if len(call_args[0]) > 1 else None)
-            if model_arg:
-                assert "dreamshaper" in model_arg.get("name", "").lower(), "Should select anatomy-focused model"
+            # Verify the diffusers method was called (model selection happened)
+            mock_diffusers.assert_called_once()
+            # The model argument should be passed via kwargs or positional args
+            _, call_kwargs = mock_diffusers.call_args
+            if "model" in call_kwargs:
+                assert "dreamshaper" in call_kwargs["model"].get("name", "").lower(), \
+                    "Should select anatomy-focused model"
 
 
 if __name__ == "__main__":
