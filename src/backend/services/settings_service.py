@@ -311,3 +311,30 @@ class SettingsService:
 
         # Create new
         return await self.create_setting(setting_data)
+
+
+async def get_db_setting(key: str) -> Optional[Any]:
+    """
+    Get a setting value from the database.
+    
+    This is a convenience function that can be used outside of FastAPI
+    dependency injection context. It creates its own database session.
+    
+    Args:
+        key: Setting key to retrieve
+        
+    Returns:
+        Setting value if found, None otherwise
+    """
+    from backend.database.connection import database_manager
+    
+    try:
+        async with database_manager.get_session() as session:
+            service = SettingsService(session)
+            setting = await service.get_setting(key)
+            if setting:
+                return setting.value
+            return None
+    except Exception as e:
+        logger.error(f"Error getting setting {key} from database: {e}")
+        return None

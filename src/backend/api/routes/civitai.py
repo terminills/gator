@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from backend.config.logging import get_logger
 from backend.config.settings import get_settings
+from backend.services.settings_service import get_db_setting
 from backend.utils.civitai_utils import (
     CivitAIClient,
     list_civitai_models,
@@ -148,15 +149,14 @@ async def list_models(
     The response metadata will contain 'nextCursor' for the next page of results.
     """
     try:
-        # Get CivitAI API key from settings
-        settings = get_settings()
-        api_key = getattr(settings, "civitai_api_key", None)
+        # Get CivitAI API key from database settings (stored via admin panel)
+        api_key = await get_db_setting("civitai_api_key")
         
-        # Check NSFW preference - default to True for private server mode
-        # First check environment settings, defaults to True for private server
-        allow_nsfw = getattr(settings, "civitai_allow_nsfw", True)
+        # Check NSFW preference from database, default to True for private server mode
+        allow_nsfw = await get_db_setting("civitai_allow_nsfw")
+        if allow_nsfw is None:
+            allow_nsfw = True  # Default to True for private server
         
-        # Note: Database settings will be checked by the settings service
         # For private server, NSFW is enabled by default
         if not allow_nsfw and nsfw:
             raise HTTPException(
@@ -219,8 +219,8 @@ async def get_model_details(model_id: int):
     Returns model details including all versions, files, and metadata.
     """
     try:
-        settings = get_settings()
-        api_key = getattr(settings, "civitai_api_key", None)
+        # Get CivitAI API key from database settings
+        api_key = await get_db_setting("civitai_api_key")
         
         client = CivitAIClient(api_key=api_key)
         model_info = await client.get_model_details(model_id)
@@ -243,8 +243,8 @@ async def get_model_version(version_id: int):
     Returns version details including download URLs and file information.
     """
     try:
-        settings = get_settings()
-        api_key = getattr(settings, "civitai_api_key", None)
+        # Get CivitAI API key from database settings
+        api_key = await get_db_setting("civitai_api_key")
         
         client = CivitAIClient(api_key=api_key)
         version_info = await client.get_model_version(version_id)
@@ -267,11 +267,13 @@ async def download_model(request: CivitAIDownloadRequest):
     Downloads the specified model version and saves metadata for tracking.
     """
     try:
-        settings = get_settings()
-        api_key = getattr(settings, "civitai_api_key", None)
+        # Get CivitAI API key from database settings
+        api_key = await get_db_setting("civitai_api_key")
         
-        # Check NSFW settings - default to True for private server mode
-        allow_nsfw = getattr(settings, "civitai_allow_nsfw", True)
+        # Check NSFW settings from database - default to True for private server mode
+        allow_nsfw = await get_db_setting("civitai_allow_nsfw")
+        if allow_nsfw is None:
+            allow_nsfw = True  # Default to True for private server
         
         # Get model info to check NSFW status
         client = CivitAIClient(api_key=api_key)
@@ -284,8 +286,12 @@ async def download_model(request: CivitAIDownloadRequest):
                 detail="NSFW models are disabled in settings"
             )
         
-        # Determine output directory
-        models_path = Path(getattr(settings, "ai_model_path", "./models"))
+        # Determine output directory - get ai_model_path from database or use default
+        settings = get_settings()
+        ai_model_path = await get_db_setting("ai_model_path")
+        if ai_model_path is None:
+            ai_model_path = getattr(settings, "ai_model_path", "./models")
+        models_path = Path(ai_model_path)
         
         if request.output_directory:
             output_dir = models_path / request.output_directory
@@ -330,8 +336,12 @@ async def list_local_civitai_models():
     Returns list of downloaded models with metadata and usage tracking info.
     """
     try:
+        # Get ai_model_path from database or use default
         settings = get_settings()
-        models_path = Path(getattr(settings, "ai_model_path", "./models"))
+        ai_model_path = await get_db_setting("ai_model_path")
+        if ai_model_path is None:
+            ai_model_path = getattr(settings, "ai_model_path", "./models")
+        models_path = Path(ai_model_path)
         civitai_dir = models_path / "civitai"
         
         if not civitai_dir.exists():
