@@ -193,9 +193,9 @@ async def add_personas_appearance_columns(conn, is_sqlite: bool) -> List[str]:
                 text("UPDATE personas SET base_images = '{}' WHERE base_images IS NULL")
             )
         else:
-            # PostgreSQL supports native JSON/JSONB
+            # PostgreSQL supports native JSON type
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN base_images JSONB DEFAULT '{}'")
+                text("ALTER TABLE personas ADD COLUMN base_images JSON NOT NULL DEFAULT '{}'")
             )
         added_columns.append("base_images")
 
