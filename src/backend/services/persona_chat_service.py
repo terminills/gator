@@ -371,6 +371,10 @@ class PersonaChatService:
         # Clean up common artifacts
         response = response.replace('[', '').replace(']', '')
         
+        # CRITICAL: Truncate at conversation turn markers that appear mid-text
+        # This prevents the AI from simulating additional conversation turns
+        response = self._truncate_at_conversation_turns(response, persona.name)
+        
         # Ensure reasonable length (truncate if too long)
         words = response.split()
         if len(words) > 150:
@@ -385,6 +389,58 @@ class PersonaChatService:
         response = self._humanizer.humanize_response(response, persona)
         
         return response
+    
+    def _truncate_at_conversation_turns(self, text: str, persona_name: str) -> str:
+        """
+        Truncate text at conversation turn markers to prevent the AI from
+        simulating additional conversation turns in a single response.
+        
+        This handles cases where the AI generates text like:
+        "Hey there! User: hello Sydney: Hey!"
+        
+        The response should be truncated at the first "User:" or "PersonaName:"
+        marker that appears mid-text.
+        
+        Args:
+            text: The response text to process
+            persona_name: The persona's name to look for as a turn marker
+            
+        Returns:
+            str: Text truncated at the first conversation turn marker
+        """
+        import re
+        
+        if not text:
+            return text
+        
+        # Pattern to match conversation turn markers:
+        # - "User:" with optional space
+        # - "{persona_name}:" with optional space
+        # These patterns match when they appear mid-text (not at the very start)
+        patterns = [
+            r'\s+User:\s*',  # " User: " or " User:"
+            r'\s+user:\s*',  # lowercase variant
+        ]
+        
+        # Add persona name pattern (case-insensitive)
+        if persona_name:
+            # Escape special regex characters in persona name
+            escaped_name = re.escape(persona_name)
+            patterns.append(rf'\s+{escaped_name}:\s*')
+        
+        # Find the earliest match of any pattern
+        earliest_pos = len(text)
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match and match.start() < earliest_pos:
+                earliest_pos = match.start()
+        
+        # Truncate at the earliest conversation turn marker
+        if earliest_pos < len(text):
+            text = text[:earliest_pos].strip()
+            logger.debug(f"Truncated response at conversation turn marker (position {earliest_pos})")
+        
+        return text
     
     def _generate_fallback_response(
         self,

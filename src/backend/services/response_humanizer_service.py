@@ -231,28 +231,33 @@ class ResponseHumanizerService:
         if not text:
             return text
 
-        # Step 1: Remove forbidden AI phrases
+        # Step 1: Truncate at conversation turn markers (User:, PersonaName:)
+        # This prevents AI from simulating additional conversation turns
+        persona_name = persona.name if persona else None
+        text = self._truncate_at_conversation_turns(text, persona_name)
+
+        # Step 2: Remove forbidden AI phrases
         text = self._remove_forbidden_phrases(text, persona)
 
-        # Step 2: Apply contractions for casual speech
+        # Step 3: Apply contractions for casual speech
         text = self._apply_contractions(text)
 
-        # Step 3: Remove summary paragraphs (kill the conclusion)
+        # Step 4: Remove summary paragraphs (kill the conclusion)
         text = self._remove_summary_paragraph(text)
 
-        # Step 4: Apply persona-specific voice if available
+        # Step 5: Apply persona-specific voice if available
         if persona:
             text = self._apply_persona_voice(text, persona)
 
-        # Step 5: Apply typing quirks if persona has them
+        # Step 6: Apply typing quirks if persona has them
         if persona and persona.typing_quirks:
             text = self._apply_typing_quirks(text, persona.typing_quirks)
 
-        # Step 6: Match energy (adjust length based on context)
+        # Step 7: Match energy (adjust length based on context)
         if context:
             text = self._match_energy(text, context)
 
-        # Step 7: Final cleanup
+        # Step 8: Final cleanup
         text = self._final_cleanup(text)
 
         return text
@@ -279,6 +284,57 @@ class ResponseHumanizerService:
             result = result.capitalize()
         
         return result
+
+    def _truncate_at_conversation_turns(
+        self, text: str, persona_name: Optional[str] = None
+    ) -> str:
+        """
+        Truncate text at conversation turn markers to prevent the AI from
+        simulating additional conversation turns in a single response.
+        
+        This handles cases where the AI generates text like:
+        "Hey there! User: hello Sydney: Hey!"
+        
+        The response should be truncated at the first "User:" or "PersonaName:"
+        marker that appears mid-text.
+        
+        Args:
+            text: The response text to process
+            persona_name: Optional persona name to look for as a turn marker
+            
+        Returns:
+            str: Text truncated at the first conversation turn marker
+        """
+        if not text:
+            return text
+        
+        # Pattern to match conversation turn markers:
+        # - "User:" with optional space
+        # These patterns match when they appear mid-text (not at the very start)
+        patterns = [
+            r'\s+User:\s*',  # " User: " or " User:"
+            r'\s+user:\s*',  # lowercase variant
+        ]
+        
+        # Add persona name pattern if provided and is a valid string (case-insensitive)
+        if persona_name and isinstance(persona_name, str):
+            # Escape special regex characters in persona name
+            escaped_name = re.escape(persona_name)
+            patterns.append(rf'\s+{escaped_name}:\s*')
+        
+        # Find the earliest match of any pattern
+        earliest_pos = len(text)
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match and match.start() < earliest_pos:
+                earliest_pos = match.start()
+        
+        # Truncate at the earliest conversation turn marker
+        if earliest_pos < len(text):
+            text = text[:earliest_pos].strip()
+            logger.debug(f"Truncated response at conversation turn marker (position {earliest_pos})")
+        
+        return text
 
     def _remove_forbidden_phrases(
         self, text: str, persona: Optional[PersonaModel] = None

@@ -189,6 +189,116 @@ class TestCivitAIRedirectHandling:
                     )
 
 
+class TestCivitAIAuthorizationHeader:
+    """Test that authorization header is passed during downloads."""
+
+    @pytest.mark.asyncio
+    async def test_download_includes_auth_header(self):
+        """Test that download request includes Authorization header with API key.
+        
+        This validates the fix for NSFW model downloads that require authentication.
+        The 401 Unauthorized error was caused by missing Authorization header.
+        """
+        from backend.utils.civitai_utils import CivitAIClient
+        from unittest.mock import AsyncMock, MagicMock, patch
+        import tempfile
+
+        # Create mock response
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.headers = {"content-length": "100"}
+
+        async def mock_aiter_bytes(chunk_size=8192):
+            yield b"test content"
+
+        mock_response.aiter_bytes = mock_aiter_bytes
+
+        # Create async context manager for stream
+        mock_stream_cm = MagicMock()
+        mock_stream_cm.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_stream_cm.__aexit__ = AsyncMock(return_value=None)
+
+        # Create mock client
+        mock_client = MagicMock()
+        mock_client.stream = MagicMock(return_value=mock_stream_cm)
+
+        # Create async context manager for client
+        mock_client_cm = MagicMock()
+        mock_client_cm.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_cm.__aexit__ = AsyncMock(return_value=None)
+
+        test_api_key = "test_civitai_api_key_12345"
+
+        # Patch the AsyncClient
+        with patch("backend.utils.civitai_utils.httpx.AsyncClient") as mock_async_client:
+            mock_async_client.return_value = mock_client_cm
+
+            client = CivitAIClient(api_key=test_api_key)
+
+            # Mock get_model_version to return test data
+            with patch.object(client, "get_model_version") as mock_get_version:
+                mock_get_version.return_value = {
+                    "files": [
+                        {
+                            "name": "test_model.safetensors",
+                            "downloadUrl": "https://civitai.com/api/download/models/12345",
+                            "sizeKB": 100,
+                            "hashes": {},
+                        }
+                    ],
+                    "modelId": 123,
+                    "name": "v1.0",
+                    "model": {"name": "Test Model", "nsfw": True},
+                    "baseModel": "SDXL 1.0",
+                    "trainedWords": [],
+                }
+
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    try:
+                        await client.download_model(
+                            model_version_id=12345,
+                            output_path=Path(tmpdir),
+                        )
+                    except (OSError, TypeError, AttributeError):
+                        # Expected failures from incomplete mocking
+                        pass
+
+                    # Verify stream was called with the Authorization header
+                    mock_client.stream.assert_called_once()
+                    call_args = mock_client.stream.call_args
+
+                    # Check that headers were passed
+                    assert "headers" in call_args.kwargs, "Headers should be passed to stream()"
+                    headers = call_args.kwargs["headers"]
+                    assert "Authorization" in headers, "Authorization header should be present"
+                    assert headers["Authorization"] == f"Bearer {test_api_key}", \
+                        "Authorization header should contain Bearer token with API key"
+
+    def test_get_headers_includes_auth_when_api_key_present(self):
+        """Test that _get_headers includes Authorization when API key is set."""
+        from backend.utils.civitai_utils import CivitAIClient
+
+        api_key = "my_secret_api_key"
+        client = CivitAIClient(api_key=api_key)
+
+        headers = client._get_headers()
+
+        assert "Authorization" in headers
+        assert headers["Authorization"] == f"Bearer {api_key}"
+        assert "Content-Type" in headers
+
+    def test_get_headers_no_auth_without_api_key(self):
+        """Test that _get_headers does not include Authorization without API key."""
+        from backend.utils.civitai_utils import CivitAIClient
+
+        client = CivitAIClient(api_key=None)
+
+        headers = client._get_headers()
+
+        assert "Authorization" not in headers
+        assert "Content-Type" in headers
+
+
 class TestCivitAIHashExtraction:
     """Test hash extraction from CivitAI file info."""
 
