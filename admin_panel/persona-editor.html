@@ -1616,10 +1616,7 @@
                             <span class="form-help">Preferred NSFW model (only used when content rating is NSFW)</span>
                             <select class="form-input" id="nsfw_model_preference" name="nsfw_model_preference">
                                 <option value="">None (Use default)</option>
-                                <option value="flux-nsfw-highress">CultriX/flux-nsfw-highress (High Resolution NSFW)</option>
-                                <option value="darkblueaphrodite">StableDiffusion API/darkblueaphrodite (NSFW Hentai)</option>
-                                <option value="modifier_sexual_coaching">DervlexVenice/modifier_sexual_coaching (Illustrious Style)</option>
-                                <option value="eye_contact_blowjob">DervlexVenice/eye_contact_blowjob-action (Flux Action)</option>
+                                <!-- Will be populated dynamically from installed models -->
                             </select>
                         </div>
                     </div>
@@ -1632,9 +1629,13 @@
                                 AI Model Preferences
                             </h2>
                         </div>
-                        <p class="section-description">Select default AI models for each content generation type. This allows fine-grained testing of different models per persona.</p>
+                        <p class="section-description">Select default AI models for each content generation type from your installed models. This allows fine-grained testing of different models per persona.</p>
                         
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                        <div id="models-loading-indicator" style="padding: 16px; text-align: center; color: var(--text-secondary);">
+                            <span>🔄 Loading installed models...</span>
+                        </div>
+                        
+                        <div id="models-grid" style="display: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
                             <div class="form-group" style="margin-bottom: 0;">
                                 <label class="form-label">
                                     📝 Text/Chat Model
@@ -1642,27 +1643,7 @@
                                 <span class="form-help">Model for text generation, chat responses, and captions</span>
                                 <select class="form-input" id="text_model_preference" name="text_model_preference">
                                     <option value="">Use System Default</option>
-                                    <optgroup label="Ollama Models">
-                                        <option value="llama3.1:8b">Llama 3.1 8B</option>
-                                        <option value="llama3.1:70b">Llama 3.1 70B</option>
-                                        <option value="qwen2.5:7b">Qwen 2.5 7B</option>
-                                        <option value="qwen2.5:14b">Qwen 2.5 14B</option>
-                                        <option value="qwen2.5:72b">Qwen 2.5 72B</option>
-                                        <option value="dolphin-mixtral:8x7b">Dolphin Mixtral 8x7B (Uncensored)</option>
-                                        <option value="dolphin-llama3:8b">Dolphin Llama3 8B (Uncensored)</option>
-                                        <option value="mistral:7b">Mistral 7B</option>
-                                        <option value="mixtral:8x7b">Mixtral 8x7B</option>
-                                        <option value="deepseek-coder:6.7b">DeepSeek Coder 6.7B</option>
-                                        <option value="codellama:13b">Code Llama 13B</option>
-                                    </optgroup>
-                                    <optgroup label="Cloud Models">
-                                        <option value="openai:gpt-4o">OpenAI GPT-4o</option>
-                                        <option value="openai:gpt-4-turbo">OpenAI GPT-4 Turbo</option>
-                                        <option value="openai:gpt-3.5-turbo">OpenAI GPT-3.5 Turbo</option>
-                                        <option value="anthropic:claude-3-opus">Anthropic Claude 3 Opus</option>
-                                        <option value="anthropic:claude-3-sonnet">Anthropic Claude 3 Sonnet</option>
-                                        <option value="anthropic:claude-3-haiku">Anthropic Claude 3 Haiku</option>
-                                    </optgroup>
+                                    <!-- Populated dynamically from installed models -->
                                 </select>
                             </div>
                             
@@ -1673,23 +1654,7 @@
                                 <span class="form-help">Model for generating images and visual content</span>
                                 <select class="form-input" id="image_model_preference" name="image_model_preference">
                                     <option value="">Use System Default</option>
-                                    <optgroup label="Local Models (ComfyUI/Diffusers)">
-                                        <option value="sdxl-base">Stable Diffusion XL Base</option>
-                                        <option value="sdxl-turbo">Stable Diffusion XL Turbo</option>
-                                        <option value="sd-1.5">Stable Diffusion 1.5</option>
-                                        <option value="flux.1-dev">FLUX.1 Dev</option>
-                                        <option value="flux.1-schnell">FLUX.1 Schnell (Fast)</option>
-                                        <option value="realvisxl">RealVisXL (Photorealistic)</option>
-                                        <option value="dreamshaper-xl">DreamShaper XL</option>
-                                        <option value="juggernaut-xl">Juggernaut XL</option>
-                                        <option value="pony-diffusion">Pony Diffusion (Anime)</option>
-                                    </optgroup>
-                                    <optgroup label="Cloud Models">
-                                        <option value="openai:dall-e-3">OpenAI DALL-E 3</option>
-                                        <option value="openai:dall-e-2">OpenAI DALL-E 2</option>
-                                        <option value="stability:sdxl">Stability AI SDXL</option>
-                                        <option value="midjourney:v6">Midjourney v6 (via API)</option>
-                                    </optgroup>
+                                    <!-- Populated dynamically from installed models -->
                                 </select>
                             </div>
                             
@@ -1700,19 +1665,7 @@
                                 <span class="form-help">Model for generating video content</span>
                                 <select class="form-input" id="video_model_preference" name="video_model_preference">
                                     <option value="">Use System Default</option>
-                                    <optgroup label="Local Models">
-                                        <option value="animatediff">AnimateDiff</option>
-                                        <option value="svd">Stable Video Diffusion</option>
-                                        <option value="svd-xt">SVD-XT (Extended)</option>
-                                        <option value="zeroscope">ZeroScope v2</option>
-                                        <option value="modelscope">ModelScope Text-to-Video</option>
-                                    </optgroup>
-                                    <optgroup label="Cloud Models">
-                                        <option value="runway:gen3">Runway Gen-3 Alpha</option>
-                                        <option value="runway:gen2">Runway Gen-2</option>
-                                        <option value="pika:v1.5">Pika v1.5</option>
-                                        <option value="stability:video">Stability Video</option>
-                                    </optgroup>
+                                    <!-- Populated dynamically from installed models -->
                                 </select>
                             </div>
                             
@@ -1723,22 +1676,13 @@
                                 <span class="form-help">Model for voice synthesis and text-to-speech</span>
                                 <select class="form-input" id="voice_model_preference" name="voice_model_preference">
                                     <option value="">Use System Default</option>
-                                    <optgroup label="Local Models">
-                                        <option value="xtts-v2">Coqui XTTS-v2</option>
-                                        <option value="bark">Bark (Suno)</option>
-                                        <option value="tortoise">Tortoise TTS</option>
-                                        <option value="piper">Piper</option>
-                                        <option value="silero">Silero</option>
-                                    </optgroup>
-                                    <optgroup label="Cloud Models">
-                                        <option value="elevenlabs:eleven-multilingual-v2">ElevenLabs Multilingual v2</option>
-                                        <option value="elevenlabs:eleven-turbo-v2">ElevenLabs Turbo v2</option>
-                                        <option value="openai:tts-1">OpenAI TTS-1</option>
-                                        <option value="openai:tts-1-hd">OpenAI TTS-1 HD</option>
-                                        <option value="azure:neural">Azure Neural TTS</option>
-                                    </optgroup>
+                                    <!-- Populated dynamically from installed models -->
                                 </select>
                             </div>
+                        </div>
+                        
+                        <div id="models-error" style="display: none; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; color: #ef4444; margin-top: 16px;">
+                            <strong>⚠️ Could not load installed models.</strong> Using manual input instead.
                         </div>
                         
                         <div style="margin-top: 16px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; font-size: 0.85rem;">
@@ -1749,6 +1693,9 @@
                                 <li><strong>Video Models:</strong> AnimateDiff works with existing image models, SVD for longer clips.</li>
                                 <li><strong>Voice Models:</strong> XTTS-v2 supports voice cloning, ElevenLabs for best quality.</li>
                             </ul>
+                            <p style="margin-top: 8px; font-size: 0.8rem; color: var(--text-secondary);">
+                                <a href="/ai-models-setup" style="color: var(--accent-color);">→ Manage installed models</a>
+                            </p>
                         </div>
                     </div>
                     
@@ -3435,6 +3382,181 @@
             }
         }
         
+        // Store installed models by category
+        let installedModels = {
+            text: [],
+            image: [],
+            video: [],
+            voice: [],
+            audio: []
+        };
+        
+        async function loadInstalledModels() {
+            const loadingIndicator = document.getElementById('models-loading-indicator');
+            const modelsGrid = document.getElementById('models-grid');
+            const modelsError = document.getElementById('models-error');
+            
+            try {
+                // Fetch installed models from the API
+                const response = await fetch('/api/v1/setup/ai-models/status');
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch models');
+                }
+                
+                const data = await response.json();
+                const models = data.installed_models || [];
+                
+                // Group models by category
+                installedModels = {
+                    text: [],
+                    image: [],
+                    video: [],
+                    voice: [],
+                    audio: []
+                };
+                
+                models.forEach(model => {
+                    const category = model.category || 'other';
+                    if (installedModels[category]) {
+                        installedModels[category].push({
+                            name: model.name,
+                            display_name: model.display_name || model.name,
+                            loaded: model.loaded,
+                            source: model.source,
+                            provider: model.provider,
+                            size_gb: model.size_gb,
+                            description: model.description,
+                            model_type: model.model_type,
+                            base_model: model.base_model
+                        });
+                    }
+                });
+                
+                // Populate the dropdowns
+                populateModelDropdown('text_model_preference', installedModels.text, 'Text Models');
+                populateModelDropdown('image_model_preference', installedModels.image, 'Image Models');
+                populateModelDropdown('video_model_preference', installedModels.video, 'Video Models');
+                populateModelDropdown('voice_model_preference', installedModels.voice.concat(installedModels.audio), 'Voice/Audio Models');
+                
+                // Also populate the NSFW model preference with image models
+                populateModelDropdown('nsfw_model_preference', installedModels.image, 'NSFW Image Models');
+                
+                // Show the grid, hide loading indicator
+                if (loadingIndicator) loadingIndicator.style.display = 'none';
+                if (modelsGrid) modelsGrid.style.display = 'grid';
+                
+                console.log(`Loaded ${models.length} installed models`);
+                
+            } catch (error) {
+                console.error('Failed to load installed models:', error);
+                
+                // Show error and still show the grid with empty dropdowns
+                if (loadingIndicator) loadingIndicator.style.display = 'none';
+                if (modelsGrid) modelsGrid.style.display = 'grid';
+                if (modelsError) modelsError.style.display = 'block';
+                
+                // Add a fallback option for manual input
+                ['text_model_preference', 'image_model_preference', 'video_model_preference', 'voice_model_preference'].forEach(id => {
+                    const select = document.getElementById(id);
+                    if (select && select.options.length === 1) {
+                        // Only has "Use System Default" - add a note
+                        const option = document.createElement('option');
+                        option.value = '';
+                        option.textContent = '(No models detected - check AI Models page)';
+                        option.disabled = true;
+                        select.appendChild(option);
+                    }
+                });
+            }
+        }
+        
+        function populateModelDropdown(selectId, models, groupLabel) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            
+            // Clear existing options except the first one (Use System Default)
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+            
+            if (models.length === 0) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = '(No models installed)';
+                option.disabled = true;
+                select.appendChild(option);
+                return;
+            }
+            
+            // Group models by source/provider
+            const localModels = models.filter(m => m.source === 'local' || m.source === 'civitai' || m.provider === 'local');
+            const ollamaModels = models.filter(m => m.source === 'ollama' || m.provider === 'ollama');
+            const cloudModels = models.filter(m => m.source === 'cloud' || m.provider === 'openai' || m.provider === 'anthropic' || m.provider === 'elevenlabs');
+            const otherModels = models.filter(m => 
+                !localModels.includes(m) && !ollamaModels.includes(m) && !cloudModels.includes(m)
+            );
+            
+            // Add local models group
+            if (localModels.length > 0) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = '💾 Local Models';
+                localModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    let label = model.display_name || model.name;
+                    if (model.loaded) label += ' ✓';
+                    if (model.size_gb) label += ` (${model.size_gb}GB)`;
+                    option.textContent = label;
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            }
+            
+            // Add Ollama models group
+            if (ollamaModels.length > 0) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = '🦙 Ollama Models';
+                ollamaModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    let label = model.display_name || model.name;
+                    if (model.loaded) label += ' ✓';
+                    option.textContent = label;
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            }
+            
+            // Add cloud models group
+            if (cloudModels.length > 0) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = '☁️ Cloud Models';
+                cloudModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    option.textContent = model.display_name || model.name;
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            }
+            
+            // Add other models group
+            if (otherModels.length > 0) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = '📦 Other Models';
+                otherModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    let label = model.display_name || model.name;
+                    if (model.loaded) label += ' ✓';
+                    option.textContent = label;
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            }
+        }
+        
         async function loadAssignedFeeds() {
             if (editorMode !== 'edit' || !personaId) {
                 renderAssignedFeeds();
@@ -4366,6 +4488,7 @@
             parseUrlParams();
             loadPersonaData();
             loadAvailableFeeds(); // Load available feeds for assignment
+            loadInstalledModels(); // Load installed AI models for preferences
             
             // If creating new persona, initialize empty assigned feeds
             if (editorMode === 'create') {
