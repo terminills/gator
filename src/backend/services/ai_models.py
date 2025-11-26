@@ -3741,7 +3741,8 @@ class AIModelManager:
                         using_controlnet = False
                         use_controlnet = False
                     else:
-                        from PIL import Image
+                        # Note: PIL.Image is imported at module level (line 25)
+                        # Do NOT add local import here as it causes scoping issues
                         import cv2
                         import numpy as np
 
