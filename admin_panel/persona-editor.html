@@ -1145,18 +1145,270 @@
                         
                         <div class="form-group">
                             <label class="form-label">
-                                Appearance <span class="required">*</span>
-                            </label>
-                            <span class="form-help">Physical appearance description for image creation (10-2000 characters)</span>
-                            <textarea class="form-input" id="appearance" name="appearance" required minlength="10" maxlength="2000" placeholder="Professional woman in her 30s with short dark hair, wearing modern business attire. Confident posture and intelligent eyes behind stylish glasses."></textarea>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">
                                 Personality <span class="required">*</span>
                             </label>
                             <span class="form-help">Personality traits and characteristics (10-2000 characters)</span>
                             <textarea class="form-input" id="personality" name="personality" required minlength="10" maxlength="2000" placeholder="Innovative, analytical, forward-thinking tech leader. Passionate about AI and emerging technologies. Clear communicator who makes complex topics accessible."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Physical Appearance Details -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>👤</span>
+                                Physical Appearance
+                            </h2>
+                        </div>
+                        <p class="section-description">Define the physical characteristics of your persona for consistent image generation.</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                General Appearance <span class="required">*</span>
+                            </label>
+                            <span class="form-help">Overall physical appearance description for image creation (10-2000 characters)</span>
+                            <textarea class="form-input" id="appearance" name="appearance" required minlength="10" maxlength="2000" placeholder="Professional woman in her 30s with short dark hair, wearing modern business attire. Confident posture and intelligent eyes behind stylish glasses."></textarea>
+                        </div>
+                        
+                        <!-- Two column grid for appearance fields -->
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Sex</label>
+                                <select class="form-input" id="sex" name="sex">
+                                    <option value="">Select...</option>
+                                    <option value="female">Female</option>
+                                    <option value="male">Male</option>
+                                    <option value="non-binary">Non-Binary</option>
+                                    <option value="trans_female">Trans Female</option>
+                                    <option value="trans_male">Trans Male</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Age Appearance</label>
+                                <select class="form-input" id="age_appearance" name="age_appearance">
+                                    <option value="">Select...</option>
+                                    <option value="late_teens">Late Teens (18-19)</option>
+                                    <option value="early_20s">Early 20s</option>
+                                    <option value="mid_20s">Mid 20s</option>
+                                    <option value="late_20s">Late 20s</option>
+                                    <option value="early_30s">Early 30s</option>
+                                    <option value="mid_30s">Mid 30s</option>
+                                    <option value="late_30s">Late 30s</option>
+                                    <option value="40s">40s</option>
+                                    <option value="50s">50s</option>
+                                    <option value="mature">Mature (60+)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Ethnicity</label>
+                                <select class="form-input" id="ethnicity" name="ethnicity">
+                                    <option value="">Select...</option>
+                                    <option value="caucasian">Caucasian/White</option>
+                                    <option value="asian">Asian</option>
+                                    <option value="east_asian">East Asian</option>
+                                    <option value="south_asian">South Asian</option>
+                                    <option value="latina">Latina/Hispanic</option>
+                                    <option value="african_american">African American/Black</option>
+                                    <option value="middle_eastern">Middle Eastern</option>
+                                    <option value="mixed">Mixed/Multiracial</option>
+                                    <option value="pacific_islander">Pacific Islander</option>
+                                    <option value="native_american">Native American</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Skin Tone</label>
+                                <select class="form-input" id="skin_tone" name="skin_tone">
+                                    <option value="">Select...</option>
+                                    <option value="very_fair">Very Fair/Porcelain</option>
+                                    <option value="fair">Fair</option>
+                                    <option value="light">Light</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="olive">Olive</option>
+                                    <option value="tan">Tan</option>
+                                    <option value="brown">Brown</option>
+                                    <option value="dark_brown">Dark Brown</option>
+                                    <option value="deep">Deep/Dark</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <h4 style="margin: 24px 0 16px; color: var(--text-primary); font-size: 1rem;">💇 Hair</h4>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Hair Color</label>
+                                <select class="form-input" id="hair_color" name="hair_color">
+                                    <option value="">Select...</option>
+                                    <option value="blonde">Blonde</option>
+                                    <option value="dirty_blonde">Dirty Blonde</option>
+                                    <option value="brunette">Brunette</option>
+                                    <option value="light_brown">Light Brown</option>
+                                    <option value="dark_brown">Dark Brown</option>
+                                    <option value="black">Black</option>
+                                    <option value="red">Red/Ginger</option>
+                                    <option value="auburn">Auburn</option>
+                                    <option value="gray">Gray/Silver</option>
+                                    <option value="white">White/Platinum</option>
+                                    <option value="pink">Pink</option>
+                                    <option value="blue">Blue</option>
+                                    <option value="purple">Purple</option>
+                                    <option value="green">Green</option>
+                                    <option value="rainbow">Rainbow/Multi-colored</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Hair Style</label>
+                                <input type="text" class="form-input" id="hair_style" name="hair_style" placeholder="e.g., long and wavy, short bob, ponytail">
+                            </div>
+                        </div>
+                        
+                        <h4 style="margin: 24px 0 16px; color: var(--text-primary); font-size: 1rem;">👁️ Eyes</h4>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Eye Color</label>
+                                <select class="form-input" id="eye_color" name="eye_color">
+                                    <option value="">Select...</option>
+                                    <option value="blue">Blue</option>
+                                    <option value="light_blue">Light Blue</option>
+                                    <option value="green">Green</option>
+                                    <option value="hazel">Hazel</option>
+                                    <option value="brown">Brown</option>
+                                    <option value="dark_brown">Dark Brown</option>
+                                    <option value="amber">Amber</option>
+                                    <option value="gray">Gray</option>
+                                    <option value="heterochromia">Heterochromia</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <h4 style="margin: 24px 0 16px; color: var(--text-primary); font-size: 1rem;">📏 Body</h4>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Height</label>
+                                <input type="text" class="form-input" id="height" name="height" placeholder='e.g., 5&apos;6", 170cm, tall, petite'>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Weight</label>
+                                <input type="text" class="form-input" id="weight" name="weight" placeholder="e.g., 130lbs, 60kg, athletic">
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Build Type</label>
+                                <select class="form-input" id="build_type" name="build_type">
+                                    <option value="">Select...</option>
+                                    <option value="petite">Petite</option>
+                                    <option value="slim">Slim</option>
+                                    <option value="lean">Lean</option>
+                                    <option value="average">Average</option>
+                                    <option value="athletic">Athletic</option>
+                                    <option value="toned">Toned</option>
+                                    <option value="curvy">Curvy</option>
+                                    <option value="hourglass">Hourglass</option>
+                                    <option value="muscular">Muscular</option>
+                                    <option value="plus_size">Plus Size</option>
+                                    <option value="thick">Thick</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Muscle Tone</label>
+                                <select class="form-input" id="muscle_tone" name="muscle_tone">
+                                    <option value="">Select...</option>
+                                    <option value="soft">Soft</option>
+                                    <option value="average">Average</option>
+                                    <option value="toned">Toned</option>
+                                    <option value="athletic">Athletic</option>
+                                    <option value="fit">Fit</option>
+                                    <option value="muscular">Muscular</option>
+                                    <option value="very_muscular">Very Muscular</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Measurements</label>
+                                <input type="text" class="form-input" id="measurements" name="measurements" placeholder="e.g., 34-24-36">
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Cup Size</label>
+                                <select class="form-input" id="cup_size" name="cup_size">
+                                    <option value="">Select...</option>
+                                    <option value="AA">AA</option>
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C">C</option>
+                                    <option value="D">D</option>
+                                    <option value="DD">DD/E</option>
+                                    <option value="DDD">DDD/F</option>
+                                    <option value="G">G</option>
+                                    <option value="H">H+</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <h4 style="margin: 24px 0 16px; color: var(--text-primary); font-size: 1rem;">✨ Distinctive Features</h4>
+                        <div class="form-group">
+                            <label class="form-label">Distinctive Features</label>
+                            <span class="form-help">Unique physical features like moles, dimples, freckles, etc.</span>
+                            <textarea class="form-input" id="distinctive_features" name="distinctive_features" style="min-height: 80px;" placeholder="e.g., small mole on left cheek, dimples when smiling, light freckles across nose"></textarea>
+                        </div>
+                        
+                        <h4 style="margin: 24px 0 16px; color: var(--text-primary); font-size: 1rem;">🎨 Body Modifications</h4>
+                        <div class="form-group">
+                            <label class="form-label">Body Modifications</label>
+                            <span class="form-help">Tattoos, piercings, and other modifications. Press Enter to add.</span>
+                            <div class="tag-input-container" id="body-modifications-container">
+                                <input type="text" class="tag-input" id="body-modification-input" placeholder="e.g., nose piercing, sleeve tattoo...">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Sexuality & Preferences (NSFW) -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>💋</span>
+                                Sexuality & Preferences
+                            </h2>
+                        </div>
+                        <p class="section-description">Define sexuality and preferences for NSFW content generation. These fields help create more authentic and consistent adult content.</p>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Sexual Orientation</label>
+                                <select class="form-input" id="sexual_orientation" name="sexual_orientation">
+                                    <option value="">Select...</option>
+                                    <option value="straight">Straight/Heterosexual</option>
+                                    <option value="bisexual">Bisexual</option>
+                                    <option value="bicurious">Bicurious</option>
+                                    <option value="lesbian">Lesbian</option>
+                                    <option value="gay">Gay</option>
+                                    <option value="pansexual">Pansexual</option>
+                                    <option value="asexual">Asexual</option>
+                                    <option value="demisexual">Demisexual</option>
+                                    <option value="fluid">Sexually Fluid</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-top: 16px;">
+                            <label class="form-label">Turn Ons</label>
+                            <span class="form-help">Things that excite this persona (for NSFW content). Press Enter to add.</span>
+                            <div class="tag-input-container" id="turn-ons-container">
+                                <input type="text" class="tag-input" id="turn-on-input" placeholder="e.g., confidence, humor, intelligence...">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Turn Offs</label>
+                            <span class="form-help">Boundaries and things to avoid (for content filtering). Press Enter to add.</span>
+                            <div class="tag-input-container" id="turn-offs-container">
+                                <input type="text" class="tag-input" id="turn-off-input" placeholder="e.g., rudeness, arrogance...">
+                            </div>
                         </div>
                     </div>
                     
@@ -1364,11 +1616,86 @@
                             <span class="form-help">Preferred NSFW model (only used when content rating is NSFW)</span>
                             <select class="form-input" id="nsfw_model_preference" name="nsfw_model_preference">
                                 <option value="">None (Use default)</option>
-                                <option value="flux-nsfw-highress">CultriX/flux-nsfw-highress (High Resolution NSFW)</option>
-                                <option value="darkblueaphrodite">StableDiffusion API/darkblueaphrodite (NSFW Hentai)</option>
-                                <option value="modifier_sexual_coaching">DervlexVenice/modifier_sexual_coaching (Illustrious Style)</option>
-                                <option value="eye_contact_blowjob">DervlexVenice/eye_contact_blowjob-action (Flux Action)</option>
+                                <!-- Will be populated dynamically from installed models -->
                             </select>
+                        </div>
+                    </div>
+                    
+                    <!-- AI Model Preferences Per Generation Type -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>🤖</span>
+                                AI Model Preferences
+                            </h2>
+                        </div>
+                        <p class="section-description">Select default AI models for each content generation type from your installed models. This allows fine-grained testing of different models per persona.</p>
+                        
+                        <div id="models-loading-indicator" style="padding: 16px; text-align: center; color: var(--text-secondary);">
+                            <span>🔄 Loading installed models...</span>
+                        </div>
+                        
+                        <div id="models-grid" style="display: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">
+                                    📝 Text/Chat Model
+                                </label>
+                                <span class="form-help">Model for text generation, chat responses, and captions</span>
+                                <select class="form-input" id="text_model_preference" name="text_model_preference">
+                                    <option value="">Use System Default</option>
+                                    <!-- Populated dynamically from installed models -->
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">
+                                    🎨 Image Generation Model
+                                </label>
+                                <span class="form-help">Model for generating images and visual content</span>
+                                <select class="form-input" id="image_model_preference" name="image_model_preference">
+                                    <option value="">Use System Default</option>
+                                    <!-- Populated dynamically from installed models -->
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">
+                                    🎬 Video Generation Model
+                                </label>
+                                <span class="form-help">Model for generating video content</span>
+                                <select class="form-input" id="video_model_preference" name="video_model_preference">
+                                    <option value="">Use System Default</option>
+                                    <!-- Populated dynamically from installed models -->
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">
+                                    🔊 Voice/TTS Model
+                                </label>
+                                <span class="form-help">Model for voice synthesis and text-to-speech</span>
+                                <select class="form-input" id="voice_model_preference" name="voice_model_preference">
+                                    <option value="">Use System Default</option>
+                                    <!-- Populated dynamically from installed models -->
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div id="models-error" style="display: none; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; color: #ef4444; margin-top: 16px;">
+                            <strong>⚠️ Could not load installed models.</strong> Using manual input instead.
+                        </div>
+                        
+                        <div style="margin-top: 16px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; font-size: 0.85rem;">
+                            <strong>💡 Model Selection Tips:</strong>
+                            <ul style="margin: 8px 0 0 20px; color: var(--text-secondary);">
+                                <li><strong>Text Models:</strong> Dolphin variants are uncensored for NSFW personas. Use Qwen for coding tasks.</li>
+                                <li><strong>Image Models:</strong> FLUX.1 is best for realism, Pony Diffusion for anime style.</li>
+                                <li><strong>Video Models:</strong> AnimateDiff works with existing image models, SVD for longer clips.</li>
+                                <li><strong>Voice Models:</strong> XTTS-v2 supports voice cloning, ElevenLabs for best quality.</li>
+                            </ul>
+                            <p style="margin-top: 8px; font-size: 0.8rem; color: var(--text-secondary);">
+                                <a href="/ai-models-setup" style="color: var(--accent-color);">→ Manage installed models</a>
+                            </p>
                         </div>
                     </div>
                     
@@ -1377,10 +1704,50 @@
                         <div class="section-header">
                             <h2 class="section-title">
                                 <span>🖼️</span>
-                                Appearance & Visual Consistency
+                                Base Images & Visual Consistency
                             </h2>
                         </div>
-                        <p class="section-description">Configure baseline appearance and reference images for consistent visual generation.</p>
+                        <p class="section-description">Manage the 4 base reference images that ensure consistent visual generation across all content.</p>
+                        
+                        <!-- Current Base Images Preview (4-image grid) -->
+                        <div class="form-group" id="current-base-images-section">
+                            <label class="form-label">
+                                Current Base Images (4-Image Set)
+                            </label>
+                            <span class="form-help">The 4 base images used for physical appearance locking and visual consistency.</span>
+                            
+                            <div id="base-images-preview" class="base-images-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 16px;">
+                                <!-- 4 image slots -->
+                                <div class="base-image-slot" id="base-image-face_shot">
+                                    <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 20px; text-align: center; min-height: 200px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                        <span style="font-size: 2rem;">📸</span>
+                                        <span style="color: var(--text-secondary); margin-top: 8px;">Face Shot</span>
+                                        <span style="font-size: 0.75rem; color: var(--text-secondary);">No image</span>
+                                    </div>
+                                </div>
+                                <div class="base-image-slot" id="base-image-bikini_front">
+                                    <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 20px; text-align: center; min-height: 200px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                        <span style="font-size: 2rem;">👙</span>
+                                        <span style="color: var(--text-secondary); margin-top: 8px;">Front View</span>
+                                        <span style="font-size: 0.75rem; color: var(--text-secondary);">No image</span>
+                                    </div>
+                                </div>
+                                <div class="base-image-slot" id="base-image-bikini_side">
+                                    <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 20px; text-align: center; min-height: 200px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                        <span style="font-size: 2rem;">👙</span>
+                                        <span style="color: var(--text-secondary); margin-top: 8px;">Side View</span>
+                                        <span style="font-size: 0.75rem; color: var(--text-secondary);">No image</span>
+                                    </div>
+                                </div>
+                                <div class="base-image-slot" id="base-image-bikini_rear">
+                                    <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 20px; text-align: center; min-height: 200px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                        <span style="font-size: 2rem;">👙</span>
+                                        <span style="color: var(--text-secondary); margin-top: 8px;">Rear View</span>
+                                        <span style="font-size: 0.75rem; color: var(--text-secondary);">No image</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         
                         <div class="form-group">
                             <label class="form-label">
@@ -1877,6 +2244,62 @@
                             <strong>📸 Image triggers:</strong> Try phrases like "take a picture", "send me a selfie", or "show me a pic" to generate images!
                         </p>
                         
+                        <!-- Quick Test Buttons -->
+                        <div style="margin-bottom: 16px; padding: 12px; background: var(--dark-card); border-radius: 8px;">
+                            <label class="form-label" style="margin-bottom: 8px;">
+                                🚀 Quick Tests
+                            </label>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button type="button" class="btn btn-secondary" onclick="testRssFeedReaction()" style="padding: 8px 12px; font-size: 0.85rem;">
+                                    📰 RSS Feed Reaction
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="testTopicDiscussion()" style="padding: 8px 12px; font-size: 0.85rem;">
+                                    💭 Topic Discussion
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="testPersonalityCheck()" style="padding: 8px 12px; font-size: 0.85rem;">
+                                    🎭 Personality Check
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="testImageTrigger()" style="padding: 8px 12px; font-size: 0.85rem;">
+                                    📸 Request Selfie
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- RSS Feed Topic Discussion Test Panel -->
+                        <div id="rss-test-panel" style="display: none; margin-bottom: 16px; padding: 16px; background: var(--dark-card); border-radius: 8px; border: 1px solid var(--border-color);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <label class="form-label" style="margin-bottom: 0;">
+                                    📡 RSS Feed Topic Discussion Test
+                                </label>
+                                <button type="button" onclick="closeRssTestPanel()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem;">×</button>
+                            </div>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
+                                Fetch a random topic from assigned RSS feeds and test how your persona reacts to and discusses it.
+                            </p>
+                            
+                            <div id="rss-feed-selector" style="margin-bottom: 12px;">
+                                <label class="form-label" style="font-size: 0.85rem; margin-bottom: 6px;">Select RSS Feed</label>
+                                <select class="form-input" id="rss-test-feed-select" style="margin-bottom: 8px;">
+                                    <option value="">Loading feeds...</option>
+                                </select>
+                            </div>
+                            
+                            <div id="rss-topic-preview" style="display: none; margin-bottom: 12px; padding: 12px; background: var(--dark-surface); border-radius: 8px;">
+                                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px;">📰 Current Topic:</div>
+                                <div id="rss-topic-title" style="font-weight: 600; margin-bottom: 4px;"></div>
+                                <div id="rss-topic-summary" style="font-size: 0.85rem; color: var(--text-secondary);"></div>
+                            </div>
+                            
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" class="btn btn-secondary" onclick="fetchRandomRssTopic()" style="padding: 8px 12px; font-size: 0.85rem;">
+                                    🔄 Fetch Random Topic
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="testRssTopicDiscussion()" id="rss-discuss-btn" style="padding: 8px 12px; font-size: 0.85rem;" disabled>
+                                    💬 Discuss This Topic
+                                </button>
+                            </div>
+                        </div>
+                        
                         <div class="chat-status" id="chat-status">
                             <span class="dot"></span>
                             <span id="chat-status-text">Ready to chat</span>
@@ -1953,6 +2376,11 @@
         let triggerTopics = [];
         let vicesHobbies = [];
         let forbiddenPhrases = [];
+        
+        // Physical appearance arrays
+        let bodyModifications = [];
+        let turnOns = [];
+        let turnOffs = [];
         
         // Load branding configuration
         async function loadBranding() {
@@ -2069,11 +2497,44 @@
                 document.getElementById('generation_quality').value = persona.generation_quality || 'standard';
                 document.getElementById('nsfw_model_preference').value = persona.nsfw_model_preference || '';
                 
+                // Populate AI model preferences
+                document.getElementById('text_model_preference').value = persona.text_model_preference || '';
+                document.getElementById('image_model_preference').value = persona.image_model_preference || '';
+                document.getElementById('video_model_preference').value = persona.video_model_preference || '';
+                document.getElementById('voice_model_preference').value = persona.voice_model_preference || '';
+                
                 // Populate video types
                 const videoTypes = persona.video_types || [];
                 document.querySelectorAll('input[name="video_types"]').forEach(checkbox => {
                     checkbox.checked = videoTypes.includes(checkbox.value);
                 });
+                
+                // Populate detailed physical appearance fields
+                document.getElementById('sex').value = persona.sex || '';
+                document.getElementById('age_appearance').value = persona.age_appearance || '';
+                document.getElementById('ethnicity').value = persona.ethnicity || '';
+                document.getElementById('skin_tone').value = persona.skin_tone || '';
+                document.getElementById('hair_color').value = persona.hair_color || '';
+                document.getElementById('hair_style').value = persona.hair_style || '';
+                document.getElementById('eye_color').value = persona.eye_color || '';
+                document.getElementById('height').value = persona.height || '';
+                document.getElementById('weight').value = persona.weight || '';
+                document.getElementById('build_type').value = persona.build_type || '';
+                document.getElementById('muscle_tone').value = persona.muscle_tone || '';
+                document.getElementById('measurements').value = persona.measurements || '';
+                document.getElementById('cup_size').value = persona.cup_size || '';
+                document.getElementById('distinctive_features').value = persona.distinctive_features || '';
+                document.getElementById('sexual_orientation').value = persona.sexual_orientation || '';
+                
+                // Populate body modifications
+                bodyModifications = persona.body_modifications || [];
+                renderBodyModifications();
+                
+                // Populate turn ons/offs
+                turnOns = persona.turn_ons || [];
+                renderTurnOns();
+                turnOffs = persona.turn_offs || [];
+                renderTurnOffs();
                 
                 // Populate status
                 document.getElementById('is_active').checked = persona.is_active !== false;
@@ -2435,6 +2896,103 @@
         function removeForbiddenPhrase(index) {
             forbiddenPhrases.splice(index, 1);
             renderForbiddenPhrases();
+        }
+        
+        // ==================== PHYSICAL APPEARANCE ARRAY FIELDS ====================
+        
+        // Body Modifications management
+        function renderBodyModifications() {
+            const container = document.getElementById('body-modifications-container');
+            const input = document.getElementById('body-modification-input');
+            
+            container.querySelectorAll('.tag').forEach(tag => tag.remove());
+            
+            bodyModifications.forEach((mod, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'tag';
+                tag.innerHTML = `
+                    ${mod}
+                    <span class="tag-remove" onclick="removeBodyModification(${index})">×</span>
+                `;
+                container.insertBefore(tag, input);
+            });
+        }
+        
+        function addBodyModification(mod) {
+            mod = mod.trim();
+            if (mod && !bodyModifications.includes(mod)) {
+                bodyModifications.push(mod);
+                renderBodyModifications();
+            }
+        }
+        
+        function removeBodyModification(index) {
+            bodyModifications.splice(index, 1);
+            renderBodyModifications();
+        }
+        
+        // Turn Ons management
+        function renderTurnOns() {
+            const container = document.getElementById('turn-ons-container');
+            const input = document.getElementById('turn-on-input');
+            
+            container.querySelectorAll('.tag').forEach(tag => tag.remove());
+            
+            turnOns.forEach((item, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'tag';
+                tag.style.background = '#10b981'; // Green for turn ons
+                tag.innerHTML = `
+                    ${item}
+                    <span class="tag-remove" onclick="removeTurnOn(${index})">×</span>
+                `;
+                container.insertBefore(tag, input);
+            });
+        }
+        
+        function addTurnOn(item) {
+            item = item.trim();
+            if (item && !turnOns.includes(item)) {
+                turnOns.push(item);
+                renderTurnOns();
+            }
+        }
+        
+        function removeTurnOn(index) {
+            turnOns.splice(index, 1);
+            renderTurnOns();
+        }
+        
+        // Turn Offs management
+        function renderTurnOffs() {
+            const container = document.getElementById('turn-offs-container');
+            const input = document.getElementById('turn-off-input');
+            
+            container.querySelectorAll('.tag').forEach(tag => tag.remove());
+            
+            turnOffs.forEach((item, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'tag';
+                tag.style.background = '#ef4444'; // Red for turn offs
+                tag.innerHTML = `
+                    ${item}
+                    <span class="tag-remove" onclick="removeTurnOff(${index})">×</span>
+                `;
+                container.insertBefore(tag, input);
+            });
+        }
+        
+        function addTurnOff(item) {
+            item = item.trim();
+            if (item && !turnOffs.includes(item)) {
+                turnOffs.push(item);
+                renderTurnOffs();
+            }
+        }
+        
+        function removeTurnOff(index) {
+            turnOffs.splice(index, 1);
+            renderTurnOffs();
         }
         
         // ==================== SOUL CREATION ====================
@@ -2824,6 +3382,181 @@
             }
         }
         
+        // Store installed models by category
+        let installedModels = {
+            text: [],
+            image: [],
+            video: [],
+            voice: [],
+            audio: []
+        };
+        
+        async function loadInstalledModels() {
+            const loadingIndicator = document.getElementById('models-loading-indicator');
+            const modelsGrid = document.getElementById('models-grid');
+            const modelsError = document.getElementById('models-error');
+            
+            try {
+                // Fetch installed models from the API
+                const response = await fetch('/api/v1/setup/ai-models/status');
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch models');
+                }
+                
+                const data = await response.json();
+                const models = data.installed_models || [];
+                
+                // Group models by category
+                installedModels = {
+                    text: [],
+                    image: [],
+                    video: [],
+                    voice: [],
+                    audio: []
+                };
+                
+                models.forEach(model => {
+                    const category = model.category || 'other';
+                    if (installedModels[category]) {
+                        installedModels[category].push({
+                            name: model.name,
+                            display_name: model.display_name || model.name,
+                            loaded: model.loaded,
+                            source: model.source,
+                            provider: model.provider,
+                            size_gb: model.size_gb,
+                            description: model.description,
+                            model_type: model.model_type,
+                            base_model: model.base_model
+                        });
+                    }
+                });
+                
+                // Populate the dropdowns
+                populateModelDropdown('text_model_preference', installedModels.text, 'Text Models');
+                populateModelDropdown('image_model_preference', installedModels.image, 'Image Models');
+                populateModelDropdown('video_model_preference', installedModels.video, 'Video Models');
+                populateModelDropdown('voice_model_preference', installedModels.voice.concat(installedModels.audio), 'Voice/Audio Models');
+                
+                // Also populate the NSFW model preference with image models
+                populateModelDropdown('nsfw_model_preference', installedModels.image, 'NSFW Image Models');
+                
+                // Show the grid, hide loading indicator
+                if (loadingIndicator) loadingIndicator.style.display = 'none';
+                if (modelsGrid) modelsGrid.style.display = 'grid';
+                
+                console.log(`Loaded ${models.length} installed models`);
+                
+            } catch (error) {
+                console.error('Failed to load installed models:', error);
+                
+                // Show error and still show the grid with empty dropdowns
+                if (loadingIndicator) loadingIndicator.style.display = 'none';
+                if (modelsGrid) modelsGrid.style.display = 'grid';
+                if (modelsError) modelsError.style.display = 'block';
+                
+                // Add a fallback option for manual input
+                ['text_model_preference', 'image_model_preference', 'video_model_preference', 'voice_model_preference'].forEach(id => {
+                    const select = document.getElementById(id);
+                    if (select && select.options.length === 1) {
+                        // Only has "Use System Default" - add a note
+                        const option = document.createElement('option');
+                        option.value = '';
+                        option.textContent = '(No models detected - check AI Models page)';
+                        option.disabled = true;
+                        select.appendChild(option);
+                    }
+                });
+            }
+        }
+        
+        function populateModelDropdown(selectId, models, groupLabel) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            
+            // Clear existing options except the first one (Use System Default)
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+            
+            if (models.length === 0) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = '(No models installed)';
+                option.disabled = true;
+                select.appendChild(option);
+                return;
+            }
+            
+            // Group models by source/provider
+            const localModels = models.filter(m => m.source === 'local' || m.source === 'civitai' || m.provider === 'local');
+            const ollamaModels = models.filter(m => m.source === 'ollama' || m.provider === 'ollama');
+            const cloudModels = models.filter(m => m.source === 'cloud' || m.provider === 'openai' || m.provider === 'anthropic' || m.provider === 'elevenlabs');
+            const otherModels = models.filter(m => 
+                !localModels.includes(m) && !ollamaModels.includes(m) && !cloudModels.includes(m)
+            );
+            
+            // Add local models group
+            if (localModels.length > 0) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = '💾 Local Models';
+                localModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    let label = model.display_name || model.name;
+                    if (model.loaded) label += ' ✓';
+                    if (model.size_gb) label += ` (${model.size_gb}GB)`;
+                    option.textContent = label;
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            }
+            
+            // Add Ollama models group
+            if (ollamaModels.length > 0) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = '🦙 Ollama Models';
+                ollamaModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    let label = model.display_name || model.name;
+                    if (model.loaded) label += ' ✓';
+                    option.textContent = label;
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            }
+            
+            // Add cloud models group
+            if (cloudModels.length > 0) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = '☁️ Cloud Models';
+                cloudModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    option.textContent = model.display_name || model.name;
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            }
+            
+            // Add other models group
+            if (otherModels.length > 0) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = '📦 Other Models';
+                otherModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    let label = model.display_name || model.name;
+                    if (model.loaded) label += ' ✓';
+                    option.textContent = label;
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            }
+        }
+        
         async function loadAssignedFeeds() {
             if (editorMode !== 'edit' || !personaId) {
                 renderAssignedFeeds();
@@ -3057,6 +3790,34 @@
                     nsfw_model_preference: document.getElementById('nsfw_model_preference').value || null,
                     generation_quality: document.getElementById('generation_quality').value,
                     is_active: document.getElementById('is_active').checked,
+                    
+                    // ==================== AI MODEL PREFERENCES ====================
+                    text_model_preference: document.getElementById('text_model_preference').value || null,
+                    image_model_preference: document.getElementById('image_model_preference').value || null,
+                    video_model_preference: document.getElementById('video_model_preference').value || null,
+                    voice_model_preference: document.getElementById('voice_model_preference').value || null,
+                    
+                    // ==================== DETAILED PHYSICAL APPEARANCE ====================
+                    sex: document.getElementById('sex').value || null,
+                    age_appearance: document.getElementById('age_appearance').value || null,
+                    ethnicity: document.getElementById('ethnicity').value || null,
+                    skin_tone: document.getElementById('skin_tone').value || null,
+                    hair_color: document.getElementById('hair_color').value || null,
+                    hair_style: document.getElementById('hair_style').value.trim() || null,
+                    eye_color: document.getElementById('eye_color').value || null,
+                    height: document.getElementById('height').value.trim() || null,
+                    weight: document.getElementById('weight').value.trim() || null,
+                    build_type: document.getElementById('build_type').value || null,
+                    muscle_tone: document.getElementById('muscle_tone').value || null,
+                    measurements: document.getElementById('measurements').value.trim() || null,
+                    cup_size: document.getElementById('cup_size').value || null,
+                    distinctive_features: document.getElementById('distinctive_features').value.trim() || null,
+                    body_modifications: bodyModifications,
+                    
+                    // ==================== SEXUALITY & PREFERENCES ====================
+                    sexual_orientation: document.getElementById('sexual_orientation').value || null,
+                    turn_ons: turnOns,
+                    turn_offs: turnOffs,
                     
                     // ==================== PERSONA SOUL FIELDS ====================
                     // Origin & Demographics
@@ -3294,6 +4055,36 @@
             }
         });
         
+        // Body Modifications input handler
+        document.getElementById('body-modification-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const input = e.target;
+                addBodyModification(input.value);
+                input.value = '';
+            }
+        });
+        
+        // Turn Ons input handler
+        document.getElementById('turn-on-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const input = e.target;
+                addTurnOn(input.value);
+                input.value = '';
+            }
+        });
+        
+        // Turn Offs input handler
+        document.getElementById('turn-off-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const input = e.target;
+                addTurnOff(input.value);
+                input.value = '';
+            }
+        });
+        
         // Optimism/Cynicism scale slider handler
         document.getElementById('optimism_cynicism_scale').addEventListener('input', (e) => {
             document.getElementById('optimism_value').textContent = e.target.value;
@@ -3513,12 +4304,191 @@
             statusText.textContent = 'Ready to chat';
         }
         
+        // ==================== QUICK TEST FUNCTIONS ====================
+        
+        // Store current RSS topic for discussion
+        let currentRssTopic = null;
+        
+        function testRssFeedReaction() {
+            // Show the RSS test panel
+            document.getElementById('rss-test-panel').style.display = 'block';
+            
+            // Populate the feed selector with assigned feeds
+            populateRssFeedSelector();
+        }
+        
+        function closeRssTestPanel() {
+            document.getElementById('rss-test-panel').style.display = 'none';
+            currentRssTopic = null;
+            document.getElementById('rss-topic-preview').style.display = 'none';
+            document.getElementById('rss-discuss-btn').disabled = true;
+        }
+        
+        function populateRssFeedSelector() {
+            const select = document.getElementById('rss-test-feed-select');
+            select.innerHTML = '';
+            
+            if (assignedFeeds.length === 0) {
+                select.innerHTML = '<option value="">No feeds assigned to this persona</option>';
+                return;
+            }
+            
+            // Add option for random from all feeds
+            select.innerHTML = '<option value="random">🎲 Random from all assigned feeds</option>';
+            
+            // Add each assigned feed
+            assignedFeeds.forEach(feed => {
+                const option = document.createElement('option');
+                option.value = feed.feed_id;
+                option.textContent = `📡 ${feed.feed_name}`;
+                select.appendChild(option);
+            });
+        }
+        
+        async function fetchRandomRssTopic() {
+            const select = document.getElementById('rss-test-feed-select');
+            const feedId = select.value;
+            
+            if (!feedId && assignedFeeds.length === 0) {
+                showAlert('No RSS feeds assigned to this persona. Add feeds first.', 'error');
+                return;
+            }
+            
+            try {
+                // Fetch random article from the feed(s)
+                let url = '/api/v1/feeds/rss/articles/random';
+                if (feedId && feedId !== 'random') {
+                    url += `?feed_id=${feedId}`;
+                }
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    // If random endpoint doesn't exist, try fetching from the feed
+                    const feedIdToUse = feedId || (assignedFeeds.length > 0 ? assignedFeeds[0].feed_id : null);
+                    if (!feedIdToUse) {
+                        throw new Error('No feed available');
+                    }
+                    const alternateResponse = await fetch(`/api/v1/feeds/rss/${feedIdToUse}/articles?limit=10`);
+                    if (alternateResponse.ok) {
+                        const articles = await alternateResponse.json();
+                        if (articles && Array.isArray(articles) && articles.length > 0) {
+                            // Pick a random article
+                            const randomArticle = articles[Math.floor(Math.random() * articles.length)];
+                            if (randomArticle) {
+                                currentRssTopic = {
+                                    title: randomArticle.title || 'Untitled',
+                                    summary: randomArticle.summary || randomArticle.description || '',
+                                    link: randomArticle.link || '',
+                                    source: randomArticle.feed_name || 'RSS Feed'
+                                };
+                            }
+                        } else {
+                            throw new Error('No articles found in feed');
+                        }
+                    } else {
+                        throw new Error('Could not fetch RSS articles');
+                    }
+                } else {
+                    currentRssTopic = await response.json();
+                }
+                
+                // Display the topic
+                if (currentRssTopic) {
+                    document.getElementById('rss-topic-preview').style.display = 'block';
+                    document.getElementById('rss-topic-title').textContent = currentRssTopic.title || 'Untitled Article';
+                    document.getElementById('rss-topic-summary').textContent = 
+                        (currentRssTopic.summary || currentRssTopic.description || 'No summary available').substring(0, 200) + '...';
+                    document.getElementById('rss-discuss-btn').disabled = false;
+                }
+                
+            } catch (error) {
+                console.error('Failed to fetch RSS topic:', error);
+                // Generate a sample topic for testing
+                currentRssTopic = {
+                    title: 'Sample Topic: AI Revolution in Content Creation',
+                    summary: 'New AI tools are transforming how content creators work, offering unprecedented capabilities for generating text, images, and videos. What are your thoughts on this?',
+                    source: 'Test Feed'
+                };
+                document.getElementById('rss-topic-preview').style.display = 'block';
+                document.getElementById('rss-topic-title').textContent = currentRssTopic.title;
+                document.getElementById('rss-topic-summary').textContent = currentRssTopic.summary;
+                document.getElementById('rss-discuss-btn').disabled = false;
+                showAlert('Using sample topic for testing (RSS fetch failed)', 'info');
+            }
+        }
+        
+        async function testRssTopicDiscussion() {
+            if (!currentRssTopic) {
+                showAlert('Please fetch a topic first', 'error');
+                return;
+            }
+            
+            // Close the panel
+            document.getElementById('rss-test-panel').style.display = 'none';
+            
+            // Create a message asking the persona to react to the topic
+            const message = `Hey, I just read this article: "${currentRssTopic.title}". ${currentRssTopic.summary ? 'Summary: ' + currentRssTopic.summary.substring(0, 150) + '...' : ''} What do you think about this?`;
+            
+            // Set the input and send
+            document.getElementById('chat-input').value = message;
+            await sendChatMessage();
+        }
+        
+        async function testTopicDiscussion() {
+            // Get a random topic from the persona's content themes
+            const themesArray = themes.length > 0 ? themes : ['life', 'current events', 'your day'];
+            const randomTopic = themesArray[Math.floor(Math.random() * themesArray.length)];
+            
+            const messages = [
+                `What's your take on ${randomTopic}?`,
+                `I've been thinking about ${randomTopic} lately. What are your thoughts?`,
+                `Can we talk about ${randomTopic}? I'd love to hear your perspective.`,
+                `Have you been following news about ${randomTopic}? What do you think?`,
+                `${randomTopic} has been on my mind. Tell me what you think about it.`
+            ];
+            
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            document.getElementById('chat-input').value = randomMessage;
+            await sendChatMessage();
+        }
+        
+        async function testPersonalityCheck() {
+            const messages = [
+                "Tell me about yourself. What makes you, you?",
+                "What's your typical day like?",
+                "What are you passionate about?",
+                "How would your friends describe you?",
+                "What gets you excited in the morning?",
+                "If you could change one thing about the world, what would it be?"
+            ];
+            
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            document.getElementById('chat-input').value = randomMessage;
+            await sendChatMessage();
+        }
+        
+        async function testImageTrigger() {
+            const messages = [
+                "Hey, send me a selfie!",
+                "I'd love to see a pic of you right now",
+                "Take a picture for me?",
+                "Can you show me what you look like?",
+                "Send me a photo of yourself"
+            ];
+            
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            document.getElementById('chat-input').value = randomMessage;
+            await sendChatMessage();
+        }
+        
         // Initialize page
         document.addEventListener('DOMContentLoaded', () => {
             loadBranding();
             parseUrlParams();
             loadPersonaData();
             loadAvailableFeeds(); // Load available feeds for assignment
+            loadInstalledModels(); // Load installed AI models for preferences
             
             // If creating new persona, initialize empty assigned feeds
             if (editorMode === 'create') {
