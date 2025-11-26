@@ -8,6 +8,7 @@ like a real person texting.
 """
 
 import asyncio
+import random
 import shutil
 from typing import Dict, List, Optional, Any
 from pathlib import Path
@@ -395,13 +396,13 @@ class PersonaChatService:
         
         Uses persona soul fields to create authentic-sounding responses.
         """
-        import random
-        
         user_lower = user_message.lower() if user_message else ""
         warmth = persona.warmth_level or "warm"
         
-        # Get signature phrases for this persona
-        signature = persona.signature_phrases[0] if persona.signature_phrases else None
+        # Get signature phrases for this persona (safely handle empty list)
+        signature = None
+        if persona.signature_phrases and len(persona.signature_phrases) > 0:
+            signature = persona.signature_phrases[0]
         
         # Greeting responses based on warmth level
         if any(word in user_lower for word in ['hello', 'hi', 'hey', 'greetings', 'sup', 'yo']):
@@ -544,7 +545,6 @@ class PersonaChatService:
                 "My bad! Can you repeat that?",
             ]
         
-        import random
         return random.choice(errors)
     
     def get_typing_indicator(self, persona: PersonaModel) -> str:

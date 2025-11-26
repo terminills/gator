@@ -224,12 +224,15 @@ class ResponseHumanizerService:
         Returns:
             Humanized UI text
         """
+        if not text:
+            return text
+            
         result = text.lower()
         for ai_term, human_term in self.UI_HUMANIZATIONS.items():
             result = result.replace(ai_term, human_term)
         
         # Preserve original casing style
-        if text[0].isupper() if text else False:
+        if result and text and text[0].isupper():
             result = result.capitalize()
         
         return result
@@ -266,12 +269,12 @@ class ResponseHumanizerService:
             # Match whole words only
             pattern = re.compile(r'\b' + re.escape(formal) + r'\b', re.IGNORECASE)
             
-            def replace_match(match):
+            def replace_match(match, casual_form=casual):
                 original = match.group(0)
-                # Preserve capitalization
-                if original[0].isupper():
-                    return casual.capitalize()
-                return casual
+                # Preserve capitalization (safely handle empty strings)
+                if original and original[0].isupper():
+                    return casual_form.capitalize()
+                return casual_form
             
             result = pattern.sub(replace_match, result)
         
@@ -382,6 +385,9 @@ class ResponseHumanizerService:
 
     def _final_cleanup(self, text: str) -> str:
         """Final cleanup of the humanized text."""
+        if not text:
+            return text
+            
         # Remove double spaces
         text = re.sub(r'\s+', ' ', text)
         
@@ -393,10 +399,13 @@ class ResponseHumanizerService:
         text = re.sub(r'\s+([.,!?])', r'\1', text)
         
         # Ensure text doesn't start with lowercase after cleanup
-        if text and text[0].islower():
+        if text and len(text) > 0 and text[0].islower():
             # Only capitalize if it seems like a sentence start
             if not text.startswith(('i ', "i'm", "i'd", "i'll", "i've")):
-                text = text[0].upper() + text[1:]
+                if len(text) > 1:
+                    text = text[0].upper() + text[1:]
+                else:
+                    text = text[0].upper()
         
         return text
 
