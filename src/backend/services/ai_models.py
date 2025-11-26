@@ -542,6 +542,10 @@ class AIModelManager:
             await self._initialize_local_image_models()
             await self._initialize_local_voice_models()
 
+            # Initialize CivitAI models (downloaded from CivitAI marketplace)
+            logger.info("   Detecting CivitAI models...")
+            await self._initialize_civitai_models()
+
             # Initialize cloud API models as fallbacks
             logger.info("   Checking cloud API credentials...")
             await self._initialize_cloud_text_models()
@@ -913,6 +917,184 @@ class AIModelManager:
         except Exception as e:
             logger.error(f"Failed to initialize local voice models: {str(e)}")
 
+    async def _initialize_civitai_models(self) -> None:
+        """
+        Initialize models downloaded from CivitAI.
+
+        Scans the models/civitai/ directory for downloaded models and their
+        metadata files. Models are registered with the AIModelManager so they
+        can be used for image generation.
+
+        CivitAI models are saved with a _metadata.json file containing:
+        - model_name: Display name of the model
+        - base_model: Base model architecture (SDXL 1.0, SD 1.5, etc.)
+        - model_type: Type of model (Checkpoint, LORA, etc.)
+        - trained_words: Trigger words for the model
+        - nsfw: Whether the model may generate NSFW content
+        """
+        try:
+            sys_req = self._get_system_requirements()
+            civitai_dir = self.models_dir / "civitai"
+
+            if not civitai_dir.exists():
+                logger.info("   No CivitAI models directory found")
+                return
+
+            # Find all metadata files in the civitai directory
+            metadata_files = list(civitai_dir.glob("*_metadata.json"))
+
+            if not metadata_files:
+                logger.info("   No CivitAI models found")
+                return
+
+            logger.info(f"   Found {len(metadata_files)} CivitAI model(s)")
+
+            # Check diffusers availability for image models
+            diffusers_available = await self._check_inference_engine("diffusers")
+            # Also check ComfyUI availability as it can load CivitAI checkpoints
+            comfyui_available = await self._check_inference_engine("comfyui")
+
+            for metadata_file in metadata_files:
+                try:
+                    # Read metadata
+                    with open(metadata_file, "r") as f:
+                        metadata = json.load(f)
+
+                    # Find the corresponding model file
+                    model_filename = metadata.get("file_name", "")
+                    model_file = civitai_dir / model_filename
+
+                    if not model_file.exists():
+                        # Try to find by stem (metadata file stem minus _metadata suffix)
+                        stem = metadata_file.stem.replace("_metadata", "")
+                        potential_files = list(civitai_dir.glob(f"{stem}.*"))
+                        model_files = [
+                            f for f in potential_files
+                            if f.suffix.lower() in [".safetensors", ".ckpt", ".pt", ".bin"]
+                        ]
+                        if model_files:
+                            model_file = model_files[0]
+                        else:
+                            logger.warning(
+                                f"   ⚠️  Model file not found for: {metadata_file.name}"
+                            )
+                            continue
+
+                    # Get model details from metadata
+                    model_name = metadata.get("model_name", model_file.stem)
+                    base_model = metadata.get("base_model", "Unknown")
+                    model_type = metadata.get("type", "Checkpoint")
+                    trained_words = metadata.get("trained_words", [])
+                    is_nsfw = metadata.get("nsfw", False)
+                    file_size_kb = metadata.get("file_size_kb", 0)
+                    size_gb = round(file_size_kb / (1024 * 1024), 2) if file_size_kb else 0
+
+                    # Determine model category based on type
+                    # Checkpoints and LoRAs are for image generation
+                    if model_type.upper() in ["CHECKPOINT", "LORA", "TEXTUALINVERSION", "HYPERNETWORK", "CONTROLNET"]:
+                        category = "image"
+                    else:
+                        category = "image"  # Default to image for CivitAI models
+
+                    # Determine inference engine based on base model
+                    # SDXL and SD models can use diffusers, ComfyUI for more complex workflows
+                    if "SDXL" in base_model or "SD" in base_model or "Pony" in base_model:
+                        inference_engine = "diffusers"
+                        engine_available = diffusers_available
+                    elif "Flux" in base_model:
+                        inference_engine = "comfyui"
+                        engine_available = comfyui_available
+                    else:
+                        # Default to diffusers for most CivitAI models
+                        inference_engine = "diffusers"
+                        engine_available = diffusers_available
+
+                    # Create unique identifier for the model
+                    # Use CivitAI model/version ID if available
+                    model_id = metadata.get("model_id")
+                    version_id = metadata.get("version_id")
+                    if model_id and version_id:
+                        unique_id = f"civitai-{model_id}-{version_id}"
+                    else:
+                        unique_id = f"civitai-{model_file.stem}"
+
+                    # Check if model is already registered (avoid duplicates)
+                    existing_names = [m.get("name") for m in self.available_models.get(category, [])]
+                    if unique_id in existing_names:
+                        continue
+
+                    # Determine model capabilities
+                    model_capabilities = {
+                        "type": "text-to-image",
+                        "source": "civitai",
+                    }
+
+                    # LoRAs need to be used with a base model
+                    if model_type.upper() == "LORA":
+                        model_capabilities["type"] = "lora"
+                        model_capabilities["requires_base_model"] = True
+
+                    # Add to available models
+                    model_entry = {
+                        "name": unique_id,
+                        "display_name": model_name,
+                        "type": model_capabilities["type"],
+                        "model_type": model_type,  # CivitAI model type (Checkpoint, LORA, etc.)
+                        "model_id": f"civitai:{model_id}" if model_id else f"civitai:{model_file.stem}",
+                        "provider": "local",
+                        "source": "civitai",
+                        "inference_engine": inference_engine,
+                        "loaded": engine_available,
+                        "can_load": engine_available,
+                        "size_gb": size_gb,
+                        "description": f"CivitAI {model_type}: {model_name} (Base: {base_model})",
+                        "device": "cuda" if sys_req["gpu_memory_gb"] > 0 else "cpu",
+                        "path": str(model_file),
+                        "metadata_path": str(metadata_file),
+                        "base_model": base_model,
+                        "trained_words": trained_words,
+                        "nsfw": is_nsfw,
+                        "civitai_model_id": model_id,
+                        "civitai_version_id": version_id,
+                    }
+
+                    self.available_models[category].append(model_entry)
+
+                    if engine_available:
+                        logger.info(
+                            f"   ✓ CivitAI {model_type}: {model_name} ({base_model})"
+                        )
+                        if trained_words:
+                            logger.info(
+                                f"     Trigger words: {', '.join(trained_words[:5])}"
+                                + ("..." if len(trained_words) > 5 else "")
+                            )
+                    else:
+                        logger.warning(
+                            f"   ⚠️  CivitAI model {model_name} found but "
+                            f"inference engine {inference_engine} not available"
+                        )
+
+                except json.JSONDecodeError as e:
+                    logger.warning(
+                        f"   ⚠️  Failed to parse metadata file {metadata_file.name}: {e}"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"   ⚠️  Error loading CivitAI model {metadata_file.name}: {e}"
+                    )
+
+            # Count loaded CivitAI models
+            civitai_loaded = len([
+                m for m in self.available_models.get("image", [])
+                if m.get("source") == "civitai" and m.get("loaded")
+            ])
+            if civitai_loaded > 0:
+                logger.info(f"   ✓ {civitai_loaded} CivitAI model(s) ready for use")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize CivitAI models: {str(e)}")
+
     async def _check_inference_engine(self, engine: str) -> bool:
         """Check if inference engine is available."""
         # Use comprehensive detection logic from model_detection utility
@@ -1172,19 +1354,39 @@ class AIModelManager:
             if nsfw_model_pref:
                 # Try to find the preferred model in available models
                 for model in available_models:
-                    # Match by name or model_id
+                    # Match by name, display_name, or model_id
                     if (
                         nsfw_model_pref.lower() in model["name"].lower()
                         or nsfw_model_pref.lower() in model.get("model_id", "").lower()
+                        or nsfw_model_pref.lower() in model.get("display_name", "").lower()
                     ):
                         logger.info(
-                            f"🎯 Model selection: {model['name']} (reason: persona NSFW model preference)"
+                            f"🎯 Model selection: {model.get('display_name', model['name'])} (reason: persona NSFW model preference)"
                         )
                         return model
                 logger.warning(
                     f"Preferred NSFW model '{nsfw_model_pref}' not found in available models, "
                     f"falling back to intelligent selection"
                 )
+
+            # Check for CivitAI models with matching trigger words in prompt
+            prompt_lower = prompt.lower()
+            civitai_models = [
+                m for m in available_models
+                if m.get("source") == "civitai" and m.get("trained_words")
+            ]
+            for model in civitai_models:
+                trained_words = model.get("trained_words", [])
+                for trigger_word in trained_words:
+                    # Use word boundary matching to avoid false positives
+                    # e.g., "art" should not match "heart" or "party"
+                    pattern = r'\b' + re.escape(trigger_word.lower()) + r'\b'
+                    if re.search(pattern, prompt_lower):
+                        logger.info(
+                            f"🎯 Model selection: {model.get('display_name', model['name'])} "
+                            f"(reason: CivitAI trigger word '{trigger_word}' found in prompt)"
+                        )
+                        return model
 
             # Keywords that indicate need for high quality
             high_quality_keywords = [
