@@ -128,6 +128,63 @@ class PersonaModel(Base):
         String(20), default="photorealistic", nullable=False, index=True
     )  # Image generation style (photorealistic, anime, cartoon, etc.)
 
+    # ==================== DETAILED PHYSICAL APPEARANCE ====================
+    # These fields allow fine-grained control over persona appearance generation
+    height = Column(
+        String(50), nullable=True
+    )  # e.g., "5'6\"", "170cm", "tall", "petite"
+    weight = Column(
+        String(50), nullable=True
+    )  # e.g., "130lbs", "60kg", "athletic", "curvy"
+    hair_color = Column(
+        String(50), nullable=True
+    )  # e.g., "blonde", "brunette", "red", "black", "pink"
+    hair_style = Column(
+        String(100), nullable=True
+    )  # e.g., "long and wavy", "short bob", "ponytail", "braids"
+    eye_color = Column(
+        String(50), nullable=True
+    )  # e.g., "blue", "brown", "green", "hazel", "heterochromia"
+    skin_tone = Column(
+        String(50), nullable=True
+    )  # e.g., "fair", "olive", "tan", "dark", "pale"
+    measurements = Column(
+        String(100), nullable=True
+    )  # e.g., "34-24-36", "hourglass figure"
+    cup_size = Column(
+        String(20), nullable=True
+    )  # e.g., "A", "B", "C", "D", "DD"
+    muscle_tone = Column(
+        String(50), nullable=True
+    )  # e.g., "toned", "athletic", "soft", "muscular", "lean"
+    build_type = Column(
+        String(50), nullable=True
+    )  # e.g., "slim", "athletic", "curvy", "petite", "plus-size"
+    sex = Column(
+        String(20), nullable=True
+    )  # e.g., "female", "male", "non-binary", "trans"
+    sexual_orientation = Column(
+        String(50), nullable=True
+    )  # e.g., "straight", "bisexual", "lesbian", "gay", "pansexual"
+    turn_ons = Column(
+        JSON, nullable=False, default=list
+    )  # List of turn-ons for NSFW content generation
+    turn_offs = Column(
+        JSON, nullable=False, default=list
+    )  # List of turn-offs/boundaries for content generation
+    distinctive_features = Column(
+        Text, nullable=True
+    )  # e.g., "small mole on left cheek", "tattoo sleeve", "dimples"
+    age_appearance = Column(
+        String(50), nullable=True
+    )  # e.g., "early 20s", "mid 30s", "mature"
+    ethnicity = Column(
+        String(100), nullable=True
+    )  # e.g., "Caucasian", "Asian", "Latina", "African American", "Mixed"
+    body_modifications = Column(
+        JSON, nullable=False, default=list
+    )  # e.g., ["nose piercing", "belly button piercing", "tattoo on lower back"]
+
     # Content generation preferences
     default_image_resolution = Column(
         String(20), default="1024x1024", nullable=False
@@ -147,6 +204,21 @@ class PersonaModel(Base):
     generation_quality = Column(
         String(20), default="standard", nullable=False
     )  # Default quality level (draft, standard, hd, premium)
+
+    # ==================== AI MODEL PREFERENCES PER GENERATION TYPE ====================
+    # These allow fine-grained control of which AI model to use for each content type
+    text_model_preference = Column(
+        String(200), nullable=True
+    )  # Preferred text/chat model (e.g., "llama3.1:8b", "qwen2.5:14b", "dolphin-mixtral")
+    image_model_preference = Column(
+        String(200), nullable=True
+    )  # Preferred image generation model (e.g., "sdxl-base", "flux.1-dev", "stable-diffusion-xl")
+    video_model_preference = Column(
+        String(200), nullable=True
+    )  # Preferred video generation model (e.g., "animatediff", "stable-video-diffusion")
+    voice_model_preference = Column(
+        String(200), nullable=True
+    )  # Preferred voice/TTS model (e.g., "xtts-v2", "elevenlabs", "coqui-tts")
 
     is_active = Column(Boolean, default=True, index=True)
     generation_count = Column(Integer, default=0)
@@ -294,6 +366,96 @@ class PersonaCreate(BaseModel):
         default=ImageStyle.PHOTOREALISTIC,
         description="Image generation style (photorealistic, anime, cartoon, etc.)",
     )
+
+    # ==================== DETAILED PHYSICAL APPEARANCE ====================
+    height: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        description="Height (e.g., '5\\'6\"', '170cm', 'tall', 'petite')",
+    )
+    weight: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        description="Weight (e.g., '130lbs', '60kg', 'athletic', 'curvy')",
+    )
+    hair_color: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        description="Hair color (e.g., 'blonde', 'brunette', 'red', 'black', 'pink')",
+    )
+    hair_style: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Hair style (e.g., 'long and wavy', 'short bob', 'ponytail', 'braids')",
+    )
+    eye_color: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        description="Eye color (e.g., 'blue', 'brown', 'green', 'hazel')",
+    )
+    skin_tone: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        description="Skin tone (e.g., 'fair', 'olive', 'tan', 'dark', 'pale')",
+    )
+    measurements: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Body measurements (e.g., '34-24-36', 'hourglass figure')",
+    )
+    cup_size: Optional[str] = Field(
+        default=None,
+        max_length=20,
+        description="Cup size (e.g., 'A', 'B', 'C', 'D', 'DD')",
+    )
+    muscle_tone: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        description="Muscle tone (e.g., 'toned', 'athletic', 'soft', 'muscular', 'lean')",
+    )
+    build_type: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        description="Build type (e.g., 'slim', 'athletic', 'curvy', 'petite', 'plus-size')",
+    )
+    sex: Optional[str] = Field(
+        default=None,
+        max_length=20,
+        description="Sex (e.g., 'female', 'male', 'non-binary', 'trans')",
+    )
+    sexual_orientation: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        description="Sexual orientation (e.g., 'straight', 'bisexual', 'lesbian', 'gay', 'pansexual')",
+    )
+    turn_ons: List[str] = Field(
+        default=[],
+        description="Turn-ons for NSFW content generation",
+    )
+    turn_offs: List[str] = Field(
+        default=[],
+        description="Turn-offs/boundaries for content generation",
+    )
+    distinctive_features: Optional[str] = Field(
+        default=None,
+        max_length=2000,
+        description="Distinctive features (e.g., 'small mole on left cheek', 'tattoo sleeve', 'dimples')",
+    )
+    age_appearance: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        description="Apparent age (e.g., 'early 20s', 'mid 30s', 'mature')",
+    )
+    ethnicity: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Ethnicity (e.g., 'Caucasian', 'Asian', 'Latina', 'African American', 'Mixed')",
+    )
+    body_modifications: List[str] = Field(
+        default=[],
+        description="Body modifications (e.g., ['nose piercing', 'belly button piercing', 'tattoo on lower back'])",
+    )
+
     default_image_resolution: str = Field(
         default="1024x1024",
         description="Default resolution for image generation (512x512, 1024x1024, 2048x2048)",
@@ -317,6 +479,28 @@ class PersonaCreate(BaseModel):
     generation_quality: str = Field(
         default="standard",
         description="Default quality level for content generation (draft, standard, hd, premium)",
+    )
+
+    # ==================== AI MODEL PREFERENCES PER GENERATION TYPE ====================
+    text_model_preference: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        description="Preferred text/chat model (e.g., 'llama3.1:8b', 'qwen2.5:14b', 'dolphin-mixtral')",
+    )
+    image_model_preference: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        description="Preferred image generation model (e.g., 'sdxl-base', 'flux.1-dev')",
+    )
+    video_model_preference: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        description="Preferred video generation model (e.g., 'animatediff', 'stable-video-diffusion')",
+    )
+    voice_model_preference: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        description="Preferred voice/TTS model (e.g., 'xtts-v2', 'elevenlabs', 'coqui-tts')",
     )
 
     # ==================== PERSONA SOUL FIELDS ====================
@@ -499,6 +683,27 @@ class PersonaUpdate(BaseModel):
     image_style: Optional[ImageStyle] = Field(
         None, description="Image generation style (photorealistic, anime, cartoon, etc.)"
     )
+
+    # ==================== DETAILED PHYSICAL APPEARANCE ====================
+    height: Optional[str] = Field(None, max_length=50, description="Height")
+    weight: Optional[str] = Field(None, max_length=50, description="Weight")
+    hair_color: Optional[str] = Field(None, max_length=50, description="Hair color")
+    hair_style: Optional[str] = Field(None, max_length=100, description="Hair style")
+    eye_color: Optional[str] = Field(None, max_length=50, description="Eye color")
+    skin_tone: Optional[str] = Field(None, max_length=50, description="Skin tone")
+    measurements: Optional[str] = Field(None, max_length=100, description="Body measurements")
+    cup_size: Optional[str] = Field(None, max_length=20, description="Cup size")
+    muscle_tone: Optional[str] = Field(None, max_length=50, description="Muscle tone")
+    build_type: Optional[str] = Field(None, max_length=50, description="Build type")
+    sex: Optional[str] = Field(None, max_length=20, description="Sex")
+    sexual_orientation: Optional[str] = Field(None, max_length=50, description="Sexual orientation")
+    turn_ons: Optional[List[str]] = Field(None, description="Turn-ons for NSFW content")
+    turn_offs: Optional[List[str]] = Field(None, description="Turn-offs/boundaries")
+    distinctive_features: Optional[str] = Field(None, max_length=2000, description="Distinctive features")
+    age_appearance: Optional[str] = Field(None, max_length=50, description="Apparent age")
+    ethnicity: Optional[str] = Field(None, max_length=100, description="Ethnicity")
+    body_modifications: Optional[List[str]] = Field(None, description="Body modifications")
+
     default_image_resolution: Optional[str] = Field(
         None, description="Default resolution for image generation"
     )
@@ -513,6 +718,12 @@ class PersonaUpdate(BaseModel):
     generation_quality: Optional[str] = Field(
         None, description="Default quality level for content generation"
     )
+
+    # ==================== AI MODEL PREFERENCES PER GENERATION TYPE ====================
+    text_model_preference: Optional[str] = Field(None, max_length=200, description="Preferred text/chat model")
+    image_model_preference: Optional[str] = Field(None, max_length=200, description="Preferred image generation model")
+    video_model_preference: Optional[str] = Field(None, max_length=200, description="Preferred video generation model")
+    voice_model_preference: Optional[str] = Field(None, max_length=200, description="Preferred voice/TTS model")
 
     # ==================== PERSONA SOUL FIELDS ====================
     # Origin & Demographics (The "Roots")
@@ -656,12 +867,39 @@ class PersonaResponse(BaseModel):
     appearance_locked: bool = False
     base_image_status: str = "pending_upload"
     image_style: str = "photorealistic"
+
+    # ==================== DETAILED PHYSICAL APPEARANCE ====================
+    height: Optional[str] = None
+    weight: Optional[str] = None
+    hair_color: Optional[str] = None
+    hair_style: Optional[str] = None
+    eye_color: Optional[str] = None
+    skin_tone: Optional[str] = None
+    measurements: Optional[str] = None
+    cup_size: Optional[str] = None
+    muscle_tone: Optional[str] = None
+    build_type: Optional[str] = None
+    sex: Optional[str] = None
+    sexual_orientation: Optional[str] = None
+    turn_ons: List[str] = []
+    turn_offs: List[str] = []
+    distinctive_features: Optional[str] = None
+    age_appearance: Optional[str] = None
+    ethnicity: Optional[str] = None
+    body_modifications: List[str] = []
+
     default_image_resolution: str = "1024x1024"
     default_video_resolution: str = "1920x1080"
     post_style: str = "casual"
     video_types: List[str] = []
     nsfw_model_preference: Optional[str] = None
     generation_quality: str = "standard"
+
+    # ==================== AI MODEL PREFERENCES PER GENERATION TYPE ====================
+    text_model_preference: Optional[str] = None
+    image_model_preference: Optional[str] = None
+    video_model_preference: Optional[str] = None
+    voice_model_preference: Optional[str] = None
 
     # ==================== PERSONA SOUL FIELDS ====================
     # Origin & Demographics (The "Roots")
