@@ -36,6 +36,9 @@ OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_CONNECT_TIMEOUT = float(os.environ.get("OLLAMA_CONNECT_TIMEOUT", "5.0"))
 OLLAMA_GENERATE_TIMEOUT = float(os.environ.get("OLLAMA_GENERATE_TIMEOUT", "60.0"))
 
+# Maximum image upload size (10MB)
+MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
+
 router = APIRouter(
     prefix="/api/v1/personas",
     tags=["personas"],
@@ -291,7 +294,7 @@ async def upload_seed_image(
         logger.info(f"Read {len(image_data)} bytes from uploaded file '{file.filename}'")
 
         # Validate file size (max 10MB)
-        max_size = 10 * 1024 * 1024  # 10MB
+        max_size = MAX_IMAGE_SIZE_BYTES
         if len(image_data) > max_size:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -687,15 +690,13 @@ async def generate_sample_images(
             if m.get("provider") == "local" and m.get("loaded")
         ]
 
-        dalle_available = any(
-            m.get("name") == "dall-e-3" and m.get("provider") == "openai"
-            for m in ai_manager.available_models.get("image", [])
-        )
-
-        if not local_models and not dalle_available:
+        # Check for local models - required for ControlNet chaining
+        if not local_models:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No image generation models available. Install local models (Stable Diffusion XL recommended) or configure OPENAI_API_KEY as fallback.",
+                detail="Local Stable Diffusion models are required for base image generation with ControlNet chaining. "
+                       "Cloud APIs like DALL-E cannot provide the visual consistency needed for body reference images. "
+                       "Please install Stable Diffusion XL locally.",
             )
 
         # Parse resolution
@@ -709,49 +710,40 @@ async def generate_sample_images(
                 detail="Invalid resolution format. Use 'widthxheight' (e.g., '1024x1024', '720x1280', '1920x1080')",
             )
 
-        # Map quality to DALL-E quality setting
-        dalle_quality_map = {
-            "draft": "standard",
-            "standard": "standard",
-            "high": "hd",
-            "premium": "hd",
-        }
-        dalle_quality = dalle_quality_map.get(quality.lower(), "standard")
-
         # Map quality to local generation steps
         quality_steps_map = {"draft": 20, "standard": 30, "high": 50, "premium": 80}
         num_steps = quality_steps_map.get(quality.lower(), 30)
 
         logger.info(f"Generating 4 base images with appearance: {appearance[:50]}...")
         logger.info(f"Resolution: {width}x{height}, Quality: {quality}, Style: {style}")
-        logger.info("Using sequential img2img chain: face→front→side→rear for maximum body consistency")
+        logger.info("Using sequential ControlNet/img2img chain: face→front→side→rear for maximum body consistency")
 
-        # Generate 4 specific images using sequential img2img chain
+        # Generate 4 specific images using sequential ControlNet chain
         # Each image uses the previous one as reference for progressive consistency:
         # Face Shot → Bikini Front → Bikini Side → Bikini Rear
+        # ControlNet provides structural guidance while img2img maintains appearance
         images = []
         current_reference_path = None  # Chain: each image becomes reference for the next
         temp_files = []  # Track temp files for cleanup
 
-        # Prefer local models (free, no API costs, better privacy)
-        if local_models:
-            logger.info("Using local Stable Diffusion models for generation")
+        logger.info("Using local Stable Diffusion models with ControlNet for generation")
 
-            # Get available GPUs
-            from backend.services.gpu_monitoring_service import (
-                get_gpu_monitoring_service,
+        # Get available GPUs
+        from backend.services.gpu_monitoring_service import (
+            get_gpu_monitoring_service,
+        )
+        import tempfile
+        import os
+
+        gpu_service = get_gpu_monitoring_service()
+        available_gpus = await gpu_service.get_available_gpus()
+
+        if available_gpus:
+            logger.info(
+                f"Distributing image generation across {len(available_gpus)} GPU(s): {available_gpus}"
             )
-            import tempfile
-            import os
 
-            gpu_service = get_gpu_monitoring_service()
-            available_gpus = await gpu_service.get_available_gpus()
-
-            if available_gpus:
-                logger.info(
-                    f"Distributing image generation across {len(available_gpus)} GPU(s): {available_gpus}"
-                )
-
+        try:
             # Sequential chain generation: each image becomes reference for the next
             for i, image_type in enumerate(BASE_IMAGE_TYPES):
                 try:
@@ -760,42 +752,12 @@ async def generate_sample_images(
                     # Select GPU in round-robin fashion
                     device_id = available_gpus[i % len(available_gpus)] if available_gpus else None
                     
-                    # Determine img2img strength based on position in chain
-                    # First image (face shot): no reference (text2img)
-                    # Second image (front): moderate strength to establish body from face
-                    # Third/Fourth (side/rear): slightly lower strength to allow pose change while keeping body
+                    # Determine generation mode based on position in chain
+                    # First image (face shot): pure text2img to establish the face
+                    # Subsequent images: ControlNet + img2img for structural + appearance consistency
                     if i == 0:
                         # Face shot - pure text2img, establishes the face
                         logger.info(f"STEP {i+1}/4: Generating {image_type['label']} (chain start - text2img)")
-                        img2img_strength = None
-                        reference_path = None
-                    elif i == 1:
-                        # Front view - use face shot, moderate strength to establish full body
-                        logger.info(f"STEP {i+1}/4: Generating {image_type['label']} (from face shot, strength=0.60)")
-                        img2img_strength = 0.60  # Keep more face features, establish body
-                        reference_path = current_reference_path
-                    else:
-                        # Side and rear views - use previous body shot, allow pose change
-                        logger.info(f"STEP {i+1}/4: Generating {image_type['label']} (from previous, strength=0.55)")
-                        img2img_strength = 0.55  # Allow more freedom for pose rotation while keeping body
-                        reference_path = current_reference_path
-
-                    if reference_path:
-                        logger.info(f"Using img2img chain reference: {reference_path}")
-                        result = await ai_manager._generate_reference_image_local(
-                            appearance_prompt=specific_prompt,
-                            personality_context=personality[:200] if personality else None,
-                            reference_image_path=reference_path,
-                            width=width,
-                            height=height,
-                            num_inference_steps=num_steps,
-                            device_id=device_id,
-                            image_style=style,
-                            prefer_anatomy_model=True,
-                            nsfw_model_pref=nsfw_model,
-                            img2img_strength=img2img_strength,
-                        )
-                    else:
                         result = await ai_manager._generate_reference_image_local(
                             appearance_prompt=specific_prompt,
                             personality_context=personality[:200] if personality else None,
@@ -807,6 +769,32 @@ async def generate_sample_images(
                             image_style=style,
                             prefer_anatomy_model=True,
                             nsfw_model_pref=nsfw_model,
+                        )
+                    else:
+                        # Use ControlNet + img2img for structural guidance and appearance consistency
+                        # ControlNet strength varies: higher for direct pose changes, lower for subtle rotations
+                        if i == 1:
+                            # Front view from face - need more freedom to establish full body
+                            img2img_strength = 0.55  # More generation freedom
+                            logger.info(f"STEP {i+1}/4: Generating {image_type['label']} (ControlNet from face, strength={img2img_strength})")
+                        else:
+                            # Side/rear views - maintain body structure while rotating
+                            img2img_strength = 0.50  # Even more freedom for pose rotation
+                            logger.info(f"STEP {i+1}/4: Generating {image_type['label']} (ControlNet chain, strength={img2img_strength})")
+                        
+                        result = await ai_manager._generate_reference_image_local(
+                            appearance_prompt=specific_prompt,
+                            personality_context=personality[:200] if personality else None,
+                            reference_image_path=current_reference_path,
+                            width=width,
+                            height=height,
+                            num_inference_steps=num_steps,
+                            device_id=device_id,
+                            image_style=style,
+                            prefer_anatomy_model=True,
+                            nsfw_model_pref=nsfw_model,
+                            img2img_strength=img2img_strength,
+                            use_controlnet=True,  # Enable ControlNet for structural guidance
                         )
 
                     # Save this image as reference for the next in the chain
@@ -834,64 +822,29 @@ async def generate_sample_images(
 
                 except Exception as e:
                     logger.warning(f"Failed to generate {image_type['label']}: {str(e)}")
-                    # If an image in the chain fails, continue with text2img for remaining
+                    # If an image in the chain fails, try to continue with text2img for remaining
                     current_reference_path = None
 
-            # Clean up all temporary files
+        finally:
+            # Always clean up temporary files, even on exception
             for temp_file in temp_files:
                 try:
                     os.unlink(temp_file)
                 except Exception as e:
                     logger.warning(f"Failed to clean up temp file {temp_file}: {e}")
-            logger.info(f"Cleaned up {len(temp_files)} temporary chain reference files")
+            if temp_files:
+                logger.info(f"Cleaned up {len(temp_files)} temporary chain reference files")
 
-        elif dalle_available:
-            # Fallback to DALL-E (no img2img chain, just sequential prompts)
-            logger.warning(
-                "Using DALL-E as fallback - this will incur API costs. Note: DALL-E doesn't support img2img chaining."
-            )
-            for i, image_type in enumerate(BASE_IMAGE_TYPES):
-                try:
-                    # Build specific prompt for this image type
-                    specific_prompt = f"{appearance}, {image_type['prompt_addition']}"
-
-                    result = await ai_manager._generate_reference_image_openai(
-                        appearance_prompt=specific_prompt,
-                        personality_context=personality[:200] if personality else None,
-                        quality=dalle_quality,
-                        size=f"{width}x{height}",
-                    )
-
-                    base64_image = base64.b64encode(result["image_data"]).decode(
-                        "utf-8"
-                    )
-                    data_url = f"data:image/png;base64,{base64_image}"
-
-                    images.append(
-                        {
-                            "id": image_type["id"],
-                            "type": image_type["id"],
-                            "label": image_type["label"],
-                            "data_url": data_url,
-                            "size": len(result["image_data"]),
-                        }
-                    )
-
-                    logger.info(f"Generated {image_type['label']} ({i+1}/4)")
-
-                except Exception as e:
-                    logger.warning(f"Failed to generate {image_type['label']}: {str(e)}")
-
-        # Clean up
+        # Clean up AI manager
         await ai_manager.close()
 
         if len(images) == 0:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to generate any base images",
+                detail="Failed to generate any base images. Check that local Stable Diffusion models are properly loaded.",
             )
 
-        logger.info(f"Successfully generated {len(images)} base images")
+        logger.info(f"Successfully generated {len(images)} base images with ControlNet chain")
 
         return {"images": images, "count": len(images)}
 
@@ -1460,7 +1413,7 @@ async def set_base_image_from_sample(
             )
 
         # Validate size
-        max_size = 10 * 1024 * 1024  # 10MB
+        max_size = MAX_IMAGE_SIZE_BYTES
         if len(decoded_image) > max_size:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1573,7 +1526,7 @@ async def set_base_images(
                 )
 
             # Validate size
-            max_size = 10 * 1024 * 1024  # 10MB
+            max_size = MAX_IMAGE_SIZE_BYTES
             if len(decoded_image) > max_size:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
