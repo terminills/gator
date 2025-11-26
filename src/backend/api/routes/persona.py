@@ -6,6 +6,7 @@ Handles AI persona creation, management, and configuration.
 
 from typing import List, Optional, Dict, Any
 from uuid import UUID
+from datetime import datetime
 import os
 import base64
 import asyncio
@@ -28,6 +29,12 @@ from backend.services.ai_models import AIModelManager
 from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Ollama configuration for chat image generation
+# These can be overridden via environment variables
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_CONNECT_TIMEOUT = float(os.environ.get("OLLAMA_CONNECT_TIMEOUT", "5.0"))
+OLLAMA_GENERATE_TIMEOUT = float(os.environ.get("OLLAMA_GENERATE_TIMEOUT", "60.0"))
 
 router = APIRouter(
     prefix="/api/v1/personas",
@@ -1679,11 +1686,9 @@ async def _generate_image_prompt_with_ollama(
     Returns:
         str: A detailed image generation prompt
     """
-    OLLAMA_BASE_URL = "http://localhost:11434"
-    
     # Check Ollama availability and get best model
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=OLLAMA_CONNECT_TIMEOUT) as client:
             response = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
             if response.status_code != 200:
                 logger.warning("Ollama not available, using fallback prompt generation")
@@ -1770,7 +1775,7 @@ Image prompt:"""
 
     # Generate with Ollama
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=OLLAMA_GENERATE_TIMEOUT) as client:
             response = await client.post(
                 f"{OLLAMA_BASE_URL}/api/generate",
                 json={
@@ -1894,8 +1899,6 @@ async def generate_chat_image(
         503: No image generation models available
         500: Generation failed
     """
-    from datetime import datetime
-    
     try:
         # Get the persona
         persona = await persona_service.get_persona(str(persona_id))
