@@ -642,11 +642,14 @@ async def get_ai_models_status() -> Dict[str, Any]:
                         loaded_models_count += 1
                     
                     # Add to installed models list with detailed info
-                    installed_models.append({
+                    model_info = {
                         "name": model.get("name"),
+                        "display_name": model.get("display_name", model.get("name")),
                         "category": category,
                         "provider": model.get("provider", "unknown"),
+                        "source": model.get("source", "local"),
                         "type": model.get("type", "unknown"),
+                        "model_type": model.get("model_type", ""),  # CivitAI model type
                         "loaded": is_loaded,
                         "can_load": model.get("can_load", False),
                         "size_gb": model.get("size_gb", 0),
@@ -654,7 +657,17 @@ async def get_ai_models_status() -> Dict[str, Any]:
                         "path": model.get("path", ""),
                         "inference_engine": model.get("inference_engine", ""),
                         "device": model.get("device", "cpu"),
-                    })
+                    }
+                    
+                    # Add CivitAI-specific fields if present
+                    if model.get("source") == "civitai":
+                        model_info["base_model"] = model.get("base_model", "")
+                        model_info["trained_words"] = model.get("trained_words", [])
+                        model_info["nsfw"] = model.get("nsfw", False)
+                        model_info["civitai_model_id"] = model.get("civitai_model_id")
+                        model_info["civitai_version_id"] = model.get("civitai_version_id")
+                    
+                    installed_models.append(model_info)
             
             logger.info(f"Retrieved {loaded_models_count}/{total_models_count} loaded models from AIModelManager")
             
