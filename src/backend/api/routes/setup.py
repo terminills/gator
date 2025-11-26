@@ -882,11 +882,10 @@ async def browse_civitai_models(
     """
     try:
         from backend.utils.civitai_utils import CivitAIClient, CivitAIModelType
-        from backend.config.settings import get_settings
+        from backend.services.settings_service import get_db_setting
         
-        settings = get_settings()
-        api_key = getattr(settings, "civitai_api_key", None)
-        allow_nsfw = getattr(settings, "civitai_allow_nsfw", False)
+        # Get CivitAI API key from database settings
+        api_key = await get_db_setting("civitai_api_key")
         
         client = CivitAIClient(api_key=api_key)
         

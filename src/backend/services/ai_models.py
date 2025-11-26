@@ -163,13 +163,12 @@ async def download_model_from_civitai(
         # Create parent directory
         model_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Get API key from settings if not provided
+        # Get API key from database settings if not provided
         if api_key is None:
             try:
-                from backend.config.settings import get_settings
+                from backend.services.settings_service import get_db_setting
 
-                settings = get_settings()
-                api_key = getattr(settings, "civitai_api_key", None)
+                api_key = await get_db_setting("civitai_api_key")
             except Exception:
                 pass
 
