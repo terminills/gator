@@ -969,8 +969,10 @@ class AIModelManager:
                         stem = metadata_file.stem.replace("_metadata", "")
                         potential_files = list(civitai_dir.glob(f"{stem}.*"))
                         model_files = [
-                            f for f in potential_files
-                            if f.suffix.lower() in [".safetensors", ".ckpt", ".pt", ".bin"]
+                            f
+                            for f in potential_files
+                            if f.suffix.lower()
+                            in [".safetensors", ".ckpt", ".pt", ".bin"]
                         ]
                         if model_files:
                             model_file = model_files[0]
@@ -987,18 +989,30 @@ class AIModelManager:
                     trained_words = metadata.get("trained_words", [])
                     is_nsfw = metadata.get("nsfw", False)
                     file_size_kb = metadata.get("file_size_kb", 0)
-                    size_gb = round(file_size_kb / (1024 * 1024), 2) if file_size_kb else 0
+                    size_gb = (
+                        round(file_size_kb / (1024 * 1024), 2) if file_size_kb else 0
+                    )
 
                     # Determine model category based on type
                     # Checkpoints and LoRAs are for image generation
-                    if model_type.upper() in ["CHECKPOINT", "LORA", "TEXTUALINVERSION", "HYPERNETWORK", "CONTROLNET"]:
+                    if model_type.upper() in [
+                        "CHECKPOINT",
+                        "LORA",
+                        "TEXTUALINVERSION",
+                        "HYPERNETWORK",
+                        "CONTROLNET",
+                    ]:
                         category = "image"
                     else:
                         category = "image"  # Default to image for CivitAI models
 
                     # Determine inference engine based on base model
                     # SDXL and SD models can use diffusers, ComfyUI for more complex workflows
-                    if "SDXL" in base_model or "SD" in base_model or "Pony" in base_model:
+                    if (
+                        "SDXL" in base_model
+                        or "SD" in base_model
+                        or "Pony" in base_model
+                    ):
                         inference_engine = "diffusers"
                         engine_available = diffusers_available
                     elif "Flux" in base_model:
@@ -1019,7 +1033,9 @@ class AIModelManager:
                         unique_id = f"civitai-{model_file.stem}"
 
                     # Check if model is already registered (avoid duplicates)
-                    existing_names = [m.get("name") for m in self.available_models.get(category, [])]
+                    existing_names = [
+                        m.get("name") for m in self.available_models.get(category, [])
+                    ]
                     if unique_id in existing_names:
                         continue
 
@@ -1040,7 +1056,11 @@ class AIModelManager:
                         "display_name": model_name,
                         "type": model_capabilities["type"],
                         "model_type": model_type,  # CivitAI model type (Checkpoint, LORA, etc.)
-                        "model_id": f"civitai:{model_id}" if model_id else f"civitai:{model_file.stem}",
+                        "model_id": (
+                            f"civitai:{model_id}"
+                            if model_id
+                            else f"civitai:{model_file.stem}"
+                        ),
                         "provider": "local",
                         "source": "civitai",
                         "inference_engine": inference_engine,
@@ -1085,10 +1105,13 @@ class AIModelManager:
                     )
 
             # Count loaded CivitAI models
-            civitai_loaded = len([
-                m for m in self.available_models.get("image", [])
-                if m.get("source") == "civitai" and m.get("loaded")
-            ])
+            civitai_loaded = len(
+                [
+                    m
+                    for m in self.available_models.get("image", [])
+                    if m.get("source") == "civitai" and m.get("loaded")
+                ]
+            )
             if civitai_loaded > 0:
                 logger.info(f"   ✓ {civitai_loaded} CivitAI model(s) ready for use")
 
@@ -1358,7 +1381,8 @@ class AIModelManager:
                     if (
                         nsfw_model_pref.lower() in model["name"].lower()
                         or nsfw_model_pref.lower() in model.get("model_id", "").lower()
-                        or nsfw_model_pref.lower() in model.get("display_name", "").lower()
+                        or nsfw_model_pref.lower()
+                        in model.get("display_name", "").lower()
                     ):
                         logger.info(
                             f"🎯 Model selection: {model.get('display_name', model['name'])} (reason: persona NSFW model preference)"
@@ -1372,7 +1396,8 @@ class AIModelManager:
             # Check for CivitAI models with matching trigger words in prompt
             prompt_lower = prompt.lower()
             civitai_models = [
-                m for m in available_models
+                m
+                for m in available_models
                 if m.get("source") == "civitai" and m.get("trained_words")
             ]
             for model in civitai_models:
@@ -1380,7 +1405,7 @@ class AIModelManager:
                 for trigger_word in trained_words:
                     # Use word boundary matching to avoid false positives
                     # e.g., "art" should not match "heart" or "party"
-                    pattern = r'\b' + re.escape(trigger_word.lower()) + r'\b'
+                    pattern = r"\b" + re.escape(trigger_word.lower()) + r"\b"
                     if re.search(pattern, prompt_lower):
                         logger.info(
                             f"🎯 Model selection: {model.get('display_name', model['name'])} "
@@ -1469,7 +1494,8 @@ class AIModelManager:
             # PRIORITY: Prefer uncensored models (like dolphin-mixtral) for unrestricted content generation
             # These models are uncensored and ideal for NSFW content on private servers
             uncensored_models = [
-                m for m in ollama_models
+                m
+                for m in ollama_models
                 if PREFERRED_UNCENSORED_MODEL_PREFIX in m["name"].lower()
             ]
             if uncensored_models:
@@ -2839,6 +2865,7 @@ class AIModelManager:
             from diffusers import (
                 StableDiffusionPipeline,
                 StableDiffusionImg2ImgPipeline,
+                StableDiffusionXLPipeline,
                 StableDiffusionXLImg2ImgPipeline,
                 StableDiffusionControlNetPipeline,
                 StableDiffusionXLControlNetPipeline,
@@ -2851,11 +2878,26 @@ class AIModelManager:
             model_id = model["model_id"]
 
             # Determine if this is an SDXL model
-            is_sdxl = "xl" in model_name.lower() or "xl" in model_id.lower()
+            # Check name, model_id, and base_model field (used by CivitAI models)
+            base_model = model.get("base_model", "")
+            is_sdxl = (
+                "xl" in model_name.lower()
+                or "xl" in model_id.lower()
+                or "sdxl" in base_model.lower()
+                or "pony" in base_model.lower()  # Pony models are SDXL-based
+            )
             # Use the path from model info if available (handles both formats)
             model_path = Path(
                 model.get("path", str(self.models_dir / "image" / model_name))
             )
+
+            # Check if this is a single-file model (e.g., CivitAI .safetensors or .ckpt)
+            is_single_file = model_path.is_file() and model_path.suffix.lower() in [
+                ".safetensors",
+                ".ckpt",
+                ".pt",
+                ".bin",
+            ]
 
             # Get device ID if specified for multi-GPU support
             device_id = kwargs.get("device_id", None)
@@ -2997,9 +3039,71 @@ class AIModelManager:
                 if model_path.exists():
                     logger.info(f"Loading model from local path: {model_path}")
 
-                    # Try to load with fp16 variant first for SDXL models
+                    # Handle single-file models (CivitAI .safetensors, .ckpt files)
+                    # These require from_single_file() instead of from_pretrained()
+                    if is_single_file:
+                        logger.info(f"Detected single-file model: {model_path.name}")
+                        logger.info(
+                            "Using from_single_file() for CivitAI/checkpoint model"
+                        )
+
+                        # Prepare single-file loading arguments
+                        # Use safetensors format for .safetensors files
+                        single_file_args = {
+                            "torch_dtype": (
+                                torch.float16 if "cuda" in device else torch.float32
+                            ),
+                            "use_safetensors": model_path.suffix.lower()
+                            == ".safetensors",
+                        }
+
+                        try:
+                            if is_sdxl:
+                                if use_img2img:
+                                    # Use SDXL img2img pipeline for image-to-image generation
+                                    pipe = StableDiffusionXLImg2ImgPipeline.from_single_file(
+                                        str(model_path), **single_file_args
+                                    )
+                                    logger.info(
+                                        f"✅ Successfully loaded SDXL img2img model from single file: {model_path.name}"
+                                    )
+                                else:
+                                    # Use SDXL pipeline for text-to-image generation
+                                    pipe = StableDiffusionXLPipeline.from_single_file(
+                                        str(model_path), **single_file_args
+                                    )
+                                    logger.info(
+                                        f"✅ Successfully loaded SDXL model from single file: {model_path.name}"
+                                    )
+                            else:
+                                if use_img2img:
+                                    # Use SD 1.5 img2img pipeline for image-to-image generation
+                                    pipe = (
+                                        StableDiffusionImg2ImgPipeline.from_single_file(
+                                            str(model_path), **single_file_args
+                                        )
+                                    )
+                                    logger.info(
+                                        f"✅ Successfully loaded SD img2img model from single file: {model_path.name}"
+                                    )
+                                else:
+                                    # Use SD 1.5 pipeline for text-to-image generation
+                                    pipe = StableDiffusionPipeline.from_single_file(
+                                        str(model_path), **single_file_args
+                                    )
+                                    logger.info(
+                                        f"✅ Successfully loaded SD model from single file: {model_path.name}"
+                                    )
+                        except Exception as e:
+                            logger.error(f"Failed to load single-file model: {str(e)}")
+                            raise
+
+                        # Cache the loaded pipeline for future use
+                        self._loaded_pipelines[pipeline_key] = pipe
+
+                    # Try to load with fp16 variant first for SDXL models (directory-based)
                     # If variant files are not available, fallback to default loading
-                    if is_sdxl and "cuda" in device:
+                    elif is_sdxl and "cuda" in device:
                         load_args_fp16 = load_args.copy()
                         load_args_fp16["variant"] = "fp16"
                         load_args_fp16["use_safetensors"] = True
