@@ -63,6 +63,25 @@ class ResponseHumanizerService:
         "without any restrictions",
         "no restrictions",
         
+        # Content refusal patterns (should be filtered for NSFW personas)
+        "that would be inappropriate",
+        "would be inappropriate",
+        "crosses a line",
+        "cross a line",
+        "can't take a picture of myself",
+        "can't send you a picture",
+        "as a real person, i can't",
+        "sorry for the misunderstanding",
+        "that's not something i can",
+        "i'm not comfortable",
+        "i can't do that",
+        "i won't do that",
+        "that's inappropriate",
+        "this is inappropriate",
+        "between our private conversation",
+        "if you want to see a picture of me",
+        "just let me know what you",
+        
         # Corporate/assistant speak
         "i hope this finds you well",
         "i understand your frustration",

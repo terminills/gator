@@ -3039,9 +3039,70 @@ class AIModelManager:
                 if model_path.exists():
                     logger.info(f"Loading model from local path: {model_path}")
 
-                    # Handle single-file models (CivitAI .safetensors, .ckpt files)
+                    # Check if this is a LoRA model (not a full checkpoint)
+                    # LoRAs are identified by:
+                    # 1. model_type field from CivitAI metadata being "LORA"
+                    # 2. "lora" in the filename or model name
+                    # 3. Small file size (typically < 500MB for LoRAs vs 2-7GB for checkpoints)
+                    model_type = model.get("model_type", "").upper()
+                    is_lora = (
+                        model_type == "LORA"
+                        or "lora" in model_name.lower()
+                        or "lora" in model_path.name.lower()
+                    )
+                    
+                    # Handle LoRA models - these need a base model to work with
+                    if is_lora and is_single_file:
+                        logger.info(f"Detected LoRA model: {model_path.name}")
+                        logger.info(
+                            "LoRAs must be loaded on top of a base model"
+                        )
+                        
+                        try:
+                            # Load base SDXL model first
+                            base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+                            logger.info(f"Loading base model for LoRA: {base_model_id}")
+                            
+                            if is_sdxl:
+                                pipe = StableDiffusionXLPipeline.from_pretrained(
+                                    base_model_id,
+                                    torch_dtype=torch.float16 if "cuda" in device else torch.float32,
+                                    use_safetensors=True,
+                                )
+                            else:
+                                # SD 1.5 base model
+                                base_model_id = "runwayml/stable-diffusion-v1-5"
+                                pipe = StableDiffusionPipeline.from_pretrained(
+                                    base_model_id,
+                                    torch_dtype=torch.float16 if "cuda" in device else torch.float32,
+                                    use_safetensors=True,
+                                )
+                            
+                            # Load the LoRA weights on top of base model
+                            logger.info(f"Loading LoRA weights from: {model_path}")
+                            pipe.load_lora_weights(str(model_path))
+                            
+                            # Get trigger words if available for logging
+                            trained_words = model.get("trained_words", [])
+                            if trained_words:
+                                logger.info(f"✅ LoRA loaded with trigger words: {', '.join(trained_words[:5])}")
+                            else:
+                                logger.info(f"✅ Successfully loaded LoRA: {model_path.name}")
+                            
+                            # Cache the loaded pipeline
+                            self._loaded_pipelines[pipeline_key] = pipe
+                            
+                        except Exception as e:
+                            logger.error(f"Failed to load LoRA model: {str(e)}")
+                            logger.error(
+                                "LoRA loading requires base model download. "
+                                "Ensure stable-diffusion-xl-base-1.0 is accessible."
+                            )
+                            raise
+
+                    # Handle single-file checkpoint models (CivitAI .safetensors, .ckpt files)
                     # These require from_single_file() instead of from_pretrained()
-                    if is_single_file:
+                    elif is_single_file:
                         logger.info(f"Detected single-file model: {model_path.name}")
                         logger.info(
                             "Using from_single_file() for CivitAI/checkpoint model"
