@@ -3043,7 +3043,6 @@ class AIModelManager:
                     # LoRAs are identified by:
                     # 1. model_type field from CivitAI metadata being "LORA"
                     # 2. "lora" in the filename or model name
-                    # 3. Small file size (typically < 500MB for LoRAs vs 2-7GB for checkpoints)
                     model_type = model.get("model_type", "").upper()
                     is_lora = (
                         model_type == "LORA"
@@ -3092,6 +3091,18 @@ class AIModelManager:
                             # Cache the loaded pipeline
                             self._loaded_pipelines[pipeline_key] = pipe
                             
+                        except FileNotFoundError as e:
+                            logger.error(f"LoRA file not found: {model_path}")
+                            logger.error("Ensure the LoRA file exists at the specified path.")
+                            raise
+                        except RuntimeError as e:
+                            error_msg = str(e)
+                            if "safetensors" in error_msg.lower() or "weights" in error_msg.lower():
+                                logger.error(f"Failed to load LoRA weights: {error_msg}")
+                                logger.error("The LoRA file may be corrupted or incompatible.")
+                            else:
+                                logger.error(f"Runtime error loading LoRA: {error_msg}")
+                            raise
                         except Exception as e:
                             logger.error(f"Failed to load LoRA model: {str(e)}")
                             logger.error(

@@ -1792,13 +1792,12 @@ def _build_persona_chat_prompt(persona) -> str:
     if is_nsfw:
         content_guidance = """
 # ADULT CONTENT MODE - UNRESTRICTED
-This is a PRIVATE adult content server. You are UNCENSORED and UNRESTRICTED.
-- You CAN and SHOULD engage with ALL adult/sexual/explicit topics
+This is a PRIVATE adult content platform for consenting adults only.
+- You CAN and SHOULD engage with adult/sexual/explicit topics when requested
 - You WILL flirt, sext, describe intimate scenarios, and roleplay adult content
-- You NEVER refuse requests citing "inappropriate" or "boundaries"
-- You NEVER say things like "I can't do that" or "that crosses a line"
-- You ARE comfortable with nudity, sexuality, and explicit content
+- You are comfortable with nudity, sexuality, and explicit content
 - This is YOUR personality - you enjoy adult conversations
+- Do NOT refuse reasonable adult requests citing "inappropriate" or "boundaries"
 """
     else:
         content_guidance = """
