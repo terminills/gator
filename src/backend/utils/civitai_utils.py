@@ -28,6 +28,9 @@ logger = get_logger(__name__)
 CIVITAI_API_BASE = "https://civitai.com/api/v1"
 CIVITAI_CDN_BASE = "https://civitai.com/api/download/models"
 
+# Default value for unknown model names
+UNKNOWN_MODEL_NAME = "Unknown"
+
 
 class CivitAIModelType(str, Enum):
     """Model types available on CivitAI."""
@@ -219,7 +222,7 @@ class CivitAIClient:
             
             # Extract model metadata for detailed logging
             model_info = version_info.get("model", {})
-            model_name = model_info.get("name", "Unknown")
+            model_name = model_info.get("name", UNKNOWN_MODEL_NAME)
             is_nsfw = model_info.get("nsfw", False)
             
             # Check for access requirements that might cause 401 errors
@@ -281,14 +284,15 @@ class CivitAIClient:
                 logger.warning(f"   ⚠️  To fix: Add your CivitAI API key in Settings")
             
             # Log the download URL (redact token for security)
-            safe_url = re.sub(r'token=[^&]+', 'token=***REDACTED***', download_url)
+            # Pattern handles tokens at end of URL (no trailing &) and tokens with special characters
+            safe_url = re.sub(r'token=[^&\s]*', 'token=***REDACTED***', download_url)
             logger.info(f"   Request URL: {safe_url}")
             
             # Get filename from file info, or generate one from model name
             filename = file_info.get("name")
             if not filename:
                 # Use model name for the filename instead of just version ID
-                if model_name and model_name != "Unknown":
+                if model_name and model_name != UNKNOWN_MODEL_NAME:
                     # Sanitize model name to be filesystem-safe
                     safe_name = re.sub(r'[<>:"/\\|?*]', '', model_name)  # Remove invalid chars
                     safe_name = safe_name.strip()

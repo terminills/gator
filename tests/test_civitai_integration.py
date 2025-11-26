@@ -4,6 +4,7 @@ Tests for CivitAI Integration
 Tests the CivitAI API client and download functionality.
 """
 
+import logging
 import pytest
 import sys
 from pathlib import Path
@@ -16,6 +17,21 @@ from backend.utils.civitai_utils import (
     CivitAIModelType,
     CivitAIBaseModel,
 )
+
+
+class LogCapture(logging.Handler):
+    """Helper class for capturing log messages during tests."""
+    
+    def __init__(self):
+        super().__init__()
+        self.messages = []
+    
+    def emit(self, record):
+        self.messages.append(record.getMessage())
+    
+    def get_log_text(self):
+        """Return all captured log messages as a single string."""
+        return "\n".join(self.messages)
 
 
 class TestCivitAIClient:
@@ -703,18 +719,10 @@ class TestCivitAIDetailedLogging:
     async def test_download_logs_detailed_info(self):
         """Test that download method logs detailed authentication and model info."""
         import tempfile
-        import logging
         from pathlib import Path
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from backend.utils.civitai_utils import CivitAIClient
-
-        # Capture log output
-        log_messages = []
-        
-        class LogCapture(logging.Handler):
-            def emit(self, record):
-                log_messages.append(record.getMessage())
 
         # Create a temporary directory for the download
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -770,7 +778,7 @@ class TestCivitAIDetailedLogging:
             mock_client_cm.__aenter__ = AsyncMock(return_value=mock_http_client)
             mock_client_cm.__aexit__ = AsyncMock(return_value=None)
 
-            # Setup log capture
+            # Setup log capture using shared helper class
             logger = logging.getLogger("backend.utils.civitai_utils")
             handler = LogCapture()
             handler.setLevel(logging.DEBUG)
@@ -793,7 +801,7 @@ class TestCivitAIDetailedLogging:
                             pass
 
                 # Check that detailed logging occurred
-                log_text = "\n".join(log_messages)
+                log_text = handler.get_log_text()
                 
                 # Should log model name
                 assert "DMD2 Speed LoRA" in log_text, "Should log model name"
@@ -816,19 +824,11 @@ class TestCivitAIDetailedLogging:
     async def test_download_logs_401_error_details(self):
         """Test that 401 errors provide detailed diagnostic information."""
         import tempfile
-        import logging
         from pathlib import Path
         from unittest.mock import AsyncMock, MagicMock, patch
 
         import httpx
         from backend.utils.civitai_utils import CivitAIClient
-
-        # Capture log output
-        log_messages = []
-        
-        class LogCapture(logging.Handler):
-            def emit(self, record):
-                log_messages.append(record.getMessage())
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir)
@@ -878,7 +878,7 @@ class TestCivitAIDetailedLogging:
             mock_client_cm.__aenter__ = AsyncMock(return_value=mock_http_client)
             mock_client_cm.__aexit__ = AsyncMock(return_value=None)
 
-            # Setup log capture
+            # Setup log capture using shared helper class
             logger = logging.getLogger("backend.utils.civitai_utils")
             handler = LogCapture()
             handler.setLevel(logging.DEBUG)
@@ -900,7 +900,7 @@ class TestCivitAIDetailedLogging:
                             pass  # Expected
 
                 # Check that detailed 401 error info was logged
-                log_text = "\n".join(log_messages)
+                log_text = handler.get_log_text()
                 
                 # Should indicate 401 error
                 assert "401" in log_text, "Should log 401 status code"
@@ -920,14 +920,25 @@ class TestCivitAIDetailedLogging:
         """Test that API token is redacted when logging download URL."""
         import re
         
-        # Simulate the URL redaction logic from the code
+        # Simulate the URL redaction logic from the code (updated pattern)
         download_url = "https://civitai.com/api/download/models/12345?token=secret_api_key_123"
-        safe_url = re.sub(r'token=[^&]+', 'token=***REDACTED***', download_url)
+        safe_url = re.sub(r'token=[^&\s]*', 'token=***REDACTED***', download_url)
         
         assert "secret_api_key_123" not in safe_url, "Token should be redacted"
         assert "***REDACTED***" in safe_url, "Should contain redacted placeholder"
         assert "https://civitai.com/api/download/models/12345" in safe_url, \
             "URL structure should be preserved"
+
+    def test_download_url_token_redaction_at_end_of_url(self):
+        """Test that token is redacted even at the end of URL without trailing &."""
+        import re
+        
+        # Token at end of URL (no trailing &)
+        download_url = "https://civitai.com/api/download/models/12345?type=Model&token=my_secret_key"
+        safe_url = re.sub(r'token=[^&\s]*', 'token=***REDACTED***', download_url)
+        
+        assert "my_secret_key" not in safe_url, "Token at end of URL should be redacted"
+        assert "***REDACTED***" in safe_url, "Should contain redacted placeholder"
 
 
 if __name__ == "__main__":
