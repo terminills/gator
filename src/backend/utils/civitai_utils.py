@@ -253,7 +253,8 @@ class CivitAIClient:
             logger.info(f"   Size: {file_info.get('sizeKB', 0) / 1024:.2f} MB")
             
             # Download file with progress tracking
-            async with httpx.AsyncClient(timeout=None) as client:
+            # Enable follow_redirects to handle 307 redirects from CivitAI to Cloudflare storage
+            async with httpx.AsyncClient(timeout=None, follow_redirects=True) as client:
                 async with client.stream("GET", download_url) as response:
                     response.raise_for_status()
                     
