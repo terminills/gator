@@ -12,6 +12,7 @@ Documentation:
 import asyncio
 import hashlib
 import os
+import re
 import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
@@ -242,7 +243,20 @@ class CivitAIClient:
                 separator = "&" if "?" in download_url else "?"
                 download_url += f"{separator}token={self.api_key}"
             
-            filename = file_info.get("name", f"model_{model_version_id}.safetensors")
+            # Get filename from file info, or generate one from model name
+            filename = file_info.get("name")
+            if not filename:
+                # Use model name for the filename instead of just version ID
+                model_name = version_info.get("model", {}).get("name", "")
+                if model_name:
+                    # Sanitize model name to be filesystem-safe
+                    safe_name = re.sub(r'[<>:"/\\|?*]', '', model_name)  # Remove invalid chars
+                    safe_name = safe_name.strip()
+                    safe_name = re.sub(r'\s+', '_', safe_name)  # Replace whitespace with underscores
+                    safe_name = safe_name[:50]  # Limit length to avoid overly long filenames
+                    filename = f"{safe_name}_{model_version_id}.safetensors"
+                else:
+                    filename = f"model_{model_version_id}.safetensors"
             output_file = output_path / filename
             
             # Ensure output directory exists
