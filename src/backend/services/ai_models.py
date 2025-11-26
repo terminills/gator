@@ -3048,32 +3048,58 @@ class AIModelManager:
                         )
 
                         # Prepare single-file loading arguments
+                        # Use safetensors format for .safetensors files
                         single_file_args = {
                             "torch_dtype": (
                                 torch.float16 if "cuda" in device else torch.float32
                             ),
+                            "use_safetensors": model_path.suffix.lower()
+                            == ".safetensors",
                         }
 
                         try:
                             if is_sdxl:
-                                # Use SDXL pipeline for SDXL-based models
-                                pipe = StableDiffusionXLPipeline.from_single_file(
-                                    str(model_path), **single_file_args
-                                )
-                                logger.info(
-                                    f"✅ Successfully loaded SDXL model from single file: {model_path.name}"
-                                )
+                                if use_img2img:
+                                    # Use SDXL img2img pipeline for image-to-image generation
+                                    pipe = StableDiffusionXLImg2ImgPipeline.from_single_file(
+                                        str(model_path), **single_file_args
+                                    )
+                                    logger.info(
+                                        f"✅ Successfully loaded SDXL img2img model from single file: {model_path.name}"
+                                    )
+                                else:
+                                    # Use SDXL pipeline for text-to-image generation
+                                    pipe = StableDiffusionXLPipeline.from_single_file(
+                                        str(model_path), **single_file_args
+                                    )
+                                    logger.info(
+                                        f"✅ Successfully loaded SDXL model from single file: {model_path.name}"
+                                    )
                             else:
-                                # Use SD 1.5 pipeline for non-SDXL models
-                                pipe = StableDiffusionPipeline.from_single_file(
-                                    str(model_path), **single_file_args
-                                )
-                                logger.info(
-                                    f"✅ Successfully loaded SD model from single file: {model_path.name}"
-                                )
+                                if use_img2img:
+                                    # Use SD 1.5 img2img pipeline for image-to-image generation
+                                    pipe = (
+                                        StableDiffusionImg2ImgPipeline.from_single_file(
+                                            str(model_path), **single_file_args
+                                        )
+                                    )
+                                    logger.info(
+                                        f"✅ Successfully loaded SD img2img model from single file: {model_path.name}"
+                                    )
+                                else:
+                                    # Use SD 1.5 pipeline for text-to-image generation
+                                    pipe = StableDiffusionPipeline.from_single_file(
+                                        str(model_path), **single_file_args
+                                    )
+                                    logger.info(
+                                        f"✅ Successfully loaded SD model from single file: {model_path.name}"
+                                    )
                         except Exception as e:
                             logger.error(f"Failed to load single-file model: {str(e)}")
                             raise
+
+                        # Cache the loaded pipeline for future use
+                        self._loaded_pipelines[pipeline_key] = pipe
 
                     # Try to load with fp16 variant first for SDXL models (directory-based)
                     # If variant files are not available, fallback to default loading
