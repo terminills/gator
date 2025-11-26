@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title id="page-title">Creator Profile - Gator AI</title>
+    <title id="page-title">Creator Profile - Gator</title>
     <style>
         * {
             margin: 0;
@@ -517,7 +517,7 @@
 <body>
     <div class="nav-bar">
         <div class="nav-content">
-            <div class="nav-brand">🐊 Gator AI</div>
+            <div class="nav-brand">🐊 Gator</div>
             <div class="nav-links">
                 <a href="/gallery" class="back-btn">← Back to Gallery</a>
                 <a href="/">Admin</a>
@@ -584,7 +584,7 @@
                 }
                 
                 // Update page title
-                document.getElementById('page-title').textContent = `${persona.name} - Gator AI`;
+                document.getElementById('page-title').textContent = `${persona.name} - Gator`;
                 
                 // Render persona profile
                 const personaHTML = `
@@ -592,7 +592,7 @@
                         <div class="header-content">
                             <div class="persona-avatar">${getPersonaIcon(persona.visual_style || persona.style_preferences?.visual_style || 'realistic')}</div>
                             <h1 class="persona-name">${persona.name}</h1>
-                            <p class="persona-bio">${persona.bio || 'AI content creator on Gator Platform'}</p>
+                            <p class="persona-bio">${persona.bio || 'Content creator on Gator Platform'}</p>
                             <div class="persona-stats">
                                 <div class="stat-item">
                                     <span class="stat-number">${gallery.length}</span>
@@ -664,7 +664,7 @@
             return gallery.map(item => {
                 const contentType = item.content_type || item.type || 'image';
                 const contentTitle = item.title || item.prompt?.substring(0, 50) || 'Untitled Creation';
-                const contentDesc = item.description || item.prompt || 'AI-generated content';
+                const contentDesc = item.description || item.prompt || 'Created content';
                 
                 return `
                     <div class="content-item" data-type="${contentType}" onclick="viewContent('${item.id}')">

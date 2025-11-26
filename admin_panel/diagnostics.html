@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Activity Diagnostics - Gator Platform</title>
+    <title>Activity Diagnostics - Gator Platform</title>
     <style>
         * {
             margin: 0;
@@ -428,16 +428,16 @@
 </head>
 <body>
     <div class="container">
-        <h1>🤖 AI Activity Diagnostics</h1>
-        <p class="subtitle">Real-time monitoring and AI agent interaction</p>
+        <h1>🤖 Activity Diagnostics</h1>
+        <p class="subtitle">Real-time monitoring and agent interaction</p>
         <p class="timestamp" id="timestamp"></p>
         
         <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
 
-        <!-- AI Chat Interface -->
+        <!-- Chat Interface -->
         <div class="chat-container">
             <div class="chat-header">
-                <h2>🐊 Chat with Gator AI Agent</h2>
+                <h2>🐊 Chat with Gator Agent</h2>
                 <span class="ai-status" id="ai-status">Checking...</span>
             </div>
             
@@ -445,8 +445,8 @@
                 <div class="chat-message gator">
                     <div class="message-author">Gator</div>
                     <div class="message-content">
-                        Alright, listen up! I'm Gator - your AI diagnostic agent. I don't play games and I expect things to work right. 
-                        Ask me anything about the platform, or use the buttons below to trigger AI activities. 
+                        Alright, listen up! I'm Gator - your diagnostic agent. I don't play games and I expect things to work right. 
+                        Ask me anything about the platform, or use the buttons below to trigger activities. 
                         If something's broken, I'll tell you straight - no sugarcoating.
                     </div>
                 </div>
@@ -463,15 +463,15 @@
             
             <div class="chat-input-area">
                 <div class="activity-triggers">
-                    <button class="activity-btn" onclick="triggerContentGeneration()">🎨 Generate Test Content</button>
+                    <button class="activity-btn" onclick="triggerContentGeneration()">🎨 Create Test Content</button>
                     <button class="activity-btn" onclick="triggerPersonaCreation()">👤 Create Test Persona</button>
-                    <button class="activity-btn" onclick="checkAIModels()">🤖 Check AI Models</button>
+                    <button class="activity-btn" onclick="checkAIModels()">🤖 Check Models</button>
                     <button class="activity-btn" onclick="testACDContext()">🔄 Test ACD Context</button>
                     <button class="activity-btn" onclick="runFullDiagnostic()">🔍 Run Full Diagnostic</button>
                 </div>
                 <div class="activity-triggers" style="margin-top: 8px;">
-                    <button class="activity-btn" style="background: #10b981;" onclick="generatePrompt()">✨ Generate Prompt</button>
-                    <button class="activity-btn" style="background: #8b5cf6;" onclick="generateImage()">🖼️ Generate Image</button>
+                    <button class="activity-btn" style="background: #10b981;" onclick="generatePrompt()">✨ Create Prompt</button>
+                    <button class="activity-btn" style="background: #8b5cf6;" onclick="generateImage()">🖼️ Create Image</button>
                     <button class="activity-btn" style="background: #f59e0b;" onclick="searchCivitAI()">🎯 Search CivitAI</button>
                     <button class="activity-btn" style="background: #ec4899;" onclick="searchHuggingFace()">🤗 Search HuggingFace</button>
                 </div>
@@ -487,7 +487,7 @@
                         type="text" 
                         class="chat-input" 
                         id="chat-input" 
-                        placeholder="Try: 'generate image of sunset', 'search civitai SDXL', 'install model 12345'..."
+                        placeholder="Try: 'create image of sunset', 'search civitai SDXL', 'install model 12345'..."
                         onkeypress="if(event.key === 'Enter') sendMessage()"
                     />
                     <button class="chat-send-btn" id="send-btn" onclick="sendMessage()">Send</button>
@@ -502,9 +502,9 @@
             <!-- Summary Cards -->
             <div class="grid">
                 <div class="card">
-                    <h2>📊 Generation Summary</h2>
+                    <h2>📊 Creation Summary</h2>
                     <div class="stat">
-                        <span class="stat-label">Total Generations</span>
+                        <span class="stat-label">Total Creations</span>
                         <span class="stat-value" id="total-generations">0</span>
                     </div>
                     <div class="stat">
@@ -568,9 +568,9 @@
                 </div>
             </div>
             
-            <!-- AI Models Table -->
+            <!-- Models Table -->
             <div class="card" style="margin-top: 30px;">
-                <h2>🤖 AI Models Activity</h2>
+                <h2>🤖 Models Activity</h2>
                 <div class="table-container">
                     <table>
                         <thead>
@@ -609,10 +609,10 @@
                 
                 const statusEl = document.getElementById('ai-status');
                 if (response.ok && status.status === 'operational') {
-                    statusEl.textContent = '✅ AI Connected';
+                    statusEl.textContent = '✅ Connected';
                     statusEl.className = 'ai-status connected';
                 } else {
-                    statusEl.textContent = '❌ AI Unavailable';
+                    statusEl.textContent = '❌ Unavailable';
                     statusEl.className = 'ai-status disconnected';
                 }
             } catch (error) {
@@ -671,7 +671,7 @@
                 
                 // Update status
                 const statusEl = document.getElementById('ai-status');
-                statusEl.textContent = '❌ AI Failed';
+                statusEl.textContent = '❌ Failed';
                 statusEl.className = 'ai-status disconnected';
             } finally {
                 typingIndicator.classList.remove('active');
@@ -788,7 +788,7 @@
                 if (verboseMode) {
                     addChatMessage('gator', log.join('\n'), true, true);
                 } else {
-                    addChatMessage('gator', `❌ FAILED: ${error.message}. AI content generation is broken!`, true);
+                    addChatMessage('gator', `❌ FAILED: ${error.message}. Content creation is broken!`, true);
                 }
             } finally {
                 typingIndicator.classList.remove('active');
@@ -875,18 +875,18 @@
         }
 
         async function checkAIModels() {
-            addChatMessage('user', 'Check available AI models');
+            addChatMessage('user', 'Check available models');
             const typingIndicator = document.getElementById('typing-indicator');
             typingIndicator.classList.add('active');
             const verboseMode = document.getElementById('verbose-mode').checked;
             
             let log = [];
-            log.push('[ACTIVITY] AI Models Status Check');
+            log.push('[ACTIVITY] Models Status Check');
             log.push('[TIMESTAMP] ' + new Date().toISOString());
             log.push('');
             
             try {
-                log.push('[STEP 1] Fetching AI models status...');
+                log.push('[STEP 1] Fetching models status...');
                 log.push('[API CALL] GET /api/v1/setup/models/status');
                 log.push('');
                 
@@ -900,7 +900,7 @@
                     log.push('[ERROR] API endpoint returned error status');
                     const errorText = await response.text();
                     log.push('[ERROR DETAILS] ' + errorText);
-                    throw new Error(`HTTP ${response.status}: Cannot reach AI models endpoint`);
+                    throw new Error(`HTTP ${response.status}: Cannot reach models endpoint`);
                 }
                 
                 const status = await response.json();
@@ -908,7 +908,7 @@
                 log.push('');
                 log.push('[STEP 2] Parsing model data...');
                 
-                let message = '🤖 AI Models Status:\n\n';
+                let message = '🤖 Models Status:\n\n';
                 
                 if (verboseMode) {
                     log.push('[MODEL CATEGORIES]');
@@ -941,7 +941,7 @@
                 
                 log.push('[STEP 2] ✓ Model data parsed');
                 log.push('');
-                log.push('[COMPLETE] AI models check complete!');
+                log.push('[COMPLETE] Models check complete!');
                 
                 if (verboseMode) {
                     log.push('');
@@ -960,7 +960,7 @@
                 if (verboseMode) {
                     addChatMessage('gator', log.join('\n'), true, true);
                 } else {
-                    addChatMessage('gator', `❌ FAILED: ${error.message}. Cannot check AI models!`, true);
+                    addChatMessage('gator', `❌ FAILED: ${error.message}. Cannot check models!`, true);
                 }
             } finally {
                 typingIndicator.classList.remove('active');
@@ -1146,7 +1146,7 @@
                 }
                 log.push('');
                 
-                // Test AI models
+                // Test models
                 log.push('[TEST 3/5] AI Models Check');
                 log.push('[API CALL] GET /api/v1/setup/models/status');
                 try {
@@ -1324,7 +1324,7 @@
                 const attemptsResp = await fetch(`${API_BASE}/generation-attempts?limit=20`);
                 const attempts = await attemptsResp.json();
                 
-                // Load AI models
+                // Load models
                 const modelsResp = await fetch(`${API_BASE}/ai-models`);
                 const models = await modelsResp.json();
                 
@@ -1423,7 +1423,7 @@
             }
             
             if (models.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">No AI model activity found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">No model activity found</td></tr>';
             }
         }
         
@@ -1486,9 +1486,9 @@
         async function generatePrompt() {
             const promptTypes = [
                 'Create a creative image generation prompt for a beautiful landscape',
-                'Generate a text prompt for an engaging social media post',
+                'Create a text prompt for an engaging social media post',
                 'Create a voice script prompt for a product announcement',
-                'Generate a video concept prompt for a short-form content piece',
+                'Create a video concept prompt for a short-form content piece',
                 'Create a chat conversation starter prompt for audience engagement'
             ];
             
@@ -1537,11 +1537,11 @@
                 const data = await response.json();
                 log.push(`[STEP 1] ✓ Response received (${elapsed}ms)`);
                 log.push('');
-                log.push('[GENERATED PROMPT]');
+                log.push('[CREATED PROMPT]');
                 log.push(data.response);
                 log.push('');
-                log.push('[COMPLETE] Prompt generated successfully!');
-                log.push('[TIP] You can use this prompt directly in content generation.');
+                log.push('[COMPLETE] Prompt created successfully!');
+                log.push('[TIP] You can use this prompt directly in content creation.');
                 
                 if (verboseMode) {
                     addChatMessage('gator', log.join('\n'), false, true);
@@ -1556,7 +1556,7 @@
                 if (verboseMode) {
                     addChatMessage('gator', log.join('\n'), true, true);
                 } else {
-                    addChatMessage('gator', `❌ FAILED: ${error.message}. Prompt generation failed!`, true);
+                    addChatMessage('gator', `❌ FAILED: ${error.message}. Prompt creation failed!`, true);
                 }
             } finally {
                 typingIndicator.classList.remove('active');
@@ -1566,10 +1566,10 @@
         // Generate image via Gator chat
         async function generateImage() {
             const prompts = [
-                'generate an image of a beautiful sunset over mountains',
-                'generate an image of a futuristic city at night',
+                'create an image of a beautiful sunset over mountains',
+                'create an image of a futuristic city at night',
                 'create an image of a serene forest with a stream',
-                'generate an image of an abstract art piece',
+                'create an image of an abstract art piece',
                 'create an image of a cozy cabin in winter'
             ];
             
@@ -1578,7 +1578,7 @@
             sendMessage();
         }
         
-        // Search CivitAI models
+        // Search Civitmodels
         async function searchCivitAI() {
             const queries = [
                 'search civitai stable diffusion xl',

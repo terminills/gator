@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Center - Gator AI Platform</title>
+    <title>Control Center - Gator Platform</title>
     <style>
         * {
             margin: 0;
@@ -181,8 +181,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🐊 Gator AI Admin Dashboard</h1>
-            <p>Manage your AI influencer platform from this central hub</p>
+            <h1>🐊 Gator Admin Dashboard</h1>
+            <p>Manage your influencer platform from this central hub</p>
             
             <div class="status-bar" id="status-bar">
                 <div class="status-item">
@@ -194,11 +194,11 @@
                     <div class="status-value" id="persona-count">-</div>
                 </div>
                 <div class="status-item">
-                    <div class="status-label">Generated Content</div>
+                    <div class="status-label">Created Content</div>
                     <div class="status-value" id="content-count">-</div>
                 </div>
                 <div class="status-item">
-                    <div class="status-label">AI Models</div>
+                    <div class="status-label">Models</div>
                     <div class="status-value" id="model-count">-</div>
                 </div>
             </div>
@@ -209,34 +209,34 @@
                 <div class="card-icon">🎭</div>
                 <div class="card-title">Persona Management</div>
                 <div class="card-description">
-                    Create, edit, and manage AI personas. Configure appearance, personality, and content themes.
+                    Create, edit, and manage personas. Configure appearance, personality, and content themes.
                 </div>
                 <div class="card-action">Manage Personas →</div>
             </a>
             
             <a href="/admin/content" class="admin-card">
                 <div class="card-icon">🎨</div>
-                <div class="card-title">Content Generation</div>
+                <div class="card-title">Content Creation</div>
                 <div class="card-description">
-                    Generate AI content, view generated items, and manage content library.
+                    Create content, view created items, and manage content library.
                 </div>
-                <div class="card-action">Generate Content →</div>
+                <div class="card-action">Create Content →</div>
             </a>
             
             <a href="/admin/rss" class="admin-card">
                 <div class="card-icon">📡</div>
                 <div class="card-title">RSS Feed Management</div>
                 <div class="card-description">
-                    Add and manage RSS feeds for trend monitoring and automated content generation.
+                    Add and manage RSS feeds for trend monitoring and automated content creation.
                 </div>
                 <div class="card-action">Manage RSS Feeds →</div>
             </a>
             
             <a href="/ai-models-setup" class="admin-card">
                 <div class="card-icon">🤖</div>
-                <div class="card-title">AI Model Setup</div>
+                <div class="card-title">Model Setup</div>
                 <div class="card-description">
-                    Install and configure AI models (vLLM, Ollama, etc.) for content generation.
+                    Install and configure models (vLLM, Ollama, etc.) for content creation.
                 </div>
                 <div class="card-action">Configure Models →</div>
             </a>
@@ -252,9 +252,9 @@
             
             <a href="/admin/diagnostics" class="admin-card">
                 <div class="card-icon">🤖</div>
-                <div class="card-title">AI Diagnostics</div>
+                <div class="card-title">Diagnostics</div>
                 <div class="card-description">
-                    Monitor AI activity, generation attempts, and system health in real-time.
+                    Monitor activity, creation attempts, and system health in real-time.
                 </div>
                 <div class="card-action">View Diagnostics →</div>
             </a>
@@ -282,7 +282,7 @@
             <h2>⚡ Quick Actions</h2>
             <div class="actions-grid">
                 <button class="action-btn primary" onclick="generateContent()">
-                    🎨 Generate Content Now
+                    🎨 Create Content Now
                 </button>
                 <a href="/admin/personas?action=create" class="action-btn">
                     ➕ Create New Persona
@@ -350,7 +350,7 @@
         async function generateContent() {
             const btn = event.target;
             btn.disabled = true;
-            btn.textContent = '⏳ Generating...';
+            btn.textContent = '⏳ Creating...';
             
             try {
                 const response = await fetch('/api/v1/content/generate', {
@@ -358,24 +358,24 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         content_type: 'image',
-                        prompt: 'Generate engaging content based on current trends'
+                        prompt: 'Create engaging content based on current trends'
                     })
                 });
                 
                 if (response.ok) {
-                    btn.textContent = '✅ Generated!';
+                    btn.textContent = '✅ Created!';
                     setTimeout(() => {
-                        btn.textContent = '🎨 Generate Content Now';
+                        btn.textContent = '🎨 Create Content Now';
                         btn.disabled = false;
                         loadSystemData();
                     }, 2000);
                 } else {
-                    throw new Error('Generation failed');
+                    throw new Error('Creation failed');
                 }
             } catch (error) {
                 btn.textContent = '❌ Failed';
                 setTimeout(() => {
-                    btn.textContent = '🎨 Generate Content Now';
+                    btn.textContent = '🎨 Create Content Now';
                     btn.disabled = false;
                 }, 2000);
             }

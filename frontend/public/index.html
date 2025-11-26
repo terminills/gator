@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gator AI Influencer Platform</title>
+    <title>Gator Influencer Platform</title>
     <style>
         * {
             margin: 0;
@@ -137,8 +137,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🐊 Gator AI Platform</h1>
-            <p>Private AI Influencer Content Generation System</p>
+            <h1>🐊 Gator Platform</h1>
+            <p>Private Influencer Content Creation System</p>
             <div style="margin-top: 20px;">
                 <span class="status" id="system-status">⏳ Checking Status...</span>
             </div>
@@ -158,9 +158,9 @@
             </div>
             
             <div class="card">
-                <h3>🎨 Content Generation</h3>
-                <p id="content-info">Loading content generation info...</p>
-                <button onclick="generateContent()" class="btn" id="generate-btn">Generate Content Now</button>
+                <h3>🎨 Content Creation</h3>
+                <p id="content-info">Loading content creation info...</p>
+                <button onclick="generateContent()" class="btn" id="generate-btn">Create Content Now</button>
             </div>
             
             <div class="card">
@@ -170,8 +170,8 @@
             </div>
             
             <div class="card">
-                <h3>🤖 AI Model Setup</h3>
-                <p id="model-info">Loading AI model information...</p>
+                <h3>🤖 Model Setup</h3>
+                <p id="model-info">Loading model information...</p>
                 <a href="/ai-models-setup" class="btn">Configure Models</a>
             </div>
             
@@ -189,13 +189,13 @@
         </div>
         
         <div class="features" id="ai-features">
-            <!-- Dynamic AI capabilities will be loaded here -->
+            <!-- Dynamic capabilities will be loaded here -->
         </div>
         
         <div style="margin-top: 40px;">
             <h2 style="text-align: center; color: white; margin-bottom: 20px;">🎨 Recent Content</h2>
             <div id="recent-content" class="dashboard">
-                <!-- Recent generated content will be loaded here -->
+                <!-- Recent created content will be loaded here -->
             </div>
         </div>
     </div>
@@ -246,13 +246,13 @@
                 const contentData = await contentResp.json();
                 systemData.content = contentData.content || [];
                 
-                // Load AI model status
+                // Load model status
                 try {
                     const modelsResp = await fetch('/api/v1/setup/ai-models/status');
                     const modelsData = await modelsResp.json();
                     systemData.models = modelsData;
                 } catch (e) {
-                    console.log('AI models endpoint not available yet');
+                    console.log('Models endpoint not available yet');
                 }
                 
                 // Load analytics if available
@@ -281,27 +281,27 @@
                 </div>
                 <div style="text-align: center; color: white;">
                     <div style="font-size: 2rem; font-weight: bold;">${systemData.content.length}</div>
-                    <div style="font-size: 0.9rem; opacity: 0.9;">Generated Content</div>
+                    <div style="font-size: 0.9rem; opacity: 0.9;">Created Content</div>
                 </div>
                 <div style="text-align: center; color: white;">
                     <div style="font-size: 2rem; font-weight: bold;">${getModelCount()}</div>
-                    <div style="font-size: 0.9rem; opacity: 0.9;">AI Models</div>
+                    <div style="font-size: 0.9rem; opacity: 0.9;">Models</div>
                 </div>
             `;
             
             // Update persona info
             const personaInfo = document.getElementById('persona-info');
             if (systemData.personas.length > 0) {
-                personaInfo.textContent = `You have ${systemData.personas.length} active persona${systemData.personas.length !== 1 ? 's' : ''} ready to generate content.`;
+                personaInfo.textContent = `You have ${systemData.personas.length} active persona${systemData.personas.length !== 1 ? 's' : ''} ready to create content.`;
             } else {
-                personaInfo.textContent = 'No personas created yet. Create your first AI persona to start generating content.';
+                personaInfo.textContent = 'No personas created yet. Create your first persona to start creating content.';
             }
             
             // Update content info
             const contentInfo = document.getElementById('content-info');
             contentInfo.textContent = systemData.content.length > 0 
-                ? `${systemData.content.length} pieces of content generated. Click below to create more!`
-                : 'No content generated yet. Start creating AI-powered content now!';
+                ? `${systemData.content.length} pieces of content created. Click below to create more!`
+                : 'No content created yet. Start creating content now!';
             
             // Update RSS info
             const rssInfo = document.getElementById('rss-info');
@@ -312,9 +312,9 @@
             const modelCount = getModelCount();
             if (modelCount > 0) {
                 const gpuStatus = systemData.models?.system?.gpu_available ? '✅ GPU Available' : '⚠️ CPU Only';
-                modelInfo.textContent = `${modelCount} AI models available. ${gpuStatus}`;
+                modelInfo.textContent = `${modelCount} models available. ${gpuStatus}`;
             } else {
-                modelInfo.textContent = 'Configure AI models to enable local content generation.';
+                modelInfo.textContent = 'Configure models to enable local content creation.';
             }
             
             // Update analytics info
@@ -343,20 +343,20 @@
                 features.push({
                     icon: '🎮',
                     title: 'GPU Acceleration',
-                    desc: `${systemData.models.system.gpu_count || 1} GPU(s) available for fast generation`
+                    desc: `${systemData.models.system.gpu_count || 1} GPU(s) available for fast creation`
                 });
             }
             
             if (systemData.models?.installed_models?.length > 0) {
                 features.push({
                     icon: '🤖',
-                    title: 'Local AI Models',
-                    desc: `${systemData.models.installed_models.length} models installed for offline generation`
+                    title: 'Local Models',
+                    desc: `${systemData.models.installed_models.length} models installed for offline creation`
                 });
             } else {
                 features.push({
                     icon: '☁️',
-                    title: 'Cloud AI APIs',
+                    title: 'Cloud APIs',
                     desc: 'OpenAI, Anthropic, and other cloud models available'
                 });
             }
@@ -388,8 +388,8 @@
             if (systemData.content.length === 0) {
                 recentContainer.innerHTML = `
                     <div class="card" style="grid-column: 1 / -1; text-align: center;">
-                        <h3>No content generated yet</h3>
-                        <p style="margin: 20px 0;">Start creating AI-powered content by clicking "Generate Content Now" above!</p>
+                        <h3>No content created yet</h3>
+                        <p style="margin: 20px 0;">Start creating content by clicking "Create Content Now" above!</p>
                     </div>
                 `;
                 return;
@@ -415,7 +415,7 @@
         async function generateContent() {
             const btn = document.getElementById('generate-btn');
             btn.disabled = true;
-            btn.textContent = '⏳ Generating...';
+            btn.textContent = '⏳ Creating...';
             
             try {
                 const response = await fetch('/api/v1/content/generate', {
@@ -432,25 +432,25 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    btn.textContent = '✅ Content Generated!';
+                    btn.textContent = '✅ Content Created!';
                     btn.style.background = '#28a745';
                     
                     // Reload data after 2 seconds
                     setTimeout(() => {
                         loadStats();
                         btn.disabled = false;
-                        btn.textContent = 'Generate Content Now';
+                        btn.textContent = 'Create Content Now';
                         btn.style.background = '';
                     }, 2000);
                 } else {
-                    throw new Error(result.detail || 'Generation failed');
+                    throw new Error(result.detail || 'Creation failed');
                 }
             } catch (error) {
-                console.error('Failed to generate content:', error);
+                console.error('Failed to create content:', error);
                 btn.textContent = '❌ Failed - Try Again';
                 btn.disabled = false;
                 setTimeout(() => {
-                    btn.textContent = 'Generate Content Now';
+                    btn.textContent = 'Create Content Now';
                 }, 3000);
             }
         }
