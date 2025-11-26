@@ -4622,6 +4622,10 @@ class AIModelManager:
         try:
             # Get image style from kwargs
             image_style = kwargs.get("image_style", "photorealistic")
+            
+            # Get model preference options for anatomy/body generation
+            prefer_anatomy_model = kwargs.get("prefer_anatomy_model", False)
+            nsfw_model_pref = kwargs.get("nsfw_model_pref")
 
             # Build base prompt with appearance and personality
             base_prompt = appearance_prompt
@@ -4629,7 +4633,10 @@ class AIModelManager:
                 base_prompt += f", expressing {personality_context}"
 
             # Check if we're using SDXL to determine if we can use long prompts
-            model = self._get_best_local_image_model()
+            model = self._get_best_local_image_model(
+                prefer_anatomy_model=prefer_anatomy_model, 
+                nsfw_model_pref=nsfw_model_pref
+            )
             is_sdxl = "xl" in model.get("name", "").lower()
 
             # Build style-specific prompt and negative prompt
@@ -4642,6 +4649,8 @@ class AIModelManager:
             logger.info(
                 f"Generating reference image locally with style '{image_style}': {full_prompt[:100]}..."
             )
+            if prefer_anatomy_model or nsfw_model_pref:
+                logger.info(f"Using anatomy-optimized model selection (prefer_anatomy={prefer_anatomy_model}, nsfw_pref={nsfw_model_pref})")
 
             # Auto-select GPU if not specified
             device_id = kwargs.get("device_id")
@@ -4670,16 +4679,24 @@ class AIModelManager:
                 "device_id": device_id,  # Pass through the selected GPU
             }
 
-            # Enable ControlNet if reference image provided
+            # Enable img2img mode if reference image provided
+            # This uses the reference image as a starting point and transforms it
+            # based on the new prompt while maintaining visual consistency
             if reference_image_path:
-                logger.info(f"Using ControlNet with reference: {reference_image_path}")
+                logger.info(f"Using img2img with reference: {reference_image_path}")
                 generation_kwargs["reference_image_path"] = reference_image_path
-                generation_kwargs["use_controlnet"] = True
+                # Use img2img strength from kwargs (default 0.75 means 75% new generation, 25% original)
+                generation_kwargs["img2img_strength"] = kwargs.get("img2img_strength", 0.75)
+                # Don't use ControlNet by default, use simpler img2img pipeline
+                generation_kwargs["use_controlnet"] = kwargs.get("use_controlnet", False)
 
             # Generate using the diffusers pipeline
             result = await self._generate_image_diffusers(
                 prompt=full_prompt,
-                model=self._get_best_local_image_model(),
+                model=self._get_best_local_image_model(
+                    prefer_anatomy_model=prefer_anatomy_model,
+                    nsfw_model_pref=nsfw_model_pref
+                ),
                 **generation_kwargs,
             )
 
@@ -4691,8 +4708,17 @@ class AIModelManager:
             logger.error(f"Failed to generate reference image locally: {str(e)}")
             raise
 
-    def _get_best_local_image_model(self) -> Dict[str, Any]:
-        """Get the best available local image model."""
+    def _get_best_local_image_model(self, prefer_anatomy_model: bool = False, nsfw_model_pref: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get the best available local image model.
+        
+        Args:
+            prefer_anatomy_model: If True, prefer models better at human body/anatomy
+            nsfw_model_pref: Optional specific NSFW model preference name
+            
+        Returns:
+            Dict containing model configuration
+        """
         local_models = [
             m
             for m in self.available_models.get("image", [])
@@ -4701,6 +4727,29 @@ class AIModelManager:
 
         if not local_models:
             raise Exception("No local image models available")
+
+        # If specific NSFW model preference provided, try to find it
+        if nsfw_model_pref:
+            for model in local_models:
+                if (
+                    nsfw_model_pref.lower() in model.get("name", "").lower()
+                    or nsfw_model_pref.lower() in model.get("model_id", "").lower()
+                    or nsfw_model_pref.lower() in model.get("display_name", "").lower()
+                ):
+                    logger.info(f"Using preferred NSFW model for better anatomy: {model.get('name')}")
+                    return model
+        
+        # If prefer anatomy models, look for models known to be good at human bodies
+        if prefer_anatomy_model:
+            # Models known to be better at human anatomy/bodies
+            anatomy_keywords = ["nsfw", "realistic", "photon", "dreamshaper", "realvis", "juggernaut"]
+            for model in local_models:
+                model_name_lower = model.get("name", "").lower()
+                model_id_lower = model.get("model_id", "").lower()
+                for keyword in anatomy_keywords:
+                    if keyword in model_name_lower or keyword in model_id_lower:
+                        logger.info(f"Using anatomy-focused model for better human body representation: {model.get('name')}")
+                        return model
 
         # Prefer SDXL models for best quality
         for model in local_models:

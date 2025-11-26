@@ -586,6 +586,31 @@ async def approve_seed_image(
         )
 
 
+# Define the 4 base image types with their specific prompts
+BASE_IMAGE_TYPES = [
+    {
+        "id": "face_shot",
+        "label": "Face Shot",
+        "prompt_addition": "close-up portrait, headshot, face centered, shoulders visible, looking at camera, detailed facial features, studio lighting",
+    },
+    {
+        "id": "bikini_front",
+        "label": "Bikini Front View",
+        "prompt_addition": "full body shot, bikini, front view facing camera, beach or pool setting, natural lighting, standing pose",
+    },
+    {
+        "id": "bikini_side",
+        "label": "Bikini Side View",
+        "prompt_addition": "full body shot, bikini, side profile view, beach or pool setting, natural lighting, standing pose",
+    },
+    {
+        "id": "bikini_rear",
+        "label": "Bikini Rear View",
+        "prompt_addition": "full body shot, bikini, rear view from behind, beach or pool setting, natural lighting, standing pose",
+    },
+]
+
+
 @router.post("/generate-sample-images")
 async def generate_sample_images(
     appearance: str = Query(
@@ -605,15 +630,28 @@ async def generate_sample_images(
         "photorealistic",
         description="Image generation style: photorealistic, anime, cartoon, artistic, 3d_render, fantasy, cinematic",
     ),
+    nsfw_model: Optional[str] = Query(
+        None,
+        description="Optional NSFW model preference for better human body/anatomy details (e.g., 'realistic', 'photon')",
+    ),
     persona_service: PersonaService = Depends(get_persona_service),
 ) -> Dict[str, Any]:
     """
-    Generate 4 sample images for persona creation.
+    Generate 4 base images for persona physical appearance locking.
 
-    This endpoint generates 4 different sample images based on the appearance
-    and personality descriptions. Returns base64-encoded images for immediate
-    display in the UI. Used during persona creation to let users choose their
-    preferred base image.
+    This endpoint generates 4 specific images based on the appearance:
+    1. Face shot (portrait/headshot) - for facial consistency
+    2. Bikini front view - for body consistency from front
+    3. Bikini side view - for body consistency from side
+    4. Bikini rear view - for body consistency from rear
+
+    These 4 images establish a complete, locked-in base physical appearance
+    for the persona that can be used for visual consistency in all future
+    content generation.
+    
+    Note: NSFW-capable models are preferred for generating these images because
+    they tend to be better trained on human anatomy and physical details,
+    resulting in more accurate body representations even for non-explicit content.
 
     Args:
         appearance: Physical appearance description
@@ -621,10 +659,11 @@ async def generate_sample_images(
         resolution: Image resolution in format "widthxheight" (e.g., "1024x1024", "720x1280", "1920x1080")
         quality: Generation quality preset (draft, standard, high, premium)
         style: Image generation style (photorealistic, anime, cartoon, artistic, 3d_render, fantasy, cinematic)
+        nsfw_model: Optional preferred NSFW model name for better anatomy rendering
         persona_service: Injected persona service
 
     Returns:
-        Dict with 'images' array containing objects with 'id', 'data_url', and 'path'
+        Dict with 'images' array containing objects with 'id', 'type', 'label', 'data_url'
 
     Raises:
         400: Missing appearance or no image generation available
@@ -683,22 +722,27 @@ async def generate_sample_images(
         quality_steps_map = {"draft": 20, "standard": 30, "high": 50, "premium": 80}
         num_steps = quality_steps_map.get(quality.lower(), 30)
 
-        logger.info(f"Generating 4 sample images with appearance: {appearance[:50]}...")
+        logger.info(f"Generating 4 base images with appearance: {appearance[:50]}...")
         logger.info(f"Resolution: {width}x{height}, Quality: {quality}, Style: {style}")
+        logger.info("Using sequential img2img chain: face→front→side→rear for maximum body consistency")
 
-        # Generate 4 images sequentially to prevent scheduler state conflicts
+        # Generate 4 specific images using sequential img2img chain
+        # Each image uses the previous one as reference for progressive consistency:
+        # Face Shot → Bikini Front → Bikini Side → Bikini Rear
         images = []
+        current_reference_path = None  # Chain: each image becomes reference for the next
+        temp_files = []  # Track temp files for cleanup
 
         # Prefer local models (free, no API costs, better privacy)
-        # Use DALL-E only as fallback if local models aren't available
         if local_models:
-            # Generate with local models, distributing across available GPUs
             logger.info("Using local Stable Diffusion models for generation")
 
-            # Get available GPUs sorted by load (least loaded first)
+            # Get available GPUs
             from backend.services.gpu_monitoring_service import (
                 get_gpu_monitoring_service,
             )
+            import tempfile
+            import os
 
             gpu_service = get_gpu_monitoring_service()
             available_gpus = await gpu_service.get_available_gpus()
@@ -707,66 +751,117 @@ async def generate_sample_images(
                 logger.info(
                     f"Distributing image generation across {len(available_gpus)} GPU(s): {available_gpus}"
                 )
-            else:
-                logger.info("No GPU information available, using default GPU selection")
 
-            # Generate images sequentially, but cycle through available GPUs
-            # This distributes the workload across multiple GPUs for better utilization
-            for i in range(4):
+            # Sequential chain generation: each image becomes reference for the next
+            for i, image_type in enumerate(BASE_IMAGE_TYPES):
                 try:
-                    # Select GPU in round-robin fashion if multiple GPUs available
-                    device_id = None
-                    if available_gpus:
-                        device_id = available_gpus[i % len(available_gpus)]
-                        logger.info(f"Generating image {i+1}/4 on GPU {device_id}")
+                    specific_prompt = f"{appearance}, {image_type['prompt_addition']}"
+                    
+                    # Select GPU in round-robin fashion
+                    device_id = available_gpus[i % len(available_gpus)] if available_gpus else None
+                    
+                    # Determine img2img strength based on position in chain
+                    # First image (face shot): no reference (text2img)
+                    # Second image (front): moderate strength to establish body from face
+                    # Third/Fourth (side/rear): slightly lower strength to allow pose change while keeping body
+                    if i == 0:
+                        # Face shot - pure text2img, establishes the face
+                        logger.info(f"STEP {i+1}/4: Generating {image_type['label']} (chain start - text2img)")
+                        img2img_strength = None
+                        reference_path = None
+                    elif i == 1:
+                        # Front view - use face shot, moderate strength to establish full body
+                        logger.info(f"STEP {i+1}/4: Generating {image_type['label']} (from face shot, strength=0.60)")
+                        img2img_strength = 0.60  # Keep more face features, establish body
+                        reference_path = current_reference_path
+                    else:
+                        # Side and rear views - use previous body shot, allow pose change
+                        logger.info(f"STEP {i+1}/4: Generating {image_type['label']} (from previous, strength=0.55)")
+                        img2img_strength = 0.55  # Allow more freedom for pose rotation while keeping body
+                        reference_path = current_reference_path
 
-                    result = await ai_manager._generate_reference_image_local(
-                        appearance_prompt=appearance,
-                        personality_context=personality[:200] if personality else None,
-                        reference_image_path=None,
-                        width=width,
-                        height=height,
-                        num_inference_steps=num_steps,
-                        device_id=device_id,  # Pass GPU selection
-                        image_style=style,  # Pass image style
-                    )
+                    if reference_path:
+                        logger.info(f"Using img2img chain reference: {reference_path}")
+                        result = await ai_manager._generate_reference_image_local(
+                            appearance_prompt=specific_prompt,
+                            personality_context=personality[:200] if personality else None,
+                            reference_image_path=reference_path,
+                            width=width,
+                            height=height,
+                            num_inference_steps=num_steps,
+                            device_id=device_id,
+                            image_style=style,
+                            prefer_anatomy_model=True,
+                            nsfw_model_pref=nsfw_model,
+                            img2img_strength=img2img_strength,
+                        )
+                    else:
+                        result = await ai_manager._generate_reference_image_local(
+                            appearance_prompt=specific_prompt,
+                            personality_context=personality[:200] if personality else None,
+                            reference_image_path=None,
+                            width=width,
+                            height=height,
+                            num_inference_steps=num_steps,
+                            device_id=device_id,
+                            image_style=style,
+                            prefer_anatomy_model=True,
+                            nsfw_model_pref=nsfw_model,
+                        )
+
+                    # Save this image as reference for the next in the chain
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+                        tmp_file.write(result["image_data"])
+                        current_reference_path = tmp_file.name
+                        temp_files.append(tmp_file.name)
+                        logger.info(f"Saved {image_type['label']} as chain reference: {current_reference_path}")
 
                     # Convert to base64 data URL
-                    base64_image = base64.b64encode(result["image_data"]).decode(
-                        "utf-8"
-                    )
+                    base64_image = base64.b64encode(result["image_data"]).decode("utf-8")
                     data_url = f"data:image/png;base64,{base64_image}"
 
-                    images.append(
-                        {
-                            "id": f"sample_{i+1}",
-                            "data_url": data_url,
-                            "size": len(result["image_data"]),
-                            "gpu_id": device_id if device_id is not None else "auto",
-                        }
-                    )
+                    images.append({
+                        "id": image_type["id"],
+                        "type": image_type["id"],
+                        "label": image_type["label"],
+                        "data_url": data_url,
+                        "size": len(result["image_data"]),
+                        "gpu_id": device_id if device_id is not None else "auto",
+                        "chain_position": i + 1,
+                    })
 
-                    logger.info(f"Generated sample image {i+1}/4")
+                    logger.info(f"Generated {image_type['label']} ({i+1}/4) - chain reference updated")
 
                 except Exception as e:
-                    logger.warning(f"Failed to generate image {i+1}: {str(e)}")
+                    logger.warning(f"Failed to generate {image_type['label']}: {str(e)}")
+                    # If an image in the chain fails, continue with text2img for remaining
+                    current_reference_path = None
+
+            # Clean up all temporary files
+            for temp_file in temp_files:
+                try:
+                    os.unlink(temp_file)
+                except Exception as e:
+                    logger.warning(f"Failed to clean up temp file {temp_file}: {e}")
+            logger.info(f"Cleaned up {len(temp_files)} temporary chain reference files")
 
         elif dalle_available:
-            # Fallback to DALL-E if local models not available (requires API key and costs money)
+            # Fallback to DALL-E (no img2img chain, just sequential prompts)
             logger.warning(
-                "Using DALL-E as fallback - this will incur API costs. Consider installing local Stable Diffusion models."
+                "Using DALL-E as fallback - this will incur API costs. Note: DALL-E doesn't support img2img chaining."
             )
-            # Generate 4 images sequentially to avoid rate limits
-            for i in range(4):
+            for i, image_type in enumerate(BASE_IMAGE_TYPES):
                 try:
+                    # Build specific prompt for this image type
+                    specific_prompt = f"{appearance}, {image_type['prompt_addition']}"
+
                     result = await ai_manager._generate_reference_image_openai(
-                        appearance_prompt=appearance,
+                        appearance_prompt=specific_prompt,
                         personality_context=personality[:200] if personality else None,
                         quality=dalle_quality,
                         size=f"{width}x{height}",
                     )
 
-                    # Convert to base64 data URL
                     base64_image = base64.b64encode(result["image_data"]).decode(
                         "utf-8"
                     )
@@ -774,17 +869,18 @@ async def generate_sample_images(
 
                     images.append(
                         {
-                            "id": f"sample_{i+1}",
+                            "id": image_type["id"],
+                            "type": image_type["id"],
+                            "label": image_type["label"],
                             "data_url": data_url,
                             "size": len(result["image_data"]),
                         }
                     )
 
-                    logger.info(f"Generated sample image {i+1}/4")
+                    logger.info(f"Generated {image_type['label']} ({i+1}/4)")
 
                 except Exception as e:
-                    logger.warning(f"Failed to generate image {i+1}: {str(e)}")
-                    # Continue with other images even if one fails
+                    logger.warning(f"Failed to generate {image_type['label']}: {str(e)}")
 
         # Clean up
         await ai_manager.close()
@@ -792,10 +888,10 @@ async def generate_sample_images(
         if len(images) == 0:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to generate any sample images",
+                detail="Failed to generate any base images",
             )
 
-        logger.info(f"Successfully generated {len(images)} sample images")
+        logger.info(f"Successfully generated {len(images)} base images")
 
         return {"images": images, "count": len(images)}
 
@@ -1401,26 +1497,44 @@ async def set_base_image_from_sample(
         )
 
 
-@router.get("/{persona_id}/base-image-url")
-async def get_base_image_url(
+class SetBaseImagesRequest(BaseModel):
+    """Request model for setting all 4 base images."""
+    
+    face_shot: Optional[str] = Field(None, description="Base64 data URL for face shot")
+    bikini_front: Optional[str] = Field(None, description="Base64 data URL for bikini front view")
+    bikini_side: Optional[str] = Field(None, description="Base64 data URL for bikini side view")
+    bikini_rear: Optional[str] = Field(None, description="Base64 data URL for bikini rear view")
+
+
+@router.post("/{persona_id}/set-base-images")
+async def set_base_images(
     persona_id: str,
+    images: SetBaseImagesRequest,
     persona_service: PersonaService = Depends(get_persona_service),
-) -> Dict[str, Any]:
+) -> PersonaResponse:
     """
-    Get the URL for a persona's base image.
-    
-    Returns the URL path to access the persona's locked base image,
-    or None if no base image is set.
-    
+    Set all 4 base images for a persona to lock the physical appearance.
+
+    This endpoint sets the 4 required base images for complete physical appearance locking:
+    1. face_shot - Portrait/headshot for facial consistency
+    2. bikini_front - Front view for body consistency
+    3. bikini_side - Side view for body consistency
+    4. bikini_rear - Rear view for body consistency
+
+    All 4 images must be provided for complete appearance locking.
+    Images are saved to disk and paths stored in the persona's base_images field.
+
     Args:
-        persona_id: The persona to retrieve the base image URL for
+        persona_id: The persona to update
+        images: Request body with base64 data URLs for each image type
         persona_service: Injected persona service
-        
+
     Returns:
-        Dict with base_image_url field (or None if no image), appearance_locked (bool), and base_image_status (str)
-        
+        PersonaResponse: Updated persona with locked base images
+
     Raises:
         404: Persona not found
+        400: Invalid image data or missing images
         500: Internal server error
     """
     try:
@@ -1431,24 +1545,140 @@ async def get_base_image_url(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Persona {persona_id} not found",
             )
+
+        # Process each image type
+        base_images_dict = {}
+        image_types = [
+            ("face_shot", images.face_shot),
+            ("bikini_front", images.bikini_front),
+            ("bikini_side", images.bikini_side),
+            ("bikini_rear", images.bikini_rear),
+        ]
+
+        for image_type, image_data_str in image_types:
+            if not image_data_str:
+                continue
+
+            # Remove data URL prefix if present
+            if image_data_str.startswith("data:image"):
+                image_data_str = image_data_str.split(",", 1)[1]
+
+            # Decode base64
+            try:
+                decoded_image = base64.b64decode(image_data_str)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid base64 image data for {image_type}: {str(e)}",
+                )
+
+            # Validate size
+            max_size = 10 * 1024 * 1024  # 10MB
+            if len(decoded_image) > max_size:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Image {image_type} too large. Maximum size is 10MB",
+                )
+
+            # Save image to disk
+            image_path = await persona_service._save_image_to_disk(
+                persona_id=persona_id,
+                image_data=decoded_image,
+                filename=f"persona_{persona_id}_{image_type}.png",
+            )
+
+            base_images_dict[image_type] = image_path
+            logger.info(f"Saved {image_type} for persona {persona_id}")
+
+        if not base_images_dict:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least one base image must be provided",
+            )
+
+        # Update persona with all base images
+        from backend.models.persona import PersonaUpdate
+
+        # Use face_shot as the primary base_image_path for backward compatibility
+        primary_image_path = base_images_dict.get("face_shot") or next(iter(base_images_dict.values()))
+
+        updates = PersonaUpdate(
+            base_image_path=primary_image_path,
+            base_images=base_images_dict,
+            base_image_status=BaseImageStatus.APPROVED,
+            appearance_locked=True,
+        )
+        updated_persona = await persona_service.update_persona(persona_id, updates)
+
+        logger.info(f"Set {len(base_images_dict)} base images for persona {persona_id}")
+        return updated_persona
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to set base images for persona {persona_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to set base images: {str(e)}",
+        )
+
+
+@router.get("/{persona_id}/base-image-url")
+async def get_base_image_url(
+    persona_id: str,
+    persona_service: PersonaService = Depends(get_persona_service),
+) -> Dict[str, Any]:
+    """
+    Get the URLs for a persona's base images.
+    
+    Returns URLs for accessing all 4 base images (face_shot, bikini_front, 
+    bikini_side, bikini_rear), plus the legacy base_image_url for backward 
+    compatibility.
+    
+    Args:
+        persona_id: The persona to retrieve the base image URLs for
+        persona_service: Injected persona service
         
-        # Check if base image exists
-        if not persona.base_image_path:
-            return {
-                "base_image_url": None,
-                "appearance_locked": bool(persona.appearance_locked),
-                "base_image_status": str(persona.base_image_status),
-            }
+    Returns:
+        Dict with:
+        - base_image_url: Legacy primary base image URL (or None)
+        - base_images: Dict of all 4 base image URLs (face_shot, bikini_front, bikini_side, bikini_rear)
+        - appearance_locked: bool
+        - base_image_status: str
         
-        # Convert file path to URL path
-        # base_image_path is like: /opt/gator/data/models/base_images/persona_xxx_base.png
-        # We need to convert to: /base_images/persona_xxx_base.png
+    Raises:
+        404: Persona not found
+        500: Internal server error
+    """
+    try:
         from pathlib import Path
-        image_filename = Path(persona.base_image_path).name
-        base_image_url = f"/base_images/{image_filename}"
+        
+        # Get the persona
+        persona = await persona_service.get_persona(persona_id)
+        if not persona:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Persona {persona_id} not found",
+            )
+        
+        # Convert file paths to URL paths for all base images
+        base_images_urls = {}
+        base_images = getattr(persona, 'base_images', None) or {}
+        
+        for image_type, image_path in base_images.items():
+            if image_path:
+                image_filename = Path(image_path).name
+                base_images_urls[image_type] = f"/base_images/{image_filename}"
+        
+        # Legacy base_image_url for backward compatibility
+        base_image_url = None
+        if persona.base_image_path:
+            image_filename = Path(persona.base_image_path).name
+            base_image_url = f"/base_images/{image_filename}"
         
         return {
             "base_image_url": base_image_url,
+            "base_images": base_images_urls,
             "appearance_locked": bool(persona.appearance_locked),
             "base_image_status": str(persona.base_image_status),
         }
@@ -1456,10 +1686,10 @@ async def get_base_image_url(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get base image URL for persona {persona_id}: {str(e)}")
+        logger.error(f"Failed to get base image URLs for persona {persona_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get base image URL: {str(e)}",
+            detail=f"Failed to get base image URLs: {str(e)}",
         )
 
 
