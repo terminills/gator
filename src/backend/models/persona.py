@@ -167,10 +167,10 @@ class PersonaModel(Base):
         String(50), nullable=True
     )  # e.g., "straight", "bisexual", "lesbian", "gay", "pansexual"
     turn_ons = Column(
-        JSON, nullable=False, default=list
+        JSON, nullable=False, default=lambda: []
     )  # List of turn-ons for NSFW content generation
     turn_offs = Column(
-        JSON, nullable=False, default=list
+        JSON, nullable=False, default=lambda: []
     )  # List of turn-offs/boundaries for content generation
     distinctive_features = Column(
         Text, nullable=True
@@ -182,7 +182,7 @@ class PersonaModel(Base):
         String(100), nullable=True
     )  # e.g., "Caucasian", "Asian", "Latina", "African American", "Mixed"
     body_modifications = Column(
-        JSON, nullable=False, default=list
+        JSON, nullable=False, default=lambda: []
     )  # e.g., ["nose piercing", "belly button piercing", "tattoo on lower back"]
 
     # Content generation preferences

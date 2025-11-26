@@ -1288,7 +1288,7 @@
                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
                             <div class="form-group" style="margin-bottom: 0;">
                                 <label class="form-label">Height</label>
-                                <input type="text" class="form-input" id="height" name="height" placeholder="e.g., 5'6\", 170cm, tall, petite">
+                                <input type="text" class="form-input" id="height" name="height" placeholder='e.g., 5&apos;6", 170cm, tall, petite'>
                             </div>
                             
                             <div class="form-group" style="margin-bottom: 0;">
@@ -4243,18 +4243,26 @@
                 
                 if (!response.ok) {
                     // If random endpoint doesn't exist, try fetching from the feed
-                    const alternateResponse = await fetch(`/api/v1/feeds/rss/${feedId || assignedFeeds[0].feed_id}/articles?limit=10`);
+                    const feedIdToUse = feedId || (assignedFeeds.length > 0 ? assignedFeeds[0].feed_id : null);
+                    if (!feedIdToUse) {
+                        throw new Error('No feed available');
+                    }
+                    const alternateResponse = await fetch(`/api/v1/feeds/rss/${feedIdToUse}/articles?limit=10`);
                     if (alternateResponse.ok) {
                         const articles = await alternateResponse.json();
-                        if (articles && articles.length > 0) {
+                        if (articles && Array.isArray(articles) && articles.length > 0) {
                             // Pick a random article
                             const randomArticle = articles[Math.floor(Math.random() * articles.length)];
-                            currentRssTopic = {
-                                title: randomArticle.title,
-                                summary: randomArticle.summary || randomArticle.description || '',
-                                link: randomArticle.link,
-                                source: randomArticle.feed_name || 'RSS Feed'
-                            };
+                            if (randomArticle) {
+                                currentRssTopic = {
+                                    title: randomArticle.title || 'Untitled',
+                                    summary: randomArticle.summary || randomArticle.description || '',
+                                    link: randomArticle.link || '',
+                                    source: randomArticle.feed_name || 'RSS Feed'
+                                };
+                            }
+                        } else {
+                            throw new Error('No articles found in feed');
                         }
                     } else {
                         throw new Error('Could not fetch RSS articles');
