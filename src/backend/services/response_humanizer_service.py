@@ -395,7 +395,7 @@ class ResponseHumanizerService:
         if persona.warmth_level == "buddy":
             # Add friendly touches
             friendly_intros = ["hey!", "yo!", "okay so", "listen,", "honestly,"]
-            if random.random() < 0.4 and not any(result.lower().startswith(f) for f in friendly_intros):
+            if result and random.random() < 0.4 and not any(result.lower().startswith(f) for f in friendly_intros):
                 result = random.choice(friendly_intros) + " " + result[0].lower() + result[1:]
         elif persona.warmth_level == "cold":
             # Remove overly friendly language
@@ -462,6 +462,18 @@ class ResponseHumanizerService:
         """Final cleanup of the humanized text."""
         if not text:
             return text
+        
+        # Remove AI spinner/loading artifacts (Braille pattern characters commonly used as spinners)
+        # These characters are: ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏ ⠋ and related Braille patterns
+        # Unicode range U+2800-U+28FF covers all Braille patterns
+        text = re.sub(r'[\u2800-\u28FF]+', '', text)
+        
+        # Remove other common spinner/progress characters
+        # Including box-drawing, block elements, and other unicode artifacts
+        text = re.sub(r'[⣾⣽⣻⢿⡿⣟⣯⣷]+', '', text)  # Additional spinner variants
+        text = re.sub(r'[▁▂▃▄▅▆▇█▏▎▍▌▋▊▉]+', '', text)  # Progress bar characters
+        text = re.sub(r'[◐◑◒◓◴◵◶◷]+', '', text)  # Circle spinner variants
+        text = re.sub(r'[⠁⠂⠄⡀⢀⠠⠐⠈]+', '', text)  # Dot spinner variants
             
         # Remove double spaces
         text = re.sub(r'\s+', ' ', text)

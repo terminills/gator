@@ -3057,12 +3057,66 @@ class AIModelManager:
                             "LoRAs must be loaded on top of a base model"
                         )
                         
+                        # Check if PEFT is available - required for LoRA loading
+                        peft_available = False
                         try:
-                            # Load base SDXL model first
-                            base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+                            import peft
+                            peft_available = True
+                            logger.info(f"✓ PEFT library available (v{peft.__version__})")
+                        except ImportError:
+                            logger.warning("PEFT library not installed - attempting to install...")
+                            try:
+                                import subprocess
+                                import sys
+                                subprocess.check_call([sys.executable, "-m", "pip", "install", "peft", "-q"])
+                                import peft
+                                peft_available = True
+                                logger.info(f"✓ PEFT library installed successfully (v{peft.__version__})")
+                            except Exception as install_error:
+                                logger.error(f"Failed to install PEFT: {install_error}")
+                                logger.error("LoRA loading requires PEFT backend. Install with: pip install peft")
+                                raise RuntimeError(
+                                    "PEFT backend is required for LoRA loading. "
+                                    "Install with: pip install peft"
+                                )
+                        
+                        try:
+                            # Determine base model from metadata or model characteristics
+                            base_model_field = model.get("base_model", "")
+                            
+                            # Smart base model detection
+                            if "SDXL" in base_model_field or "sdxl" in base_model_field.lower() or is_sdxl:
+                                base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+                                using_sdxl = True
+                            elif "Pony" in base_model_field:
+                                # Pony models are SDXL-based
+                                base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+                                using_sdxl = True
+                            elif "SD 1" in base_model_field or "SD1" in base_model_field or "v1" in base_model_field.lower():
+                                base_model_id = "runwayml/stable-diffusion-v1-5"
+                                using_sdxl = False
+                            else:
+                                # Default to SDXL for modern LoRAs
+                                base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+                                using_sdxl = True
+                                logger.info(f"Base model not specified, defaulting to SDXL")
+                            
                             logger.info(f"Loading base model for LoRA: {base_model_id}")
                             
-                            if is_sdxl:
+                            # Check if base model is already cached locally
+                            from huggingface_hub import try_to_load_from_cache
+                            base_model_cached = False
+                            try:
+                                cache_path = try_to_load_from_cache(base_model_id, "model_index.json")
+                                base_model_cached = cache_path is not None
+                            except Exception:
+                                pass
+                            
+                            if not base_model_cached:
+                                logger.info(f"Base model not found in cache, downloading {base_model_id}...")
+                                logger.info("This may take several minutes for the first time...")
+                            
+                            if using_sdxl:
                                 pipe = StableDiffusionXLPipeline.from_pretrained(
                                     base_model_id,
                                     torch_dtype=torch.float16 if "cuda" in device else torch.float32,
@@ -3070,12 +3124,13 @@ class AIModelManager:
                                 )
                             else:
                                 # SD 1.5 base model
-                                base_model_id = "runwayml/stable-diffusion-v1-5"
                                 pipe = StableDiffusionPipeline.from_pretrained(
                                     base_model_id,
                                     torch_dtype=torch.float16 if "cuda" in device else torch.float32,
                                     use_safetensors=True,
                                 )
+                            
+                            logger.info(f"✓ Base model loaded: {base_model_id}")
                             
                             # Load the LoRA weights on top of base model
                             logger.info(f"Loading LoRA weights from: {model_path}")
@@ -3097,18 +3152,25 @@ class AIModelManager:
                             raise
                         except RuntimeError as e:
                             error_msg = str(e)
-                            if "safetensors" in error_msg.lower() or "weights" in error_msg.lower():
+                            if "peft" in error_msg.lower():
+                                logger.error(f"PEFT backend error: {error_msg}")
+                                logger.error("LoRA loading requires PEFT backend. Install with: pip install peft")
+                            elif "safetensors" in error_msg.lower() or "weights" in error_msg.lower():
                                 logger.error(f"Failed to load LoRA weights: {error_msg}")
                                 logger.error("The LoRA file may be corrupted or incompatible.")
                             else:
                                 logger.error(f"Runtime error loading LoRA: {error_msg}")
                             raise
                         except Exception as e:
-                            logger.error(f"Failed to load LoRA model: {str(e)}")
-                            logger.error(
-                                "LoRA loading requires base model download. "
-                                "Ensure stable-diffusion-xl-base-1.0 is accessible."
-                            )
+                            error_msg = str(e)
+                            logger.error(f"Failed to load LoRA model: {error_msg}")
+                            if "peft" in error_msg.lower():
+                                logger.error("Install PEFT backend with: pip install peft")
+                            else:
+                                logger.error(
+                                    "LoRA loading requires base model download. "
+                                    f"Ensure {base_model_id} is accessible."
+                                )
                             raise
 
                     # Handle single-file checkpoint models (CivitAI .safetensors, .ckpt files)
