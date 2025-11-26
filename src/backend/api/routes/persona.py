@@ -971,6 +971,337 @@ async def create_random_persona(
         )
 
 
+class GenerateSoulFieldsRequest(BaseModel):
+    """Request model for generating soul fields."""
+    
+    name: str = Field(..., description="Persona name for context")
+    appearance: str = Field(default="", description="Appearance description for context")
+    personality: str = Field(default="", description="Personality description for context")
+    content_rating: str = Field(
+        default="sfw",
+        description="Content rating: sfw, moderate, or nsfw - affects generation style"
+    )
+
+
+class GenerateSoulFieldsResponse(BaseModel):
+    """Response model for generated soul fields."""
+    
+    # Origin & Demographics
+    hometown: Optional[str] = None
+    current_location: Optional[str] = None
+    generation_age: Optional[str] = None
+    education_level: Optional[str] = None
+    
+    # Psychological Profile
+    mbti_type: Optional[str] = None
+    enneagram_type: Optional[str] = None
+    political_alignment: Optional[str] = None
+    risk_tolerance: Optional[str] = None
+    optimism_cynicism_scale: Optional[int] = None
+    
+    # Voice & Speech Patterns
+    linguistic_register: Optional[str] = None
+    typing_quirks: Optional[Dict[str, Any]] = None
+    signature_phrases: Optional[List[str]] = None
+    trigger_topics: Optional[List[str]] = None
+    
+    # Backstory & Lore
+    day_job: Optional[str] = None
+    war_story: Optional[str] = None
+    vices_hobbies: Optional[List[str]] = None
+    
+    # Anti-Pattern
+    forbidden_phrases: Optional[List[str]] = None
+    warmth_level: Optional[str] = None
+    patience_level: Optional[str] = None
+    
+    # Generation metadata
+    generation_method: str = "ollama_ai"
+    model_used: Optional[str] = None
+
+
+@router.post("/generate-soul-fields", response_model=GenerateSoulFieldsResponse)
+async def generate_soul_fields(
+    request: GenerateSoulFieldsRequest,
+):
+    """
+    Generate soul fields for a persona using AI (Ollama with dolphin-mixtral).
+    
+    This endpoint generates comprehensive soul fields based on the persona's name,
+    appearance, personality, and content rating. The generated fields will match
+    the tone appropriate for the content rating:
+    
+    - **SFW**: Family-friendly, professional persona attributes
+    - **Moderate**: More edgy, adult humor, but not explicit
+    - **NSFW**: Uninhibited, adult-oriented persona attributes
+    
+    Args:
+        request: Persona context and content rating for generation
+        
+    Returns:
+        GenerateSoulFieldsResponse: Generated soul fields ready to populate form
+        
+    Raises:
+        503: Ollama not available
+        500: Generation error
+    """
+    try:
+        import httpx
+        import json
+        
+        # Ollama configuration
+        OLLAMA_BASE_URL = "http://localhost:11434"
+        
+        # Check if Ollama is available
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
+                if response.status_code != 200:
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail="Ollama is not available. Please ensure Ollama is running with dolphin-mixtral model.",
+                    )
+                
+                data = response.json()
+                available_models = [m["name"] for m in data.get("models", [])]
+                
+                # Find best model
+                preferred_models = [
+                    "dolphin-mixtral",
+                    "dolphin-mixtral:8x7b",
+                    "dolphin-mistral",
+                    "llama3.1:8b",
+                    "llama3:8b",
+                    "mistral",
+                ]
+                
+                model_to_use = None
+                for preferred in preferred_models:
+                    for available in available_models:
+                        if preferred in available.lower():
+                            model_to_use = available
+                            break
+                    if model_to_use:
+                        break
+                
+                if not model_to_use and available_models:
+                    model_to_use = available_models[0]
+                
+                if not model_to_use:
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail="No suitable models found in Ollama. Please install dolphin-mixtral.",
+                    )
+                    
+        except httpx.RequestError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Cannot connect to Ollama. Please ensure Ollama is running on localhost:11434",
+            )
+        
+        # Build content-rating-aware prompt
+        rating = request.content_rating.lower()
+        
+        rating_guidance = ""
+        if rating == "nsfw":
+            rating_guidance = """
+This persona is for ADULT/NSFW content. Generate edgy, uninhibited, provocative attributes.
+- They can have explicit interests, risqué humor, and adult-oriented backstory
+- Signature phrases can include innuendo or adult references
+- Hobbies can include adult activities
+- They should feel like a confident, uninhibited adult content creator
+- NO corporate speak, NO sanitized language - make them feel REAL and SPICY
+"""
+        elif rating == "moderate":
+            rating_guidance = """
+This persona is for MODERATE/edgy content. Generate slightly edgy, adult-humor-friendly attributes.
+- They can have mild adult humor, occasional crude jokes
+- More rebellious or edgy personality traits
+- Think "R-rated movie" level - suggestive but not explicit
+- They should feel like a fun, slightly rebellious influencer
+"""
+        else:  # SFW
+            rating_guidance = """
+This persona is for SFW/family-friendly content. Generate wholesome, professional attributes.
+- Keep everything appropriate for general audiences
+- Focus on positive, inspiring, or entertaining traits
+- No crude humor or adult references
+- They should feel like a mainstream, brand-safe influencer
+"""
+
+        prompt = f"""You are an expert at creating realistic AI influencer personas that feel like real people.
+
+Generate soul field attributes for this persona:
+Name: {request.name}
+Appearance: {request.appearance or 'Not specified'}
+Personality: {request.personality or 'Not specified'}
+
+{rating_guidance}
+
+# CRITICAL RULES
+1. Make them feel HUMAN, not like an AI or customer service bot
+2. Give them strong opinions, quirks, and personality
+3. Everything should feel internally consistent with the name/appearance/personality
+4. The forbidden_phrases should include things this specific persona would NEVER say
+5. Signature phrases should feel natural for their background and style
+
+# OUTPUT FORMAT - Respond with ONLY valid JSON (no markdown, no explanation):
+
+{{
+  "hometown": "specific city/region they're from with character",
+  "current_location": "where they live now and why they moved/stayed",
+  "generation_age": "generation with age and context (e.g., 'Gen Z - 24, grew up online')",
+  "education_level": "their education with personality (e.g., 'State school dropout, self-taught')",
+  
+  "mbti_type": "XXXX - The Label (e.g., 'ESTP - The Entrepreneur')",
+  "enneagram_type": "Type X - The Label (e.g., 'Type 7 - The Enthusiast')",
+  "political_alignment": "their worldview in their own words",
+  "risk_tolerance": "their attitude in their own voice",
+  "optimism_cynicism_scale": 7,
+  
+  "linguistic_register": "gen_z|millennial|southern|tech_bro|street|corporate|academic|blue_collar",
+  "typing_quirks": {{
+    "capitalization": "how they type (all lowercase, normal, RANDOM CAPS)",
+    "emoji_usage": "none|minimal|moderate|heavy",
+    "punctuation": "their punctuation style"
+  }},
+  "signature_phrases": ["phrase 1", "phrase 2", "phrase 3", "phrase 4", "phrase 5"],
+  "trigger_topics": ["topic that fires them up 1", "topic 2", "topic 3"],
+  
+  "day_job": "what they do for work/money",
+  "war_story": "one defining life moment that shaped who they are",
+  "vices_hobbies": ["hobby 1", "hobby 2", "hobby 3", "hobby 4"],
+  
+  "forbidden_phrases": ["phrase they'd NEVER say 1", "phrase 2", "phrase 3", "phrase 4", "phrase 5"],
+  "warmth_level": "cold|neutral|warm|buddy",
+  "patience_level": "short_fuse|normal|patient|infinite"
+}}
+
+JSON:"""
+
+        # Generate with Ollama
+        logger.info(f"Generating soul fields for '{request.name}' with {model_to_use} (rating: {rating})")
+        
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json={
+                    "model": model_to_use,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.9,
+                        "top_p": 0.95,
+                        "num_predict": 2000,
+                    }
+                }
+            )
+            
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Ollama generation failed with status {response.status_code}",
+                )
+            
+            output = response.json().get("response", "")
+        
+        # Parse JSON from output
+        start_idx = output.find('{')
+        end_idx = output.rfind('}')
+        
+        if start_idx == -1 or end_idx == -1:
+            logger.error(f"No JSON found in Ollama output: {output[:500]}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to parse AI response - no valid JSON found",
+            )
+        
+        json_str = output[start_idx:end_idx + 1]
+        
+        try:
+            soul_data = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error: {e}, content: {json_str[:500]}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to parse AI response - invalid JSON",
+            )
+        
+        # Validate and normalize the response
+        optimism_scale = soul_data.get('optimism_cynicism_scale', 5)
+        if isinstance(optimism_scale, (int, float)):
+            optimism_scale = max(1, min(10, int(optimism_scale)))
+        else:
+            optimism_scale = 5
+        
+        # Ensure lists are lists
+        def ensure_list(val, default=None):
+            if default is None:
+                default = []
+            if isinstance(val, list):
+                return val
+            return default
+        
+        # Ensure dict
+        typing_quirks = soul_data.get('typing_quirks', {})
+        if not isinstance(typing_quirks, dict):
+            typing_quirks = {}
+        
+        # Map linguistic register
+        register_str = soul_data.get('linguistic_register', 'blue_collar').lower()
+        valid_registers = ['blue_collar', 'academic', 'tech_bro', 'street', 'corporate', 'southern', 'millennial', 'gen_z']
+        if register_str not in valid_registers:
+            register_str = 'blue_collar'
+        
+        # Map warmth level
+        warmth_str = soul_data.get('warmth_level', 'warm').lower()
+        valid_warmth = ['cold', 'neutral', 'warm', 'buddy']
+        if warmth_str not in valid_warmth:
+            warmth_str = 'warm'
+        
+        # Map patience level
+        patience_str = soul_data.get('patience_level', 'normal').lower()
+        valid_patience = ['short_fuse', 'normal', 'patient', 'infinite']
+        if patience_str not in valid_patience:
+            patience_str = 'normal'
+        
+        result = GenerateSoulFieldsResponse(
+            hometown=soul_data.get('hometown'),
+            current_location=soul_data.get('current_location'),
+            generation_age=soul_data.get('generation_age'),
+            education_level=soul_data.get('education_level'),
+            mbti_type=soul_data.get('mbti_type'),
+            enneagram_type=soul_data.get('enneagram_type'),
+            political_alignment=soul_data.get('political_alignment'),
+            risk_tolerance=soul_data.get('risk_tolerance'),
+            optimism_cynicism_scale=optimism_scale,
+            linguistic_register=register_str,
+            typing_quirks=typing_quirks,
+            signature_phrases=ensure_list(soul_data.get('signature_phrases')),
+            trigger_topics=ensure_list(soul_data.get('trigger_topics')),
+            day_job=soul_data.get('day_job'),
+            war_story=soul_data.get('war_story'),
+            vices_hobbies=ensure_list(soul_data.get('vices_hobbies')),
+            forbidden_phrases=ensure_list(soul_data.get('forbidden_phrases')),
+            warmth_level=warmth_str,
+            patience_level=patience_str,
+            generation_method="ollama_ai",
+            model_used=model_to_use,
+        )
+        
+        logger.info(f"Successfully generated soul fields for '{request.name}' using {model_to_use}")
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate soul fields: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate soul fields: {str(e)}",
+        )
+
+
 @router.post("/{persona_id}/set-base-image")
 async def set_base_image_from_sample(
     persona_id: str,

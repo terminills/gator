@@ -1545,6 +1545,313 @@
                         </div>
                     </div>
                     
+                    <!-- ==================== PERSONA SOUL FIELDS ==================== -->
+                    
+                    <!-- AI Soul Generation -->
+                    <div class="section" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(16, 185, 129, 0.1)); border-color: var(--primary);">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>🧬</span>
+                                AI Soul Generation
+                            </h2>
+                        </div>
+                        <p class="section-description">
+                            Use AI (Ollama with dolphin-mixtral) to generate all soul fields based on the persona's name, appearance, personality, and content rating.
+                            The generated fields will match the tone of your selected content rating.
+                        </p>
+                        
+                        <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-primary" id="randomize-soul-btn" onclick="randomizeSoulFields()" style="display: inline-flex; align-items: center; gap: 8px;">
+                                <span>🎲</span>
+                                <span id="randomize-soul-text">Randomize Soul Fields</span>
+                            </button>
+                            
+                            <span style="color: var(--text-secondary); font-size: 0.85rem;" id="randomize-status">
+                                Uses selected content rating to guide generation style
+                            </span>
+                        </div>
+                        
+                        <div id="randomize-progress" style="display: none; margin-top: 16px;">
+                            <div class="progress-text" style="color: var(--text-secondary); margin-bottom: 8px;">Generating soul fields with AI...</div>
+                            <div class="progress-bar-container" style="height: 6px; background: var(--dark-card); border-radius: 3px; overflow: hidden;">
+                                <div class="progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.3s;" id="randomize-progress-bar"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Origin & Demographics -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>🌍</span>
+                                Origin & Demographics
+                            </h2>
+                        </div>
+                        <p class="section-description">Define your persona's background and roots. These details create authentic cultural context and life experiences.</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Hometown
+                            </label>
+                            <span class="form-help">Where they're from originally (e.g., "South Boston", "Nashville, TN", "Rural Texas")</span>
+                            <input type="text" class="form-input" id="hometown" name="hometown" maxlength="200" placeholder="e.g., Nashville, TN">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Current Location
+                            </label>
+                            <span class="form-help">Where they live now and why (e.g., "Miami, FL for the weather and liberty")</span>
+                            <input type="text" class="form-input" id="current_location" name="current_location" maxlength="200" placeholder="e.g., Miami, FL - moved for the weather">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Generation / Age
+                            </label>
+                            <span class="form-help">Generation context shapes perspective (e.g., "Gen X - cynical and latchkey", "Millennial - 28 years old")</span>
+                            <input type="text" class="form-input" id="generation_age" name="generation_age" maxlength="100" placeholder="e.g., Gen Z - 24 years old, chronically online">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Education Level
+                            </label>
+                            <span class="form-help">Their educational background, formal or otherwise (e.g., "PhD in Physics", "School of Hard Knocks")</span>
+                            <input type="text" class="form-input" id="education_level" name="education_level" maxlength="200" placeholder="e.g., State college dropout, self-taught coder">
+                        </div>
+                    </div>
+                    
+                    <!-- Psychological Profile -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>🧠</span>
+                                Psychological Profile
+                            </h2>
+                        </div>
+                        <p class="section-description">The internal "engine" that drives decision-making and worldview. Helps ensure consistent, believable responses.</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                MBTI Type
+                            </label>
+                            <span class="form-help">Myers-Briggs personality type for consistent behavior patterns</span>
+                            <select class="form-input" id="mbti_type" name="mbti_type">
+                                <option value="">Select MBTI Type...</option>
+                                <option value="INTJ - The Architect">INTJ - The Architect</option>
+                                <option value="INTP - The Logician">INTP - The Logician</option>
+                                <option value="ENTJ - The Commander">ENTJ - The Commander</option>
+                                <option value="ENTP - The Debater">ENTP - The Debater</option>
+                                <option value="INFJ - The Advocate">INFJ - The Advocate</option>
+                                <option value="INFP - The Mediator">INFP - The Mediator</option>
+                                <option value="ENFJ - The Protagonist">ENFJ - The Protagonist</option>
+                                <option value="ENFP - The Campaigner">ENFP - The Campaigner</option>
+                                <option value="ISTJ - The Logistician">ISTJ - The Logistician</option>
+                                <option value="ISFJ - The Defender">ISFJ - The Defender</option>
+                                <option value="ESTJ - The Executive">ESTJ - The Executive</option>
+                                <option value="ESFJ - The Consul">ESFJ - The Consul</option>
+                                <option value="ISTP - The Virtuoso">ISTP - The Virtuoso</option>
+                                <option value="ISFP - The Adventurer">ISFP - The Adventurer</option>
+                                <option value="ESTP - The Entrepreneur">ESTP - The Entrepreneur</option>
+                                <option value="ESFP - The Entertainer">ESFP - The Entertainer</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Enneagram Type
+                            </label>
+                            <span class="form-help">Enneagram type for deeper motivation patterns</span>
+                            <select class="form-input" id="enneagram_type" name="enneagram_type">
+                                <option value="">Select Enneagram Type...</option>
+                                <option value="Type 1 - The Reformer">Type 1 - The Reformer</option>
+                                <option value="Type 2 - The Helper">Type 2 - The Helper</option>
+                                <option value="Type 3 - The Achiever">Type 3 - The Achiever</option>
+                                <option value="Type 4 - The Individualist">Type 4 - The Individualist</option>
+                                <option value="Type 5 - The Investigator">Type 5 - The Investigator</option>
+                                <option value="Type 6 - The Loyalist">Type 6 - The Loyalist</option>
+                                <option value="Type 7 - The Enthusiast">Type 7 - The Enthusiast</option>
+                                <option value="Type 8 - The Challenger">Type 8 - The Challenger</option>
+                                <option value="Type 9 - The Peacemaker">Type 9 - The Peacemaker</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Political Alignment
+                            </label>
+                            <span class="form-help">Political/social worldview for authentic opinions (e.g., "Libertarian-leaning", "Apolitical Nihilist")</span>
+                            <input type="text" class="form-input" id="political_alignment" name="political_alignment" maxlength="100" placeholder="e.g., Right-leaning / Liberty-focused">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Risk Tolerance
+                            </label>
+                            <span class="form-help">How they approach risk and uncertainty (e.g., "Safety First", "Hold my beer")</span>
+                            <input type="text" class="form-input" id="risk_tolerance" name="risk_tolerance" maxlength="100" placeholder="e.g., Move fast and break things">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Optimism/Cynicism Scale
+                            </label>
+                            <span class="form-help">1 = Deeply Cynical, 10 = Eternally Optimistic. This affects their general tone.</span>
+                            <div style="display: flex; align-items: center; gap: 16px;">
+                                <span style="font-size: 0.85rem; color: var(--text-secondary);">Cynical</span>
+                                <input type="range" id="optimism_cynicism_scale" name="optimism_cynicism_scale" min="1" max="10" value="5" style="flex: 1;">
+                                <span style="font-size: 0.85rem; color: var(--text-secondary);">Optimistic</span>
+                                <span id="optimism_value" style="min-width: 30px; text-align: center; font-weight: 600;">5</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Voice & Speech Patterns -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>🗣️</span>
+                                Voice & Speech Patterns
+                            </h2>
+                        </div>
+                        <p class="section-description">How the persona speaks and writes. This is the "interface" that users experience directly.</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Linguistic Register
+                            </label>
+                            <span class="form-help">The overall speech style and vocabulary level</span>
+                            <select class="form-input" id="linguistic_register" name="linguistic_register">
+                                <option value="blue_collar">🔧 Blue Collar - Casual, working-class speech</option>
+                                <option value="academic">📚 Academic - Formal, scholarly speech</option>
+                                <option value="tech_bro">💻 Tech Bro - Silicon Valley tech speak</option>
+                                <option value="street">🏙️ Street - Urban slang and colloquialisms</option>
+                                <option value="corporate">💼 Corporate - Business jargon</option>
+                                <option value="southern">🤠 Southern - Southern U.S. dialect</option>
+                                <option value="millennial">📱 Millennial - Millennial internet speak</option>
+                                <option value="gen_z">⚡ Gen Z - Chaotic and ironic</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Typing Quirks
+                            </label>
+                            <span class="form-help">Specific typing habits. Add key-value pairs like: capitalization, emoji_usage, punctuation</span>
+                            <div class="key-value-container" id="typing-quirks-container">
+                                <!-- Will be populated dynamically -->
+                            </div>
+                            <button type="button" class="add-btn" onclick="addTypingQuirk()">
+                                + Add Typing Quirk
+                            </button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Signature Phrases
+                            </label>
+                            <span class="form-help">Phrases they use often (e.g., "Based", "Facts", "Y'all"). Press Enter to add.</span>
+                            <div class="tag-input-container" id="signature-phrases-container">
+                                <input type="text" class="tag-input" id="signature-phrase-input" placeholder="Type a phrase and press Enter...">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Trigger Topics
+                            </label>
+                            <span class="form-help">Topics that get them excited or angry (e.g., "Taxes", "Crypto", "Bad drivers"). Press Enter to add.</span>
+                            <div class="tag-input-container" id="trigger-topics-container">
+                                <input type="text" class="tag-input" id="trigger-topic-input" placeholder="Type a topic and press Enter...">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Backstory & Lore -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>📖</span>
+                                Backstory & Lore
+                            </h2>
+                        </div>
+                        <p class="section-description">The persona's life story and context. This adds depth and makes conversations more authentic.</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Day Job
+                            </label>
+                            <span class="form-help">What they do for work (e.g., "Political Commentator / Streamer", "Small business owner")</span>
+                            <input type="text" class="form-input" id="day_job" name="day_job" maxlength="200" placeholder="e.g., Content creator and part-time real estate agent">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                War Story
+                            </label>
+                            <span class="form-help">A defining life event that shaped who they are (e.g., "Lost a fortune in 2008", "Started posting rants in her car and went viral")</span>
+                            <textarea class="form-input" id="war_story" name="war_story" maxlength="2000" placeholder="The story they always bring up..."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Vices & Hobbies
+                            </label>
+                            <span class="form-help">What they do for fun, guilty pleasures (e.g., "Range days", "Video games", "Wine nights"). Press Enter to add.</span>
+                            <div class="tag-input-container" id="vices-hobbies-container">
+                                <input type="text" class="tag-input" id="vices-hobbies-input" placeholder="Type a vice/hobby and press Enter...">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Anti-Pattern -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>🚫</span>
+                                Anti-Pattern (What They Are NOT)
+                            </h2>
+                        </div>
+                        <p class="section-description">Define what this persona would NEVER say or do. This prevents AI-sounding responses and keeps character consistent.</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Forbidden Phrases
+                            </label>
+                            <span class="form-help">Phrases this persona would NEVER say (e.g., "As an AI", "I feel that", "Synergy", "Safe space"). Press Enter to add.</span>
+                            <div class="tag-input-container" id="forbidden-phrases-container">
+                                <input type="text" class="tag-input" id="forbidden-phrase-input" placeholder="Type a forbidden phrase and press Enter...">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Warmth Level
+                            </label>
+                            <span class="form-help">How warm and approachable they are in interactions</span>
+                            <select class="form-input" id="warmth_level" name="warmth_level">
+                                <option value="cold">❄️ Cold - Distant, professional</option>
+                                <option value="neutral">😐 Neutral - Neither warm nor cold</option>
+                                <option value="warm" selected>🙂 Warm - Friendly, approachable</option>
+                                <option value="buddy">🤗 Buddy - Very friendly, like a best friend</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Patience Level
+                            </label>
+                            <span class="form-help">How they handle frustration and repetitive questions</span>
+                            <select class="form-input" id="patience_level" name="patience_level">
+                                <option value="short_fuse">💢 Short Fuse - Quick to frustration</option>
+                                <option value="normal" selected>😊 Normal - Average patience</option>
+                                <option value="patient">🧘 Patient - Tolerant and understanding</option>
+                                <option value="infinite">☯️ Infinite - Never gets frustrated</option>
+                            </select>
+                        </div>
+                    </div>
+                    
                     <!-- Persona Chat Testing (Edit Mode Only) -->
                     <div class="section" id="chat-testing-section" style="display: none;">
                         <div class="section-header">
@@ -1624,6 +1931,13 @@
         let selectedImageData = null; // Selected image for base
         let assignedFeeds = []; // Assigned RSS feeds for persona
         let availableFeeds = []; // Available RSS feeds to assign
+        
+        // Persona Soul Fields state
+        let typingQuirks = {};
+        let signaturePhrases = [];
+        let triggerTopics = [];
+        let vicesHobbies = [];
+        let forbiddenPhrases = [];
         
         // Load branding configuration
         async function loadBranding() {
@@ -1748,6 +2062,44 @@
                 
                 // Populate status
                 document.getElementById('is_active').checked = persona.is_active !== false;
+                
+                // ==================== POPULATE PERSONA SOUL FIELDS ====================
+                
+                // Origin & Demographics
+                document.getElementById('hometown').value = persona.hometown || '';
+                document.getElementById('current_location').value = persona.current_location || '';
+                document.getElementById('generation_age').value = persona.generation_age || '';
+                document.getElementById('education_level').value = persona.education_level || '';
+                
+                // Psychological Profile
+                document.getElementById('mbti_type').value = persona.mbti_type || '';
+                document.getElementById('enneagram_type').value = persona.enneagram_type || '';
+                document.getElementById('political_alignment').value = persona.political_alignment || '';
+                document.getElementById('risk_tolerance').value = persona.risk_tolerance || '';
+                const optimismScale = persona.optimism_cynicism_scale || 5;
+                document.getElementById('optimism_cynicism_scale').value = optimismScale;
+                document.getElementById('optimism_value').textContent = optimismScale;
+                
+                // Voice & Speech Patterns
+                document.getElementById('linguistic_register').value = persona.linguistic_register || 'blue_collar';
+                typingQuirks = persona.typing_quirks || {};
+                renderTypingQuirks();
+                signaturePhrases = persona.signature_phrases || [];
+                renderSignaturePhrases();
+                triggerTopics = persona.trigger_topics || [];
+                renderTriggerTopics();
+                
+                // Backstory & Lore
+                document.getElementById('day_job').value = persona.day_job || '';
+                document.getElementById('war_story').value = persona.war_story || '';
+                vicesHobbies = persona.vices_hobbies || [];
+                renderVicesHobbies();
+                
+                // Anti-Pattern
+                forbiddenPhrases = persona.forbidden_phrases || [];
+                renderForbiddenPhrases();
+                document.getElementById('warmth_level').value = persona.warmth_level || 'warm';
+                document.getElementById('patience_level').value = persona.patience_level || 'normal';
                 
                 // Show status badge
                 const badge = document.getElementById('status-badge');
@@ -1890,6 +2242,311 @@
         function removePlatformRestriction(platform) {
             delete platformRestrictions[platform];
             renderPlatformRestrictions();
+        }
+        
+        // ==================== PERSONA SOUL FIELDS MANAGEMENT ====================
+        
+        // Typing Quirks management
+        function renderTypingQuirks() {
+            const container = document.getElementById('typing-quirks-container');
+            container.innerHTML = '';
+            
+            Object.entries(typingQuirks).forEach(([key, value]) => {
+                const row = document.createElement('div');
+                row.className = 'key-value-row';
+                row.innerHTML = `
+                    <input type="text" class="form-input" value="${key}" placeholder="Key (e.g., capitalization)" onchange="updateTypingQuirkKey(this, '${key}')">
+                    <input type="text" class="form-input" value="${value}" placeholder="Value (e.g., all lowercase)" onchange="updateTypingQuirkValue('${key}', this.value)">
+                    <button type="button" class="remove-btn" onclick="removeTypingQuirk('${key}')">×</button>
+                `;
+                container.appendChild(row);
+            });
+        }
+        
+        function addTypingQuirk() {
+            const suggestedKeys = ['capitalization', 'emoji_usage', 'punctuation', 'abbreviations'];
+            const existingKeys = Object.keys(typingQuirks);
+            const availableKey = suggestedKeys.find(k => !existingKeys.includes(k)) || `quirk_${existingKeys.length + 1}`;
+            typingQuirks[availableKey] = '';
+            renderTypingQuirks();
+        }
+        
+        function updateTypingQuirkKey(input, oldKey) {
+            const newKey = input.value.trim();
+            if (newKey && newKey !== oldKey && !typingQuirks.hasOwnProperty(newKey)) {
+                typingQuirks[newKey] = typingQuirks[oldKey];
+                delete typingQuirks[oldKey];
+                renderTypingQuirks();
+            }
+        }
+        
+        function updateTypingQuirkValue(key, value) {
+            typingQuirks[key] = value.trim();
+        }
+        
+        function removeTypingQuirk(key) {
+            delete typingQuirks[key];
+            renderTypingQuirks();
+        }
+        
+        // Signature Phrases management
+        function renderSignaturePhrases() {
+            const container = document.getElementById('signature-phrases-container');
+            const input = document.getElementById('signature-phrase-input');
+            
+            container.querySelectorAll('.tag').forEach(tag => tag.remove());
+            
+            signaturePhrases.forEach((phrase, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'tag';
+                tag.innerHTML = `
+                    ${phrase}
+                    <span class="tag-remove" onclick="removeSignaturePhrase(${index})">×</span>
+                `;
+                container.insertBefore(tag, input);
+            });
+        }
+        
+        function addSignaturePhrase(phrase) {
+            phrase = phrase.trim();
+            if (phrase && !signaturePhrases.includes(phrase)) {
+                signaturePhrases.push(phrase);
+                renderSignaturePhrases();
+            }
+        }
+        
+        function removeSignaturePhrase(index) {
+            signaturePhrases.splice(index, 1);
+            renderSignaturePhrases();
+        }
+        
+        // Trigger Topics management
+        function renderTriggerTopics() {
+            const container = document.getElementById('trigger-topics-container');
+            const input = document.getElementById('trigger-topic-input');
+            
+            container.querySelectorAll('.tag').forEach(tag => tag.remove());
+            
+            triggerTopics.forEach((topic, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'tag';
+                tag.innerHTML = `
+                    ${topic}
+                    <span class="tag-remove" onclick="removeTriggerTopic(${index})">×</span>
+                `;
+                container.insertBefore(tag, input);
+            });
+        }
+        
+        function addTriggerTopic(topic) {
+            topic = topic.trim();
+            if (topic && !triggerTopics.includes(topic)) {
+                triggerTopics.push(topic);
+                renderTriggerTopics();
+            }
+        }
+        
+        function removeTriggerTopic(index) {
+            triggerTopics.splice(index, 1);
+            renderTriggerTopics();
+        }
+        
+        // Vices & Hobbies management
+        function renderVicesHobbies() {
+            const container = document.getElementById('vices-hobbies-container');
+            const input = document.getElementById('vices-hobbies-input');
+            
+            container.querySelectorAll('.tag').forEach(tag => tag.remove());
+            
+            vicesHobbies.forEach((item, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'tag';
+                tag.innerHTML = `
+                    ${item}
+                    <span class="tag-remove" onclick="removeViceHobby(${index})">×</span>
+                `;
+                container.insertBefore(tag, input);
+            });
+        }
+        
+        function addViceHobby(item) {
+            item = item.trim();
+            if (item && !vicesHobbies.includes(item)) {
+                vicesHobbies.push(item);
+                renderVicesHobbies();
+            }
+        }
+        
+        function removeViceHobby(index) {
+            vicesHobbies.splice(index, 1);
+            renderVicesHobbies();
+        }
+        
+        // Forbidden Phrases management
+        function renderForbiddenPhrases() {
+            const container = document.getElementById('forbidden-phrases-container');
+            const input = document.getElementById('forbidden-phrase-input');
+            
+            container.querySelectorAll('.tag').forEach(tag => tag.remove());
+            
+            forbiddenPhrases.forEach((phrase, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'tag';
+                tag.style.background = '#ef4444'; // Red color for forbidden
+                tag.innerHTML = `
+                    ${phrase}
+                    <span class="tag-remove" onclick="removeForbiddenPhrase(${index})">×</span>
+                `;
+                container.insertBefore(tag, input);
+            });
+        }
+        
+        function addForbiddenPhrase(phrase) {
+            phrase = phrase.trim();
+            if (phrase && !forbiddenPhrases.includes(phrase)) {
+                forbiddenPhrases.push(phrase);
+                renderForbiddenPhrases();
+            }
+        }
+        
+        function removeForbiddenPhrase(index) {
+            forbiddenPhrases.splice(index, 1);
+            renderForbiddenPhrases();
+        }
+        
+        // ==================== AI SOUL GENERATION ====================
+        
+        async function randomizeSoulFields() {
+            const name = document.getElementById('name').value.trim();
+            const appearance = document.getElementById('appearance').value.trim();
+            const personality = document.getElementById('personality').value.trim();
+            
+            if (!name) {
+                showAlert('Please enter a name before generating soul fields.', 'error');
+                return;
+            }
+            
+            // Get the selected content rating
+            const contentRating = document.querySelector('input[name="default_content_rating"]:checked')?.value || 'sfw';
+            
+            const btn = document.getElementById('randomize-soul-btn');
+            const btnText = document.getElementById('randomize-soul-text');
+            const statusText = document.getElementById('randomize-status');
+            const progress = document.getElementById('randomize-progress');
+            const progressBar = document.getElementById('randomize-progress-bar');
+            
+            // Disable button and show progress
+            btn.disabled = true;
+            btnText.textContent = 'Generating...';
+            statusText.textContent = `Generating ${contentRating.toUpperCase()} soul fields with AI...`;
+            progress.style.display = 'block';
+            progressBar.style.width = '20%';
+            
+            try {
+                const response = await fetch('/api/v1/personas/generate-soul-fields', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        appearance: appearance,
+                        personality: personality,
+                        content_rating: contentRating
+                    })
+                });
+                
+                progressBar.style.width = '60%';
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to generate soul fields');
+                }
+                
+                const soulData = await response.json();
+                progressBar.style.width = '80%';
+                
+                // Populate all the soul fields
+                populateSoulFields(soulData);
+                
+                progressBar.style.width = '100%';
+                
+                const modelInfo = soulData.model_used ? ` using ${soulData.model_used}` : '';
+                statusText.textContent = `✅ Generated successfully${modelInfo}!`;
+                showAlert(`Soul fields generated successfully${modelInfo}! Review and adjust as needed.`, 'success');
+                
+                // Hide progress after a moment
+                setTimeout(() => {
+                    progress.style.display = 'none';
+                    statusText.textContent = 'Uses selected content rating to guide generation style';
+                }, 3000);
+                
+            } catch (error) {
+                console.error('Failed to generate soul fields:', error);
+                statusText.textContent = `❌ ${error.message}`;
+                showAlert(error.message || 'Failed to generate soul fields. Make sure Ollama is running.', 'error');
+                progress.style.display = 'none';
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = 'Randomize Soul Fields';
+            }
+        }
+        
+        function populateSoulFields(soulData) {
+            // Origin & Demographics
+            if (soulData.hometown) document.getElementById('hometown').value = soulData.hometown;
+            if (soulData.current_location) document.getElementById('current_location').value = soulData.current_location;
+            if (soulData.generation_age) document.getElementById('generation_age').value = soulData.generation_age;
+            if (soulData.education_level) document.getElementById('education_level').value = soulData.education_level;
+            
+            // Psychological Profile
+            if (soulData.mbti_type) document.getElementById('mbti_type').value = soulData.mbti_type;
+            if (soulData.enneagram_type) document.getElementById('enneagram_type').value = soulData.enneagram_type;
+            if (soulData.political_alignment) document.getElementById('political_alignment').value = soulData.political_alignment;
+            if (soulData.risk_tolerance) document.getElementById('risk_tolerance').value = soulData.risk_tolerance;
+            
+            if (soulData.optimism_cynicism_scale !== null && soulData.optimism_cynicism_scale !== undefined) {
+                document.getElementById('optimism_cynicism_scale').value = soulData.optimism_cynicism_scale;
+                document.getElementById('optimism_value').textContent = soulData.optimism_cynicism_scale;
+            }
+            
+            // Voice & Speech Patterns
+            if (soulData.linguistic_register) {
+                document.getElementById('linguistic_register').value = soulData.linguistic_register;
+            }
+            
+            if (soulData.typing_quirks && typeof soulData.typing_quirks === 'object') {
+                typingQuirks = soulData.typing_quirks;
+                renderTypingQuirks();
+            }
+            
+            if (soulData.signature_phrases && Array.isArray(soulData.signature_phrases)) {
+                signaturePhrases = soulData.signature_phrases;
+                renderSignaturePhrases();
+            }
+            
+            if (soulData.trigger_topics && Array.isArray(soulData.trigger_topics)) {
+                triggerTopics = soulData.trigger_topics;
+                renderTriggerTopics();
+            }
+            
+            // Backstory & Lore
+            if (soulData.day_job) document.getElementById('day_job').value = soulData.day_job;
+            if (soulData.war_story) document.getElementById('war_story').value = soulData.war_story;
+            
+            if (soulData.vices_hobbies && Array.isArray(soulData.vices_hobbies)) {
+                vicesHobbies = soulData.vices_hobbies;
+                renderVicesHobbies();
+            }
+            
+            // Anti-Pattern
+            if (soulData.forbidden_phrases && Array.isArray(soulData.forbidden_phrases)) {
+                forbiddenPhrases = soulData.forbidden_phrases;
+                renderForbiddenPhrases();
+            }
+            
+            if (soulData.warmth_level) document.getElementById('warmth_level').value = soulData.warmth_level;
+            if (soulData.patience_level) document.getElementById('patience_level').value = soulData.patience_level;
         }
         
         // Sample image generation
@@ -2285,6 +2942,10 @@
             document.getElementById('submit-text').textContent = editorMode === 'create' ? 'Creating...' : 'Updating...';
             
             try {
+                // Get optimism scale value (convert to int or null)
+                const optimismValue = document.getElementById('optimism_cynicism_scale').value;
+                const optimismInt = optimismValue ? parseInt(optimismValue, 10) : null;
+                
                 // Collect form data
                 const formData = {
                     name: document.getElementById('name').value.trim(),
@@ -2306,7 +2967,37 @@
                     video_types: Array.from(document.querySelectorAll('input[name="video_types"]:checked')).map(cb => cb.value),
                     nsfw_model_preference: document.getElementById('nsfw_model_preference').value || null,
                     generation_quality: document.getElementById('generation_quality').value,
-                    is_active: document.getElementById('is_active').checked
+                    is_active: document.getElementById('is_active').checked,
+                    
+                    // ==================== PERSONA SOUL FIELDS ====================
+                    // Origin & Demographics
+                    hometown: document.getElementById('hometown').value.trim() || null,
+                    current_location: document.getElementById('current_location').value.trim() || null,
+                    generation_age: document.getElementById('generation_age').value.trim() || null,
+                    education_level: document.getElementById('education_level').value.trim() || null,
+                    
+                    // Psychological Profile
+                    mbti_type: document.getElementById('mbti_type').value || null,
+                    enneagram_type: document.getElementById('enneagram_type').value || null,
+                    political_alignment: document.getElementById('political_alignment').value.trim() || null,
+                    risk_tolerance: document.getElementById('risk_tolerance').value.trim() || null,
+                    optimism_cynicism_scale: optimismInt,
+                    
+                    // Voice & Speech Patterns
+                    linguistic_register: document.getElementById('linguistic_register').value,
+                    typing_quirks: typingQuirks,
+                    signature_phrases: signaturePhrases,
+                    trigger_topics: triggerTopics,
+                    
+                    // Backstory & Lore
+                    day_job: document.getElementById('day_job').value.trim() || null,
+                    war_story: document.getElementById('war_story').value.trim() || null,
+                    vices_hobbies: vicesHobbies,
+                    
+                    // Anti-Pattern
+                    forbidden_phrases: forbiddenPhrases,
+                    warmth_level: document.getElementById('warmth_level').value,
+                    patience_level: document.getElementById('patience_level').value
                 };
                 
                 // Validate at least one allowed rating
@@ -2442,6 +3133,53 @@
                 addTheme(input.value);
                 input.value = '';
             }
+        });
+        
+        // ==================== PERSONA SOUL FIELDS INPUT HANDLERS ====================
+        
+        // Signature Phrases input handler
+        document.getElementById('signature-phrase-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const input = e.target;
+                addSignaturePhrase(input.value);
+                input.value = '';
+            }
+        });
+        
+        // Trigger Topics input handler
+        document.getElementById('trigger-topic-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const input = e.target;
+                addTriggerTopic(input.value);
+                input.value = '';
+            }
+        });
+        
+        // Vices & Hobbies input handler
+        document.getElementById('vices-hobbies-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const input = e.target;
+                addViceHobby(input.value);
+                input.value = '';
+            }
+        });
+        
+        // Forbidden Phrases input handler
+        document.getElementById('forbidden-phrase-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const input = e.target;
+                addForbiddenPhrase(input.value);
+                input.value = '';
+            }
+        });
+        
+        // Optimism/Cynicism scale slider handler
+        document.getElementById('optimism_cynicism_scale').addEventListener('input', (e) => {
+            document.getElementById('optimism_value').textContent = e.target.value;
         });
         
         // Persona Chat Testing Functions
