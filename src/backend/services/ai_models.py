@@ -3058,27 +3058,19 @@ class AIModelManager:
                         )
                         
                         # Check if PEFT is available - required for LoRA loading
+                        # PEFT should be installed via pip install peft (declared in pyproject.toml)
                         peft_available = False
                         try:
                             import peft
                             peft_available = True
                             logger.info(f"✓ PEFT library available (v{peft.__version__})")
                         except ImportError:
-                            logger.warning("PEFT library not installed - attempting to install...")
-                            try:
-                                import subprocess
-                                import sys
-                                subprocess.check_call([sys.executable, "-m", "pip", "install", "peft", "-q"])
-                                import peft
-                                peft_available = True
-                                logger.info(f"✓ PEFT library installed successfully (v{peft.__version__})")
-                            except Exception as install_error:
-                                logger.error(f"Failed to install PEFT: {install_error}")
-                                logger.error("LoRA loading requires PEFT backend. Install with: pip install peft")
-                                raise RuntimeError(
-                                    "PEFT backend is required for LoRA loading. "
-                                    "Install with: pip install peft"
-                                )
+                            logger.error("PEFT library not installed.")
+                            logger.error("LoRA loading requires PEFT backend. Install with: pip install peft")
+                            raise RuntimeError(
+                                "PEFT backend is required for LoRA loading. "
+                                "Install with: pip install peft"
+                            )
                         
                         try:
                             # Determine base model from metadata or model characteristics
@@ -3104,9 +3096,9 @@ class AIModelManager:
                             logger.info(f"Loading base model for LoRA: {base_model_id}")
                             
                             # Check if base model is already cached locally
-                            from huggingface_hub import try_to_load_from_cache
                             base_model_cached = False
                             try:
+                                from huggingface_hub import try_to_load_from_cache
                                 cache_path = try_to_load_from_cache(base_model_id, "model_index.json")
                                 base_model_cached = cache_path is not None
                             except Exception:

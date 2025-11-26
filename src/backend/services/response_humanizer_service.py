@@ -468,12 +468,10 @@ class ResponseHumanizerService:
         # Unicode range U+2800-U+28FF covers all Braille patterns
         text = re.sub(r'[\u2800-\u28FF]+', '', text)
         
-        # Remove other common spinner/progress characters
-        # Including box-drawing, block elements, and other unicode artifacts
-        text = re.sub(r'[⣾⣽⣻⢿⡿⣟⣯⣷]+', '', text)  # Additional spinner variants
-        text = re.sub(r'[▁▂▃▄▅▆▇█▏▎▍▌▋▊▉]+', '', text)  # Progress bar characters
-        text = re.sub(r'[◐◑◒◓◴◵◶◷]+', '', text)  # Circle spinner variants
-        text = re.sub(r'[⠁⠂⠄⡀⢀⠠⠐⠈]+', '', text)  # Dot spinner variants
+        # Remove other common spinner/progress characters that are NOT in the Braille range
+        # Including box-drawing, block elements, and circle spinners
+        text = re.sub(r'[▁▂▃▄▅▆▇█▏▎▍▌▋▊▉]+', '', text)  # Progress bar characters (U+2581-U+2588, U+258F-U+2589)
+        text = re.sub(r'[◐◑◒◓◴◵◶◷]+', '', text)  # Circle spinner variants (U+25D0-U+25D3, U+25F4-U+25F7)
             
         # Remove double spaces
         text = re.sub(r'\s+', ' ', text)
