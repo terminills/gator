@@ -485,7 +485,7 @@
                 const response = await fetch('/api/v1/branding');
                 const branding = await response.json();
                 
-                document.getElementById('brand-name').textContent = branding.site_name || 'AI Platform';
+                document.getElementById('brand-name').textContent = branding.site_name || 'Platform';
                 document.getElementById('brand-icon').textContent = branding.icon || '🐊';
                 document.getElementById('tenant-name').textContent = branding.instance_name || 'My Instance';
             } catch (e) {
