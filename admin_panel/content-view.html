@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>View Content - Gator AI Admin</title>
+    <title>View Content - Gator Admin</title>
     <style>
         :root {
             --primary: #667eea;
@@ -517,7 +517,7 @@
         <div class="sidebar-header">
             <div class="logo">
                 <span class="logo-icon" id="brand-icon">🐊</span>
-                <span id="brand-name">AI Platform</span>
+                <span id="brand-name">Platform</span>
             </div>
         </div>
         
@@ -551,7 +551,7 @@
                 <li class="nav-item">
                     <a href="/ai-models-setup" class="nav-link">
                         <span class="nav-icon">🤖</span>
-                        <span>AI Models</span>
+                        <span>Models</span>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -575,7 +575,7 @@
                 <li class="nav-item">
                     <a href="/admin/diagnostics" class="nav-link">
                         <span class="nav-icon">🤖</span>
-                        <span>AI Diagnostics</span>
+                        <span>Diagnostics</span>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -646,7 +646,7 @@
                 const response = await fetch('/api/v1/branding');
                 const branding = await response.json();
                 
-                document.getElementById('brand-name').textContent = branding.site_name || 'AI Platform';
+                document.getElementById('brand-name').textContent = branding.site_name || 'Platform';
                 document.getElementById('brand-icon').textContent = branding.icon || '🐊';
             } catch (e) {
                 console.log('Using default branding');
@@ -832,7 +832,7 @@
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span>⚠️</span>
                             <span style="color: var(--warning); font-size: 0.85rem;">
-                                AI model unavailable - using fallback generation method
+                                Model unavailable - using fallback creation method
                             </span>
                         </div>
                     </div>
@@ -843,7 +843,7 @@
                 <div class="agent-status-card">
                     <div class="agent-status-header">
                         <span class="agent-status-icon">🤖</span>
-                        <h3 class="agent-status-title">AI Agent Status</h3>
+                        <h3 class="agent-status-title">Agent Status</h3>
                         <span class="agent-state ${stateClass}">${stateIcon} ${acd.state}</span>
                     </div>
                     
@@ -914,8 +914,8 @@
             
             if (errorStr.includes('models_loaded') || errorStr.includes('model') && errorStr.includes('not') && errorStr.includes('initialized')) {
                 return {
-                    reason: 'AI models are not initialized',
-                    suggestion: 'AI models need to be set up. Go to Settings > AI Models Setup to configure and install required models (Stable Diffusion, DALL-E, etc.)'
+                    reason: 'Models are not initialized',
+                    suggestion: 'Models need to be set up. Go to Settings > Models Setup to configure and install required models (Stable Diffusion, DALL-E, etc.)'
                 };
             }
             
@@ -936,7 +936,7 @@
             if (errorStr.includes('cuda') || errorStr.includes('gpu')) {
                 return {
                     reason: 'GPU/CUDA issue',
-                    suggestion: 'Ensure CUDA is properly installed or switch to CPU mode in AI model settings'
+                    suggestion: 'Ensure CUDA is properly installed or switch to CPU mode in model settings'
                 };
             }
             

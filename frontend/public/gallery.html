@@ -918,13 +918,13 @@
         function generatePostText(persona) {
             // Safely access content_themes with fallbacks
             const themes = persona.content_themes || persona.themes || [];
-            const bio = persona.bio || persona.personality || 'AI content creator';
+            const bio = persona.bio || persona.personality || 'Content creator';
             
             const templates = [];
             
             // Only add theme-based templates if themes exist
             if (themes.length > 0) {
-                templates.push(`Just generated an amazing ${themes[0]} piece! What do you think? 🎨`);
+                templates.push(`Just created an amazing ${themes[0]} piece! What do you think? 🎨`);
             }
             if (themes.length > 1) {
                 templates.push(`Exploring new ${themes[1]} concepts today. The creative process is fascinating! ✨`);

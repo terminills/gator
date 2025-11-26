@@ -609,10 +609,10 @@
                 
                 const statusEl = document.getElementById('ai-status');
                 if (response.ok && status.status === 'operational') {
-                    statusEl.textContent = '✅ AI Connected';
+                    statusEl.textContent = '✅ Connected';
                     statusEl.className = 'ai-status connected';
                 } else {
-                    statusEl.textContent = '❌ AI Unavailable';
+                    statusEl.textContent = '❌ Unavailable';
                     statusEl.className = 'ai-status disconnected';
                 }
             } catch (error) {
@@ -671,7 +671,7 @@
                 
                 // Update status
                 const statusEl = document.getElementById('ai-status');
-                statusEl.textContent = '❌ AI Failed';
+                statusEl.textContent = '❌ Failed';
                 statusEl.className = 'ai-status disconnected';
             } finally {
                 typingIndicator.classList.remove('active');
@@ -788,7 +788,7 @@
                 if (verboseMode) {
                     addChatMessage('gator', log.join('\n'), true, true);
                 } else {
-                    addChatMessage('gator', `❌ FAILED: ${error.message}. AI content generation is broken!`, true);
+                    addChatMessage('gator', `❌ FAILED: ${error.message}. Content creation is broken!`, true);
                 }
             } finally {
                 typingIndicator.classList.remove('active');
@@ -875,18 +875,18 @@
         }
 
         async function checkAIModels() {
-            addChatMessage('user', 'Check available AI models');
+            addChatMessage('user', 'Check available models');
             const typingIndicator = document.getElementById('typing-indicator');
             typingIndicator.classList.add('active');
             const verboseMode = document.getElementById('verbose-mode').checked;
             
             let log = [];
-            log.push('[ACTIVITY] AI Models Status Check');
+            log.push('[ACTIVITY] Models Status Check');
             log.push('[TIMESTAMP] ' + new Date().toISOString());
             log.push('');
             
             try {
-                log.push('[STEP 1] Fetching AI models status...');
+                log.push('[STEP 1] Fetching models status...');
                 log.push('[API CALL] GET /api/v1/setup/models/status');
                 log.push('');
                 
@@ -900,7 +900,7 @@
                     log.push('[ERROR] API endpoint returned error status');
                     const errorText = await response.text();
                     log.push('[ERROR DETAILS] ' + errorText);
-                    throw new Error(`HTTP ${response.status}: Cannot reach AI models endpoint`);
+                    throw new Error(`HTTP ${response.status}: Cannot reach models endpoint`);
                 }
                 
                 const status = await response.json();
@@ -908,7 +908,7 @@
                 log.push('');
                 log.push('[STEP 2] Parsing model data...');
                 
-                let message = '🤖 AI Models Status:\n\n';
+                let message = '🤖 Models Status:\n\n';
                 
                 if (verboseMode) {
                     log.push('[MODEL CATEGORIES]');
@@ -941,7 +941,7 @@
                 
                 log.push('[STEP 2] ✓ Model data parsed');
                 log.push('');
-                log.push('[COMPLETE] AI models check complete!');
+                log.push('[COMPLETE] Models check complete!');
                 
                 if (verboseMode) {
                     log.push('');
@@ -960,7 +960,7 @@
                 if (verboseMode) {
                     addChatMessage('gator', log.join('\n'), true, true);
                 } else {
-                    addChatMessage('gator', `❌ FAILED: ${error.message}. Cannot check AI models!`, true);
+                    addChatMessage('gator', `❌ FAILED: ${error.message}. Cannot check models!`, true);
                 }
             } finally {
                 typingIndicator.classList.remove('active');
@@ -1146,7 +1146,7 @@
                 }
                 log.push('');
                 
-                // Test AI models
+                // Test models
                 log.push('[TEST 3/5] AI Models Check');
                 log.push('[API CALL] GET /api/v1/setup/models/status');
                 try {
@@ -1324,7 +1324,7 @@
                 const attemptsResp = await fetch(`${API_BASE}/generation-attempts?limit=20`);
                 const attempts = await attemptsResp.json();
                 
-                // Load AI models
+                // Load models
                 const modelsResp = await fetch(`${API_BASE}/ai-models`);
                 const models = await modelsResp.json();
                 
@@ -1423,7 +1423,7 @@
             }
             
             if (models.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">No AI model activity found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">No model activity found</td></tr>';
             }
         }
         
@@ -1537,11 +1537,11 @@
                 const data = await response.json();
                 log.push(`[STEP 1] ✓ Response received (${elapsed}ms)`);
                 log.push('');
-                log.push('[GENERATED PROMPT]');
+                log.push('[CREATED PROMPT]');
                 log.push(data.response);
                 log.push('');
-                log.push('[COMPLETE] Prompt generated successfully!');
-                log.push('[TIP] You can use this prompt directly in content generation.');
+                log.push('[COMPLETE] Prompt created successfully!');
+                log.push('[TIP] You can use this prompt directly in content creation.');
                 
                 if (verboseMode) {
                     addChatMessage('gator', log.join('\n'), false, true);
@@ -1556,7 +1556,7 @@
                 if (verboseMode) {
                     addChatMessage('gator', log.join('\n'), true, true);
                 } else {
-                    addChatMessage('gator', `❌ FAILED: ${error.message}. Prompt generation failed!`, true);
+                    addChatMessage('gator', `❌ FAILED: ${error.message}. Prompt creation failed!`, true);
                 }
             } finally {
                 typingIndicator.classList.remove('active');
@@ -1578,7 +1578,7 @@
             sendMessage();
         }
         
-        // Search CivitAI models
+        // Search Civitmodels
         async function searchCivitAI() {
             const queries = [
                 'search civitai stable diffusion xl',

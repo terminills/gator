@@ -189,13 +189,13 @@
         </div>
         
         <div class="features" id="ai-features">
-            <!-- Dynamic AI capabilities will be loaded here -->
+            <!-- Dynamic capabilities will be loaded here -->
         </div>
         
         <div style="margin-top: 40px;">
             <h2 style="text-align: center; color: white; margin-bottom: 20px;">🎨 Recent Content</h2>
             <div id="recent-content" class="dashboard">
-                <!-- Recent generated content will be loaded here -->
+                <!-- Recent created content will be loaded here -->
             </div>
         </div>
     </div>
@@ -246,13 +246,13 @@
                 const contentData = await contentResp.json();
                 systemData.content = contentData.content || [];
                 
-                // Load AI model status
+                // Load model status
                 try {
                     const modelsResp = await fetch('/api/v1/setup/ai-models/status');
                     const modelsData = await modelsResp.json();
                     systemData.models = modelsData;
                 } catch (e) {
-                    console.log('AI models endpoint not available yet');
+                    console.log('Models endpoint not available yet');
                 }
                 
                 // Load analytics if available
