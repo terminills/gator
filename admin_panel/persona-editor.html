@@ -2263,10 +2263,18 @@
             });
         }
         
+        // Counter for unique quirk key generation
+        let typingQuirkCounter = 0;
+        
         function addTypingQuirk() {
             const suggestedKeys = ['capitalization', 'emoji_usage', 'punctuation', 'abbreviations'];
             const existingKeys = Object.keys(typingQuirks);
-            const availableKey = suggestedKeys.find(k => !existingKeys.includes(k)) || `quirk_${existingKeys.length + 1}`;
+            let availableKey = suggestedKeys.find(k => !existingKeys.includes(k));
+            if (!availableKey) {
+                // Use timestamp-based key for uniqueness
+                typingQuirkCounter++;
+                availableKey = `quirk_${Date.now()}_${typingQuirkCounter}`;
+            }
             typingQuirks[availableKey] = '';
             renderTypingQuirks();
         }

@@ -9,7 +9,9 @@ from uuid import UUID
 import os
 import base64
 import asyncio
+import json
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1046,9 +1048,6 @@ async def generate_soul_fields(
         500: Generation error
     """
     try:
-        import httpx
-        import json
-        
         # Ollama configuration
         OLLAMA_BASE_URL = "http://localhost:11434"
         
@@ -1179,10 +1178,10 @@ Personality: {request.personality or 'Not specified'}
 
 JSON:"""
 
-        # Generate with Ollama
+        # Generate with Ollama (60 second timeout for reasonable user experience)
         logger.info(f"Generating soul fields for '{request.name}' with {model_to_use} (rating: {rating})")
         
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
                 f"{OLLAMA_BASE_URL}/api/generate",
                 json={
@@ -1205,7 +1204,7 @@ JSON:"""
             
             output = response.json().get("response", "")
         
-        # Parse JSON from output
+        # Parse JSON from output - find outermost { } block
         start_idx = output.find('{')
         end_idx = output.rfind('}')
         
