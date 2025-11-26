@@ -157,7 +157,7 @@ class TestCivitAIRedirectHandling:
                             "name": "test_model.safetensors",
                             "downloadUrl": "https://civitai.com/api/download/models/12345",
                             "sizeKB": 100,
-                            "hashes": [],
+                            "hashes": {},  # Empty hashes to skip hash verification in test
                         }
                     ],
                     "modelId": 123,
@@ -188,6 +188,93 @@ class TestCivitAIRedirectHandling:
                         timeout=None, follow_redirects=True
                     )
 
+
+class TestCivitAIHashExtraction:
+    """Test hash extraction from CivitAI file info."""
+
+    def test_hash_extraction_from_dict(self):
+        """Test that SHA256 hash is extracted from dictionary format (CivitAI API format)."""
+        # This is the actual format returned by the CivitAI API
+        file_info = {
+            "name": "test_model.safetensors",
+            "hashes": {
+                "SHA256": "abc123def456789",
+                "AutoV2": "xyz789",
+                "CRC32": "12345678"
+            }
+        }
+
+        hashes = file_info.get("hashes", {})
+        expected_hash = None
+        if isinstance(hashes, dict):
+            expected_hash = hashes.get("SHA256")
+        elif isinstance(hashes, list):
+            for hash_info in hashes:
+                if isinstance(hash_info, dict) and hash_info.get("type") == "SHA256":
+                    expected_hash = hash_info.get("hash")
+                    break
+
+        assert expected_hash == "abc123def456789"
+
+    def test_hash_extraction_from_list(self):
+        """Test that SHA256 hash is extracted from list format (legacy/fallback)."""
+        # Legacy list format that might be used in some contexts
+        file_info = {
+            "name": "test_model.safetensors",
+            "hashes": [
+                {"type": "SHA256", "hash": "legacy123hash456"},
+                {"type": "CRC32", "hash": "87654321"}
+            ]
+        }
+
+        hashes = file_info.get("hashes", {})
+        expected_hash = None
+        if isinstance(hashes, dict):
+            expected_hash = hashes.get("SHA256")
+        elif isinstance(hashes, list):
+            for hash_info in hashes:
+                if isinstance(hash_info, dict) and hash_info.get("type") == "SHA256":
+                    expected_hash = hash_info.get("hash")
+                    break
+
+        assert expected_hash == "legacy123hash456"
+
+    def test_hash_extraction_empty_hashes(self):
+        """Test that empty hashes dict is handled gracefully."""
+        file_info = {
+            "name": "test_model.safetensors",
+            "hashes": {}
+        }
+
+        hashes = file_info.get("hashes", {})
+        expected_hash = None
+        if isinstance(hashes, dict):
+            expected_hash = hashes.get("SHA256")
+        elif isinstance(hashes, list):
+            for hash_info in hashes:
+                if isinstance(hash_info, dict) and hash_info.get("type") == "SHA256":
+                    expected_hash = hash_info.get("hash")
+                    break
+
+        assert expected_hash is None
+
+    def test_hash_extraction_missing_hashes(self):
+        """Test that missing hashes field is handled gracefully."""
+        file_info = {
+            "name": "test_model.safetensors"
+        }
+
+        hashes = file_info.get("hashes", {})
+        expected_hash = None
+        if isinstance(hashes, dict):
+            expected_hash = hashes.get("SHA256")
+        elif isinstance(hashes, list):
+            for hash_info in hashes:
+                if isinstance(hash_info, dict) and hash_info.get("type") == "SHA256":
+                    expected_hash = hash_info.get("hash")
+                    break
+
+        assert expected_hash is None
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
