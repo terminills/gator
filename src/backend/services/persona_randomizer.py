@@ -576,7 +576,8 @@ class PersonaRandomizer:
             "punctuation": random.choice(cls.TYPING_QUIRK_OPTIONS["punctuation"]),
         }
         signature_phrases = random.choice(cls.SIGNATURE_PHRASE_POOLS)
-        trigger_topics = random.sample(cls.TRIGGER_TOPIC_OPTIONS, k=random.randint(2, 4))
+        trigger_count = min(len(cls.TRIGGER_TOPIC_OPTIONS), random.randint(2, 4))
+        trigger_topics = random.sample(cls.TRIGGER_TOPIC_OPTIONS, k=trigger_count)
         
         # Backstory & Lore
         day_job = random.choice(cls.DAY_JOBS)

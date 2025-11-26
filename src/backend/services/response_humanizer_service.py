@@ -399,13 +399,10 @@ class ResponseHumanizerService:
         text = re.sub(r'\s+([.,!?])', r'\1', text)
         
         # Ensure text doesn't start with lowercase after cleanup
-        if text and len(text) > 0 and text[0].islower():
-            # Only capitalize if it seems like a sentence start
+        if text and text[0].islower():
+            # Only capitalize if it seems like a sentence start (not "i" pronouns)
             if not text.startswith(('i ', "i'm", "i'd", "i'll", "i've")):
-                if len(text) > 1:
-                    text = text[0].upper() + text[1:]
-                else:
-                    text = text[0].upper()
+                text = text[0].upper() + text[1:] if len(text) > 1 else text.upper()
         
         return text
 

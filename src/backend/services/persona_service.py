@@ -300,7 +300,11 @@ class PersonaService:
 
             # Voice & Speech Patterns
             if updates.linguistic_register is not None:
-                update_data["linguistic_register"] = updates.linguistic_register.value
+                # Handle both enum and string values
+                if hasattr(updates.linguistic_register, 'value'):
+                    update_data["linguistic_register"] = updates.linguistic_register.value
+                else:
+                    update_data["linguistic_register"] = str(updates.linguistic_register)
             if updates.typing_quirks is not None:
                 update_data["typing_quirks"] = updates.typing_quirks
             if updates.signature_phrases is not None:
@@ -320,9 +324,17 @@ class PersonaService:
             if updates.forbidden_phrases is not None:
                 update_data["forbidden_phrases"] = updates.forbidden_phrases
             if updates.warmth_level is not None:
-                update_data["warmth_level"] = updates.warmth_level.value
+                # Handle both enum and string values
+                if hasattr(updates.warmth_level, 'value'):
+                    update_data["warmth_level"] = updates.warmth_level.value
+                else:
+                    update_data["warmth_level"] = str(updates.warmth_level)
             if updates.patience_level is not None:
-                update_data["patience_level"] = updates.patience_level.value
+                # Handle both enum and string values
+                if hasattr(updates.patience_level, 'value'):
+                    update_data["patience_level"] = updates.patience_level.value
+                else:
+                    update_data["patience_level"] = str(updates.patience_level)
 
             if not update_data:
                 # No updates provided, return existing persona
