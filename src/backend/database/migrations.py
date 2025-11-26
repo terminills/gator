@@ -180,6 +180,25 @@ async def add_personas_appearance_columns(conn, is_sqlite: bool) -> List[str]:
         except Exception as e:
             logger.warning(f"Could not create index on base_image_status: {e}")
 
+    # Check and add base_images (JSON field for 4 base images: face_shot, bikini_front, bikini_side, bikini_rear)
+    if not await check_column_exists(conn, "personas", "base_images", is_sqlite):
+        logger.info("Adding base_images column to personas table")
+        if is_sqlite:
+            # SQLite uses JSON type (stored as TEXT internally)
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN base_images JSON DEFAULT '{}'")
+            )
+            # Update existing rows to have the default value
+            await conn.execute(
+                text("UPDATE personas SET base_images = '{}' WHERE base_images IS NULL")
+            )
+        else:
+            # PostgreSQL supports native JSON/JSONB
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN base_images JSONB DEFAULT '{}'")
+            )
+        added_columns.append("base_images")
+
     return added_columns
 
 
