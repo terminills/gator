@@ -112,7 +112,12 @@ class PersonaModel(Base):
     )  # Detailed baseline appearance prompt
     base_image_path = Column(
         String(500), nullable=True
-    )  # Path to reference image for consistency
+    )  # Path to reference image for consistency (legacy, kept for backward compatibility)
+    # 4 base images for complete physical appearance locking
+    # Stores paths to: face_shot, bikini_front, bikini_side, bikini_rear
+    base_images = Column(
+        JSON, nullable=False, default=dict
+    )  # {"face_shot": "/path/to/face.png", "bikini_front": "/path/to/front.png", ...}
     appearance_locked = Column(
         Boolean, default=False, index=True
     )  # Prevents overwrites, enables consistency
@@ -272,6 +277,10 @@ class PersonaCreate(BaseModel):
         default=None,
         max_length=500,
         description="Path to reference image for visual consistency (e.g., /models/base_images/persona_ref.jpg)",
+    )
+    base_images: Dict[str, str] = Field(
+        default={},
+        description="4 base images for complete physical appearance: face_shot, bikini_front, bikini_side, bikini_rear",
     )
     appearance_locked: bool = Field(
         default=False,
@@ -476,6 +485,10 @@ class PersonaUpdate(BaseModel):
         max_length=500,
         description="Path to reference image for visual consistency",
     )
+    base_images: Optional[Dict[str, str]] = Field(
+        None,
+        description="4 base images for complete physical appearance: face_shot, bikini_front, bikini_side, bikini_rear",
+    )
     appearance_locked: Optional[bool] = Field(
         None,
         description="When True, locks appearance and enables visual consistency features",
@@ -639,6 +652,7 @@ class PersonaResponse(BaseModel):
     updated_at: datetime
     base_appearance_description: Optional[str] = None
     base_image_path: Optional[str] = None
+    base_images: Dict[str, str] = {}  # 4 base images: face_shot, bikini_front, bikini_side, bikini_rear
     appearance_locked: bool = False
     base_image_status: str = "pending_upload"
     image_style: str = "photorealistic"

@@ -1393,13 +1393,23 @@
                         <!-- Sample Image Creation (Create Mode Only) -->
                         <div class="form-group" id="sample-images-section" style="display: none;">
                             <label class="form-label">
-                                Create Sample Images
+                                Create 4 Base Images for Physical Appearance Locking
                             </label>
-                            <span class="form-help">Create 4 different sample images to choose as your base image. The selected image will be locked for visual consistency.</span>
+                            <span class="form-help">Generate 4 specific base images using sequential img2img chaining for maximum body consistency across all views.</span>
                             
                             <div class="generate-images-section" id="generate-prompt">
-                                <h3>🎨 Create Sample Images</h3>
-                                <p>Click below to create 4 sample images based on your appearance description. This helps establish a consistent look for your persona.</p>
+                                <h3>🎨 Create 4 Base Images (Sequential Chain)</h3>
+                                <p>Uses advanced img2img chaining: each image builds on the previous one for maximum physical consistency across all views.</p>
+                                <div style="margin: 12px 0; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; font-size: 0.85rem;">
+                                    <strong>Sequential Generation Chain:</strong>
+                                    <ul style="margin: 8px 0 0 20px; color: var(--text-secondary);">
+                                        <li>📸 <strong>1. Face Shot</strong> → Establishes facial features (base reference)</li>
+                                        <li>👙 <strong>2. Bikini Front</strong> → Uses face shot to establish full body</li>
+                                        <li>👙 <strong>3. Bikini Side</strong> → Uses front view for body consistency</li>
+                                        <li>👙 <strong>4. Bikini Rear</strong> → Uses side view to complete rotation</li>
+                                    </ul>
+                                    <p style="margin-top: 8px; font-style: italic; color: var(--accent-color);">💡 Uses NSFW-capable models for better anatomy accuracy (output is SFW)</p>
+                                </div>
                                 
                                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0;">
                                     <div>
@@ -1438,7 +1448,7 @@
                                 
                                 <button type="button" class="btn-generate" id="generate-images-btn" onclick="generateSampleImages()">
                                     <span>✨</span>
-                                    <span>Create 4 Sample Images</span>
+                                    <span>Generate 4 Base Images</span>
                                 </button>
                                 
                                 <div class="generation-progress" id="generation-progress">
@@ -1450,7 +1460,7 @@
                             </div>
                             
                             <div class="image-gallery" id="image-gallery" style="display: none;">
-                                <!-- Sample images will be inserted here -->
+                                <!-- Base images will be inserted here -->
                             </div>
                         </div>
                         
@@ -2641,16 +2651,28 @@
             gallery.innerHTML = '';
             gallery.style.display = 'grid';
             
+            // Image type labels with emojis
+            const typeLabels = {
+                'face_shot': '📸 Face Shot',
+                'bikini_front': '👙 Front View',
+                'bikini_side': '👙 Side View',
+                'bikini_rear': '👙 Rear View'
+            };
+            
             sampleImages.forEach((image, index) => {
                 const card = document.createElement('div');
                 card.className = 'image-card';
                 card.id = `image-card-${image.id}`;
                 card.onclick = () => selectSampleImage(image.id);
                 
+                // Use the label from API response or fallback to type mapping
+                const label = image.label || typeLabels[image.type] || `Image ${index + 1}`;
+                const isBaseRef = image.type === 'face_shot' ? '<span style="font-size: 0.7rem; color: var(--accent-color);">(Base Reference)</span>' : '';
+                
                 card.innerHTML = `
                     <span class="selected-badge">✓ Selected</span>
-                    <img src="${image.data_url}" alt="Sample ${index + 1}">
-                    <div class="image-card-label">Sample ${index + 1}</div>
+                    <img src="${image.data_url}" alt="${label}">
+                    <div class="image-card-label">${label} ${isBaseRef}</div>
                 `;
                 
                 gallery.appendChild(card);
@@ -2658,33 +2680,87 @@
             
             // Show instruction
             const actionText = editorMode === 'edit' ? 'update' : 'set';
-            showAlert(`Select one image to ${actionText} as your persona's base image. The selected image will be locked for consistency.`, 'success');
+            showAlert(`All 4 base images generated using img2img for consistency. Select all images to ${actionText} as your persona's locked appearance.`, 'success');
+            
+            // Auto-select all 4 images since they're a complete set
+            selectAllBaseImages();
+        }
+        
+        // Store all selected base images (not just one)
+        let selectedBaseImages = {};
+        
+        function selectAllBaseImages() {
+            // Select all generated images as a complete set
+            selectedBaseImages = {};
+            
+            sampleImages.forEach(image => {
+                // Mark card as selected
+                const card = document.getElementById(`image-card-${image.id}`);
+                if (card) {
+                    card.classList.add('selected');
+                }
+                
+                // Store the image data by type
+                selectedBaseImages[image.type || image.id] = image.data_url;
+            });
+            
+            // Update form fields
+            document.getElementById('base_image_status').value = 'approved';
+            document.getElementById('appearance_locked').checked = true;
+            document.getElementById('base_image_path').value = editorMode === 'edit' ? 
+                `4 base images ready - will be updated when you save` : 
+                `4 base images ready - will be set after persona creation`;
+            
+            // Also set selectedImageData to the face shot for backward compatibility
+            const faceShot = sampleImages.find(img => img.type === 'face_shot');
+            if (faceShot) {
+                selectedImageData = faceShot.data_url;
+            }
         }
         
         function selectSampleImage(imageId) {
-            // Remove previous selection
-            document.querySelectorAll('.image-card').forEach(card => {
-                card.classList.remove('selected');
-            });
-            
-            // Mark new selection
+            // Toggle selection for individual images
             const card = document.getElementById(`image-card-${imageId}`);
-            if (card) {
+            const image = sampleImages.find(img => img.id === imageId);
+            
+            if (!card || !image) return;
+            
+            const imageType = image.type || image.id;
+            
+            if (card.classList.contains('selected')) {
+                // Deselect
+                card.classList.remove('selected');
+                delete selectedBaseImages[imageType];
+            } else {
+                // Select
                 card.classList.add('selected');
+                selectedBaseImages[imageType] = image.data_url;
             }
             
-            // Store selected image data
-            const image = sampleImages.find(img => img.id === imageId);
-            if (image) {
-                selectedImageData = image.data_url;
-                
-                // Update form fields to indicate image is selected
+            // Update status based on how many are selected
+            const selectedCount = Object.keys(selectedBaseImages).length;
+            
+            if (selectedCount === 4) {
                 document.getElementById('base_image_status').value = 'approved';
                 document.getElementById('appearance_locked').checked = true;
-                document.getElementById('base_image_path').value = editorMode === 'edit' ? `Will be updated when you save` : `Will be set after persona creation`;
-                
-                const actionText = editorMode === 'edit' ? 'update' : 'create';
-                showAlert(`Image selected! This will be set as your base image when you ${actionText} the persona.`, 'success');
+                showAlert(`All 4 base images selected! Your persona's appearance will be locked.`, 'success');
+            } else if (selectedCount > 0) {
+                document.getElementById('base_image_status').value = 'draft';
+                showAlert(`${selectedCount}/4 images selected. Select all 4 for complete appearance locking.`, 'info');
+            } else {
+                document.getElementById('base_image_status').value = 'pending_upload';
+                document.getElementById('appearance_locked').checked = false;
+            }
+            
+            // Update base_image_path field
+            document.getElementById('base_image_path').value = selectedCount > 0 ? 
+                `${selectedCount}/4 base images selected` : '';
+            
+            // Set selectedImageData to face shot for backward compatibility
+            if (selectedBaseImages['face_shot']) {
+                selectedImageData = selectedBaseImages['face_shot'];
+            } else {
+                selectedImageData = Object.values(selectedBaseImages)[0] || null;
             }
         }
         
@@ -3041,8 +3117,37 @@
                 const result = await response.json();
                 const personaIdToUse = result.id;
                 
-                // If user selected a sample image, set it as base image (works for both create and edit)
-                if (selectedImageData) {
+                // If user selected base images, set them all as the 4 base images
+                // This uses the new set-base-images endpoint that handles all 4 images
+                if (Object.keys(selectedBaseImages).length > 0) {
+                    try {
+                        document.getElementById('submit-text').textContent = 'Setting base images...';
+                        
+                        // Use the new endpoint that accepts all 4 base images
+                        const imageResponse = await fetch(`/api/v1/personas/${personaIdToUse}/set-base-images`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                face_shot: selectedBaseImages['face_shot'] || null,
+                                bikini_front: selectedBaseImages['bikini_front'] || null,
+                                bikini_side: selectedBaseImages['bikini_side'] || null,
+                                bikini_rear: selectedBaseImages['bikini_rear'] || null
+                            })
+                        });
+                        
+                        if (!imageResponse.ok) {
+                            console.error(`Failed to set base images, but persona was ${editorMode === 'create' ? 'created' : 'updated'}`);
+                        } else {
+                            console.log('All 4 base images set successfully');
+                        }
+                    } catch (imageError) {
+                        console.error('Failed to set base images:', imageError);
+                        // Don't fail the whole operation if image setting fails
+                    }
+                } else if (selectedImageData) {
+                    // Fallback to single image endpoint for backward compatibility
                     try {
                         document.getElementById('submit-text').textContent = 'Setting base image...';
                         
@@ -3063,7 +3168,6 @@
                         }
                     } catch (imageError) {
                         console.error('Failed to set base image:', imageError);
-                        // Don't fail the whole operation if image setting fails
                     }
                 }
                 
