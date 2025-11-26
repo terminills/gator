@@ -846,17 +846,41 @@ async def create_random_persona(
 
         logger.info(f"Creating AI-generated persona: {random_config['name']}")
 
-        # Create persona data object
+        # Create persona data object with all fields including soul fields
         persona_data = PersonaCreate(
             name=random_config["name"],
             appearance=random_config["appearance"],
             personality=random_config["personality"],
             content_themes=random_config["content_themes"],
-            style_preferences=random_config["style_preferences"],
+            style_preferences=random_config.get("style_preferences", {}),
             default_content_rating=random_config["default_content_rating"],
             allowed_content_ratings=random_config["allowed_content_ratings"],
-            platform_restrictions=random_config["platform_restrictions"],
-            is_active=random_config["is_active"],
+            platform_restrictions=random_config.get("platform_restrictions", {}),
+            is_active=random_config.get("is_active", True),
+            # Soul Fields - Origin & Demographics
+            hometown=random_config.get("hometown"),
+            current_location=random_config.get("current_location"),
+            generation_age=random_config.get("generation_age"),
+            education_level=random_config.get("education_level"),
+            # Soul Fields - Psychological Profile
+            mbti_type=random_config.get("mbti_type"),
+            enneagram_type=random_config.get("enneagram_type"),
+            political_alignment=random_config.get("political_alignment"),
+            risk_tolerance=random_config.get("risk_tolerance"),
+            optimism_cynicism_scale=random_config.get("optimism_cynicism_scale"),
+            # Soul Fields - Voice & Speech Patterns
+            linguistic_register=random_config.get("linguistic_register"),
+            typing_quirks=random_config.get("typing_quirks", {}),
+            signature_phrases=random_config.get("signature_phrases", []),
+            trigger_topics=random_config.get("trigger_topics", []),
+            # Soul Fields - Backstory & Lore
+            day_job=random_config.get("day_job"),
+            war_story=random_config.get("war_story"),
+            vices_hobbies=random_config.get("vices_hobbies", []),
+            # Soul Fields - Anti-Pattern
+            forbidden_phrases=random_config.get("forbidden_phrases", []),
+            warmth_level=random_config.get("warmth_level"),
+            patience_level=random_config.get("patience_level"),
         )
 
         # Create the persona

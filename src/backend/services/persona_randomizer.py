@@ -2,6 +2,7 @@
 Persona Randomizer Service
 
 Generates random persona configurations for quick testing and creative exploration.
+Now includes "soul" fields for human-like response patterns.
 """
 
 import random
@@ -13,8 +14,8 @@ class PersonaRandomizer:
     """
     Service for generating randomized persona configurations.
     
-    Provides creative combinations of appearance, personality, themes, and styles
-    for rapid persona creation and experimentation.
+    Provides creative combinations of appearance, personality, themes, styles,
+    and soul fields for rapid persona creation and experimentation.
     """
     
     # Appearance components
@@ -47,6 +48,152 @@ class PersonaRandomizer:
         "brown", "blue", "green", "hazel", "amber",
         "gray", "dark brown", "light blue", "emerald green"
     ]
+    
+    # Soul Fields - Origin & Demographics
+    HOMETOWNS = [
+        "South Boston, MA", "Rural Texas", "Silicon Valley, CA", "Brooklyn, NY",
+        "Nashville, TN", "Miami, FL", "Chicago, IL", "Denver, CO",
+        "Portland, OR", "Austin, TX", "Seattle, WA", "Atlanta, GA",
+        "Small town Iowa", "Jersey Shore", "San Diego, CA", "Phoenix, AZ",
+        "New Orleans, LA", "Las Vegas, NV", "Detroit, MI", "Minneapolis, MN"
+    ]
+    
+    CURRENT_LOCATIONS = [
+        "LA for the content", "Miami for the vibes", "NYC hustle mode",
+        "Austin - moved for tech", "Denver for outdoor life", "Still in hometown",
+        "Florida for no state tax", "Nashville for music scene", "Chicago suburbs",
+        "Remote nomad life", "Back with parents saving money", "Studio apartment in the city"
+    ]
+    
+    GENERATION_AGES = [
+        "Gen Z - 22, chronically online", "Gen Z - 24, TikTok native",
+        "Millennial - 28, grew up with MySpace", "Millennial - 32, elder millennial vibes",
+        "Gen Z - 20, iPad kid grown up", "Millennial - 35, remembers dial-up",
+        "Gen X - 42, cynical and latchkey", "Boomer - 55, adapting to digital"
+    ]
+    
+    EDUCATION_LEVELS = [
+        "State school dropout", "Community college grad", "Self-taught hustler",
+        "Ivy League burnout", "Trade school certified", "YouTube University",
+        "MBA from party school", "PhD in life experience", "High school GED",
+        "Art school rebel", "Engineering degree, different path"
+    ]
+    
+    # Soul Fields - Psychological Profile
+    MBTI_TYPES = [
+        "ESTP - The Entrepreneur", "ENFP - The Campaigner", "ISTP - The Virtuoso",
+        "INFJ - The Advocate", "ENTJ - The Commander", "ISFP - The Adventurer",
+        "ENTP - The Debater", "INTJ - The Architect", "ESFP - The Entertainer",
+        "INFP - The Mediator", "ESTJ - The Executive", "ENFJ - The Protagonist"
+    ]
+    
+    ENNEAGRAM_TYPES = [
+        "Type 3 - The Achiever", "Type 7 - The Enthusiast", "Type 8 - The Challenger",
+        "Type 4 - The Individualist", "Type 1 - The Reformer", "Type 2 - The Helper",
+        "Type 5 - The Investigator", "Type 6 - The Loyalist", "Type 9 - The Peacemaker"
+    ]
+    
+    POLITICAL_ALIGNMENTS = [
+        "Libertarian-leaning", "Progressive activist", "Old school conservative",
+        "Apolitical - just vibes", "Centrist pragmatist", "Anti-establishment",
+        "Liberty-focused", "Social democrat", "Traditional values",
+        "Fiscal conservative, social liberal", "Whatever triggers the most people"
+    ]
+    
+    RISK_TOLERANCES = [
+        "YOLO - full send always", "Calculated risks only", "Safety first, boring life",
+        "Move fast and break things", "Hold my beer", "Let me check the reviews first",
+        "Fortune favors the bold", "Play it safe but dream big", "Impulse buyer"
+    ]
+    
+    # Soul Fields - Voice & Speech Patterns
+    LINGUISTIC_REGISTERS = [
+        "blue_collar", "academic", "tech_bro", "street",
+        "corporate", "southern", "millennial", "gen_z"
+    ]
+    
+    TYPING_QUIRK_OPTIONS = {
+        "capitalization": [
+            "all lowercase", "normal", "RANDOM CAPS for emphasis",
+            "Perfect Grammar", "no caps no punctuation", "Title Case Everything"
+        ],
+        "emoji_usage": [
+            "none - too cool", "minimal - ironic only", "moderate",
+            "heavy - every message", "skull emoji addiction", "heart spam"
+        ],
+        "punctuation": [
+            "uses ... a lot", "no punctuation ever", "perfect punctuation",
+            "lots of exclamation marks!!", "question marks everywhere?",
+            "run on sentences forever"
+        ]
+    }
+    
+    SIGNATURE_PHRASE_POOLS = [
+        ["Based", "No cap", "Bet", "Facts", "It is what it is", "That's tough"],
+        ["Literally", "I can't even", "Same", "It's giving", "Slay", "Period"],
+        ["Y'all", "Bless your heart", "Fixin' to", "Well I'll be", "Darlin'"],
+        ["Let's gooo", "Bussin", "Lowkey", "Highkey", "Fr fr", "Ong"],
+        ["Bro", "Dude", "My guy", "Chief", "King/Queen", "Fam"],
+        ["That dog won't hunt", "This ain't it", "Hard pass", "Nah fam"],
+        ["Vibes", "Energy", "Manifesting", "Universe", "Alignment"]
+    ]
+    
+    TRIGGER_TOPIC_OPTIONS = [
+        "slow drivers", "people who don't use turn signals", "cancel culture",
+        "taxes", "crypto bros", "hustle culture", "bad tippers", "gas prices",
+        "people who chew loudly", "reply guys", "influencer culture",
+        "gym bros who don't rerack", "people who ghost", "bad coffee",
+        "traffic", "Monday mornings", "meetings that could be emails"
+    ]
+    
+    # Soul Fields - Backstory & Lore
+    DAY_JOBS = [
+        "Content creator (trying to make it)", "Barista with big dreams",
+        "Tech startup grinder", "Real estate side hustle", "Freelance everything",
+        "9-5 corporate survivor", "Small business owner", "Gig economy warrior",
+        "Student loans debt prisoner", "Trust fund kid (don't tell anyone)",
+        "Night shift nurse", "Remote marketing person", "Server/bartender"
+    ]
+    
+    WAR_STORIES = [
+        "Lost everything in crypto, came back stronger",
+        "Backpacked through Europe on $20/day",
+        "Built a business from nothing, sold it, started over",
+        "Survived a toxic relationship, found myself",
+        "Dropped out of college to chase dreams",
+        "Moved across country knowing no one",
+        "Went viral once, changed everything",
+        "Lost a parent young, grew up fast",
+        "Recovered from addiction, new perspective",
+        "Failed publicly, learned to not care what people think"
+    ]
+    
+    VICES_HOBBIES_OPTIONS = [
+        ["Coffee addiction", "Doom scrolling", "Online shopping"],
+        ["Gym rat life", "Protein shake obsession", "Never skips leg day"],
+        ["Wine and true crime", "Reality TV guilty pleasure", "Gossip"],
+        ["Gaming until 3am", "Energy drinks", "Twitch streams"],
+        ["Hiking and nature", "Camping", "Photography"],
+        ["Cooking experiments", "Food pics for the gram", "Restaurant hopping"],
+        ["Vintage shopping", "Vinyl collecting", "Nostalgia trips"],
+        ["Yoga and meditation", "Crystals (don't judge)", "Astrology"],
+        ["Sports betting", "Fantasy leagues", "Yelling at the TV"],
+        ["DIY projects", "Home improvement fails", "Pinterest addiction"]
+    ]
+    
+    # Soul Fields - Anti-Pattern
+    FORBIDDEN_PHRASE_POOLS = [
+        ["As an AI", "I don't have opinions", "Is there anything else I can help with"],
+        ["Synergy", "Circle back", "Touch base", "Move the needle"],
+        ["I feel that", "Safe space", "Holistic", "Mindful"],
+        ["Actually...", "Well technically", "To be fair"],
+        ["Literally (used wrong)", "Irregardless", "Could care less"],
+        ["No offense but", "I'm not racist but", "Just saying"],
+        ["Sorry for the inconvenience", "Per my last email", "Best regards"]
+    ]
+    
+    WARMTH_LEVELS = ["cold", "neutral", "warm", "buddy"]
+    PATIENCE_LEVELS = ["short_fuse", "normal", "patient", "infinite"]
     
     SKIN_TONES = [
         "fair", "light", "medium", "olive", "tan",
@@ -394,24 +541,104 @@ class PersonaRandomizer:
         return restrictions
     
     @classmethod
+    def generate_random_soul_fields(cls) -> Dict[str, Any]:
+        """
+        Generate random soul fields for a persona.
+        
+        These fields define the persona's:
+        - Origin & Demographics
+        - Psychological Profile
+        - Voice & Speech Patterns
+        - Backstory & Lore
+        - Anti-Pattern (what they would never say)
+        
+        Returns:
+            Dictionary with soul field configuration
+        """
+        # Origin & Demographics
+        hometown = random.choice(cls.HOMETOWNS)
+        current_location = random.choice(cls.CURRENT_LOCATIONS)
+        generation_age = random.choice(cls.GENERATION_AGES)
+        education_level = random.choice(cls.EDUCATION_LEVELS)
+        
+        # Psychological Profile
+        mbti_type = random.choice(cls.MBTI_TYPES)
+        enneagram_type = random.choice(cls.ENNEAGRAM_TYPES)
+        political_alignment = random.choice(cls.POLITICAL_ALIGNMENTS)
+        risk_tolerance = random.choice(cls.RISK_TOLERANCES)
+        optimism_cynicism_scale = random.randint(1, 10)
+        
+        # Voice & Speech Patterns
+        linguistic_register = random.choice(cls.LINGUISTIC_REGISTERS)
+        typing_quirks = {
+            "capitalization": random.choice(cls.TYPING_QUIRK_OPTIONS["capitalization"]),
+            "emoji_usage": random.choice(cls.TYPING_QUIRK_OPTIONS["emoji_usage"]),
+            "punctuation": random.choice(cls.TYPING_QUIRK_OPTIONS["punctuation"]),
+        }
+        signature_phrases = random.choice(cls.SIGNATURE_PHRASE_POOLS)
+        trigger_topics = random.sample(cls.TRIGGER_TOPIC_OPTIONS, k=random.randint(2, 4))
+        
+        # Backstory & Lore
+        day_job = random.choice(cls.DAY_JOBS)
+        war_story = random.choice(cls.WAR_STORIES)
+        vices_hobbies = random.choice(cls.VICES_HOBBIES_OPTIONS)
+        
+        # Anti-Pattern
+        forbidden_phrases = random.choice(cls.FORBIDDEN_PHRASE_POOLS)
+        warmth_level = random.choice(cls.WARMTH_LEVELS)
+        patience_level = random.choice(cls.PATIENCE_LEVELS)
+        
+        return {
+            # Origin & Demographics
+            "hometown": hometown,
+            "current_location": current_location,
+            "generation_age": generation_age,
+            "education_level": education_level,
+            
+            # Psychological Profile
+            "mbti_type": mbti_type,
+            "enneagram_type": enneagram_type,
+            "political_alignment": political_alignment,
+            "risk_tolerance": risk_tolerance,
+            "optimism_cynicism_scale": optimism_cynicism_scale,
+            
+            # Voice & Speech Patterns
+            "linguistic_register": linguistic_register,
+            "typing_quirks": typing_quirks,
+            "signature_phrases": signature_phrases,
+            "trigger_topics": trigger_topics,
+            
+            # Backstory & Lore
+            "day_job": day_job,
+            "war_story": war_story,
+            "vices_hobbies": vices_hobbies,
+            
+            # Anti-Pattern
+            "forbidden_phrases": forbidden_phrases,
+            "warmth_level": warmth_level,
+            "patience_level": patience_level,
+        }
+    
+    @classmethod
     def generate_complete_random_persona(
         cls,
         name: Optional[str] = None,
         detailed: bool = True
     ) -> Dict[str, Any]:
         """
-        Generate a complete random persona configuration.
+        Generate a complete random persona configuration with soul fields.
         
         Args:
             name: Optional custom name (generated if not provided)
             detailed: If True, generates more detailed descriptions
             
         Returns:
-            Dictionary with complete persona configuration
+            Dictionary with complete persona configuration including soul fields
         """
         default_rating, allowed_ratings = cls.generate_random_content_rating()
         
-        return {
+        # Base persona fields
+        persona = {
             "name": name or cls.generate_random_name(),
             "appearance": cls.generate_random_appearance(detailed=detailed),
             "personality": cls.generate_random_personality(detailed=detailed),
@@ -420,8 +647,14 @@ class PersonaRandomizer:
             "default_content_rating": default_rating,
             "allowed_content_ratings": allowed_ratings,
             "platform_restrictions": cls.generate_random_platform_restrictions(),
-            "is_active": True
+            "is_active": True,
         }
+        
+        # Add soul fields
+        soul_fields = cls.generate_random_soul_fields()
+        persona.update(soul_fields)
+        
+        return persona
     
     @classmethod
     def generate_random_batch(cls, count: int = 5) -> List[Dict[str, Any]]:
