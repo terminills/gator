@@ -707,6 +707,16 @@ def _check_xformers_compatibility() -> Dict[str, Any]:
     """
     Check if xFormers is installed and compatible with the current system.
     
+    Note: xFormers has changed its version detection API in recent releases.
+    This function now performs a more thorough check by:
+    1. Checking if the module can be imported
+    2. Checking if ops module is available
+    3. Optionally testing memory_efficient_attention availability
+    
+    The 'ops_available' field indicates if the ops module can be imported,
+    but specific operators may still fail for certain input shapes at runtime.
+    This is normal behavior and doesn't mean xFormers is broken.
+    
     Returns:
         Dictionary with xFormers status and compatibility information
     """
@@ -718,19 +728,42 @@ def _check_xformers_compatibility() -> Dict[str, Any]:
     try:
         import xformers
         result["installed"] = True
-        result["version"] = getattr(xformers, "__version__", "unknown")
+        
+        # Try multiple ways to get version (API changed in recent versions)
+        version = getattr(xformers, "__version__", None)
+        if version is None:
+            # Try alternative version attribute locations
+            try:
+                from xformers import version as xf_version
+                # Check for version in different attribute locations
+                version = getattr(xf_version, "__version__", None)
+                if version is None:
+                    version = getattr(xf_version, "version", "unknown")
+            except ImportError:
+                version = "unknown"
+        result["version"] = version
         
         # Try to access xFormers ops to check if it's functional
         try:
             from xformers import ops  # noqa: F401
             result["ops_available"] = True
+            
+            # Check if memory_efficient_attention is available
+            # Note: This doesn't mean all operators work for all input shapes
+            try:
+                from xformers.ops import memory_efficient_attention  # noqa: F401
+                result["memory_efficient_attention_available"] = True
+            except ImportError:
+                result["memory_efficient_attention_available"] = False
+                
         except ImportError as e:
             result["ops_available"] = False
             result["incompatible"] = True
             result["error"] = str(e)
             
             # Check for specific CUDA/ROCm mismatch
-            if "cuda" in str(e).lower() or "libcudart" in str(e).lower():
+            error_lower = str(e).lower()
+            if "cuda" in error_lower or "libcudart" in error_lower:
                 result["cuda_mismatch"] = True
         except Exception as e:
             result["ops_available"] = False
