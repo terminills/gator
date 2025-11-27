@@ -241,22 +241,24 @@ class FanControlService:
             Dictionary with command lists for auto_mode, manual_mode, and set_speed
         
         Notes:
-            - Lenovo: XCC does not have documented public OEM commands for fan control.
-              The documented OEM commands (netfn 0x2E, 0x3A) are for system control,
-              firmware info, etc., but not fan control. Fan control may require
-              undocumented commands or may not be supported via IPMI.
+            - Lenovo: ThinkSystem servers use netfn 0x3A for fan control (cmd 0x07 for mode, 0x32 for speed)
             - Dell: Uses netfn 0x30, cmd 0x30 for fan control
             - HP: Uses netfn 0x30, cmd 0x30 for iLO fan control
             - Supermicro: Uses netfn 0x30, cmd 0x45 for fan control
         """
         commands = {
             ServerManufacturer.LENOVO: {
-                "auto_mode": ["0x30", "0x30", "0x01", "0x01"],  # Not officially documented
-                "manual_mode": ["0x30", "0x30", "0x01", "0x00"],  # Not officially documented
-                "set_speed_prefix": ["0x30", "0x30", "0x02", "0xff"],  # Not officially documented
-                "note": "Lenovo XCC fan control via IPMI may not be supported. "
-                        "These commands are not in the official Lenovo OEM IPMI documentation. "
-                        "The BMC will manage fans automatically if manual control is unavailable.",
+                # Lenovo ThinkSystem IPMI fan control commands (netfn 0x3A)
+                # These commands work on Lenovo ThinkSystem servers (e.g., SR665)
+                # Auto mode: ipmitool raw 0x3a 0x07 0xFF 0xFF 0x00
+                "auto_mode": ["0x3a", "0x07", "0xFF", "0xFF", "0x00"],
+                # Manual mode: ipmitool raw 0x3a 0x07 0xFF 0xFF 0x01
+                "manual_mode": ["0x3a", "0x07", "0xFF", "0xFF", "0x01"],
+                # Set speed: ipmitool raw 0x3A 0x32 0xff 0x00 0x00 0x03 <speed_hex>
+                # where speed_hex is 0x00-0x64 (0-100%)
+                "set_speed_prefix": ["0x3a", "0x32", "0xff", "0x00", "0x00", "0x03"],
+                "note": "Lenovo ThinkSystem fan control using IPMI OEM commands (netfn 0x3A). "
+                        "Tested on Lenovo SR665 servers.",
             },
             ServerManufacturer.DELL: {
                 "auto_mode": ["0x30", "0x30", "0x01", "0x01"],
@@ -532,8 +534,12 @@ class FanControlService:
                 if not mode_result.get("success"):
                     logger.warning("Could not set manual mode, continuing with speed setting attempt")
 
-            # Convert percentage to raw value (0-255 for most IPMI systems)
-            raw_speed = int((speed_percent / 100.0) * 255)
+            # Convert percentage to raw value
+            # Lenovo uses 0x00-0x64 (0-100%), other manufacturers use 0-255
+            if self._manufacturer == ServerManufacturer.LENOVO:
+                raw_speed = speed_percent  # Direct percentage (0-100)
+            else:
+                raw_speed = int((speed_percent / 100.0) * 255)  # 0-255 scale
 
             # Get manufacturer-specific IPMI commands
             commands = self._get_ipmi_commands()
