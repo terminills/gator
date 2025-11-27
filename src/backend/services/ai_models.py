@@ -4427,9 +4427,17 @@ class AIModelManager:
                     # Use embeddings if available (from compel for long prompts), otherwise use text prompts
                     # For SDXL, we need all 4 embeddings (including pooled) to be non-None
                     # For SD 1.5, we only need prompt_embeds and negative_prompt_embeds
-                    use_embeddings = prompt_embeds is not None and negative_prompt_embeds is not None
+                    has_basic_embeddings = (
+                        prompt_embeds is not None and negative_prompt_embeds is not None
+                    )
+                    has_pooled_embeddings = (
+                        pooled_prompt_embeds is not None 
+                        and negative_pooled_prompt_embeds is not None
+                    )
+                    use_sdxl_embeddings = has_basic_embeddings and is_sdxl and has_pooled_embeddings
+                    use_sd15_embeddings = has_basic_embeddings and not is_sdxl
                     
-                    if use_embeddings and is_sdxl and pooled_prompt_embeds is not None and negative_pooled_prompt_embeds is not None:
+                    if use_sdxl_embeddings:
                         # Using compel embeddings for long prompt support with img2img (SDXL)
                         result = await loop.run_in_executor(
                             None,
@@ -4449,7 +4457,7 @@ class AIModelManager:
                         logger.info(
                             "✓ Image generated successfully via img2img with compel embeddings (SDXL)"
                         )
-                    elif use_embeddings and not is_sdxl:
+                    elif use_sd15_embeddings:
                         # Using compel embeddings for long prompt support with img2img (SD 1.5)
                         result = await loop.run_in_executor(
                             None,
@@ -4488,46 +4496,37 @@ class AIModelManager:
                     # Use embeddings if available (from compel), otherwise use text prompts
                     # For SDXL models, we need all 4 embeddings (including pooled) to be non-None
                     # For SD 1.5 models, we only need prompt_embeds and negative_prompt_embeds
-                    use_embeddings = prompt_embeds is not None and negative_prompt_embeds is not None
+                    has_basic_embeddings = (
+                        prompt_embeds is not None and negative_prompt_embeds is not None
+                    )
+                    has_pooled_embeddings = (
+                        pooled_prompt_embeds is not None 
+                        and negative_pooled_prompt_embeds is not None
+                    )
+                    use_sdxl_embeddings = has_basic_embeddings and is_sdxl and has_pooled_embeddings
+                    use_sd15_embeddings = has_basic_embeddings and not is_sdxl
                     
-                    if use_embeddings and is_sdxl:
-                        # SDXL with compel embeddings (requires pooled embeddings)
-                        if pooled_prompt_embeds is not None and negative_pooled_prompt_embeds is not None:
-                            result = await loop.run_in_executor(
-                                None,
-                                lambda: pipe(
-                                    prompt_embeds=prompt_embeds,
-                                    negative_prompt_embeds=negative_prompt_embeds,
-                                    pooled_prompt_embeds=pooled_prompt_embeds,
-                                    negative_pooled_prompt_embeds=negative_pooled_prompt_embeds,
-                                    num_inference_steps=num_inference_steps,
-                                    guidance_scale=guidance_scale,
-                                    width=width,
-                                    height=height,
-                                    generator=generator,
-                                ),
-                            )
-                            image = safe_extract_image(result)
-                            logger.info(
-                                "✓ Image generated successfully via text2img with compel embeddings (SDXL)"
-                            )
-                        else:
-                            # Fallback to text prompts if pooled embeddings are missing
-                            result = await loop.run_in_executor(
-                                None,
-                                lambda: pipe(
-                                    prompt=original_prompt,
-                                    negative_prompt=original_negative_prompt,
-                                    num_inference_steps=num_inference_steps,
-                                    guidance_scale=guidance_scale,
-                                    width=width,
-                                    height=height,
-                                    generator=generator,
-                                ),
-                            )
-                            image = safe_extract_image(result)
-                            logger.info("✓ Image generated successfully via text2img (SDXL fallback)")
-                    elif use_embeddings and not is_sdxl:
+                    if use_sdxl_embeddings:
+                        # SDXL with compel embeddings
+                        result = await loop.run_in_executor(
+                            None,
+                            lambda: pipe(
+                                prompt_embeds=prompt_embeds,
+                                negative_prompt_embeds=negative_prompt_embeds,
+                                pooled_prompt_embeds=pooled_prompt_embeds,
+                                negative_pooled_prompt_embeds=negative_pooled_prompt_embeds,
+                                num_inference_steps=num_inference_steps,
+                                guidance_scale=guidance_scale,
+                                width=width,
+                                height=height,
+                                generator=generator,
+                            ),
+                        )
+                        image = safe_extract_image(result)
+                        logger.info(
+                            "✓ Image generated successfully via text2img with compel embeddings (SDXL)"
+                        )
+                    elif use_sd15_embeddings:
                         # SD 1.5 with compel embeddings (no pooled embeddings needed)
                         result = await loop.run_in_executor(
                             None,

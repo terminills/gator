@@ -735,8 +735,10 @@ def _check_xformers_compatibility() -> Dict[str, Any]:
             # Try alternative version attribute locations
             try:
                 from xformers import version as xf_version
-                version = getattr(xf_version, "__version__", 
-                                  getattr(xf_version, "version", "unknown"))
+                # Check for version in different attribute locations
+                version = getattr(xf_version, "__version__", None)
+                if version is None:
+                    version = getattr(xf_version, "version", "unknown")
             except ImportError:
                 version = "unknown"
         result["version"] = version
