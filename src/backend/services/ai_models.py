@@ -3474,8 +3474,8 @@ class AIModelManager:
                                         # SDXL base model for loading missing components
                                         base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
                                         
-                                        # Load text encoders if needed or if not already loaded
-                                        if needs_text_encoder or "text_encoder" not in single_file_args:
+                                        # Load text encoders if needed
+                                        if needs_text_encoder:
                                             logger.info(f"Loading SDXL text encoders from {base_model_id}")
                                             text_encoder = CLIPTextModel.from_pretrained(
                                                 base_model_id,
@@ -3491,7 +3491,7 @@ class AIModelManager:
                                             single_file_args["text_encoder_2"] = text_encoder_2
                                         
                                         # Load VAE if needed
-                                        if needs_vae or "vae" not in single_file_args:
+                                        if needs_vae:
                                             logger.info(f"Loading SDXL VAE (AutoencoderKL) from {base_model_id}")
                                             vae = AutoencoderKL.from_pretrained(
                                                 base_model_id,
@@ -3517,7 +3517,7 @@ class AIModelManager:
                                         base_model_id = "runwayml/stable-diffusion-v1-5"
                                         
                                         # Load text encoder if needed
-                                        if needs_text_encoder or "text_encoder" not in single_file_args:
+                                        if needs_text_encoder:
                                             logger.info(f"Loading SD 1.5 text encoder from {base_model_id}")
                                             text_encoder = CLIPTextModel.from_pretrained(
                                                 base_model_id,
@@ -3527,7 +3527,7 @@ class AIModelManager:
                                             single_file_args["text_encoder"] = text_encoder
                                         
                                         # Load VAE if needed
-                                        if needs_vae or "vae" not in single_file_args:
+                                        if needs_vae:
                                             logger.info(f"Loading SD 1.5 VAE (AutoencoderKL) from {base_model_id}")
                                             vae = AutoencoderKL.from_pretrained(
                                                 base_model_id,
