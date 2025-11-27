@@ -1734,3 +1734,258 @@ async def get_model_telemetry() -> Dict[str, Any]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get model telemetry: {str(e)}",
         )
+
+
+@router.get("/diffusers/health")
+async def check_diffusers_health() -> Dict[str, Any]:
+    """
+    Check diffusers library health and detect CUDA/ROCm compatibility issues.
+    
+    This endpoint performs a comprehensive health check of the diffusers library,
+    detecting common issues like xFormers CUDA incompatibility on ROCm systems.
+    
+    Common issues detected:
+    - xFormers built for CUDA but system uses ROCm
+    - Missing CUDA runtime libraries (libcudart.so.12)
+    - Incompatible PyTorch versions
+    
+    Returns:
+        Dict with health status, issues found, and repair recommendations
+    """
+    try:
+        from backend.utils.model_detection import check_diffusers_health
+        
+        health = check_diffusers_health()
+        
+        # Add system context
+        health["system_context"] = {}
+        
+        # Check if using ROCm
+        try:
+            import torch
+            if hasattr(torch.version, 'hip') and torch.version.hip:
+                health["system_context"]["gpu_backend"] = "rocm"
+                health["system_context"]["rocm_version"] = torch.version.hip
+                
+                # If xFormers is installed on ROCm, it's likely causing issues
+                if health.get("xformers_installed") and not health.get("healthy"):
+                    health["likely_cause"] = (
+                        "xFormers is installed but this system uses ROCm (AMD GPUs). "
+                        "xFormers is designed for CUDA (NVIDIA GPUs) and is causing import failures."
+                    )
+            elif torch.cuda.is_available():
+                health["system_context"]["gpu_backend"] = "cuda"
+            else:
+                health["system_context"]["gpu_backend"] = "cpu"
+                
+            health["system_context"]["torch_version"] = torch.__version__
+        except ImportError:
+            health["system_context"]["torch_installed"] = False
+        
+        logger.info(f"Diffusers health check: healthy={health.get('healthy', False)}")
+        
+        return {
+            "success": True,
+            **health
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to check diffusers health: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to check diffusers health: {str(e)}",
+        )
+
+
+@router.post("/diffusers/repair")
+async def repair_diffusers_issues() -> Dict[str, Any]:
+    """
+    Attempt to automatically repair diffusers/xFormers compatibility issues.
+    
+    This endpoint detects issues like xFormers CUDA incompatibility on ROCm systems
+    and attempts to fix them by uninstalling incompatible packages.
+    
+    Common repairs:
+    - Uninstall xFormers if it's causing CUDA library errors on ROCm
+    - Reinstall diffusers if corrupted
+    
+    NOTE: This may take several minutes as it runs pip commands.
+    
+    Returns:
+        Dict with repair results and actions taken
+    """
+    try:
+        from backend.utils.model_detection import auto_repair_diffusers_issues, check_diffusers_health
+        
+        logger.info("Starting diffusers auto-repair...")
+        
+        # Get health status before repair
+        health_before = check_diffusers_health()
+        
+        if health_before.get("healthy"):
+            return {
+                "success": True,
+                "message": "diffusers is already healthy, no repairs needed",
+                "health_before": health_before,
+                "actions_taken": [],
+            }
+        
+        # Attempt repairs
+        repair_results = auto_repair_diffusers_issues()
+        
+        logger.info(
+            f"Diffusers repair completed: success={repair_results.get('success', False)}, "
+            f"actions={len(repair_results.get('actions_taken', []))}"
+        )
+        
+        return {
+            "success": repair_results.get("success", False),
+            "message": (
+                "Repair completed successfully" if repair_results.get("success")
+                else "Repair attempted but some issues may remain"
+            ),
+            "health_before": health_before,
+            "health_after": repair_results.get("health_after"),
+            "actions_taken": repair_results.get("actions_taken", []),
+            "errors": repair_results.get("errors", []),
+            "restart_recommended": repair_results.get("success", False),
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to repair diffusers: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to repair diffusers: {str(e)}",
+        )
+
+
+@router.get("/xformers/status")
+async def get_xformers_status() -> Dict[str, Any]:
+    """
+    Get xFormers installation status and compatibility information.
+    
+    xFormers provides memory-efficient attention implementations but is built
+    specifically for CUDA (NVIDIA GPUs). On ROCm (AMD GPUs), it can cause import
+    failures and should be uninstalled.
+    
+    Returns:
+        Dict with xFormers status, compatibility, and recommendations
+    """
+    try:
+        from backend.utils.model_detection import _check_xformers_compatibility
+        
+        status = _check_xformers_compatibility()
+        
+        # Add recommendations based on status
+        recommendations = []
+        
+        if status.get("installed"):
+            # Check if system uses ROCm
+            try:
+                import torch
+                is_rocm = hasattr(torch.version, 'hip') and torch.version.hip
+                
+                if is_rocm:
+                    recommendations.append({
+                        "severity": "warning",
+                        "message": "xFormers is installed but this system uses ROCm (AMD GPUs)",
+                        "action": "Consider uninstalling xFormers: pip uninstall xformers",
+                        "reason": "xFormers is designed for CUDA and may cause import failures on ROCm systems",
+                    })
+                    status["rocm_warning"] = True
+                    
+                if status.get("incompatible") or status.get("cuda_mismatch"):
+                    recommendations.append({
+                        "severity": "error",
+                        "message": "xFormers is incompatible with your system",
+                        "action": "Uninstall xFormers: pip uninstall xformers -y",
+                        "reason": status.get("error", "CUDA/ROCm compatibility issue"),
+                    })
+            except ImportError:
+                pass
+        else:
+            recommendations.append({
+                "severity": "info",
+                "message": "xFormers is not installed",
+                "action": None,
+                "reason": "This is fine for ROCm systems. For CUDA systems with compatible PyTorch, you can install it for better performance.",
+            })
+        
+        status["recommendations"] = recommendations
+        
+        return {
+            "success": True,
+            **status
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get xFormers status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get xFormers status: {str(e)}",
+        )
+
+
+@router.post("/xformers/uninstall")
+async def uninstall_xformers() -> Dict[str, Any]:
+    """
+    Uninstall xFormers to fix CUDA compatibility issues on ROCm systems.
+    
+    This is a targeted repair action that removes xFormers, which is commonly
+    the cause of diffusers import failures on AMD GPU systems.
+    
+    Returns:
+        Dict with uninstallation result
+    """
+    try:
+        import subprocess
+        import sys
+        
+        logger.info("Uninstalling xFormers...")
+        
+        # Run pip uninstall xformers
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "uninstall", "xformers", "-y"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        
+        if result.returncode == 0:
+            logger.info("xFormers uninstalled successfully")
+            return {
+                "success": True,
+                "message": "xFormers uninstalled successfully",
+                "stdout": result.stdout,
+                "restart_recommended": True,
+                "next_step": "Restart the application to apply changes",
+            }
+        else:
+            # Check if it wasn't installed
+            if "not installed" in result.stderr.lower() or "not installed" in result.stdout.lower():
+                return {
+                    "success": True,
+                    "message": "xFormers was not installed",
+                    "stdout": result.stdout,
+                    "stderr": result.stderr,
+                }
+            
+            logger.warning(f"xFormers uninstall failed: {result.stderr}")
+            return {
+                "success": False,
+                "message": "Failed to uninstall xFormers",
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+            }
+            
+    except subprocess.TimeoutExpired:
+        raise HTTPException(
+            status_code=status.HTTP_408_REQUEST_TIMEOUT,
+            detail="xFormers uninstall timed out",
+        )
+    except Exception as e:
+        logger.error(f"Failed to uninstall xFormers: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to uninstall xFormers: {str(e)}",
+        )

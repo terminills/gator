@@ -3056,6 +3056,43 @@ class AIModelManager:
                 DPMSolverMultistepScheduler,
                 DiffusionPipeline,
             )
+        except ImportError as e:
+            error_str = str(e)
+            logger.error(f"Diffusers generation failed: {error_str}")
+            
+            # Provide specific guidance for CUDA/ROCm issues
+            if "libcudart" in error_str or "cuda" in error_str.lower():
+                logger.error(
+                    "This error is caused by CUDA runtime libraries missing. "
+                    "This typically happens when xFormers was installed for CUDA "
+                    "but the system uses ROCm (AMD GPUs)."
+                )
+                logger.error(
+                    "To fix this issue, run one of these commands:\n"
+                    "  1. pip uninstall xformers -y\n"
+                    "  2. Call POST /setup/xformers/uninstall via the API\n"
+                    "  3. Call POST /setup/diffusers/repair via the API"
+                )
+                raise RuntimeError(
+                    f"Failed to import diffusers due to CUDA/ROCm incompatibility. "
+                    f"xFormers may need to be uninstalled. "
+                    f"Run 'pip uninstall xformers' or call POST /setup/xformers/uninstall. "
+                    f"Original error: {error_str}"
+                ) from e
+            elif "xformers" in error_str.lower():
+                logger.error(
+                    "xFormers is causing import failures. "
+                    "Try: pip uninstall xformers -y"
+                )
+                raise RuntimeError(
+                    f"xFormers is incompatible with your system. "
+                    f"Run 'pip uninstall xformers' to fix. "
+                    f"Original error: {error_str}"
+                ) from e
+            else:
+                raise
+
+        try:
 
             model_name = model["name"]
             model_id = model["model_id"]
