@@ -799,7 +799,7 @@ class ModelSetupManager:
                 return
 
         try:
-            from diffusers import StableDiffusionPipeline
+            import diffusers
 
             for model_name in models_to_install:
                 model_config = next(
@@ -815,17 +815,60 @@ class ModelSetupManager:
                 model_path.mkdir(parents=True, exist_ok=True)
 
                 try:
-                    # Download and save pipeline
-                    pipeline = StableDiffusionPipeline.from_pretrained(
-                        model_config["model_id"],
-                        dtype=torch.float16 if self.has_gpu else torch.float32,
-                    )
+                    # Determine the correct pipeline class based on model
+                    model_id = model_config["model_id"]
+                    dtype = torch.float16 if self.has_gpu else torch.float32
+                    
+                    # Get HuggingFace token for gated models (like FLUX)
+                    hf_token = os.environ.get("HUGGING_FACE_TOKEN") or os.environ.get("HF_TOKEN")
+                    
+                    if "flux" in model_name.lower() or "FLUX" in model_id:
+                        # FLUX models use FluxPipeline
+                        from diffusers import FluxPipeline
+                        print(f"   Using FluxPipeline for {model_name}")
+                        
+                        if not hf_token:
+                            print(f"   ⚠️  FLUX models require HuggingFace authentication.")
+                            print(f"   Set HUGGING_FACE_TOKEN or HF_TOKEN environment variable.")
+                            print(f"   Visit https://huggingface.co/black-forest-labs/FLUX.1-dev to accept license.")
+                        
+                        pipeline = FluxPipeline.from_pretrained(
+                            model_id,
+                            torch_dtype=dtype,
+                            token=hf_token,
+                        )
+                    elif "sdxl" in model_name.lower() or "xl" in model_id.lower():
+                        # SDXL models use StableDiffusionXLPipeline
+                        from diffusers import StableDiffusionXLPipeline
+                        print(f"   Using StableDiffusionXLPipeline for {model_name}")
+                        pipeline = StableDiffusionXLPipeline.from_pretrained(
+                            model_id,
+                            torch_dtype=dtype,
+                            token=hf_token,
+                        )
+                    else:
+                        # Standard SD 1.x/2.x models use StableDiffusionPipeline
+                        from diffusers import StableDiffusionPipeline
+                        print(f"   Using StableDiffusionPipeline for {model_name}")
+                        pipeline = StableDiffusionPipeline.from_pretrained(
+                            model_id,
+                            torch_dtype=dtype,
+                            token=hf_token,
+                        )
+                    
                     pipeline.save_pretrained(model_path)
 
                     print(f"✓ Installed {model_name}")
 
                 except Exception as e:
-                    print(f"✗ Failed to install {model_name}: {str(e)}")
+                    error_msg = str(e)
+                    print(f"✗ Failed to install {model_name}: {error_msg}")
+                    
+                    # Provide helpful error messages for common issues
+                    if "401" in error_msg or "authentication" in error_msg.lower() or "gated" in error_msg.lower():
+                        print(f"   💡 This model requires HuggingFace authentication.")
+                        print(f"   Set HUGGING_FACE_TOKEN or HF_TOKEN environment variable.")
+                        print(f"   Visit https://huggingface.co/{model_config['model_id']} to accept the license.")
 
         except ImportError as e:
             print(f"Missing dependencies for image models: {str(e)}")
