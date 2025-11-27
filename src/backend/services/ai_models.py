@@ -160,6 +160,37 @@ def disable_safety_checker(pipe: Any) -> bool:
     return disabled
 
 
+def filter_scheduler_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Filter out deprecated attributes from scheduler config.
+    
+    Some scheduler configs from older models contain deprecated attributes like
+    'use_beta_sigmas' and 'use_exponential_sigmas' that are no longer supported
+    by DPMSolverMultistepScheduler. This function removes them to prevent warnings.
+    
+    Args:
+        config: Scheduler configuration dictionary
+        
+    Returns:
+        Filtered config dictionary without deprecated attributes
+    """
+    # List of deprecated attributes that should be removed
+    deprecated_attrs = [
+        'use_beta_sigmas',
+        'use_exponential_sigmas',
+    ]
+    
+    # Create a copy to avoid modifying the original
+    filtered_config = dict(config)
+    
+    for attr in deprecated_attrs:
+        if attr in filtered_config:
+            logger.debug(f"Removed deprecated scheduler config attribute: {attr}")
+            del filtered_config[attr]
+    
+    return filtered_config
+
+
 async def download_model_from_huggingface(
     model_id: str,
     model_path: Path,
@@ -3862,8 +3893,10 @@ class AIModelManager:
 
                 # Use DPM-Solver++ for faster inference
                 # Enable Karras sigmas to stabilize step index calculation
+                # Filter out deprecated config attributes to avoid warnings
+                scheduler_config = filter_scheduler_config(pipe.scheduler.config)
                 pipe.scheduler = DPMSolverMultistepScheduler.from_config(
-                    pipe.scheduler.config,
+                    scheduler_config,
                     use_karras_sigmas=True,
                 )
                 pipe = pipe.to(device)
@@ -3876,12 +3909,24 @@ class AIModelManager:
                         pipe.enable_xformers_memory_efficient_attention()
                         logger.info("✓ xformers memory efficient attention enabled")
                     except Exception as e:
-                        logger.warning(
-                            f"xformers not available, using default attention: {e}"
-                        )
-                        logger.info(
-                            "To enable xformers for faster inference: pip install xformers"
-                        )
+                        error_str = str(e)
+                        # Check if xformers is installed but operator not available
+                        # vs xformers not being installed at all
+                        if "No operator found" in error_str:
+                            # xformers is installed but specific operator not available
+                            # for the given input shapes - this is a runtime limitation
+                            logger.info(
+                                f"xformers installed but memory_efficient_attention unavailable "
+                                f"for current inputs, using default attention"
+                            )
+                        else:
+                            # xformers not installed or other error
+                            logger.warning(
+                                f"xformers memory efficient attention not available: {e}"
+                            )
+                            logger.info(
+                                "To enable xformers for faster inference: pip install xformers"
+                            )
                         # Fallback to PyTorch's scaled_dot_product_attention if available (PyTorch 2.0+)
                         try:
                             # Check PyTorch version
@@ -4138,8 +4183,10 @@ class AIModelManager:
             # Create a fresh scheduler for this generation to prevent state accumulation
             # Schedulers are stateful and cannot be shared across concurrent runs
             # Without this, step_index accumulates across requests causing index errors
+            # Filter out deprecated config attributes to avoid warnings
+            scheduler_config = filter_scheduler_config(pipe.scheduler.config)
             pipe.scheduler = DPMSolverMultistepScheduler.from_config(
-                pipe.scheduler.config,
+                scheduler_config,
                 use_karras_sigmas=True,
             )
 
@@ -4154,42 +4201,49 @@ class AIModelManager:
             original_prompt = prompt
             original_negative_prompt = negative_prompt
 
-            # SDXL supports longer prompts through compel
-            # Standard SDXL has 2 CLIP encoders with 77 tokens each
-            # Without compel, prompts are truncated at 77 tokens per encoder
-            # With compel, we can handle much longer prompts (225+ tokens)
+            # Long prompt support using compel library
+            # All Stable Diffusion models (SD 1.5, SDXL, etc.) have CLIP's 77 token limit
+            # Without compel, prompts are truncated at 77 tokens
+            # With compel, we can handle much longer prompts (225+ tokens) by chunking and merging
             # NOTE: The lpw_stable_diffusion_xl custom pipeline handles long prompts internally
             # and expects text prompts, not embeddings. Skip compel for lpw pipelines.
             # We use string matching on class name since it's the most reliable way to detect
             # the community pipeline (SDXLLongPromptWeightingPipeline) without dependencies.
             pipeline_class_name = type(pipe).__name__
             is_lpw_pipeline = "LongPromptWeighting" in pipeline_class_name
+            
+            # Check if this is a FLUX model (FLUX uses different architecture, T5 encoder)
+            is_flux = is_flux_model(model)
+            
+            # Estimate token count (rough approximation: 1.3 tokens per word)
+            estimated_tokens = len(prompt.split()) * 1.3
 
-            if is_sdxl and not is_lpw_pipeline:
-                # Fallback to compel for long prompt support when lpw pipeline is not available
-                # Note: lpw_stable_diffusion_xl (Long Prompt Weighting) is the preferred method
-                # and is automatically used when available. This compel fallback handles cases
-                # where lpw pipeline failed to load.
-                #
-                # Estimate token count (rough approximation: 1.3 tokens per word)
-                estimated_tokens = len(prompt.split()) * 1.3
-
+            if is_lpw_pipeline:
+                # lpw_stable_diffusion_xl pipeline handles long prompts internally
+                # It expects text prompts, not embeddings
+                logger.info(
+                    f"Using lpw_stable_diffusion_xl pipeline for long prompt support (~{int(estimated_tokens)} tokens)"
+                )
+                logger.info("✓ lpw pipeline will handle prompt chunking internally")
+            elif is_flux:
+                # FLUX models use T5 encoder which has much higher token limits
+                # Compel doesn't currently support T5 encoders
+                logger.info(
+                    f"FLUX model detected - T5 encoder supports longer prompts natively (~{int(estimated_tokens)} tokens)"
+                )
+            elif estimated_tokens > 75:
                 # Use compel for prompts that would be truncated (>75 tokens allows margin)
-                # Note: SDXL dual encoders can handle ~154 tokens without compel,
-                # but they still truncate at 77 tokens per encoder. Compel merges them properly.
-                if estimated_tokens > 75:
-                    try:
-                        # Try to use compel for long prompt handling as fallback
-                        from compel import Compel, ReturnedEmbeddingsType
+                # Works with both SD 1.5 (single encoder) and SDXL (dual encoders)
+                try:
+                    from compel import Compel, ReturnedEmbeddingsType
 
-                        logger.info(
-                            f"Using compel (fallback) for long prompt support (~{int(estimated_tokens)} tokens)"
-                        )
-                        logger.info(
-                            "Note: For better long prompt support, ensure lpw_stable_diffusion_xl pipeline is available"
-                        )
+                    logger.info(
+                        f"Using compel for long prompt support (~{int(estimated_tokens)} tokens)"
+                    )
 
-                        # Create compel instance for SDXL
+                    if is_sdxl:
+                        # SDXL has two text encoders - requires special configuration
+                        logger.info("Configuring compel for SDXL dual-encoder architecture")
                         compel = Compel(
                             tokenizer=[pipe.tokenizer, pipe.tokenizer_2],
                             text_encoder=[pipe.text_encoder, pipe.text_encoder_2],
@@ -4203,7 +4257,6 @@ class AIModelManager:
                         negative_conditioning, negative_pooled = compel(negative_prompt)
 
                         # Validate that all embeddings are not None
-                        # Note: compel may return None embeddings with certain configurations
                         if (
                             conditioning is None
                             or pooled is None
@@ -4218,43 +4271,68 @@ class AIModelManager:
                             logger.warning(
                                 "Falling back to standard prompt encoding (will truncate at 77 tokens)"
                             )
-                            # Don't set embeddings if any are None - will use text prompts instead
                         else:
-                            # Set the embeddings to use
+                            # Set the SDXL embeddings to use
                             prompt_embeds = conditioning
                             pooled_prompt_embeds = pooled
                             negative_prompt_embeds = negative_conditioning
                             negative_pooled_prompt_embeds = negative_pooled
 
-                            # Clear text prompts since we're using embeddings (but keep originals for return)
+                            # Clear text prompts since we're using embeddings
                             prompt = None
                             negative_prompt = None
 
                             logger.info(
-                                "✓ Long prompt encoded successfully with compel (fallback method)"
+                                "✓ Long prompt encoded successfully with compel (SDXL dual-encoder)"
+                            )
+                    else:
+                        # SD 1.5 and similar models have single text encoder
+                        logger.info("Configuring compel for SD 1.5 single-encoder architecture")
+                        compel = Compel(
+                            tokenizer=pipe.tokenizer,
+                            text_encoder=pipe.text_encoder,
+                            device=device,
+                        )
+
+                        # Generate embeddings for prompt and negative prompt
+                        conditioning = compel(prompt)
+                        negative_conditioning = compel(negative_prompt)
+
+                        # Validate that embeddings are not None
+                        if conditioning is None or negative_conditioning is None:
+                            logger.warning(
+                                f"Compel returned None embeddings: conditioning={conditioning is not None}, "
+                                f"negative_conditioning={negative_conditioning is not None}"
+                            )
+                            logger.warning(
+                                "Falling back to standard prompt encoding (will truncate at 77 tokens)"
+                            )
+                        else:
+                            # Set the SD 1.5 embeddings (no pooled embeddings for SD 1.5)
+                            prompt_embeds = conditioning
+                            negative_prompt_embeds = negative_conditioning
+                            # SD 1.5 doesn't use pooled embeddings
+                            pooled_prompt_embeds = None
+                            negative_pooled_prompt_embeds = None
+
+                            # Clear text prompts since we're using embeddings
+                            prompt = None
+                            negative_prompt = None
+
+                            logger.info(
+                                "✓ Long prompt encoded successfully with compel (SD 1.5 single-encoder)"
                             )
 
-                    except ImportError:
-                        logger.warning(
-                            "compel library not available. Install with: pip install compel"
-                        )
-                        logger.warning(
-                            f"Prompt may be truncated to CLIP's token limit (prompt has ~{int(estimated_tokens)} tokens)"
-                        )
-                        logger.warning(
-                            "Recommended: Use lpw_stable_diffusion_xl pipeline for better long prompt support"
-                        )
-                    except Exception as e:
-                        logger.warning(f"Failed to use compel: {e}")
-                        logger.warning("Falling back to standard prompt encoding")
-            elif is_lpw_pipeline:
-                # lpw_stable_diffusion_xl pipeline handles long prompts internally
-                # It expects text prompts, not embeddings
-                estimated_tokens = len(prompt.split()) * 1.3
-                logger.info(
-                    f"Using lpw_stable_diffusion_xl pipeline for long prompt support (~{int(estimated_tokens)} tokens)"
-                )
-                logger.info("✓ lpw pipeline will handle prompt chunking internally")
+                except ImportError:
+                    logger.warning(
+                        "compel library not available. Install with: pip install compel"
+                    )
+                    logger.warning(
+                        f"Prompt may be truncated to CLIP's 77 token limit (prompt has ~{int(estimated_tokens)} tokens)"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to use compel: {e}")
+                    logger.warning("Falling back to standard prompt encoding (will truncate at 77 tokens)")
 
             # Generate image (run in thread pool to avoid blocking)
             # Use different parameters for ControlNet, img2img vs text2img
@@ -4279,7 +4357,7 @@ class AIModelManager:
                         and negative_pooled_prompt_embeds is not None
                         and is_sdxl
                     ):
-                        # Using compel embeddings for long prompt support with ControlNet
+                        # Using compel embeddings for long prompt support with ControlNet (SDXL)
                         result = await loop.run_in_executor(
                             None,
                             lambda: pipe(
@@ -4298,7 +4376,31 @@ class AIModelManager:
                         )
                         image = safe_extract_image(result)
                         logger.info(
-                            "✓ Image generated successfully via ControlNet with compel embeddings"
+                            "✓ Image generated successfully via ControlNet with compel embeddings (SDXL)"
+                        )
+                    elif (
+                        prompt_embeds is not None
+                        and negative_prompt_embeds is not None
+                        and not is_sdxl
+                    ):
+                        # Using compel embeddings for long prompt support with ControlNet (SD 1.5)
+                        result = await loop.run_in_executor(
+                            None,
+                            lambda: pipe(
+                                prompt_embeds=prompt_embeds,
+                                negative_prompt_embeds=negative_prompt_embeds,
+                                image=control_image,  # ControlNet conditioning image (Canny edges)
+                                num_inference_steps=num_inference_steps,
+                                guidance_scale=guidance_scale,
+                                controlnet_conditioning_scale=controlnet_conditioning_scale,
+                                width=width,
+                                height=height,
+                                generator=generator,
+                            ),
+                        )
+                        image = safe_extract_image(result)
+                        logger.info(
+                            "✓ Image generated successfully via ControlNet with compel embeddings (SD 1.5)"
                         )
                     else:
                         # Using standard text prompts
@@ -4324,14 +4426,11 @@ class AIModelManager:
 
                     # Use embeddings if available (from compel for long prompts), otherwise use text prompts
                     # For SDXL, we need all 4 embeddings (including pooled) to be non-None
-                    if (
-                        prompt_embeds is not None
-                        and negative_prompt_embeds is not None
-                        and pooled_prompt_embeds is not None
-                        and negative_pooled_prompt_embeds is not None
-                        and is_sdxl
-                    ):
-                        # Using compel embeddings for long prompt support with img2img
+                    # For SD 1.5, we only need prompt_embeds and negative_prompt_embeds
+                    use_embeddings = prompt_embeds is not None and negative_prompt_embeds is not None
+                    
+                    if use_embeddings and is_sdxl and pooled_prompt_embeds is not None and negative_pooled_prompt_embeds is not None:
+                        # Using compel embeddings for long prompt support with img2img (SDXL)
                         result = await loop.run_in_executor(
                             None,
                             lambda: pipe(
@@ -4348,7 +4447,25 @@ class AIModelManager:
                         )
                         image = safe_extract_image(result)
                         logger.info(
-                            "✓ Image generated successfully via img2img with compel embeddings"
+                            "✓ Image generated successfully via img2img with compel embeddings (SDXL)"
+                        )
+                    elif use_embeddings and not is_sdxl:
+                        # Using compel embeddings for long prompt support with img2img (SD 1.5)
+                        result = await loop.run_in_executor(
+                            None,
+                            lambda: pipe(
+                                prompt_embeds=prompt_embeds,
+                                negative_prompt_embeds=negative_prompt_embeds,
+                                image=init_image,
+                                strength=img2img_strength,
+                                num_inference_steps=num_inference_steps,
+                                guidance_scale=guidance_scale,
+                                generator=generator,
+                            ),
+                        )
+                        image = safe_extract_image(result)
+                        logger.info(
+                            "✓ Image generated successfully via img2img with compel embeddings (SD 1.5)"
                         )
                     else:
                         # Using standard text prompts
@@ -4369,21 +4486,54 @@ class AIModelManager:
                 else:
                     # Standard text2img generation
                     # Use embeddings if available (from compel), otherwise use text prompts
-                    # For SDXL models using embeddings, we need all 4 embeddings (including pooled) to be non-None
-                    if (
-                        prompt_embeds is not None
-                        and negative_prompt_embeds is not None
-                        and pooled_prompt_embeds is not None
-                        and negative_pooled_prompt_embeds is not None
-                    ):
-                        # Using compel embeddings for long prompt support
+                    # For SDXL models, we need all 4 embeddings (including pooled) to be non-None
+                    # For SD 1.5 models, we only need prompt_embeds and negative_prompt_embeds
+                    use_embeddings = prompt_embeds is not None and negative_prompt_embeds is not None
+                    
+                    if use_embeddings and is_sdxl:
+                        # SDXL with compel embeddings (requires pooled embeddings)
+                        if pooled_prompt_embeds is not None and negative_pooled_prompt_embeds is not None:
+                            result = await loop.run_in_executor(
+                                None,
+                                lambda: pipe(
+                                    prompt_embeds=prompt_embeds,
+                                    negative_prompt_embeds=negative_prompt_embeds,
+                                    pooled_prompt_embeds=pooled_prompt_embeds,
+                                    negative_pooled_prompt_embeds=negative_pooled_prompt_embeds,
+                                    num_inference_steps=num_inference_steps,
+                                    guidance_scale=guidance_scale,
+                                    width=width,
+                                    height=height,
+                                    generator=generator,
+                                ),
+                            )
+                            image = safe_extract_image(result)
+                            logger.info(
+                                "✓ Image generated successfully via text2img with compel embeddings (SDXL)"
+                            )
+                        else:
+                            # Fallback to text prompts if pooled embeddings are missing
+                            result = await loop.run_in_executor(
+                                None,
+                                lambda: pipe(
+                                    prompt=original_prompt,
+                                    negative_prompt=original_negative_prompt,
+                                    num_inference_steps=num_inference_steps,
+                                    guidance_scale=guidance_scale,
+                                    width=width,
+                                    height=height,
+                                    generator=generator,
+                                ),
+                            )
+                            image = safe_extract_image(result)
+                            logger.info("✓ Image generated successfully via text2img (SDXL fallback)")
+                    elif use_embeddings and not is_sdxl:
+                        # SD 1.5 with compel embeddings (no pooled embeddings needed)
                         result = await loop.run_in_executor(
                             None,
                             lambda: pipe(
                                 prompt_embeds=prompt_embeds,
                                 negative_prompt_embeds=negative_prompt_embeds,
-                                pooled_prompt_embeds=pooled_prompt_embeds,
-                                negative_pooled_prompt_embeds=negative_pooled_prompt_embeds,
                                 num_inference_steps=num_inference_steps,
                                 guidance_scale=guidance_scale,
                                 width=width,
@@ -4393,7 +4543,7 @@ class AIModelManager:
                         )
                         image = safe_extract_image(result)
                         logger.info(
-                            "✓ Image generated successfully via text2img with compel embeddings"
+                            "✓ Image generated successfully via text2img with compel embeddings (SD 1.5)"
                         )
                     else:
                         # Using standard text prompts
