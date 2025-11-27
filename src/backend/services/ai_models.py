@@ -3451,35 +3451,56 @@ class AIModelManager:
                                     )
                         except Exception as e:
                             error_msg = str(e)
-                            # Check if this is a missing text encoder error (pruned checkpoint)
-                            if "CLIPTextModel" in error_msg or "text_encoder" in error_msg.lower():
+                            # Check if this is a missing component error (pruned checkpoint)
+                            # CivitAI models often don't include text encoder or VAE
+                            needs_text_encoder = "CLIPTextModel" in error_msg or "text_encoder" in error_msg.lower()
+                            needs_vae = "AutoencoderKL" in error_msg or ("vae" in error_msg.lower() and "missing" in error_msg.lower())
+                            
+                            if needs_text_encoder or needs_vae:
+                                component_list = []
+                                if needs_text_encoder:
+                                    component_list.append("text encoder")
+                                if needs_vae:
+                                    component_list.append("VAE (AutoencoderKL)")
                                 logger.warning(
-                                    f"Checkpoint missing text encoder, loading from base model..."
+                                    f"Checkpoint missing {', '.join(component_list)}, loading from base model..."
                                 )
                                 try:
-                                    # Import CLIPTextModel for loading text encoder separately
+                                    # Import required components
                                     from transformers import CLIPTextModel, CLIPTextModelWithProjection
+                                    from diffusers import AutoencoderKL
                                     
                                     if is_sdxl:
-                                        # SDXL uses two text encoders
+                                        # SDXL base model for loading missing components
                                         base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
-                                        logger.info(f"Loading SDXL text encoders from {base_model_id}")
                                         
-                                        text_encoder = CLIPTextModel.from_pretrained(
-                                            base_model_id,
-                                            subfolder="text_encoder",
-                                            torch_dtype=single_file_args["torch_dtype"],
-                                        )
-                                        text_encoder_2 = CLIPTextModelWithProjection.from_pretrained(
-                                            base_model_id,
-                                            subfolder="text_encoder_2",
-                                            torch_dtype=single_file_args["torch_dtype"],
-                                        )
+                                        # Load text encoders if needed
+                                        if needs_text_encoder:
+                                            logger.info(f"Loading SDXL text encoders from {base_model_id}")
+                                            text_encoder = CLIPTextModel.from_pretrained(
+                                                base_model_id,
+                                                subfolder="text_encoder",
+                                                torch_dtype=single_file_args["torch_dtype"],
+                                            )
+                                            text_encoder_2 = CLIPTextModelWithProjection.from_pretrained(
+                                                base_model_id,
+                                                subfolder="text_encoder_2",
+                                                torch_dtype=single_file_args["torch_dtype"],
+                                            )
+                                            single_file_args["text_encoder"] = text_encoder
+                                            single_file_args["text_encoder_2"] = text_encoder_2
                                         
-                                        # Retry loading with text encoders
-                                        single_file_args["text_encoder"] = text_encoder
-                                        single_file_args["text_encoder_2"] = text_encoder_2
+                                        # Load VAE if needed
+                                        if needs_vae:
+                                            logger.info(f"Loading SDXL VAE (AutoencoderKL) from {base_model_id}")
+                                            vae = AutoencoderKL.from_pretrained(
+                                                base_model_id,
+                                                subfolder="vae",
+                                                torch_dtype=single_file_args["torch_dtype"],
+                                            )
+                                            single_file_args["vae"] = vae
                                         
+                                        # Retry loading with external components
                                         if use_img2img:
                                             pipe = StableDiffusionXLImg2ImgPipeline.from_single_file(
                                                 str(model_path), **single_file_args
@@ -3489,22 +3510,33 @@ class AIModelManager:
                                                 str(model_path), **single_file_args
                                             )
                                         logger.info(
-                                            f"✅ Successfully loaded SDXL model with external text encoders: {model_path.name}"
+                                            f"✅ Successfully loaded SDXL model with external components: {model_path.name}"
                                         )
                                     else:
-                                        # SD 1.5 uses one text encoder
+                                        # SD 1.5 base model for loading missing components
                                         base_model_id = "runwayml/stable-diffusion-v1-5"
-                                        logger.info(f"Loading SD 1.5 text encoder from {base_model_id}")
                                         
-                                        text_encoder = CLIPTextModel.from_pretrained(
-                                            base_model_id,
-                                            subfolder="text_encoder",
-                                            torch_dtype=single_file_args["torch_dtype"],
-                                        )
+                                        # Load text encoder if needed
+                                        if needs_text_encoder:
+                                            logger.info(f"Loading SD 1.5 text encoder from {base_model_id}")
+                                            text_encoder = CLIPTextModel.from_pretrained(
+                                                base_model_id,
+                                                subfolder="text_encoder",
+                                                torch_dtype=single_file_args["torch_dtype"],
+                                            )
+                                            single_file_args["text_encoder"] = text_encoder
                                         
-                                        # Retry loading with text encoder
-                                        single_file_args["text_encoder"] = text_encoder
+                                        # Load VAE if needed
+                                        if needs_vae:
+                                            logger.info(f"Loading SD 1.5 VAE (AutoencoderKL) from {base_model_id}")
+                                            vae = AutoencoderKL.from_pretrained(
+                                                base_model_id,
+                                                subfolder="vae",
+                                                torch_dtype=single_file_args["torch_dtype"],
+                                            )
+                                            single_file_args["vae"] = vae
                                         
+                                        # Retry loading with external components
                                         if use_img2img:
                                             pipe = StableDiffusionImg2ImgPipeline.from_single_file(
                                                 str(model_path), **single_file_args
@@ -3514,10 +3546,10 @@ class AIModelManager:
                                                 str(model_path), **single_file_args
                                             )
                                         logger.info(
-                                            f"✅ Successfully loaded SD model with external text encoder: {model_path.name}"
+                                            f"✅ Successfully loaded SD model with external components: {model_path.name}"
                                         )
                                 except Exception as retry_error:
-                                    logger.error(f"Failed to load model even with external text encoder: {retry_error}")
+                                    logger.error(f"Failed to load model even with external components: {retry_error}")
                                     raise
                             else:
                                 logger.error(f"Failed to load single-file model: {error_msg}")
