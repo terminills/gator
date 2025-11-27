@@ -899,6 +899,12 @@ class ContentGenerationService:
                     "quality": quality,
                 }
 
+                # Add persona's image model preference if set
+                # This takes highest priority for model selection
+                if persona.image_model_preference:
+                    generation_params["image_model_pref"] = persona.image_model_preference
+                    logger.info(f"   Using persona's preferred image model: {persona.image_model_preference}")
+
                 # Add NSFW model preference if applicable
                 if (
                     request.content_rating == ContentRating.NSFW

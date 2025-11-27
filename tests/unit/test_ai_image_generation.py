@@ -513,6 +513,101 @@ class TestImageGeneration:
                 assert "dreamshaper" in call_kwargs["model"].get("name", "").lower(), \
                     "Should select anatomy-focused model"
 
+    @pytest.mark.asyncio
+    async def test_image_model_pref_selects_preferred_model(self, model_manager):
+        """Test that image_model_pref parameter selects the preferred model from persona."""
+        # Setup mock models with different names
+        model_manager.available_models["image"] = [
+            {
+                "name": "default-model",
+                "provider": "local",
+                "loaded": True,
+                "can_load": True,
+                "inference_engine": "diffusers",
+                "model_id": "test/default",
+            },
+            {
+                "name": "custom-persona-model",
+                "display_name": "Custom Persona Model",
+                "provider": "local",
+                "loaded": True,
+                "can_load": True,
+                "inference_engine": "diffusers",
+                "model_id": "test/custom-persona",
+            },
+            {
+                "name": "nsfw-model",
+                "provider": "local",
+                "loaded": True,
+                "can_load": True,
+                "inference_engine": "diffusers",
+                "model_id": "test/nsfw",
+            },
+        ]
+
+        with patch.object(model_manager, "_generate_image_diffusers") as mock_diffusers:
+            mock_diffusers.return_value = {"image_data": b"test", "model": "custom-persona-model"}
+
+            # Call generate_image with image_model_pref parameter
+            await model_manager.generate_image(
+                "test prompt",
+                image_model_pref="custom-persona"
+            )
+
+            # Verify the diffusers method was called
+            mock_diffusers.assert_called_once()
+            # Get the model argument passed to _generate_image_diffusers
+            call_args, call_kwargs = mock_diffusers.call_args
+            # The model should be passed as the second positional argument
+            selected_model = call_args[1] if len(call_args) > 1 else call_kwargs.get("model")
+            assert selected_model is not None, "Model should be passed to _generate_image_diffusers"
+            assert "custom-persona" in selected_model.get("name", "").lower() or \
+                   "custom-persona" in selected_model.get("model_id", "").lower(), \
+                   f"Should select model matching image_model_pref 'custom-persona', got {selected_model.get('name')}"
+
+    @pytest.mark.asyncio
+    async def test_image_model_pref_overrides_default_selection(self, model_manager):
+        """Test that image_model_pref overrides the default NSFW model selection."""
+        # Setup mock models - NSFW model should normally be preferred
+        model_manager.available_models["image"] = [
+            {
+                "name": "realistic-nsfw-model",
+                "provider": "local",
+                "loaded": True,
+                "can_load": True,
+                "inference_engine": "diffusers",
+                "model_id": "test/realistic-nsfw",
+            },
+            {
+                "name": "my-special-model",
+                "display_name": "My Special Model",
+                "provider": "local",
+                "loaded": True,
+                "can_load": True,
+                "inference_engine": "diffusers",
+                "model_id": "test/special",
+            },
+        ]
+
+        with patch.object(model_manager, "_generate_image_diffusers") as mock_diffusers:
+            mock_diffusers.return_value = {"image_data": b"test", "model": "my-special-model"}
+
+            # Call generate_image with image_model_pref to override the default NSFW preference
+            await model_manager.generate_image(
+                "test prompt",
+                image_model_pref="special"
+            )
+
+            # Verify the diffusers method was called
+            mock_diffusers.assert_called_once()
+            # Get the model argument
+            call_args, call_kwargs = mock_diffusers.call_args
+            selected_model = call_args[1] if len(call_args) > 1 else call_kwargs.get("model")
+            # Should select the special model, not the NSFW one
+            assert "special" in selected_model.get("name", "").lower() or \
+                   "special" in selected_model.get("model_id", "").lower(), \
+                   f"image_model_pref should override default selection, got {selected_model.get('name')}"
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
