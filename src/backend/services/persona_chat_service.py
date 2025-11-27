@@ -8,11 +8,14 @@ like a real person texting.
 """
 
 import asyncio
+import os
 import random
 import shutil
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 from datetime import datetime
+
+import httpx
 
 from backend.config.logging import get_logger
 from backend.models.persona import PersonaModel
@@ -20,6 +23,10 @@ from backend.models.message import MessageModel, MessageSender
 from backend.services.response_humanizer_service import get_humanizer_service
 
 logger = get_logger(__name__)
+
+# Configuration for model paths and Ollama
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+MODELS_BASE_DIR = Path(os.environ.get("MODELS_DIR", "./models"))
 
 
 class PersonaChatService:
@@ -126,13 +133,14 @@ class PersonaChatService:
             return self._model_cache["chat_model"]
         
         # Look for models in standard locations (prefer smaller, faster models for chat)
+        # Use configurable MODELS_BASE_DIR for flexibility
         model_dirs = [
-            Path("./models/text/llama-3.1-8b"),
-            Path("./models/llama-3.1-8b"),
-            Path("./models/text/qwen2.5-72b"),
-            Path("./models/qwen2.5-72b"),
-            Path("./models/text/mixtral-8x7b"),
-            Path("./models/mixtral-8x7b"),
+            MODELS_BASE_DIR / "text" / "llama-3.1-8b",
+            MODELS_BASE_DIR / "llama-3.1-8b",
+            MODELS_BASE_DIR / "text" / "qwen2.5-72b",
+            MODELS_BASE_DIR / "qwen2.5-72b",
+            MODELS_BASE_DIR / "text" / "mixtral-8x7b",
+            MODELS_BASE_DIR / "mixtral-8x7b",
         ]
         
         for model_dir in model_dirs:
@@ -166,10 +174,10 @@ class PersonaChatService:
         """
         model_pref_lower = model_preference.lower()
         
-        # Search in model directories
+        # Search in model directories using configurable MODELS_BASE_DIR
         model_base_dirs = [
-            Path("./models/text"),
-            Path("./models"),
+            MODELS_BASE_DIR / "text",
+            MODELS_BASE_DIR,
         ]
         
         for base_dir in model_base_dirs:
@@ -328,13 +336,11 @@ class PersonaChatService:
             Generated response text
         """
         try:
-            import httpx
-            
             logger.info(f"Generating chat response with Ollama model: {model_name}")
             
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
-                    "http://localhost:11434/api/generate",
+                    f"{OLLAMA_BASE_URL}/api/generate",
                     json={
                         "model": model_name,
                         "prompt": instruction,
