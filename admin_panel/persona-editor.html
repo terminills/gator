@@ -3259,15 +3259,252 @@
             if (soulData.patience_level) document.getElementById('patience_level').value = soulData.patience_level;
         }
         
+        // Build comprehensive appearance description from all detailed fields
+        function buildDetailedAppearancePrompt() {
+            const parts = [];
+            
+            // Get all the detailed physical appearance fields
+            const sex = document.getElementById('sex').value;
+            const ageAppearance = document.getElementById('age_appearance').value;
+            const ethnicity = document.getElementById('ethnicity').value;
+            const skinTone = document.getElementById('skin_tone').value;
+            const hairColor = document.getElementById('hair_color').value;
+            const hairStyle = document.getElementById('hair_style').value.trim();
+            const eyeColor = document.getElementById('eye_color').value;
+            const height = document.getElementById('height').value.trim();
+            const weight = document.getElementById('weight').value.trim();
+            const buildType = document.getElementById('build_type').value;
+            const muscleTone = document.getElementById('muscle_tone').value;
+            const measurements = document.getElementById('measurements').value.trim();
+            const cupSize = document.getElementById('cup_size').value;
+            const distinctiveFeatures = document.getElementById('distinctive_features').value.trim();
+            const baseAppearance = document.getElementById('appearance').value.trim();
+            
+            // Build a comprehensive description from fine-grained fields
+            // Start with sex and age
+            if (sex || ageAppearance) {
+                let ageAndSex = [];
+                if (ageAppearance) {
+                    // Convert age_appearance values to natural language
+                    const ageMap = {
+                        'late_teens': 'late teens (18-19)',
+                        'early_20s': 'early 20s',
+                        'mid_20s': 'mid 20s',
+                        'late_20s': 'late 20s',
+                        'early_30s': 'early 30s',
+                        'mid_30s': 'mid 30s',
+                        'late_30s': 'late 30s',
+                        '40s': '40s',
+                        '50s': '50s',
+                        'mature': 'mature (60+)'
+                    };
+                    ageAndSex.push(ageMap[ageAppearance] || ageAppearance);
+                }
+                if (sex) {
+                    // Convert sex values to natural language
+                    const sexMap = {
+                        'female': 'woman',
+                        'male': 'man',
+                        'non-binary': 'non-binary person',
+                        'trans_female': 'trans woman',
+                        'trans_male': 'trans man'
+                    };
+                    ageAndSex.push(sexMap[sex] || sex);
+                }
+                if (ageAndSex.length > 0) {
+                    parts.push(ageAndSex.join(' year old '));
+                }
+            }
+            
+            // Add ethnicity and skin tone
+            if (ethnicity || skinTone) {
+                let appearance = [];
+                if (ethnicity) {
+                    const ethnicityMap = {
+                        'caucasian': 'Caucasian',
+                        'asian': 'Asian',
+                        'east_asian': 'East Asian',
+                        'south_asian': 'South Asian',
+                        'latina': 'Latina',
+                        'african_american': 'African American',
+                        'middle_eastern': 'Middle Eastern',
+                        'mixed': 'mixed race',
+                        'pacific_islander': 'Pacific Islander',
+                        'native_american': 'Native American'
+                    };
+                    appearance.push(ethnicityMap[ethnicity] || ethnicity);
+                }
+                if (skinTone) {
+                    const skinToneMap = {
+                        'very_fair': 'very fair',
+                        'fair': 'fair',
+                        'light': 'light',
+                        'medium': 'medium',
+                        'olive': 'olive',
+                        'tan': 'tan',
+                        'brown': 'brown',
+                        'dark_brown': 'dark brown',
+                        'deep': 'deep/dark'
+                    };
+                    appearance.push(skinToneMap[skinTone] || skinTone + ' skin');
+                }
+                if (appearance.length > 0) {
+                    parts.push(appearance.join(' with ') + ' skin');
+                }
+            }
+            
+            // Add hair description
+            if (hairColor || hairStyle) {
+                let hair = [];
+                if (hairColor) {
+                    const hairColorMap = {
+                        'blonde': 'blonde',
+                        'dirty_blonde': 'dirty blonde',
+                        'brunette': 'brunette',
+                        'light_brown': 'light brown',
+                        'dark_brown': 'dark brown',
+                        'black': 'black',
+                        'red': 'red/ginger',
+                        'auburn': 'auburn',
+                        'gray': 'gray/silver',
+                        'white': 'white/platinum',
+                        'pink': 'pink',
+                        'blue': 'blue',
+                        'purple': 'purple',
+                        'green': 'green',
+                        'rainbow': 'rainbow/multi-colored'
+                    };
+                    hair.push(hairColorMap[hairColor] || hairColor);
+                }
+                if (hairStyle) {
+                    hair.push(hairStyle);
+                }
+                if (hair.length > 0) {
+                    parts.push(hair.join(' ') + ' hair');
+                }
+            }
+            
+            // Add eye color
+            if (eyeColor) {
+                const eyeColorMap = {
+                    'blue': 'blue',
+                    'light_blue': 'light blue',
+                    'green': 'green',
+                    'hazel': 'hazel',
+                    'brown': 'brown',
+                    'dark_brown': 'dark brown',
+                    'amber': 'amber',
+                    'gray': 'gray',
+                    'heterochromia': 'heterochromia'
+                };
+                parts.push((eyeColorMap[eyeColor] || eyeColor) + ' eyes');
+            }
+            
+            // Add body build
+            if (buildType || muscleTone) {
+                let build = [];
+                if (buildType) {
+                    const buildMap = {
+                        'petite': 'petite',
+                        'slim': 'slim',
+                        'lean': 'lean',
+                        'average': 'average',
+                        'athletic': 'athletic',
+                        'toned': 'toned',
+                        'curvy': 'curvy',
+                        'hourglass': 'hourglass',
+                        'muscular': 'muscular',
+                        'plus_size': 'plus size',
+                        'thick': 'thick'
+                    };
+                    build.push(buildMap[buildType] || buildType);
+                }
+                if (muscleTone && muscleTone !== buildType) {
+                    const muscleMap = {
+                        'soft': 'soft',
+                        'average': 'average',
+                        'toned': 'toned',
+                        'athletic': 'athletic',
+                        'fit': 'fit',
+                        'muscular': 'muscular',
+                        'very_muscular': 'very muscular'
+                    };
+                    build.push(muscleMap[muscleTone] || muscleTone);
+                }
+                if (build.length > 0) {
+                    parts.push(build.join(' ') + ' build');
+                }
+            }
+            
+            // Add height and weight
+            if (height || weight) {
+                let body = [];
+                if (height) body.push(height);
+                if (weight) body.push(weight);
+                if (body.length > 0) {
+                    parts.push(body.join(', '));
+                }
+            }
+            
+            // Add measurements and cup size for female personas
+            if (sex === 'female' || sex === 'trans_female') {
+                if (measurements || cupSize) {
+                    let bodyDetails = [];
+                    if (cupSize) {
+                        bodyDetails.push(cupSize + ' cup');
+                    }
+                    if (measurements) {
+                        bodyDetails.push(measurements + ' measurements');
+                    }
+                    if (bodyDetails.length > 0) {
+                        parts.push(bodyDetails.join(', '));
+                    }
+                }
+            }
+            
+            // Add distinctive features
+            if (distinctiveFeatures) {
+                parts.push(distinctiveFeatures);
+            }
+            
+            // Add body modifications from the array
+            if (bodyModifications && bodyModifications.length > 0) {
+                parts.push(bodyModifications.join(', '));
+            }
+            
+            // If we have detailed fields, build the detailed prompt
+            // Otherwise fall back to the base appearance field
+            if (parts.length > 0) {
+                // Combine with base appearance for any additional context
+                let detailedPrompt = parts.join(', ');
+                // If there's additional context in the base appearance that's not covered by the detailed fields
+                // we can optionally append it
+                if (baseAppearance && baseAppearance.length > 10) {
+                    // Only append if it adds significant new information
+                    // (avoid duplication with the detailed fields)
+                    detailedPrompt = detailedPrompt + '. ' + baseAppearance;
+                }
+                return detailedPrompt;
+            }
+            
+            // Fallback to base appearance if no detailed fields are filled
+            return baseAppearance;
+        }
+        
         // Sample image creation
         async function generateSampleImages() {
-            const appearance = document.getElementById('appearance').value.trim();
+            // Build detailed appearance from all fine-grained fields
+            const detailedAppearance = buildDetailedAppearancePrompt();
+            const baseAppearance = document.getElementById('appearance').value.trim();
             const personality = document.getElementById('personality').value.trim();
             const resolution = document.getElementById('resolution-select').value;
             const quality = document.getElementById('quality-select').value;
             const style = document.getElementById('style-select').value;
             const phases = document.getElementById('phases-select').value;
             const baseGenModel = document.getElementById('base-gen-model-select').value;
+            
+            // Use detailed appearance if available, otherwise fall back to base
+            const appearance = detailedAppearance || baseAppearance;
             
             if (!appearance || appearance.length < 10) {
                 showAlert('Please enter an appearance description (at least 10 characters) before creating images.', 'error');
@@ -3304,7 +3541,7 @@
                 progressText.textContent = `Creating ${expectedImages} ${styleLabel} images (${phasesLabel}) at ${resolution}... This may take several minutes.`;
                 progressBar.style.width = '15%';
                 
-                // Build query params
+                // Build query params with the detailed appearance
                 const params = new URLSearchParams({
                     appearance: appearance,
                     personality: personality || '',
@@ -3524,7 +3761,7 @@
             }
             
             try {
-                // Fetch the base image URL for this persona
+                // Fetch the base image URLs for this persona
                 const response = await fetch(`/api/v1/personas/${personaId}/base-image-url`);
                 if (!response.ok) {
                     console.error('Failed to fetch base image URL');
@@ -3532,12 +3769,115 @@
                 }
                 
                 const data = await response.json();
+                const baseImages = data.base_images || {};
+                const hasMultipleImages = Object.keys(baseImages).length > 0;
                 
-                // If there's a base image, display it
-                if (data.base_image_url) {
+                // Image type labels (same as in displaySampleImages)
+                const typeLabels = {
+                    // Phase 1: Structural
+                    'front_headshot': '📸 Front Headshot',
+                    'side_headshot': '📸 Side Headshot',
+                    'right_hand': '🤚 Right Hand',
+                    'left_hand': '✋ Left Hand',
+                    'bust': '👤 Bust View',
+                    'full_frontal': '🧍 Full Frontal',
+                    'side_profile': '🧍 Side Profile',
+                    'rear_view': '🧍 Rear View',
+                    // Phase 2: Action
+                    'compression_pose': '🪑 Compression',
+                    'extension_pose': '🙆 Extension',
+                    'twist_pose': '🔄 Twist',
+                    // Phase 3: Background
+                    'complex_bg_1': '🏙️ Urban BG',
+                    'complex_bg_2': '🌲 Nature BG',
+                    'complex_bg_3': '🏠 Interior BG'
+                };
+                
+                // Phase colors for visual distinction
+                const phaseColors = {
+                    'structural': 'var(--primary)',
+                    'action': 'var(--accent)',
+                    'background': '#f59e0b'
+                };
+                
+                // Determine image phase by type
+                const getPhase = (imageType) => {
+                    if (['front_headshot', 'side_headshot', 'right_hand', 'left_hand', 'bust', 'full_frontal', 'side_profile', 'rear_view'].includes(imageType)) {
+                        return 'structural';
+                    } else if (['compression_pose', 'extension_pose', 'twist_pose'].includes(imageType)) {
+                        return 'action';
+                    } else if (['complex_bg_1', 'complex_bg_2', 'complex_bg_3'].includes(imageType)) {
+                        return 'background';
+                    }
+                    return 'structural';
+                };
+                
+                // If we have multiple base images from the expanded system, display them all
+                if (hasMultipleImages) {
                     const gallery = document.getElementById('image-gallery');
                     gallery.innerHTML = '';
                     gallery.style.display = 'grid';
+                    // Adjust grid for number of images
+                    const imageCount = Object.keys(baseImages).length;
+                    gallery.style.gridTemplateColumns = imageCount > 4 ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)';
+                    
+                    // Sort images by phase and type for consistent display
+                    const sortOrder = [
+                        'front_headshot', 'side_headshot', 'right_hand', 'left_hand',
+                        'bust', 'full_frontal', 'side_profile', 'rear_view',
+                        'compression_pose', 'extension_pose', 'twist_pose',
+                        'complex_bg_1', 'complex_bg_2', 'complex_bg_3'
+                    ];
+                    
+                    const sortedTypes = Object.keys(baseImages).sort((a, b) => {
+                        const indexA = sortOrder.indexOf(a);
+                        const indexB = sortOrder.indexOf(b);
+                        return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+                    });
+                    
+                    // Create cards for each existing base image
+                    for (const imageType of sortedTypes) {
+                        const imageUrl = baseImages[imageType];
+                        if (!imageUrl) continue;
+                        
+                        const phase = getPhase(imageType);
+                        const phaseColor = phaseColors[phase] || 'var(--primary)';
+                        const label = typeLabels[imageType] || imageType;
+                        const isBaseRef = imageType === 'front_headshot' ? '<span style="font-size: 0.65rem; color: var(--accent);">(Base Reference)</span>' : '';
+                        
+                        const card = document.createElement('div');
+                        card.className = 'image-card selected';
+                        card.id = `existing-base-image-${imageType}`;
+                        
+                        // Phase badge
+                        const phaseBadge = `<span style="position: absolute; top: 8px; left: 8px; background: ${phaseColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; text-transform: uppercase;">${phase}</span>`;
+                        
+                        // Locked badge
+                        const lockedBadge = data.appearance_locked 
+                            ? '<span class="selected-badge">🔒</span>' 
+                            : '<span class="selected-badge">✓</span>';
+                        
+                        card.innerHTML = `
+                            ${phaseBadge}
+                            ${lockedBadge}
+                            <img src="${imageUrl}" alt="${label}" onerror="this.parentElement.style.display='none'" style="width: 100%; height: auto; border-radius: 8px;">
+                            <div class="image-card-label">${label} ${isBaseRef}</div>
+                        `;
+                        
+                        gallery.appendChild(card);
+                    }
+                    
+                    // Show info message
+                    const statusText = data.appearance_locked ? 'locked and being used for ControlNet consistency' : 'set but not locked';
+                    const imageCountText = Object.keys(baseImages).length;
+                    showAlert(`This persona has ${imageCountText} base images that are ${statusText}. You can generate new samples to update them.`, 'info');
+                    
+                } else if (data.base_image_url) {
+                    // Fallback: Show single legacy base image
+                    const gallery = document.getElementById('image-gallery');
+                    gallery.innerHTML = '';
+                    gallery.style.display = 'grid';
+                    gallery.style.gridTemplateColumns = 'repeat(2, 1fr)';
                     
                     // Create a card for the existing base image
                     const card = document.createElement('div');
@@ -3550,17 +3890,17 @@
                     card.innerHTML = `
                         ${lockedBadge}
                         <img src="${data.base_image_url}" alt="Current Base Image" onerror="this.parentElement.style.display='none'">
-                        <div class="image-card-label">Current Base Image</div>
+                        <div class="image-card-label">Current Base Image (Legacy)</div>
                     `;
                     
                     gallery.appendChild(card);
                     
                     // Show info message
                     const statusText = data.appearance_locked ? 'locked and being used for consistency' : 'set but not locked';
-                    showAlert(`This persona has a base image that is ${statusText}. You can create new samples to update it.`, 'info');
+                    showAlert(`This persona has a legacy single base image that is ${statusText}. Consider generating the full 14-image set for better ControlNet consistency.`, 'info');
                 }
             } catch (error) {
-                console.error('Failed to load existing base image:', error);
+                console.error('Failed to load existing base images:', error);
                 // Don't show error to user, just log it
             }
         }

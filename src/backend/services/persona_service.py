@@ -275,6 +275,58 @@ class PersonaService:
             if updates.generation_quality is not None:
                 update_data["generation_quality"] = updates.generation_quality
 
+            # ==================== EXPANDED BASE IMAGES ====================
+            if updates.base_images is not None:
+                update_data["base_images"] = updates.base_images
+
+            # ==================== AI MODEL PREFERENCES ====================
+            if updates.text_model_preference is not None:
+                update_data["text_model_preference"] = updates.text_model_preference
+            if updates.image_model_preference is not None:
+                update_data["image_model_preference"] = updates.image_model_preference
+            if updates.video_model_preference is not None:
+                update_data["video_model_preference"] = updates.video_model_preference
+            if updates.voice_model_preference is not None:
+                update_data["voice_model_preference"] = updates.voice_model_preference
+
+            # ==================== DETAILED PHYSICAL APPEARANCE ====================
+            if updates.height is not None:
+                update_data["height"] = updates.height
+            if updates.weight is not None:
+                update_data["weight"] = updates.weight
+            if updates.hair_color is not None:
+                update_data["hair_color"] = updates.hair_color
+            if updates.hair_style is not None:
+                update_data["hair_style"] = updates.hair_style
+            if updates.eye_color is not None:
+                update_data["eye_color"] = updates.eye_color
+            if updates.skin_tone is not None:
+                update_data["skin_tone"] = updates.skin_tone
+            if updates.measurements is not None:
+                update_data["measurements"] = updates.measurements
+            if updates.cup_size is not None:
+                update_data["cup_size"] = updates.cup_size
+            if updates.muscle_tone is not None:
+                update_data["muscle_tone"] = updates.muscle_tone
+            if updates.build_type is not None:
+                update_data["build_type"] = updates.build_type
+            if updates.sex is not None:
+                update_data["sex"] = updates.sex
+            if updates.sexual_orientation is not None:
+                update_data["sexual_orientation"] = updates.sexual_orientation
+            if updates.turn_ons is not None:
+                update_data["turn_ons"] = updates.turn_ons
+            if updates.turn_offs is not None:
+                update_data["turn_offs"] = updates.turn_offs
+            if updates.distinctive_features is not None:
+                update_data["distinctive_features"] = updates.distinctive_features
+            if updates.age_appearance is not None:
+                update_data["age_appearance"] = updates.age_appearance
+            if updates.ethnicity is not None:
+                update_data["ethnicity"] = updates.ethnicity
+            if updates.body_modifications is not None:
+                update_data["body_modifications"] = updates.body_modifications
+
             # ==================== PERSONA SOUL FIELDS ====================
             # Origin & Demographics
             if updates.hometown is not None:
