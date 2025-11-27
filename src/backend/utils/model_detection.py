@@ -515,25 +515,322 @@ def get_inference_engines_status(base_dir: Optional[Path] = None) -> Dict[str, D
         ("transformers", "Transformers", "text"),
         ("diffusers", "Diffusers", "image"),
     ]:
-        try:
-            lib = __import__(lib_name)
-            version = getattr(lib, "__version__", "unknown")
-            engines[lib_name] = {
-                "category": category,
-                "name": display_name,
-                "status": "installed",
-                "version": version,
-                "python_package": True,
-            }
-        except ImportError:
-            engines[lib_name] = {
-                "category": category,
-                "name": display_name,
-                "status": "not_installed",
-                "python_package": True,
-            }
+        engine_info = check_python_ml_library(lib_name, display_name, category)
+        engines[lib_name] = engine_info
     
     return engines
+
+
+def check_python_ml_library(lib_name: str, display_name: str, category: str) -> Dict[str, Any]:
+    """
+    Check if a Python ML library is installed and functional.
+    
+    This function performs a more comprehensive check than simple import,
+    detecting CUDA/ROCm compatibility issues that may cause import failures.
+    
+    Args:
+        lib_name: Python package name (e.g., "diffusers", "transformers")
+        display_name: Human-readable display name
+        category: Category of the library (text, image, etc.)
+    
+    Returns:
+        Dictionary with installation status and any compatibility issues
+    """
+    result = {
+        "category": category,
+        "name": display_name,
+        "status": "not_installed",
+        "python_package": True,
+    }
+    
+    try:
+        lib = __import__(lib_name)
+        version = getattr(lib, "__version__", "unknown")
+        result["status"] = "installed"
+        result["version"] = version
+        
+        # For diffusers, try a deeper import to detect CUDA/ROCm issues
+        if lib_name == "diffusers":
+            try:
+                # This import triggers the actual pipeline loading which may fail
+                # on ROCm systems if xFormers or CUDA libraries are misconfigured
+                from diffusers import StableDiffusionPipeline  # noqa: F401
+                result["pipeline_available"] = True
+            except ImportError as e:
+                error_str = str(e)
+                result["pipeline_available"] = False
+                result["pipeline_error"] = error_str
+                
+                # Detect specific CUDA/ROCm issues using helper function
+                issue_info = _detect_cuda_rocm_issue(error_str)
+                result.update(issue_info)
+            except Exception as e:
+                result["pipeline_available"] = False
+                result["pipeline_error"] = str(e)
+        
+    except ImportError as e:
+        error_str = str(e)
+        result["error"] = error_str
+        
+        # Check for specific CUDA/ROCm compatibility issues using helper function
+        issue_info = _detect_cuda_rocm_issue(error_str)
+        result.update(issue_info)
+        
+        # Update status based on detected issues
+        if issue_info.get("cuda_issue"):
+            result["status"] = "cuda_incompatible"
+        elif issue_info.get("xformers_issue"):
+            result["status"] = "xformers_incompatible"
+    except Exception as e:
+        result["error"] = str(e)
+        result["status"] = "error"
+    
+    return result
+
+
+def _detect_cuda_rocm_issue(error_str: str) -> Dict[str, Any]:
+    """
+    Detect if an error is related to CUDA/ROCm compatibility issues.
+    
+    This helper function centralizes the logic for detecting common
+    CUDA/ROCm compatibility issues from error messages.
+    
+    Args:
+        error_str: The error message string to analyze
+    
+    Returns:
+        Dictionary with issue flags and repair hints
+    """
+    result = {}
+    
+    error_lower = error_str.lower()
+    
+    if "libcudart" in error_str or "cuda" in error_lower:
+        result["cuda_issue"] = True
+        result["repair_hint"] = (
+            "CUDA runtime libraries are missing. For ROCm systems, "
+            "uninstall xFormers: pip uninstall xformers"
+        )
+    elif "xformers" in error_lower:
+        result["xformers_issue"] = True
+        result["repair_hint"] = (
+            "xFormers is incompatible with your PyTorch/ROCm version. "
+            "Uninstall it: pip uninstall xformers"
+        )
+    
+    return result
+
+
+def check_diffusers_health() -> Dict[str, Any]:
+    """
+    Perform a comprehensive health check of the diffusers library.
+    
+    This function checks for common issues that can cause diffusers to fail,
+    including xFormers compatibility issues on ROCm systems.
+    
+    Returns:
+        Dictionary with health status and repair recommendations
+    """
+    health = {
+        "healthy": False,
+        "issues": [],
+        "warnings": [],
+        "repair_commands": [],
+    }
+    
+    # Check if diffusers is installed
+    try:
+        import diffusers
+        health["diffusers_version"] = getattr(diffusers, "__version__", "unknown")
+        health["diffusers_installed"] = True
+    except ImportError as e:
+        health["diffusers_installed"] = False
+        health["issues"].append(f"diffusers not installed: {e}")
+        health["repair_commands"].append("pip install diffusers")
+        return health
+    
+    # Check if xFormers is installed and causing issues
+    xformers_status = _check_xformers_compatibility()
+    if xformers_status["installed"]:
+        health["xformers_installed"] = True
+        health["xformers_version"] = xformers_status.get("version", "unknown")
+        
+        if xformers_status.get("incompatible"):
+            health["issues"].append(
+                f"xFormers is incompatible: {xformers_status.get('error', 'Unknown error')}"
+            )
+            health["repair_commands"].append("pip uninstall xformers -y")
+            health["warnings"].append(
+                "xFormers was built for CUDA but this system appears to use ROCm"
+            )
+    else:
+        health["xformers_installed"] = False
+    
+    # Try to import pipeline classes
+    try:
+        from diffusers import StableDiffusionPipeline  # noqa: F401
+        health["sd_pipeline_available"] = True
+    except ImportError as e:
+        health["sd_pipeline_available"] = False
+        error_str = str(e)
+        health["issues"].append(f"StableDiffusionPipeline import failed: {error_str}")
+        
+        if "libcudart" in error_str:
+            health["repair_commands"].append("pip uninstall xformers -y")
+            health["repair_commands"].append("pip install diffusers --force-reinstall")
+    except Exception as e:
+        health["sd_pipeline_available"] = False
+        health["issues"].append(f"Unexpected error importing pipeline: {e}")
+    
+    # Try to import SDXL pipeline
+    try:
+        from diffusers import StableDiffusionXLPipeline  # noqa: F401
+        health["sdxl_pipeline_available"] = True
+    except ImportError as e:
+        health["sdxl_pipeline_available"] = False
+        health["warnings"].append(f"StableDiffusionXLPipeline not available: {e}")
+    except Exception as e:
+        health["sdxl_pipeline_available"] = False
+        health["warnings"].append(f"SDXL pipeline check failed: {e}")
+    
+    # Determine overall health
+    health["healthy"] = (
+        health["diffusers_installed"] and 
+        health.get("sd_pipeline_available", False) and
+        len(health["issues"]) == 0
+    )
+    
+    return health
+
+
+def _check_xformers_compatibility() -> Dict[str, Any]:
+    """
+    Check if xFormers is installed and compatible with the current system.
+    
+    Returns:
+        Dictionary with xFormers status and compatibility information
+    """
+    result = {
+        "installed": False,
+        "incompatible": False,
+    }
+    
+    try:
+        import xformers
+        result["installed"] = True
+        result["version"] = getattr(xformers, "__version__", "unknown")
+        
+        # Try to access xFormers ops to check if it's functional
+        try:
+            from xformers import ops  # noqa: F401
+            result["ops_available"] = True
+        except ImportError as e:
+            result["ops_available"] = False
+            result["incompatible"] = True
+            result["error"] = str(e)
+            
+            # Check for specific CUDA/ROCm mismatch
+            if "cuda" in str(e).lower() or "libcudart" in str(e).lower():
+                result["cuda_mismatch"] = True
+        except Exception as e:
+            result["ops_available"] = False
+            result["error"] = str(e)
+            
+    except ImportError:
+        result["installed"] = False
+    except Exception as e:
+        result["installed"] = False
+        result["error"] = str(e)
+    
+    return result
+
+
+# Whitelist of allowed repair commands for security
+ALLOWED_REPAIR_COMMANDS = {
+    "pip uninstall xformers -y",
+    "pip install diffusers --force-reinstall",
+    "pip install diffusers",
+}
+
+
+def auto_repair_diffusers_issues() -> Dict[str, Any]:
+    """
+    Attempt to automatically repair common diffusers/xFormers issues.
+    
+    This function detects and attempts to fix issues like xFormers CUDA
+    incompatibility on ROCm systems.
+    
+    Only whitelisted commands are executed for security.
+    
+    Returns:
+        Dictionary with repair results and actions taken
+    """
+    import subprocess
+    import sys
+    
+    results = {
+        "success": False,
+        "actions_taken": [],
+        "errors": [],
+    }
+    
+    # First, check the current health
+    health = check_diffusers_health()
+    
+    if health["healthy"]:
+        results["success"] = True
+        results["message"] = "diffusers is already healthy, no repairs needed"
+        return results
+    
+    # Execute only whitelisted repair commands
+    for cmd in health.get("repair_commands", []):
+        # Security: Only execute commands from our whitelist
+        if cmd not in ALLOWED_REPAIR_COMMANDS:
+            results["errors"].append(
+                f"Command '{cmd}' not in allowed command whitelist, skipping"
+            )
+            continue
+            
+        try:
+            # Parse the command safely - only pip commands are allowed
+            cmd_parts = cmd.split()
+            if cmd_parts[0] != "pip":
+                results["errors"].append(f"Only pip commands are allowed: {cmd}")
+                continue
+            
+            # Run the command using python -m pip for consistency
+            result = subprocess.run(
+                [sys.executable, "-m"] + cmd_parts,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            
+            if result.returncode == 0:
+                results["actions_taken"].append({
+                    "command": cmd,
+                    "success": True,
+                    "output": result.stdout,
+                })
+            else:
+                results["actions_taken"].append({
+                    "command": cmd,
+                    "success": False,
+                    "error": result.stderr,
+                })
+                results["errors"].append(f"Command '{cmd}' failed: {result.stderr}")
+                
+        except subprocess.TimeoutExpired:
+            results["errors"].append(f"Command '{cmd}' timed out")
+        except Exception as e:
+            results["errors"].append(f"Error running '{cmd}': {e}")
+    
+    # Check health again after repairs
+    health_after = check_diffusers_health()
+    results["success"] = health_after["healthy"]
+    results["health_after"] = health_after
+    
+    return results
 
 
 def check_inference_engine_available(engine: str, base_dir: Optional[Path] = None, check_api: bool = False) -> bool:
@@ -568,7 +865,15 @@ def check_inference_engine_available(engine: str, base_dir: Optional[Path] = Non
         return find_llama_cpp_installation() is not None
     elif engine == "ollama":
         return find_ollama_installation() is not None
-    elif engine in ["diffusers", "transformers"]:
+    elif engine == "diffusers":
+        # Use the improved check that detects CUDA/ROCm compatibility issues
+        status = check_python_ml_library("diffusers", "Diffusers", "image")
+        # Consider it available if installed and pipeline is available
+        # or if installed without a specific pipeline error (may still work for some pipelines)
+        if status["status"] == "installed":
+            return status.get("pipeline_available", True)  # Default True if not checked
+        return False
+    elif engine == "transformers":
         try:
             __import__(engine)
             return True

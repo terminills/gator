@@ -1046,7 +1046,16 @@ async def generate_sample_images(
                     logger.info(f"Generated {image_type['label']} ({i+1}/{total_images}) - chain reference updated")
 
                 except Exception as e:
-                    logger.warning(f"Failed to generate {image_type['label']}: {str(e)}")
+                    error_str = str(e)
+                    logger.warning(f"Failed to generate {image_type['label']}: {error_str}")
+                    
+                    # Check for CUDA/ROCm compatibility issues and provide actionable guidance
+                    if "libcudart" in error_str or "xformers" in error_str.lower():
+                        logger.warning(
+                            "This error is likely caused by xFormers CUDA incompatibility on a ROCm system. "
+                            "To fix: Call POST /setup/xformers/uninstall or run 'pip uninstall xformers'"
+                        )
+                    
                     # If an image in the chain fails, try to continue with text2img for remaining
                     current_reference_path = None
 
