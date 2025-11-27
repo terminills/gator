@@ -3346,10 +3346,15 @@
                         'dark_brown': 'dark brown',
                         'deep': 'deep/dark'
                     };
-                    appearance.push(skinToneMap[skinTone] || skinTone + ' skin');
+                    appearance.push((skinToneMap[skinTone] || skinTone) + ' skin');
                 }
                 if (appearance.length > 0) {
-                    parts.push(appearance.join(' with ') + ' skin');
+                    // Only add 'skin' suffix if we have skin tone, otherwise just use ethnicity
+                    if (skinTone) {
+                        parts.push(appearance.join(' with '));
+                    } else {
+                        parts.push(appearance.join(', '));
+                    }
                 }
             }
             
@@ -3467,8 +3472,9 @@
                 parts.push(distinctiveFeatures);
             }
             
-            // Add body modifications from the array
-            if (bodyModifications && bodyModifications.length > 0) {
+            // Add body modifications from the global array (managed by tag input)
+            // The bodyModifications array is populated via the tag input UI
+            if (typeof bodyModifications !== 'undefined' && bodyModifications && bodyModifications.length > 0) {
                 parts.push(bodyModifications.join(', '));
             }
             
