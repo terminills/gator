@@ -2632,6 +2632,15 @@
                 document.getElementById('video_model_preference').value = persona.video_model_preference || '';
                 document.getElementById('voice_model_preference').value = persona.voice_model_preference || '';
                 
+                // Sync base generation model selector with persona's image model preference
+                // This ensures the "Generate Base Images" section uses the persona's preferred model by default
+                const baseGenModelSelect = document.getElementById('base-gen-model-select');
+                if (baseGenModelSelect && persona.image_model_preference) {
+                    baseGenModelSelect.value = persona.image_model_preference;
+                    // If the model isn't in the dropdown yet (models load async), store for later
+                    baseGenModelSelect.dataset.preferredModel = persona.image_model_preference;
+                }
+                
                 // Populate video types
                 const videoTypes = persona.video_types || [];
                 document.querySelectorAll('input[name="video_types"]').forEach(checkbox => {
@@ -3557,9 +3566,15 @@
                     phases: phases
                 });
                 
-                // Add model preference if selected
+                // Add model preference if selected from dropdown
                 if (baseGenModel) {
                     params.append('nsfw_model', baseGenModel);
+                }
+                
+                // If editing an existing persona, pass the persona_id so the backend
+                // can use the persona's saved model preferences (image_model_preference, nsfw_model_preference)
+                if (editorMode === 'edit' && personaId) {
+                    params.append('persona_id', personaId);
                 }
                 
                 const response = await fetch('/api/v1/personas/generate-sample-images?' + params, {
@@ -4098,6 +4113,23 @@
                     optgroup.appendChild(option);
                 });
                 select.appendChild(optgroup);
+            }
+            
+            // Check if there's a stored preferred model from persona data
+            // (set when persona is loaded before models are fetched)
+            if (select.dataset.preferredModel) {
+                const preferredModel = select.dataset.preferredModel;
+                // Check if this model exists in the dropdown
+                const options = Array.from(select.options);
+                const matchingOption = options.find(opt => opt.value === preferredModel);
+                if (matchingOption) {
+                    select.value = preferredModel;
+                    console.log(`Set ${selectId} to preferred model: ${preferredModel}`);
+                } else {
+                    console.log(`Preferred model ${preferredModel} not found in ${selectId} options`);
+                }
+                // Clear the stored preference to avoid re-applying on subsequent loads
+                delete select.dataset.preferredModel;
             }
         }
         

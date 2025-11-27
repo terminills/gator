@@ -3406,6 +3406,12 @@ class AIModelManager:
                             == ".safetensors",
                         }
 
+                        # Many CivitAI models are "pruned" and don't include the text encoder
+                        # We need to load the text encoder from the base model and pass it in
+                        # This is required for pruned checkpoints to work properly
+                        text_encoder = None
+                        text_encoder_2 = None
+                        
                         try:
                             if is_sdxl:
                                 if use_img2img:
@@ -3444,8 +3450,78 @@ class AIModelManager:
                                         f"✅ Successfully loaded SD model from single file: {model_path.name}"
                                     )
                         except Exception as e:
-                            logger.error(f"Failed to load single-file model: {str(e)}")
-                            raise
+                            error_msg = str(e)
+                            # Check if this is a missing text encoder error (pruned checkpoint)
+                            if "CLIPTextModel" in error_msg or "text_encoder" in error_msg.lower():
+                                logger.warning(
+                                    f"Checkpoint missing text encoder, loading from base model..."
+                                )
+                                try:
+                                    # Import CLIPTextModel for loading text encoder separately
+                                    from transformers import CLIPTextModel, CLIPTextModelWithProjection
+                                    
+                                    if is_sdxl:
+                                        # SDXL uses two text encoders
+                                        base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+                                        logger.info(f"Loading SDXL text encoders from {base_model_id}")
+                                        
+                                        text_encoder = CLIPTextModel.from_pretrained(
+                                            base_model_id,
+                                            subfolder="text_encoder",
+                                            torch_dtype=single_file_args["torch_dtype"],
+                                        )
+                                        text_encoder_2 = CLIPTextModelWithProjection.from_pretrained(
+                                            base_model_id,
+                                            subfolder="text_encoder_2",
+                                            torch_dtype=single_file_args["torch_dtype"],
+                                        )
+                                        
+                                        # Retry loading with text encoders
+                                        single_file_args["text_encoder"] = text_encoder
+                                        single_file_args["text_encoder_2"] = text_encoder_2
+                                        
+                                        if use_img2img:
+                                            pipe = StableDiffusionXLImg2ImgPipeline.from_single_file(
+                                                str(model_path), **single_file_args
+                                            )
+                                        else:
+                                            pipe = StableDiffusionXLPipeline.from_single_file(
+                                                str(model_path), **single_file_args
+                                            )
+                                        logger.info(
+                                            f"✅ Successfully loaded SDXL model with external text encoders: {model_path.name}"
+                                        )
+                                    else:
+                                        # SD 1.5 uses one text encoder
+                                        base_model_id = "runwayml/stable-diffusion-v1-5"
+                                        logger.info(f"Loading SD 1.5 text encoder from {base_model_id}")
+                                        
+                                        text_encoder = CLIPTextModel.from_pretrained(
+                                            base_model_id,
+                                            subfolder="text_encoder",
+                                            torch_dtype=single_file_args["torch_dtype"],
+                                        )
+                                        
+                                        # Retry loading with text encoder
+                                        single_file_args["text_encoder"] = text_encoder
+                                        
+                                        if use_img2img:
+                                            pipe = StableDiffusionImg2ImgPipeline.from_single_file(
+                                                str(model_path), **single_file_args
+                                            )
+                                        else:
+                                            pipe = StableDiffusionPipeline.from_single_file(
+                                                str(model_path), **single_file_args
+                                            )
+                                        logger.info(
+                                            f"✅ Successfully loaded SD model with external text encoder: {model_path.name}"
+                                        )
+                                except Exception as retry_error:
+                                    logger.error(f"Failed to load model even with external text encoder: {retry_error}")
+                                    raise
+                            else:
+                                logger.error(f"Failed to load single-file model: {error_msg}")
+                                raise
 
                         # Disable safety checker for NSFW content generation
                         disable_safety_checker(pipe)
