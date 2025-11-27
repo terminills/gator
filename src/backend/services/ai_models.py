@@ -3055,6 +3055,7 @@ class AIModelManager:
                 ControlNetModel,
                 DPMSolverMultistepScheduler,
                 DiffusionPipeline,
+                AutoencoderKL,
             )
         except ImportError as e:
             error_str = str(e)
@@ -3406,11 +3407,40 @@ class AIModelManager:
                             == ".safetensors",
                         }
 
-                        # Many CivitAI models are "pruned" and don't include the text encoder
-                        # We need to load the text encoder from the base model and pass it in
+                        # Many CivitAI models are "pruned" and don't include the text encoder or VAE
+                        # We need to load these components from the base model and pass them in
                         # This is required for pruned checkpoints to work properly
+                        #
+                        # IMPORTANT: Preload AutoencoderKL (VAE) for ALL single-file checkpoints
+                        # Many checkpoints don't include the VAE and will fail without it.
+                        # By preloading the VAE, we avoid the error:
+                        # "Failed to load AutoencoderKL. Weights for this component appear to be missing in the checkpoint."
                         text_encoder = None
                         text_encoder_2 = None
+                        vae = None
+                        
+                        # Preload VAE from base model for single-file checkpoints
+                        # This prevents failures when checkpoints don't include VAE weights
+                        try:
+                            if is_sdxl:
+                                base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+                            else:
+                                base_model_id = "runwayml/stable-diffusion-v1-5"
+                            
+                            logger.info(f"Preloading VAE (AutoencoderKL) from {base_model_id}...")
+                            vae = AutoencoderKL.from_pretrained(
+                                base_model_id,
+                                subfolder="vae",
+                                torch_dtype=single_file_args["torch_dtype"],
+                            )
+                            single_file_args["vae"] = vae
+                            logger.info("✓ VAE preloaded successfully")
+                        except (OSError, RuntimeError, ValueError) as vae_error:
+                            # OSError: File/network issues loading pretrained model
+                            # RuntimeError: CUDA/device issues
+                            # ValueError: Invalid model configuration
+                            logger.warning(f"Could not preload VAE: {vae_error}")
+                            logger.warning("Will attempt to load checkpoint without preloaded VAE")
                         
                         try:
                             if is_sdxl:
@@ -3452,9 +3482,11 @@ class AIModelManager:
                         except Exception as e:
                             error_msg = str(e)
                             # Check if this is a missing component error (pruned checkpoint)
-                            # CivitAI models often don't include text encoder or VAE
+                            # CivitAI models often don't include text encoder
+                            # Note: VAE is preloaded above, so VAE errors are unlikely but handled as fallback
                             needs_text_encoder = "CLIPTextModel" in error_msg or "text_encoder" in error_msg.lower()
-                            needs_vae = "AutoencoderKL" in error_msg or ("vae" in error_msg.lower() and "missing" in error_msg.lower())
+                            # Only need to load VAE if preloading failed and checkpoint also doesn't have it
+                            needs_vae = ("AutoencoderKL" in error_msg or ("vae" in error_msg.lower() and "missing" in error_msg.lower())) and "vae" not in single_file_args
                             
                             if needs_text_encoder or needs_vae:
                                 component_list = []
@@ -3466,9 +3498,8 @@ class AIModelManager:
                                     f"Checkpoint missing {', '.join(component_list)}, loading from base model..."
                                 )
                                 try:
-                                    # Import required components
+                                    # Import required components (AutoencoderKL already imported at top of function)
                                     from transformers import CLIPTextModel, CLIPTextModelWithProjection
-                                    from diffusers import AutoencoderKL
                                     
                                     if is_sdxl:
                                         # SDXL base model for loading missing components
@@ -3490,7 +3521,7 @@ class AIModelManager:
                                             single_file_args["text_encoder"] = text_encoder
                                             single_file_args["text_encoder_2"] = text_encoder_2
                                         
-                                        # Load VAE if needed
+                                        # Load VAE if needed (fallback if preloading failed)
                                         if needs_vae:
                                             logger.info(f"Loading SDXL VAE (AutoencoderKL) from {base_model_id}")
                                             vae = AutoencoderKL.from_pretrained(
@@ -3526,7 +3557,7 @@ class AIModelManager:
                                             )
                                             single_file_args["text_encoder"] = text_encoder
                                         
-                                        # Load VAE if needed
+                                        # Load VAE if needed (fallback if preloading failed)
                                         if needs_vae:
                                             logger.info(f"Loading SD 1.5 VAE (AutoencoderKL) from {base_model_id}")
                                             vae = AutoencoderKL.from_pretrained(
