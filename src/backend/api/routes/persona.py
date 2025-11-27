@@ -740,16 +740,11 @@ BACKGROUND_IMAGE_TYPES = [
     },
 ]
 
-# Combined list of all base image types (backward compatible)
+# Combined list of all base image types
 BASE_IMAGE_TYPES = STRUCTURAL_IMAGE_TYPES + ACTION_IMAGE_TYPES + BACKGROUND_IMAGE_TYPES
 
-# Legacy mapping for backward compatibility with old 4-image system
-LEGACY_IMAGE_TYPE_MAPPING = {
-    "face_shot": "front_headshot",
-    "bikini_front": "full_frontal",
-    "bikini_side": "side_profile",
-    "bikini_rear": "rear_view",
-}
+# Total count of images in the expanded system (for LoRA training completeness check)
+TOTAL_EXPANDED_IMAGE_COUNT = len(BASE_IMAGE_TYPES)  # Currently 14
 
 
 @router.post("/generate-sample-images")
@@ -782,8 +777,7 @@ async def generate_sample_images(
             "'structural' (8 identity/body images), "
             "'action' (3 dynamic poses for LoRA training), "
             "'background' (3 environment variations for regularization), "
-            "'all' (all 14 images), "
-            "'legacy' (4 images for backward compatibility)"
+            "'all' (all 14 images)"
         ),
     ),
     persona_service: PersonaService = Depends(get_persona_service),
@@ -858,24 +852,6 @@ async def generate_sample_images(
         if phases_lower == "all":
             image_types_to_generate = BASE_IMAGE_TYPES
             phases_generated = ["structural", "action", "background"]
-        elif phases_lower == "legacy":
-            # Legacy 4-image mode for backward compatibility
-            legacy_types = [
-                {"id": "face_shot", "label": "Face Shot", "phase": "legacy", "order": 1,
-                 "prompt_addition": "close-up portrait, headshot, face centered, shoulders visible, looking at camera, detailed facial features, studio lighting",
-                 "controlnet_type": "none", "caption_tags": "portrait, from front"},
-                {"id": "bikini_front", "label": "Bikini Front View", "phase": "legacy", "order": 2,
-                 "prompt_addition": "full body shot, bikini, front view facing camera, beach or pool setting, natural lighting, standing pose",
-                 "controlnet_type": "canny", "caption_tags": "full body, standing, from front, beach"},
-                {"id": "bikini_side", "label": "Bikini Side View", "phase": "legacy", "order": 3,
-                 "prompt_addition": "full body shot, bikini, side profile view, beach or pool setting, natural lighting, standing pose",
-                 "controlnet_type": "canny", "caption_tags": "full body, standing, from side, beach"},
-                {"id": "bikini_rear", "label": "Bikini Rear View", "phase": "legacy", "order": 4,
-                 "prompt_addition": "full body shot, bikini, rear view from behind, beach or pool setting, natural lighting, standing pose",
-                 "controlnet_type": "canny", "caption_tags": "full body, standing, from behind, beach"},
-            ]
-            image_types_to_generate = legacy_types
-            phases_generated = ["legacy"]
         else:
             # Parse comma-separated phases
             requested_phases = [p.strip().lower() for p in phases_lower.split(",")]
@@ -972,10 +948,18 @@ async def generate_sample_images(
                     device_id = available_gpus[i % len(available_gpus)] if available_gpus else None
                     
                     # Determine generation mode based on controlnet_type and position in chain
+                    # controlnet_type values:
+                    #   - "none": Pure text2img, no reference (e.g., front_headshot, right_hand)
+                    #   - "canny": Use Canny edge detection from reference image
+                    #   - "openpose": Use OpenPose skeleton from reference image
+                    # Note: If current_reference_path is None, we fall back to text2img
+                    # regardless of controlnet_type to avoid errors
                     controlnet_type = image_type.get("controlnet_type", "none")
                     
                     if controlnet_type == "none" or current_reference_path is None:
                         # Pure text2img - starting point or no ControlNet needed
+                        # Images with controlnet_type="none" (e.g., front_headshot, right_hand)
+                        # are generated fresh without reference to establish identity
                         logger.info(f"STEP {i+1}/{total_images}: Generating {image_type['label']} (text2img)")
                         result = await ai_manager._generate_reference_image_local(
                             appearance_prompt=specific_prompt,
@@ -1086,9 +1070,9 @@ async def generate_sample_images(
             )
 
         # Determine if the generated set is complete for LoRA training
-        # Complete set requires: structural + action + background (all 14 images)
+        # Complete set requires: structural + action + background (all images from expanded system)
         training_ready = (
-            len(images) >= 14 and 
+            len(images) >= TOTAL_EXPANDED_IMAGE_COUNT and 
             "structural" in phases_generated and 
             "action" in phases_generated and 
             "background" in phases_generated
@@ -1714,13 +1698,7 @@ async def set_base_image_from_sample(
 
 
 class SetBaseImagesRequest(BaseModel):
-    """Request model for setting base images (supports both legacy 4-image and expanded 14-image sets)."""
-    
-    # Legacy 4-image fields (for backward compatibility)
-    face_shot: Optional[str] = Field(None, description="Base64 data URL for face shot (legacy)")
-    bikini_front: Optional[str] = Field(None, description="Base64 data URL for bikini front view (legacy)")
-    bikini_side: Optional[str] = Field(None, description="Base64 data URL for bikini side view (legacy)")
-    bikini_rear: Optional[str] = Field(None, description="Base64 data URL for bikini rear view (legacy)")
+    """Request model for setting base images (14-image expanded set for LoRA training)."""
     
     # Phase 1 - Structural Set (8 images)
     front_headshot: Optional[str] = Field(None, description="Base64 data URL for front headshot")
@@ -1752,10 +1730,7 @@ async def set_base_images(
     """
     Set base images for a persona to lock the physical appearance.
 
-    Supports both the legacy 4-image set and the expanded 14-image set for LoRA training:
-
-    **Legacy Images (backward compatibility):**
-    - face_shot, bikini_front, bikini_side, bikini_rear
+    Accepts the expanded 14-image set for LoRA training:
 
     **Phase 1 - Structural Set (8 images):**
     - front_headshot, side_headshot, right_hand, left_hand
@@ -1792,16 +1767,11 @@ async def set_base_images(
                 detail=f"Persona {persona_id} not found",
             )
 
-        # Process all image types (legacy + expanded)
+        # Process all image types
         base_images_dict = {}
         
         # Build list of all image types from the request model
         image_types = [
-            # Legacy images
-            ("face_shot", images.face_shot),
-            ("bikini_front", images.bikini_front),
-            ("bikini_side", images.bikini_side),
-            ("bikini_rear", images.bikini_rear),
             # Phase 1 - Structural Set
             ("front_headshot", images.front_headshot),
             ("side_headshot", images.side_headshot),
@@ -1865,11 +1835,9 @@ async def set_base_images(
         # Update persona with all base images
         from backend.models.persona import PersonaUpdate
 
-        # Determine primary image for backward compatibility
-        # Priority: front_headshot > face_shot > first available
+        # Determine primary image - use front_headshot or first available
         primary_image_path = (
             base_images_dict.get("front_headshot") or 
-            base_images_dict.get("face_shot") or 
             next(iter(base_images_dict.values()))
         )
 

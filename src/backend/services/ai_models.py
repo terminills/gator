@@ -4815,6 +4815,7 @@ class AIModelManager:
             # Get model preference options for anatomy/body generation
             prefer_anatomy_model = kwargs.get("prefer_anatomy_model", False)
             nsfw_model_pref = kwargs.get("nsfw_model_pref")
+            image_model_pref = kwargs.get("image_model_pref")  # General image model preference from persona
 
             # Build base prompt with appearance and personality
             base_prompt = appearance_prompt
@@ -4824,7 +4825,8 @@ class AIModelManager:
             # Check if we're using SDXL to determine if we can use long prompts
             model = self._get_best_local_image_model(
                 prefer_anatomy_model=prefer_anatomy_model, 
-                nsfw_model_pref=nsfw_model_pref
+                nsfw_model_pref=nsfw_model_pref,
+                image_model_pref=image_model_pref
             )
             is_sdxl = "xl" in model.get("name", "").lower()
 
@@ -4884,7 +4886,8 @@ class AIModelManager:
                 prompt=full_prompt,
                 model=self._get_best_local_image_model(
                     prefer_anatomy_model=prefer_anatomy_model,
-                    nsfw_model_pref=nsfw_model_pref
+                    nsfw_model_pref=nsfw_model_pref,
+                    image_model_pref=image_model_pref
                 ),
                 **generation_kwargs,
             )
@@ -4897,7 +4900,12 @@ class AIModelManager:
             logger.error(f"Failed to generate reference image locally: {str(e)}")
             raise
 
-    def _get_best_local_image_model(self, prefer_anatomy_model: bool = True, nsfw_model_pref: Optional[str] = None) -> Dict[str, Any]:
+    def _get_best_local_image_model(
+        self, 
+        prefer_anatomy_model: bool = True, 
+        nsfw_model_pref: Optional[str] = None,
+        image_model_pref: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Get the best available local image model.
         
@@ -4906,6 +4914,7 @@ class AIModelManager:
         Args:
             prefer_anatomy_model: If True (default), prefer models better at human body/anatomy
             nsfw_model_pref: Optional specific NSFW model preference name
+            image_model_pref: Optional general image model preference (from persona settings)
             
         Returns:
             Dict containing model configuration
@@ -4919,7 +4928,19 @@ class AIModelManager:
         if not local_models:
             raise Exception("No local image models available")
 
-        # HIGHEST PRIORITY: Check for preferred CivitAI model (version 1257570)
+        # HIGHEST PRIORITY: Check for explicit image_model_preference from persona
+        if image_model_pref:
+            for model in local_models:
+                if (
+                    image_model_pref.lower() in model.get("name", "").lower()
+                    or image_model_pref.lower() in model.get("model_id", "").lower()
+                    or image_model_pref.lower() in model.get("display_name", "").lower()
+                ):
+                    logger.info(f"Using persona's preferred image model: {model.get('name')}")
+                    return model
+            logger.warning(f"Persona's preferred image model '{image_model_pref}' not found, using fallback selection")
+
+        # Check for preferred CivitAI model (version 1257570)
         for model in local_models:
             if model.get("civitai_version_id") == PREFERRED_CIVITAI_VERSION_ID:
                 logger.info(f"Using preferred CivitAI model (v{PREFERRED_CIVITAI_VERSION_ID}): {model.get('name')}")
