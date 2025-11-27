@@ -1943,7 +1943,24 @@ async def uninstall_xformers() -> Dict[str, Any]:
         
         logger.info("Uninstalling xFormers...")
         
-        # Run pip uninstall xformers
+        # First, check if xFormers is installed using pip show
+        check_result = subprocess.run(
+            [sys.executable, "-m", "pip", "show", "xformers"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        
+        if check_result.returncode != 0:
+            # xFormers is not installed
+            logger.info("xFormers is not installed, nothing to uninstall")
+            return {
+                "success": True,
+                "message": "xFormers was not installed",
+                "already_uninstalled": True,
+            }
+        
+        # xFormers is installed, proceed with uninstall
         result = subprocess.run(
             [sys.executable, "-m", "pip", "uninstall", "xformers", "-y"],
             capture_output=True,
@@ -1951,6 +1968,7 @@ async def uninstall_xformers() -> Dict[str, Any]:
             timeout=60,
         )
         
+        # Check return code for success
         if result.returncode == 0:
             logger.info("xFormers uninstalled successfully")
             return {
@@ -1961,21 +1979,13 @@ async def uninstall_xformers() -> Dict[str, Any]:
                 "next_step": "Restart the application to apply changes",
             }
         else:
-            # Check if it wasn't installed
-            if "not installed" in result.stderr.lower() or "not installed" in result.stdout.lower():
-                return {
-                    "success": True,
-                    "message": "xFormers was not installed",
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                }
-            
-            logger.warning(f"xFormers uninstall failed: {result.stderr}")
+            logger.warning(f"xFormers uninstall failed with code {result.returncode}: {result.stderr}")
             return {
                 "success": False,
                 "message": "Failed to uninstall xFormers",
                 "stdout": result.stdout,
                 "stderr": result.stderr,
+                "return_code": result.returncode,
             }
             
     except subprocess.TimeoutExpired:

@@ -561,19 +561,9 @@ def check_python_ml_library(lib_name: str, display_name: str, category: str) -> 
                 result["pipeline_available"] = False
                 result["pipeline_error"] = error_str
                 
-                # Detect specific CUDA/ROCm issues
-                if "libcudart" in error_str or "cuda" in error_str.lower():
-                    result["cuda_issue"] = True
-                    result["repair_hint"] = (
-                        "CUDA runtime libraries are missing. For ROCm systems, "
-                        "try: pip uninstall xformers && pip install diffusers --force-reinstall"
-                    )
-                elif "xformers" in error_str.lower():
-                    result["xformers_issue"] = True
-                    result["repair_hint"] = (
-                        "xFormers is incompatible with your PyTorch/ROCm version. "
-                        "Try: pip uninstall xformers"
-                    )
+                # Detect specific CUDA/ROCm issues using helper function
+                issue_info = _detect_cuda_rocm_issue(error_str)
+                result.update(issue_info)
             except Exception as e:
                 result["pipeline_available"] = False
                 result["pipeline_error"] = str(e)
@@ -582,25 +572,51 @@ def check_python_ml_library(lib_name: str, display_name: str, category: str) -> 
         error_str = str(e)
         result["error"] = error_str
         
-        # Check for specific CUDA/ROCm compatibility issues
-        if "libcudart" in error_str or "cuda" in error_str.lower():
-            result["cuda_issue"] = True
+        # Check for specific CUDA/ROCm compatibility issues using helper function
+        issue_info = _detect_cuda_rocm_issue(error_str)
+        result.update(issue_info)
+        
+        # Update status based on detected issues
+        if issue_info.get("cuda_issue"):
             result["status"] = "cuda_incompatible"
-            result["repair_hint"] = (
-                "CUDA runtime libraries are missing. This usually happens when "
-                "xFormers was installed for CUDA but you're using ROCm. "
-                "Try: pip uninstall xformers"
-            )
-        elif "xformers" in error_str.lower():
-            result["xformers_issue"] = True
+        elif issue_info.get("xformers_issue"):
             result["status"] = "xformers_incompatible"
-            result["repair_hint"] = (
-                "xFormers is causing import failures. "
-                "Try: pip uninstall xformers"
-            )
     except Exception as e:
         result["error"] = str(e)
         result["status"] = "error"
+    
+    return result
+
+
+def _detect_cuda_rocm_issue(error_str: str) -> Dict[str, Any]:
+    """
+    Detect if an error is related to CUDA/ROCm compatibility issues.
+    
+    This helper function centralizes the logic for detecting common
+    CUDA/ROCm compatibility issues from error messages.
+    
+    Args:
+        error_str: The error message string to analyze
+    
+    Returns:
+        Dictionary with issue flags and repair hints
+    """
+    result = {}
+    
+    error_lower = error_str.lower()
+    
+    if "libcudart" in error_str or "cuda" in error_lower:
+        result["cuda_issue"] = True
+        result["repair_hint"] = (
+            "CUDA runtime libraries are missing. For ROCm systems, "
+            "uninstall xFormers: pip uninstall xformers"
+        )
+    elif "xformers" in error_lower:
+        result["xformers_issue"] = True
+        result["repair_hint"] = (
+            "xFormers is incompatible with your PyTorch/ROCm version. "
+            "Uninstall it: pip uninstall xformers"
+        )
     
     return result
 
@@ -729,12 +745,22 @@ def _check_xformers_compatibility() -> Dict[str, Any]:
     return result
 
 
+# Whitelist of allowed repair commands for security
+ALLOWED_REPAIR_COMMANDS = {
+    "pip uninstall xformers -y",
+    "pip install diffusers --force-reinstall",
+    "pip install diffusers",
+}
+
+
 def auto_repair_diffusers_issues() -> Dict[str, Any]:
     """
     Attempt to automatically repair common diffusers/xFormers issues.
     
     This function detects and attempts to fix issues like xFormers CUDA
     incompatibility on ROCm systems.
+    
+    Only whitelisted commands are executed for security.
     
     Returns:
         Dictionary with repair results and actions taken
@@ -756,13 +782,23 @@ def auto_repair_diffusers_issues() -> Dict[str, Any]:
         results["message"] = "diffusers is already healthy, no repairs needed"
         return results
     
-    # Execute repair commands
+    # Execute only whitelisted repair commands
     for cmd in health.get("repair_commands", []):
-        try:
-            # Parse the command
-            cmd_parts = cmd.split()
+        # Security: Only execute commands from our whitelist
+        if cmd not in ALLOWED_REPAIR_COMMANDS:
+            results["errors"].append(
+                f"Command '{cmd}' not in allowed command whitelist, skipping"
+            )
+            continue
             
-            # Run the command
+        try:
+            # Parse the command safely - only pip commands are allowed
+            cmd_parts = cmd.split()
+            if cmd_parts[0] != "pip":
+                results["errors"].append(f"Only pip commands are allowed: {cmd}")
+                continue
+            
+            # Run the command using python -m pip for consistency
             result = subprocess.run(
                 [sys.executable, "-m"] + cmd_parts,
                 capture_output=True,
