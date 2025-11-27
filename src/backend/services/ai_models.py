@@ -3435,7 +3435,10 @@ class AIModelManager:
                             )
                             single_file_args["vae"] = vae
                             logger.info("✓ VAE preloaded successfully")
-                        except Exception as vae_error:
+                        except (OSError, RuntimeError, ValueError) as vae_error:
+                            # OSError: File/network issues loading pretrained model
+                            # RuntimeError: CUDA/device issues
+                            # ValueError: Invalid model configuration
                             logger.warning(f"Could not preload VAE: {vae_error}")
                             logger.warning("Will attempt to load checkpoint without preloaded VAE")
                         
