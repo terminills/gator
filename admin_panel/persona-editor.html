@@ -1707,43 +1707,130 @@
                                 Base Images & Visual Consistency
                             </h2>
                         </div>
-                        <p class="section-description">Manage the 4 base reference images that ensure consistent visual generation across all content.</p>
+                        <p class="section-description">Manage the 14 base reference images that ensure consistent visual generation and prepare for LoRA training.</p>
                         
-                        <!-- Current Base Images Preview (4-image grid) -->
+                        <!-- Current Base Images Preview (14-image grid in phases) -->
                         <div class="form-group" id="current-base-images-section">
                             <label class="form-label">
-                                Current Base Images (4-Image Set)
+                                Current Base Images (14-Image LoRA Training Set)
                             </label>
-                            <span class="form-help">The 4 base images used for physical appearance locking and visual consistency.</span>
+                            <span class="form-help">The complete base image set for physical appearance locking and LoRA training readiness.</span>
                             
-                            <div id="base-images-preview" class="base-images-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 16px;">
-                                <!-- 4 image slots -->
-                                <div class="base-image-slot" id="base-image-face_shot">
-                                    <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 20px; text-align: center; min-height: 200px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                                        <span style="font-size: 2rem;">📸</span>
-                                        <span style="color: var(--text-secondary); margin-top: 8px;">Face Shot</span>
-                                        <span style="font-size: 0.75rem; color: var(--text-secondary);">No image</span>
+                            <!-- Phase 1: Structural Set -->
+                            <div style="margin-top: 16px;">
+                                <h4 style="color: var(--primary); margin-bottom: 12px;">📐 Phase 1: Structural Set (Identity & Body)</h4>
+                                <div id="base-images-structural" class="base-images-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+                                    <div class="base-image-slot" id="base-image-front_headshot">
+                                        <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 16px; text-align: center; min-height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                            <span style="font-size: 1.5rem;">📸</span>
+                                            <span style="color: var(--text-secondary); margin-top: 6px; font-size: 0.85rem;">Front Headshot</span>
+                                            <span style="font-size: 0.7rem; color: var(--text-secondary);">No image</span>
+                                        </div>
+                                    </div>
+                                    <div class="base-image-slot" id="base-image-side_headshot">
+                                        <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 16px; text-align: center; min-height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                            <span style="font-size: 1.5rem;">📸</span>
+                                            <span style="color: var(--text-secondary); margin-top: 6px; font-size: 0.85rem;">Side Headshot</span>
+                                            <span style="font-size: 0.7rem; color: var(--text-secondary);">No image</span>
+                                        </div>
+                                    </div>
+                                    <div class="base-image-slot" id="base-image-right_hand">
+                                        <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 16px; text-align: center; min-height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                            <span style="font-size: 1.5rem;">🤚</span>
+                                            <span style="color: var(--text-secondary); margin-top: 6px; font-size: 0.85rem;">Right Hand</span>
+                                            <span style="font-size: 0.7rem; color: var(--text-secondary);">No image</span>
+                                        </div>
+                                    </div>
+                                    <div class="base-image-slot" id="base-image-left_hand">
+                                        <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 16px; text-align: center; min-height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                            <span style="font-size: 1.5rem;">✋</span>
+                                            <span style="color: var(--text-secondary); margin-top: 6px; font-size: 0.85rem;">Left Hand</span>
+                                            <span style="font-size: 0.7rem; color: var(--text-secondary);">No image</span>
+                                        </div>
+                                    </div>
+                                    <div class="base-image-slot" id="base-image-bust">
+                                        <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 16px; text-align: center; min-height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                            <span style="font-size: 1.5rem;">👤</span>
+                                            <span style="color: var(--text-secondary); margin-top: 6px; font-size: 0.85rem;">Bust View</span>
+                                            <span style="font-size: 0.7rem; color: var(--text-secondary);">No image</span>
+                                        </div>
+                                    </div>
+                                    <div class="base-image-slot" id="base-image-full_frontal">
+                                        <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 16px; text-align: center; min-height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                            <span style="font-size: 1.5rem;">🧍</span>
+                                            <span style="color: var(--text-secondary); margin-top: 6px; font-size: 0.85rem;">Full Frontal</span>
+                                            <span style="font-size: 0.7rem; color: var(--text-secondary);">No image</span>
+                                        </div>
+                                    </div>
+                                    <div class="base-image-slot" id="base-image-side_profile">
+                                        <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 16px; text-align: center; min-height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                            <span style="font-size: 1.5rem;">🧍</span>
+                                            <span style="color: var(--text-secondary); margin-top: 6px; font-size: 0.85rem;">Side Profile</span>
+                                            <span style="font-size: 0.7rem; color: var(--text-secondary);">No image</span>
+                                        </div>
+                                    </div>
+                                    <div class="base-image-slot" id="base-image-rear_view">
+                                        <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 16px; text-align: center; min-height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                            <span style="font-size: 1.5rem;">🧍</span>
+                                            <span style="color: var(--text-secondary); margin-top: 6px; font-size: 0.85rem;">Rear View</span>
+                                            <span style="font-size: 0.7rem; color: var(--text-secondary);">No image</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="base-image-slot" id="base-image-bikini_front">
-                                    <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 20px; text-align: center; min-height: 200px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                                        <span style="font-size: 2rem;">👙</span>
-                                        <span style="color: var(--text-secondary); margin-top: 8px;">Front View</span>
-                                        <span style="font-size: 0.75rem; color: var(--text-secondary);">No image</span>
+                            </div>
+                            
+                            <!-- Phase 2: Action Set -->
+                            <div style="margin-top: 20px;">
+                                <h4 style="color: var(--accent); margin-bottom: 12px;">🏃 Phase 2: Action Set (Dynamic Poses for LoRA)</h4>
+                                <div id="base-images-action" class="base-images-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                                    <div class="base-image-slot" id="base-image-compression_pose">
+                                        <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 16px; text-align: center; min-height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                            <span style="font-size: 1.5rem;">🪑</span>
+                                            <span style="color: var(--text-secondary); margin-top: 6px; font-size: 0.85rem;">Compression</span>
+                                            <span style="font-size: 0.7rem; color: var(--text-secondary);">Sitting/Crouching</span>
+                                        </div>
+                                    </div>
+                                    <div class="base-image-slot" id="base-image-extension_pose">
+                                        <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 16px; text-align: center; min-height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                            <span style="font-size: 1.5rem;">🙆</span>
+                                            <span style="color: var(--text-secondary); margin-top: 6px; font-size: 0.85rem;">Extension</span>
+                                            <span style="font-size: 0.7rem; color: var(--text-secondary);">Reaching/Running</span>
+                                        </div>
+                                    </div>
+                                    <div class="base-image-slot" id="base-image-twist_pose">
+                                        <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 16px; text-align: center; min-height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                            <span style="font-size: 1.5rem;">🔄</span>
+                                            <span style="color: var(--text-secondary); margin-top: 6px; font-size: 0.85rem;">Twist</span>
+                                            <span style="font-size: 0.7rem; color: var(--text-secondary);">Looking Back</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="base-image-slot" id="base-image-bikini_side">
-                                    <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 20px; text-align: center; min-height: 200px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                                        <span style="font-size: 2rem;">👙</span>
-                                        <span style="color: var(--text-secondary); margin-top: 8px;">Side View</span>
-                                        <span style="font-size: 0.75rem; color: var(--text-secondary);">No image</span>
+                            </div>
+                            
+                            <!-- Phase 3: Background Set -->
+                            <div style="margin-top: 20px;">
+                                <h4 style="color: #f59e0b; margin-bottom: 12px;">🌆 Phase 3: Background Variation (Regularization)</h4>
+                                <div id="base-images-background" class="base-images-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                                    <div class="base-image-slot" id="base-image-complex_bg_1">
+                                        <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 16px; text-align: center; min-height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                            <span style="font-size: 1.5rem;">🏙️</span>
+                                            <span style="color: var(--text-secondary); margin-top: 6px; font-size: 0.85rem;">Urban</span>
+                                            <span style="font-size: 0.7rem; color: var(--text-secondary);">City/Street</span>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="base-image-slot" id="base-image-bikini_rear">
-                                    <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 20px; text-align: center; min-height: 200px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                                        <span style="font-size: 2rem;">👙</span>
-                                        <span style="color: var(--text-secondary); margin-top: 8px;">Rear View</span>
-                                        <span style="font-size: 0.75rem; color: var(--text-secondary);">No image</span>
+                                    <div class="base-image-slot" id="base-image-complex_bg_2">
+                                        <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 16px; text-align: center; min-height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                            <span style="font-size: 1.5rem;">🌲</span>
+                                            <span style="color: var(--text-secondary); margin-top: 6px; font-size: 0.85rem;">Nature</span>
+                                            <span style="font-size: 0.7rem; color: var(--text-secondary);">Forest/Park</span>
+                                        </div>
+                                    </div>
+                                    <div class="base-image-slot" id="base-image-complex_bg_3">
+                                        <div class="image-placeholder" style="background: var(--dark-card); border: 2px dashed var(--border-color); border-radius: 12px; padding: 16px; text-align: center; min-height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                            <span style="font-size: 1.5rem;">🏠</span>
+                                            <span style="color: var(--text-secondary); margin-top: 6px; font-size: 0.85rem;">Interior</span>
+                                            <span style="font-size: 0.7rem; color: var(--text-secondary);">Home/Room</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1760,22 +1847,64 @@
                         <!-- Sample Image Creation (Create Mode Only) -->
                         <div class="form-group" id="sample-images-section" style="display: none;">
                             <label class="form-label">
-                                Create 4 Base Images for Physical Appearance Locking
+                                Generate Base Images for LoRA Training
                             </label>
-                            <span class="form-help">Generate 4 specific base images using sequential img2img chaining for maximum body consistency across all views.</span>
+                            <span class="form-help">Generate a complete set of base images using sequential ControlNet chaining for maximum consistency.</span>
                             
                             <div class="generate-images-section" id="generate-prompt">
-                                <h3>🎨 Create 4 Base Images (Sequential Chain)</h3>
-                                <p>Uses advanced img2img chaining: each image builds on the previous one for maximum physical consistency across all views.</p>
+                                <h3>🎨 Generate Base Images (ControlNet Sequential Chain)</h3>
+                                <p>Uses advanced ControlNet chaining: each image builds on the previous for physical consistency across all views and poses.</p>
+                                
                                 <div style="margin: 12px 0; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; font-size: 0.85rem;">
-                                    <strong>Sequential Generation Chain:</strong>
-                                    <ul style="margin: 8px 0 0 20px; color: var(--text-secondary);">
-                                        <li>📸 <strong>1. Face Shot</strong> → Establishes facial features (base reference)</li>
-                                        <li>👙 <strong>2. Bikini Front</strong> → Uses face shot to establish full body</li>
-                                        <li>👙 <strong>3. Bikini Side</strong> → Uses front view for body consistency</li>
-                                        <li>👙 <strong>4. Bikini Rear</strong> → Uses side view to complete rotation</li>
-                                    </ul>
-                                    <p style="margin-top: 8px; font-style: italic; color: var(--accent-color);">💡 Uses NSFW-capable models for better anatomy accuracy (output is SFW)</p>
+                                    <strong>3-Phase Generation for LoRA Training:</strong>
+                                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px;">
+                                        <div style="padding: 8px; background: rgba(102, 126, 234, 0.2); border-radius: 6px;">
+                                            <strong style="color: var(--primary);">📐 Phase 1: Structural</strong>
+                                            <ul style="margin: 6px 0 0 16px; color: var(--text-secondary); font-size: 0.8rem;">
+                                                <li>Front/Side Headshots</li>
+                                                <li>Left/Right Hands</li>
+                                                <li>Bust, Full Body, Profile, Rear</li>
+                                            </ul>
+                                        </div>
+                                        <div style="padding: 8px; background: rgba(16, 185, 129, 0.2); border-radius: 6px;">
+                                            <strong style="color: var(--accent);">🏃 Phase 2: Action</strong>
+                                            <ul style="margin: 6px 0 0 16px; color: var(--text-secondary); font-size: 0.8rem;">
+                                                <li>Compression (fabric folds)</li>
+                                                <li>Extension (arm/shoulder)</li>
+                                                <li>Twist (neck rotation)</li>
+                                            </ul>
+                                        </div>
+                                        <div style="padding: 8px; background: rgba(245, 158, 11, 0.2); border-radius: 6px;">
+                                            <strong style="color: #f59e0b;">🌆 Phase 3: Background</strong>
+                                            <ul style="margin: 6px 0 0 16px; color: var(--text-secondary); font-size: 0.8rem;">
+                                                <li>Urban environment</li>
+                                                <li>Nature environment</li>
+                                                <li>Interior environment</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <p style="margin-top: 10px; font-style: italic; color: var(--accent);">💡 NSFW-capable models provide better anatomy accuracy (output follows content rating)</p>
+                                </div>
+                                
+                                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0;">
+                                    <div>
+                                        <label class="form-label" style="margin-bottom: 6px;">Generation Model</label>
+                                        <select class="form-input" id="base-gen-model-select" style="margin: 0;">
+                                            <option value="" selected>🤖 Use System Default</option>
+                                            <!-- Will be populated dynamically from installed models -->
+                                        </select>
+                                        <span class="form-help" style="font-size: 0.75rem;">Select specific model for base image generation</span>
+                                    </div>
+                                    <div>
+                                        <label class="form-label" style="margin-bottom: 6px;">Phases to Generate</label>
+                                        <select class="form-input" id="phases-select" style="margin: 0;">
+                                            <option value="structural" selected>📐 Structural Only (8 images)</option>
+                                            <option value="structural,action">📐🏃 Structural + Action (11 images)</option>
+                                            <option value="all">🎯 All Phases (14 images - Full LoRA Set)</option>
+                                            <option value="action">🏃 Action Only (3 images)</option>
+                                            <option value="background">🌆 Background Only (3 images)</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 
                                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0;">
@@ -1815,11 +1944,11 @@
                                 
                                 <button type="button" class="btn-generate" id="generate-images-btn" onclick="generateSampleImages()">
                                     <span>✨</span>
-                                    <span>Generate 4 Base Images</span>
+                                    <span>Generate Base Images</span>
                                 </button>
                                 
                                 <div class="generation-progress" id="generation-progress">
-                                    <div class="progress-text" id="progress-text">Creating images... 0/4</div>
+                                    <div class="progress-text" id="progress-text">Creating images... 0/14</div>
                                     <div class="progress-bar-container">
                                         <div class="progress-bar" id="progress-bar"></div>
                                     </div>
@@ -3137,6 +3266,8 @@
             const resolution = document.getElementById('resolution-select').value;
             const quality = document.getElementById('quality-select').value;
             const style = document.getElementById('style-select').value;
+            const phases = document.getElementById('phases-select').value;
+            const baseGenModel = document.getElementById('base-gen-model-select').value;
             
             if (!appearance || appearance.length < 10) {
                 showAlert('Please enter an appearance description (at least 10 characters) before creating images.', 'error');
@@ -3149,6 +3280,16 @@
             const progressText = document.getElementById('progress-text');
             const gallery = document.getElementById('image-gallery');
             
+            // Calculate expected image count based on phases
+            const phaseImageCounts = {
+                'structural': 8,
+                'action': 3,
+                'background': 3,
+                'structural,action': 11,
+                'all': 14
+            };
+            const expectedImages = phaseImageCounts[phases] || 8;
+            
             // Disable button and show progress
             generateBtn.disabled = true;
             generateBtn.textContent = 'Creating...';
@@ -3157,18 +3298,28 @@
             sampleImages = [];
             
             try {
-                // Call API to create sample images with resolution, quality, and style
+                // Call API to create sample images with all parameters
                 const styleLabel = document.getElementById('style-select').selectedOptions[0].textContent;
-                progressText.textContent = `Creating 4 ${styleLabel} images at ${resolution} (${quality} quality)... This may take 1-2 minutes.`;
-                progressBar.style.width = '25%';
+                const phasesLabel = document.getElementById('phases-select').selectedOptions[0].textContent;
+                progressText.textContent = `Creating ${expectedImages} ${styleLabel} images (${phasesLabel}) at ${resolution}... This may take several minutes.`;
+                progressBar.style.width = '15%';
                 
-                const response = await fetch('/api/v1/personas/generate-sample-images?' + new URLSearchParams({
+                // Build query params
+                const params = new URLSearchParams({
                     appearance: appearance,
                     personality: personality || '',
                     resolution: resolution,
                     quality: quality,
-                    style: style
-                }), {
+                    style: style,
+                    phases: phases
+                });
+                
+                // Add model preference if selected
+                if (baseGenModel) {
+                    params.append('nsfw_model', baseGenModel);
+                }
+                
+                const response = await fetch('/api/v1/personas/generate-sample-images?' + params, {
                     method: 'POST'
                 });
                 
@@ -3181,14 +3332,31 @@
                 sampleImages = result.images || [];
                 
                 progressBar.style.width = '100%';
-                progressText.textContent = `Created ${sampleImages.length} images successfully!`;
+                
+                // Show training readiness info
+                const trainingReady = result.training_ready;
+                const phasesGenerated = result.phases_generated || [];
+                let statusMsg = `Created ${sampleImages.length} images successfully!`;
+                if (trainingReady) {
+                    statusMsg += ' ✅ Ready for LoRA training!';
+                } else if (result.training_guidance) {
+                    statusMsg += ` (${result.training_guidance.recommended_next})`;
+                }
+                progressText.textContent = statusMsg;
                 
                 // Display images
                 if (sampleImages.length > 0) {
                     displaySampleImages();
                     setTimeout(() => {
                         progress.classList.remove('show');
-                    }, 1500);
+                    }, 2000);
+                    
+                    // Show success message with training info
+                    if (trainingReady) {
+                        showAlert('All 14 base images generated! Your persona is ready for LoRA training.', 'success');
+                    } else {
+                        showAlert(`Generated ${sampleImages.length} images. Select images to use for appearance locking.`, 'success');
+                    }
                 } else {
                     showAlert('No images were created. Please try again.', 'error');
                     progress.classList.remove('show');
@@ -3200,7 +3368,7 @@
                 progress.classList.remove('show');
             } finally {
                 generateBtn.disabled = false;
-                generateBtn.innerHTML = '<span>✨</span><span>Create 4 Sample Images</span>';
+                generateBtn.innerHTML = '<span>✨</span><span>Generate Base Images</span>';
             }
         }
         
@@ -3208,13 +3376,35 @@
             const gallery = document.getElementById('image-gallery');
             gallery.innerHTML = '';
             gallery.style.display = 'grid';
+            // Adjust grid for different image counts
+            gallery.style.gridTemplateColumns = sampleImages.length > 4 ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)';
             
-            // Image type labels with emojis
+            // Image type labels with emojis (expanded for 14-image system)
             const typeLabels = {
-                'face_shot': '📸 Face Shot',
-                'bikini_front': '👙 Front View',
-                'bikini_side': '👙 Side View',
-                'bikini_rear': '👙 Rear View'
+                // Phase 1: Structural
+                'front_headshot': '📸 Front Headshot',
+                'side_headshot': '📸 Side Headshot',
+                'right_hand': '🤚 Right Hand',
+                'left_hand': '✋ Left Hand',
+                'bust': '👤 Bust View',
+                'full_frontal': '🧍 Full Frontal',
+                'side_profile': '🧍 Side Profile',
+                'rear_view': '🧍 Rear View',
+                // Phase 2: Action
+                'compression_pose': '🪑 Compression',
+                'extension_pose': '🙆 Extension',
+                'twist_pose': '🔄 Twist',
+                // Phase 3: Background
+                'complex_bg_1': '🏙️ Urban BG',
+                'complex_bg_2': '🌲 Nature BG',
+                'complex_bg_3': '🏠 Interior BG'
+            };
+            
+            // Phase colors for visual distinction
+            const phaseColors = {
+                'structural': 'var(--primary)',
+                'action': 'var(--accent)',
+                'background': '#f59e0b'
             };
             
             sampleImages.forEach((image, index) => {
@@ -3225,9 +3415,15 @@
                 
                 // Use the label from API response or fallback to type mapping
                 const label = image.label || typeLabels[image.type] || `Image ${index + 1}`;
-                const isBaseRef = image.type === 'face_shot' ? '<span style="font-size: 0.7rem; color: var(--accent-color);">(Base Reference)</span>' : '';
+                const phase = image.phase || 'structural';
+                const phaseColor = phaseColors[phase] || 'var(--primary)';
+                const isBaseRef = image.type === 'front_headshot' ? '<span style="font-size: 0.65rem; color: var(--accent);">(Base Reference)</span>' : '';
+                
+                // Show phase badge
+                const phaseBadge = `<span style="position: absolute; top: 8px; left: 8px; background: ${phaseColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; text-transform: uppercase;">${phase}</span>`;
                 
                 card.innerHTML = `
+                    ${phaseBadge}
                     <span class="selected-badge">✓ Selected</span>
                     <img src="${image.data_url}" alt="${label}">
                     <div class="image-card-label">${label} ${isBaseRef}</div>
@@ -3236,11 +3432,7 @@
                 gallery.appendChild(card);
             });
             
-            // Show instruction
-            const actionText = editorMode === 'edit' ? 'update' : 'set';
-            showAlert(`All 4 base images generated using img2img for consistency. Select all images to ${actionText} as your persona's locked appearance.`, 'success');
-            
-            // Auto-select all 4 images since they're a complete set
+            // Auto-select all images since they're a complete set
             selectAllBaseImages();
         }
         
@@ -3262,17 +3454,19 @@
                 selectedBaseImages[image.type || image.id] = image.data_url;
             });
             
+            const totalImages = Object.keys(selectedBaseImages).length;
+            
             // Update form fields
             document.getElementById('base_image_status').value = 'approved';
             document.getElementById('appearance_locked').checked = true;
             document.getElementById('base_image_path').value = editorMode === 'edit' ? 
-                `4 base images ready - will be updated when you save` : 
-                `4 base images ready - will be set after persona creation`;
+                `${totalImages} base images ready - will be updated when you save` : 
+                `${totalImages} base images ready - will be set after persona creation`;
             
-            // Also set selectedImageData to the face shot for backward compatibility
-            const faceShot = sampleImages.find(img => img.type === 'face_shot');
-            if (faceShot) {
-                selectedImageData = faceShot.data_url;
+            // Set selectedImageData to the front headshot for primary reference
+            const frontHeadshot = sampleImages.find(img => img.type === 'front_headshot');
+            if (frontHeadshot) {
+                selectedImageData = frontHeadshot.data_url;
             }
         }
         
@@ -3297,14 +3491,15 @@
             
             // Update status based on how many are selected
             const selectedCount = Object.keys(selectedBaseImages).length;
+            const totalGenerated = sampleImages.length;
             
-            if (selectedCount === 4) {
+            if (selectedCount >= totalGenerated && selectedCount >= 8) {
                 document.getElementById('base_image_status').value = 'approved';
                 document.getElementById('appearance_locked').checked = true;
-                showAlert(`All 4 base images selected! Your persona's appearance will be locked.`, 'success');
+                showAlert(`All ${selectedCount} base images selected! Your persona's appearance will be locked.`, 'success');
             } else if (selectedCount > 0) {
                 document.getElementById('base_image_status').value = 'draft';
-                showAlert(`${selectedCount}/4 images selected. Select all 4 for complete appearance locking.`, 'info');
+                showAlert(`${selectedCount}/${totalGenerated} images selected. Select all for complete appearance locking.`, 'info');
             } else {
                 document.getElementById('base_image_status').value = 'pending_upload';
                 document.getElementById('appearance_locked').checked = false;
@@ -3312,11 +3507,11 @@
             
             // Update base_image_path field
             document.getElementById('base_image_path').value = selectedCount > 0 ? 
-                `${selectedCount}/4 base images selected` : '';
+                `${selectedCount}/${totalGenerated} base images selected` : '';
             
-            // Set selectedImageData to face shot for backward compatibility
-            if (selectedBaseImages['face_shot']) {
-                selectedImageData = selectedBaseImages['face_shot'];
+            // Set selectedImageData to front_headshot for primary reference
+            if (selectedBaseImages['front_headshot']) {
+                selectedImageData = selectedBaseImages['front_headshot'];
             } else {
                 selectedImageData = Object.values(selectedBaseImages)[0] || null;
             }
@@ -3442,6 +3637,9 @@
                 // Also populate the NSFW model preference with image models
                 populateModelDropdown('nsfw_model_preference', installedModels.image, 'NSFW Image Models');
                 
+                // Populate the base generation model dropdown (for initial headshot generation)
+                populateModelDropdown('base-gen-model-select', installedModels.image, 'Base Generation Models');
+                
                 // Show the grid, hide loading indicator
                 if (loadingIndicator) loadingIndicator.style.display = 'none';
                 if (modelsGrid) modelsGrid.style.display = 'grid';
@@ -3457,7 +3655,7 @@
                 if (modelsError) modelsError.style.display = 'block';
                 
                 // Add a fallback option for manual input
-                ['text_model_preference', 'image_model_preference', 'video_model_preference', 'voice_model_preference'].forEach(id => {
+                ['text_model_preference', 'image_model_preference', 'video_model_preference', 'voice_model_preference', 'base-gen-model-select'].forEach(id => {
                     const select = document.getElementById(id);
                     if (select && select.options.length === 1) {
                         // Only has "Use System Default" - add a note
@@ -3878,30 +4076,43 @@
                 const result = await response.json();
                 const personaIdToUse = result.id;
                 
-                // If user selected base images, set them all as the 4 base images
-                // This uses the new set-base-images endpoint that handles all 4 images
+                // If user selected base images, set them using the expanded endpoint
                 if (Object.keys(selectedBaseImages).length > 0) {
                     try {
                         document.getElementById('submit-text').textContent = 'Setting base images...';
                         
-                        // Use the new endpoint that accepts all 4 base images
+                        // Use the new endpoint that accepts all 14 expanded base images
                         const imageResponse = await fetch(`/api/v1/personas/${personaIdToUse}/set-base-images`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
-                                face_shot: selectedBaseImages['face_shot'] || null,
-                                bikini_front: selectedBaseImages['bikini_front'] || null,
-                                bikini_side: selectedBaseImages['bikini_side'] || null,
-                                bikini_rear: selectedBaseImages['bikini_rear'] || null
+                                // Phase 1: Structural Set
+                                front_headshot: selectedBaseImages['front_headshot'] || null,
+                                side_headshot: selectedBaseImages['side_headshot'] || null,
+                                right_hand: selectedBaseImages['right_hand'] || null,
+                                left_hand: selectedBaseImages['left_hand'] || null,
+                                bust: selectedBaseImages['bust'] || null,
+                                full_frontal: selectedBaseImages['full_frontal'] || null,
+                                side_profile: selectedBaseImages['side_profile'] || null,
+                                rear_view: selectedBaseImages['rear_view'] || null,
+                                // Phase 2: Action Set
+                                compression_pose: selectedBaseImages['compression_pose'] || null,
+                                extension_pose: selectedBaseImages['extension_pose'] || null,
+                                twist_pose: selectedBaseImages['twist_pose'] || null,
+                                // Phase 3: Background Variation
+                                complex_bg_1: selectedBaseImages['complex_bg_1'] || null,
+                                complex_bg_2: selectedBaseImages['complex_bg_2'] || null,
+                                complex_bg_3: selectedBaseImages['complex_bg_3'] || null
                             })
                         });
                         
                         if (!imageResponse.ok) {
                             console.error(`Failed to set base images, but persona was ${editorMode === 'create' ? 'created' : 'updated'}`);
                         } else {
-                            console.log('All 4 base images set successfully');
+                            const imageCount = Object.keys(selectedBaseImages).filter(k => selectedBaseImages[k]).length;
+                            console.log(`${imageCount} base images set successfully`);
                         }
                     } catch (imageError) {
                         console.error('Failed to set base images:', imageError);
