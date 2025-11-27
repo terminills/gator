@@ -6,9 +6,7 @@ The fan control service now supports manufacturer-specific IPMI commands and gra
 
 ## Problem Background
 
-Different server manufacturers use different IPMI OEM (Original Equipment Manufacturer) commands for fan control. The original implementation used generic commands that are not universally supported.
-
-**Specific Issue:** Lenovo SR665 servers with XCC (eXtreme Cloud Controller) do not support the generic IPMI raw commands (netfn=0x30 cmd=0x30) for manual fan control. According to Lenovo's official OEM IPMI documentation, the documented commands (netfn=0x2E, 0x3A) are for system control and firmware information, but **fan control commands are not publicly documented**.
+Different server manufacturers use different IPMI OEM (Original Equipment Manufacturer) commands for fan control. The service implements manufacturer-specific commands to ensure proper functionality.
 
 ## Supported Manufacturers
 
@@ -16,7 +14,7 @@ The service now supports the following manufacturers:
 
 | Manufacturer | IPMI Commands | Notes |
 |-------------|---------------|-------|
-| **Lenovo** | netfn=0x30, cmd=0x30 | Not officially documented; may not work on all Lenovo servers |
+| **Lenovo** | netfn=0x3A, cmd=0x07/0x32 | ThinkSystem fan control (tested on SR665) |
 | **Dell** | netfn=0x30, cmd=0x30 | iDRAC fan control commands |
 | **HP** | netfn=0x30, cmd=0x30 | iLO fan control commands |
 | **Supermicro** | netfn=0x30, cmd=0x45/0x70 | Supermicro-specific commands |
@@ -222,7 +220,17 @@ ERROR - Failed to set fan speed: Unable to send RAW command ... rsp=0xc1: Invali
 Different manufacturers use different network function (netfn) and command codes:
 
 ```bash
-# Generic/Dell/HP/Lenovo (attempted)
+# Lenovo ThinkSystem (netfn 0x3A)
+ipmitool raw 0x3a 0x07 0xFF 0xFF 0x00  # Auto mode
+ipmitool raw 0x3a 0x07 0xFF 0xFF 0x01  # Manual mode
+ipmitool raw 0x3a 0x32 0xff 0x00 0x00 0x03 0x64  # Set speed (100% = 0x64)
+
+# Dell (netfn 0x30)
+ipmitool raw 0x30 0x30 0x01 0x01  # Auto mode
+ipmitool raw 0x30 0x30 0x01 0x00  # Manual mode
+ipmitool raw 0x30 0x30 0x02 0xff 0xC0  # Set speed (75% = 0xC0)
+
+# HP (netfn 0x30)
 ipmitool raw 0x30 0x30 0x01 0x01  # Auto mode
 ipmitool raw 0x30 0x30 0x01 0x00  # Manual mode
 ipmitool raw 0x30 0x30 0x02 0xff 0xC0  # Set speed (75% = 0xC0)
@@ -232,6 +240,10 @@ ipmitool raw 0x30 0x45 0x01 0x01  # Auto mode
 ipmitool raw 0x30 0x45 0x01 0x00  # Manual mode
 ipmitool raw 0x30 0x70 0x66 0x01 0x00 0xC0  # Set speed
 ```
+
+**Speed Encoding Note:**
+- Lenovo ThinkSystem uses direct percentage (0x00-0x64 = 0-100%)
+- Dell, HP, Supermicro use 0-255 scale (0x00-0xFF)
 
 ### Cached Support Status
 
@@ -245,23 +257,50 @@ service._manual_control_supported = False  # Confirmed unsupported
 
 When `False`, subsequent calls to `set_fan_speed()` return immediately without attempting IPMI commands.
 
-## Lenovo-Specific Information
+## Lenovo ThinkSystem Information
 
-### Official Lenovo OEM IPMI Commands
+### Working IPMI Commands
 
-According to Lenovo's documentation, the XCC supports these IPMI OEM commands:
+The Lenovo ThinkSystem servers (e.g., SR665) support fan control via IPMI OEM commands on Network Function 0x3A:
 
-- **Network Function 0x2E**: XCC reset and configuration
-- **Network Function 0x3A**: Board/firmware info, system control, USB control, etc.
+```bash
+# Enable manual fan control (full speed mode)
+sudo ipmitool raw 0x3a 0x07 0xFF 0xFF 0x01
 
-**Important:** Fan control commands are **NOT** documented in the official Lenovo OEM IPMI command list.
+# Set fan speed (0-100%)
+# Format: ipmitool raw 0x3A 0x32 0xff 0x00 0x00 0x03 <speed>
+# where <speed> is 0x00 to 0x64 (0-100%)
+sudo ipmitool raw 0x3A 0x32 0xff 0x00 0x00 0x03 0x64  # 100%
 
-### Implications
+# Return to automatic BMC control
+sudo ipmitool raw 0x3a 0x07 0xFF 0xFF 0x00
+```
 
-1. Manual fan control via IPMI may not be available on Lenovo servers
-2. The BMC (XCC) manages fans automatically based on internal thermal policies
-3. This is expected behavior, not a bug or error
-4. System remains safe - the BMC ensures proper cooling
+### Speed Encoding
+
+Lenovo uses direct percentage values (0-100 = 0x00-0x64) unlike other manufacturers that use a 0-255 scale.
+
+| Percentage | Hex Value |
+|------------|-----------|
+| 0% | 0x00 |
+| 25% | 0x19 |
+| 50% | 0x32 |
+| 75% | 0x4B |
+| 100% | 0x64 |
+
+### Read Fan Status
+
+To read current fan speeds:
+```bash
+sudo ipmitool sensor | grep -i Fan
+```
+
+Example output:
+```
+Fan 1 Front Tach | 7680.000   | RPM        | ok    | na        | 960.000   | na        | na        | na        | na        
+Fan 2 Front Tach | 7680.000   | RPM        | ok    | na        | 960.000   | na        | na        | na        | na        
+...
+```
 
 ## Best Practices
 
