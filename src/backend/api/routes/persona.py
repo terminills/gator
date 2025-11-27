@@ -444,6 +444,9 @@ async def generate_seed_image_local(
     Triggers generation using local ROCm/MI25 hardware with Stable Diffusion.
     Can use existing draft image with ControlNet for refinement.
     Sets base_image_status to DRAFT.
+    
+    Uses the persona's saved model preferences (image_model_preference, 
+    nsfw_model_preference) if set, otherwise falls back to default model selection.
 
     Args:
         persona_id: The persona to generate the image for
@@ -491,6 +494,17 @@ async def generate_seed_image_local(
                 detail="No local image generation models available",
             )
 
+        # Get persona's model preferences
+        image_model_pref = getattr(persona, 'image_model_preference', None)
+        nsfw_model_pref = getattr(persona, 'nsfw_model_preference', None)
+        image_style = getattr(persona, 'image_style', 'photorealistic')
+        
+        if image_model_pref or nsfw_model_pref:
+            logger.info(
+                f"Using persona model preferences: image_model={image_model_pref}, "
+                f"nsfw_model={nsfw_model_pref}, style={image_style}"
+            )
+
         # Generate reference image (use existing base_image_path for ControlNet if available)
         logger.info(f"Generating local reference image for persona {persona_id}")
         result = await ai_manager._generate_reference_image_local(
@@ -504,6 +518,9 @@ async def generate_seed_image_local(
             width=1024,
             height=1024,
             num_inference_steps=50,
+            image_style=image_style,
+            image_model_pref=image_model_pref,
+            nsfw_model_pref=nsfw_model_pref,
         )
 
         # Save image to disk
@@ -770,6 +787,10 @@ async def generate_sample_images(
         None,
         description="Optional NSFW model preference for better human body/anatomy details (e.g., 'realistic', 'photon')",
     ),
+    image_model: Optional[str] = Query(
+        None,
+        description="Optional image model preference (overrides nsfw_model if both provided)",
+    ),
     phases: Optional[str] = Query(
         "structural",
         description=(
@@ -779,6 +800,10 @@ async def generate_sample_images(
             "'background' (3 environment variations for regularization), "
             "'all' (all 14 images)"
         ),
+    ),
+    persona_id: Optional[str] = Query(
+        None,
+        description="Optional persona ID to use persona's saved model preferences (image_model_preference, nsfw_model_preference)",
     ),
     persona_service: PersonaService = Depends(get_persona_service),
 ) -> Dict[str, Any]:
@@ -823,7 +848,9 @@ async def generate_sample_images(
         quality: Generation quality preset (draft, standard, high, premium)
         style: Image generation style
         nsfw_model: Optional preferred NSFW model name for better anatomy rendering
+        image_model: Optional image model preference (overrides nsfw_model if both provided)
         phases: Which phases to generate (structural, action, background, all, legacy)
+        persona_id: Optional persona ID to look up saved model preferences
         persona_service: Injected persona service
 
     Returns:
@@ -843,6 +870,30 @@ async def generate_sample_images(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Appearance description must be at least 10 characters",
             )
+
+        # If persona_id is provided, look up the persona's model preferences
+        # These will be used if not overridden by query parameters
+        persona_image_model_pref = None
+        persona_nsfw_model_pref = None
+        
+        if persona_id:
+            try:
+                persona = await persona_service.get_persona(persona_id)
+                if persona:
+                    # Get persona's saved model preferences
+                    persona_image_model_pref = getattr(persona, 'image_model_preference', None)
+                    persona_nsfw_model_pref = getattr(persona, 'nsfw_model_preference', None)
+                    logger.info(
+                        f"Using persona {persona_id} model preferences: "
+                        f"image_model={persona_image_model_pref}, nsfw_model={persona_nsfw_model_pref}"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to look up persona {persona_id}: {e}")
+        
+        # Determine effective model preferences (query params override persona preferences)
+        # Priority: query param > persona preference > default
+        effective_image_model = image_model or persona_image_model_pref
+        effective_nsfw_model = nsfw_model or persona_nsfw_model_pref
 
         # Determine which image types to generate based on phases parameter
         phases_lower = phases.lower() if phases else "structural"
@@ -971,7 +1022,8 @@ async def generate_sample_images(
                             device_id=device_id,
                             image_style=style,
                             prefer_anatomy_model=True,
-                            nsfw_model_pref=nsfw_model,
+                            nsfw_model_pref=effective_nsfw_model,
+                            image_model_pref=effective_image_model,
                         )
                     else:
                         # Use ControlNet/img2img for structural guidance and appearance consistency
@@ -1005,7 +1057,8 @@ async def generate_sample_images(
                             device_id=device_id,
                             image_style=style,
                             prefer_anatomy_model=True,
-                            nsfw_model_pref=nsfw_model,
+                            nsfw_model_pref=effective_nsfw_model,
+                            image_model_pref=effective_image_model,
                             img2img_strength=img2img_strength,
                             use_controlnet=(controlnet_type in ["canny", "openpose"]),
                         )

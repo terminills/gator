@@ -3557,9 +3557,15 @@
                     phases: phases
                 });
                 
-                // Add model preference if selected
+                // Add model preference if selected from dropdown
                 if (baseGenModel) {
                     params.append('nsfw_model', baseGenModel);
+                }
+                
+                // If editing an existing persona, pass the persona_id so the backend
+                // can use the persona's saved model preferences (image_model_preference, nsfw_model_preference)
+                if (editorMode === 'edit' && personaId) {
+                    params.append('persona_id', personaId);
                 }
                 
                 const response = await fetch('/api/v1/personas/generate-sample-images?' + params, {
