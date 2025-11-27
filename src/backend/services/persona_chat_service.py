@@ -55,6 +55,9 @@ class PersonaChatService:
         """
         Generate a chat response from the persona to the user.
         
+        Uses the persona's text_model_preference if set, otherwise falls back
+        to default model selection.
+        
         Args:
             persona: Persona model with personality and traits
             user_message: The user's message to respond to
@@ -65,13 +68,21 @@ class PersonaChatService:
             str: The persona's response message
         """
         try:
+            # Get persona's preferred text model if set
+            text_model_pref = getattr(persona, 'text_model_preference', None)
+            
             # Check if we should use AI generation
-            if use_ai and self.llamacpp_binary and self._get_llama_model():
-                logger.info(f"Generating AI chat response for persona {persona.name}")
+            model_file = self._get_llama_model(text_model_preference=text_model_pref)
+            if use_ai and self.llamacpp_binary and model_file:
+                if text_model_pref:
+                    logger.info(f"Generating AI chat response for persona {persona.name} using preferred model: {text_model_pref}")
+                else:
+                    logger.info(f"Generating AI chat response for persona {persona.name}")
                 return await self._generate_with_ai(
                     persona=persona,
                     user_message=user_message,
-                    conversation_history=conversation_history or []
+                    conversation_history=conversation_history or [],
+                    model_file=model_file
                 )
             else:
                 logger.info(f"Using template response for persona {persona.name}")
@@ -84,14 +95,33 @@ class PersonaChatService:
             logger.error(f"Chat response generation failed: {e}")
             return self._generate_error_response(persona)
     
-    def _get_llama_model(self) -> Optional[str]:
+    def _get_llama_model(self, text_model_preference: Optional[str] = None) -> Optional[str]:
         """
         Find a suitable llama.cpp model for chat.
+        
+        Args:
+            text_model_preference: Optional persona-specific model preference
         
         Returns:
             Path to model file or None if not found
         """
-        # Check cache first
+        # If persona has a specific model preference, try to find it first
+        if text_model_preference:
+            # Create a cache key specific to this preference
+            cache_key = f"chat_model_{text_model_preference}"
+            if cache_key in self._model_cache:
+                return self._model_cache[cache_key]
+            
+            # Try to find the preferred model
+            preferred_model = self._find_preferred_model(text_model_preference)
+            if preferred_model:
+                logger.info(f"Using persona's preferred text model: {text_model_preference}")
+                self._model_cache[cache_key] = preferred_model
+                return preferred_model
+            else:
+                logger.warning(f"Persona's preferred model '{text_model_preference}' not found, using fallback")
+        
+        # Check default cache
         if "chat_model" in self._model_cache:
             return self._model_cache["chat_model"]
         
@@ -121,21 +151,95 @@ class PersonaChatService:
         logger.debug("No llama.cpp chat model found")
         return None
     
+    def _find_preferred_model(self, model_preference: str) -> Optional[str]:
+        """
+        Find a model matching the persona's preference.
+        
+        Searches for model files by name/path in common locations.
+        Also checks if the AI model manager has the model available.
+        
+        Args:
+            model_preference: Model name or identifier to search for
+            
+        Returns:
+            Path to model file or None if not found
+        """
+        model_pref_lower = model_preference.lower()
+        
+        # Search in model directories
+        model_base_dirs = [
+            Path("./models/text"),
+            Path("./models"),
+        ]
+        
+        for base_dir in model_base_dirs:
+            if not base_dir.exists():
+                continue
+                
+            # Check if the preference matches a directory name
+            for model_dir in base_dir.iterdir():
+                if not model_dir.is_dir():
+                    continue
+                    
+                # Check if model name matches preference
+                if model_pref_lower in model_dir.name.lower():
+                    # Look for model files in this directory
+                    for model_file in model_dir.glob("*.gguf"):
+                        logger.debug(f"Found preferred model: {model_file}")
+                        return str(model_file)
+                    for model_file in model_dir.glob("*.bin"):
+                        logger.debug(f"Found preferred model: {model_file}")
+                        return str(model_file)
+        
+        # Try to get from AI model manager (for Ollama models, etc.)
+        try:
+            from backend.services.ai_models import ai_models
+            
+            # Check if the preference matches any available text model
+            for model in ai_models.available_models.get("text", []):
+                model_name = model.get("name", "").lower()
+                model_id = model.get("model_id", "").lower()
+                ollama_model = model.get("ollama_model", "").lower()
+                
+                if (model_pref_lower in model_name or 
+                    model_pref_lower in model_id or
+                    model_pref_lower == ollama_model):
+                    
+                    # For Ollama models, return the ollama_model identifier
+                    if model.get("inference_engine") == "ollama":
+                        return f"ollama:{model.get('ollama_model', model.get('name'))}"
+                    
+                    # For local models with a path
+                    model_path = model.get("path")
+                    if model_path and Path(model_path).exists():
+                        return model_path
+                        
+        except Exception as e:
+            logger.debug(f"Could not check AI model manager: {e}")
+        
+        return None
+    
     async def _generate_with_ai(
         self,
         persona: PersonaModel,
         user_message: str,
-        conversation_history: List[MessageModel]
+        conversation_history: List[MessageModel],
+        model_file: str
     ) -> str:
         """
-        Generate response using llama.cpp AI model.
+        Generate response using llama.cpp AI model or Ollama.
         
         Creates a contextually-aware response by providing the language model
         with persona details and conversation context.
+        
+        Args:
+            persona: Persona model with personality and traits
+            user_message: The user's message to respond to
+            conversation_history: Recent message history for context
+            model_file: Path to model file or "ollama:model_name" for Ollama
         """
-        model_file = self._get_llama_model()
         if not model_file:
-            logger.warning("No llama.cpp model available, falling back to template")
+            logger.warning("No model available, falling back to template")
             return self._generate_fallback_response(persona, user_message)
         
         # Build the instruction for the language model
@@ -144,6 +248,15 @@ class PersonaChatService:
             user_message=user_message,
             conversation_history=conversation_history
         )
+        
+        # Check if this is an Ollama model
+        if model_file.startswith("ollama:"):
+            return await self._generate_with_ollama(
+                model_name=model_file.split(":", 1)[1],
+                instruction=instruction,
+                persona=persona,
+                user_message=user_message
+            )
         
         try:
             # Run llama.cpp to generate the response
@@ -193,6 +306,65 @@ class PersonaChatService:
             return self._generate_fallback_response(persona, user_message)
         except Exception as e:
             logger.error(f"llama.cpp execution failed: {e}")
+            return self._generate_fallback_response(persona, user_message)
+    
+    async def _generate_with_ollama(
+        self,
+        model_name: str,
+        instruction: str,
+        persona: PersonaModel,
+        user_message: str
+    ) -> str:
+        """
+        Generate response using Ollama API.
+        
+        Args:
+            model_name: Name of the Ollama model
+            instruction: The built instruction prompt
+            persona: Persona model for fallback
+            user_message: Original user message for fallback
+            
+        Returns:
+            Generated response text
+        """
+        try:
+            import httpx
+            
+            logger.info(f"Generating chat response with Ollama model: {model_name}")
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    "http://localhost:11434/api/generate",
+                    json={
+                        "model": model_name,
+                        "prompt": instruction,
+                        "stream": False,
+                        "options": {
+                            "num_predict": 200,  # Max tokens
+                            "temperature": 0.8,
+                            "top_p": 0.9,
+                            "repeat_penalty": 1.1,
+                        }
+                    }
+                )
+                
+                if response.status_code != 200:
+                    logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+                    return self._generate_fallback_response(persona, user_message)
+                
+                result = response.json()
+                output = result.get("response", "").strip()
+                
+                logger.debug(f"Ollama output: {output[:200]}...")
+                
+                # Parse and clean the response
+                response_text = self._parse_chat_output(output, persona)
+                
+                logger.info(f"Generated AI chat response via Ollama ({len(response_text.split())} words)")
+                return response_text
+                
+        except Exception as e:
+            logger.error(f"Ollama generation failed: {e}")
             return self._generate_fallback_response(persona, user_message)
     
     def _build_chat_instruction(
