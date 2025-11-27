@@ -3055,6 +3055,7 @@ class AIModelManager:
                 ControlNetModel,
                 DPMSolverMultistepScheduler,
                 DiffusionPipeline,
+                AutoencoderKL,
             )
         except ImportError as e:
             error_str = str(e)
@@ -3421,8 +3422,6 @@ class AIModelManager:
                         # Preload VAE from base model for single-file checkpoints
                         # This prevents failures when checkpoints don't include VAE weights
                         try:
-                            from diffusers import AutoencoderKL
-                            
                             if is_sdxl:
                                 base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
                             else:
@@ -3496,9 +3495,8 @@ class AIModelManager:
                                     f"Checkpoint missing {', '.join(component_list)}, loading from base model..."
                                 )
                                 try:
-                                    # Import required components
+                                    # Import required components (AutoencoderKL already imported at top of function)
                                     from transformers import CLIPTextModel, CLIPTextModelWithProjection
-                                    from diffusers import AutoencoderKL
                                     
                                     if is_sdxl:
                                         # SDXL base model for loading missing components
