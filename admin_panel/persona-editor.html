@@ -2632,6 +2632,15 @@
                 document.getElementById('video_model_preference').value = persona.video_model_preference || '';
                 document.getElementById('voice_model_preference').value = persona.voice_model_preference || '';
                 
+                // Sync base generation model selector with persona's image model preference
+                // This ensures the "Generate Base Images" section uses the persona's preferred model by default
+                const baseGenModelSelect = document.getElementById('base-gen-model-select');
+                if (baseGenModelSelect && persona.image_model_preference) {
+                    baseGenModelSelect.value = persona.image_model_preference;
+                    // If the model isn't in the dropdown yet (models load async), store for later
+                    baseGenModelSelect.dataset.preferredModel = persona.image_model_preference;
+                }
+                
                 // Populate video types
                 const videoTypes = persona.video_types || [];
                 document.querySelectorAll('input[name="video_types"]').forEach(checkbox => {
