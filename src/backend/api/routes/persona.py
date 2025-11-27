@@ -589,29 +589,167 @@ async def approve_seed_image(
         )
 
 
-# Define the 4 base image types with their specific prompts
-BASE_IMAGE_TYPES = [
+# Expanded base image types for complete physical appearance locking and LoRA training
+# Organized in 3 phases as recommended for optimal ControlNet progression
+#
+# Phase 1 - STRUCTURAL SET: Establishes physical identity and body structure
+# Phase 2 - ACTION SET: Dynamic poses for LoRA training (teaches clothing/muscle movement)
+# Phase 3 - BACKGROUND VARIATION: Character in varied environments (regularization)
+
+# Phase 1: Structural Set - Identity and body structure
+STRUCTURAL_IMAGE_TYPES = [
     {
-        "id": "face_shot",
-        "label": "Face Shot",
-        "prompt_addition": "close-up portrait, headshot, face centered, shoulders visible, looking at camera, detailed facial features, studio lighting",
+        "id": "front_headshot",
+        "label": "Front Head Shot",
+        "phase": "structural",
+        "order": 1,
+        "prompt_addition": "close-up portrait, front facing headshot, face centered, shoulders visible, looking directly at camera, detailed facial features, neutral expression, studio lighting, white background",
+        "controlnet_type": "none",  # Starting point - no reference needed
+        "caption_tags": "from front, portrait, simple background, white background",
     },
     {
-        "id": "bikini_front",
-        "label": "Bikini Front View",
-        "prompt_addition": "full body shot, bikini, front view facing camera, beach or pool setting, natural lighting, standing pose",
+        "id": "side_headshot",
+        "label": "Side Head Shot",
+        "phase": "structural",
+        "order": 2,
+        "prompt_addition": "close-up portrait, side profile headshot, face in profile, ear visible, detailed facial features, studio lighting, white background",
+        "controlnet_type": "canny",  # Use canny from front headshot
+        "caption_tags": "from side, profile, portrait, simple background, white background",
     },
     {
-        "id": "bikini_side",
-        "label": "Bikini Side View",
-        "prompt_addition": "full body shot, bikini, side profile view, beach or pool setting, natural lighting, standing pose",
+        "id": "right_hand",
+        "label": "Right Hand Detail",
+        "phase": "structural",
+        "order": 3,
+        "prompt_addition": "detailed close-up of right hand, palm facing camera, fingers spread, detailed hand anatomy, clean nails, studio lighting, white background",
+        "controlnet_type": "none",
+        "caption_tags": "hand focus, right hand, fingers, simple background",
     },
     {
-        "id": "bikini_rear",
-        "label": "Bikini Rear View",
-        "prompt_addition": "full body shot, bikini, rear view from behind, beach or pool setting, natural lighting, standing pose",
+        "id": "left_hand",
+        "label": "Left Hand Detail",
+        "phase": "structural",
+        "order": 4,
+        "prompt_addition": "detailed close-up of left hand, palm facing camera, fingers spread, detailed hand anatomy, clean nails, studio lighting, white background",
+        "controlnet_type": "canny",  # Use right hand as reference
+        "caption_tags": "hand focus, left hand, fingers, simple background",
+    },
+    {
+        "id": "bust",
+        "label": "Bust View",
+        "phase": "structural",
+        "order": 5,
+        "prompt_addition": "bust shot, upper body, chest and shoulders, facing camera, detailed torso anatomy, studio lighting, white background",
+        "controlnet_type": "canny",  # Use headshot as reference
+        "caption_tags": "upper body, bust, from front, simple background",
+    },
+    {
+        "id": "full_frontal",
+        "label": "Full Frontal View",
+        "phase": "structural",
+        "order": 6,
+        "prompt_addition": "full body shot, front view, A-pose or T-pose, standing straight, arms slightly away from body, feet shoulder width apart, anatomically correct proportions, studio lighting, white background",
+        "controlnet_type": "openpose",  # Use OpenPose for body structure
+        "caption_tags": "full body, standing, from front, a-pose, simple background",
+    },
+    {
+        "id": "side_profile",
+        "label": "Side Profile View",
+        "phase": "structural",
+        "order": 7,
+        "prompt_addition": "full body shot, side profile view, standing straight, arms at sides, anatomically correct proportions, studio lighting, white background",
+        "controlnet_type": "canny",  # Use full frontal as reference
+        "caption_tags": "full body, standing, from side, profile, simple background",
+    },
+    {
+        "id": "rear_view",
+        "label": "Rear View",
+        "phase": "structural",
+        "order": 8,
+        "prompt_addition": "full body shot, rear view from behind, standing straight, anatomically correct proportions, studio lighting, white background",
+        "controlnet_type": "canny",  # Use side profile as reference
+        "caption_tags": "full body, standing, from behind, back view, simple background",
     },
 ]
+
+# Phase 2: Action Set - Dynamic poses for LoRA training
+ACTION_IMAGE_TYPES = [
+    {
+        "id": "compression_pose",
+        "label": "Compression Pose (Sitting/Crouching)",
+        "phase": "action",
+        "order": 9,
+        "prompt_addition": "full body, sitting or crouching pose, knees bent, natural fabric folds and creases, relaxed posture, studio lighting, white background",
+        "controlnet_type": "openpose",
+        "caption_tags": "full body, sitting, crouching, bent knees, simple background",
+        "training_purpose": "Teaches model how pants/fabric fold when compressed",
+    },
+    {
+        "id": "extension_pose",
+        "label": "Extension Pose (Reaching/Running)",
+        "phase": "action",
+        "order": 10,
+        "prompt_addition": "full body, dynamic pose, arms reaching upward or running motion, extended limbs, visible armpit and shoulder connection, studio lighting, white background",
+        "controlnet_type": "openpose",
+        "caption_tags": "full body, reaching, arms up, dynamic pose, simple background",
+        "training_purpose": "Teaches model how armpit/shoulder area connects during extension",
+    },
+    {
+        "id": "twist_pose",
+        "label": "Twist Pose (Looking Back)",
+        "phase": "action",
+        "order": 11,
+        "prompt_addition": "full body, twisted pose, looking back over shoulder, torso rotation, neck turned, dynamic angle, studio lighting, white background",
+        "controlnet_type": "openpose",
+        "caption_tags": "full body, looking back, twisted torso, over shoulder, simple background",
+        "training_purpose": "Teaches model neck rotation and torso twist mechanics",
+    },
+]
+
+# Phase 3: Background Variation - Character in varied environments (regularization)
+BACKGROUND_IMAGE_TYPES = [
+    {
+        "id": "complex_bg_1",
+        "label": "Complex Background 1 (Urban)",
+        "phase": "background",
+        "order": 12,
+        "prompt_addition": "full body, standing naturally, urban environment, city street or cafe setting, complex background with depth, natural lighting",
+        "controlnet_type": "canny",  # Use full frontal as structure reference
+        "caption_tags": "full body, standing, urban background, city, outdoors",
+        "training_purpose": "Regularization - teaches character can exist in urban environments",
+    },
+    {
+        "id": "complex_bg_2",
+        "label": "Complex Background 2 (Nature)",
+        "phase": "background",
+        "order": 13,
+        "prompt_addition": "full body, standing naturally, nature environment, forest or park setting, complex background with foliage, natural lighting, outdoors",
+        "controlnet_type": "canny",
+        "caption_tags": "full body, standing, nature background, forest, outdoors",
+        "training_purpose": "Regularization - teaches character can exist in natural environments",
+    },
+    {
+        "id": "complex_bg_3",
+        "label": "Complex Background 3 (Interior)",
+        "phase": "background",
+        "order": 14,
+        "prompt_addition": "full body, standing or sitting naturally, indoor environment, modern interior or home setting, complex background with furniture, interior lighting",
+        "controlnet_type": "canny",
+        "caption_tags": "full body, indoors, interior background, room, home",
+        "training_purpose": "Regularization - teaches character can exist in interior spaces",
+    },
+]
+
+# Combined list of all base image types (backward compatible)
+BASE_IMAGE_TYPES = STRUCTURAL_IMAGE_TYPES + ACTION_IMAGE_TYPES + BACKGROUND_IMAGE_TYPES
+
+# Legacy mapping for backward compatibility with old 4-image system
+LEGACY_IMAGE_TYPE_MAPPING = {
+    "face_shot": "front_headshot",
+    "bikini_front": "full_frontal",
+    "bikini_side": "side_profile",
+    "bikini_rear": "rear_view",
+}
 
 
 @router.post("/generate-sample-images")
@@ -637,36 +775,69 @@ async def generate_sample_images(
         None,
         description="Optional NSFW model preference for better human body/anatomy details (e.g., 'realistic', 'photon')",
     ),
+    phases: Optional[str] = Query(
+        "structural",
+        description=(
+            "Which image phases to generate. Options: "
+            "'structural' (8 identity/body images), "
+            "'action' (3 dynamic poses for LoRA training), "
+            "'background' (3 environment variations for regularization), "
+            "'all' (all 14 images), "
+            "'legacy' (4 images for backward compatibility)"
+        ),
+    ),
     persona_service: PersonaService = Depends(get_persona_service),
 ) -> Dict[str, Any]:
     """
-    Generate 4 base images for persona physical appearance locking.
+    Generate expanded base images for persona physical appearance locking and LoRA training.
 
-    This endpoint generates 4 specific images based on the appearance:
-    1. Face shot (portrait/headshot) - for facial consistency
-    2. Bikini front view - for body consistency from front
-    3. Bikini side view - for body consistency from side
-    4. Bikini rear view - for body consistency from rear
+    This endpoint generates images in 3 phases based on the recommended ControlNet workflow:
 
-    These 4 images establish a complete, locked-in base physical appearance
-    for the persona that can be used for visual consistency in all future
-    content generation.
-    
-    Note: NSFW-capable models are preferred for generating these images because
-    they tend to be better trained on human anatomy and physical details,
-    resulting in more accurate body representations even for non-explicit content.
+    **Phase 1 - STRUCTURAL SET (8 images):**
+    - front_headshot, side_headshot: Facial identity
+    - right_hand, left_hand: Hand structure (often problematic in AI generation)
+    - bust: Upper body detail
+    - full_frontal (A-pose/T-pose): Full body structure
+    - side_profile, rear_view: 360° body coverage
+
+    **Phase 2 - ACTION SET (3 images):**
+    - compression_pose: Sitting/crouching (teaches fabric folds)
+    - extension_pose: Reaching/running (teaches shoulder/armpit connection)
+    - twist_pose: Looking back (teaches neck/torso rotation)
+
+    **Phase 3 - BACKGROUND VARIATION (3 images):**
+    - complex_bg_1: Urban environment
+    - complex_bg_2: Nature environment
+    - complex_bg_3: Interior environment
+    (Prevents "white room" problem in LoRA training)
+
+    The images are generated in sequence using ControlNet for structural consistency,
+    with each image potentially using the previous as a reference for visual coherence.
+
+    **Captioning for LoRA Training:**
+    Each image includes `caption_tags` metadata following the rule:
+    - PERMANENT character features (face, body) = NOT tagged (inherent to character)
+    - TEMPORARY aspects (pose, background) = TAGGED (so LoRA learns to vary them)
+
+    Note: NSFW-capable models are preferred because they are better trained on human
+    anatomy and physical details, resulting in more accurate body representations.
 
     Args:
         appearance: Physical appearance description
         personality: Optional personality traits
-        resolution: Image resolution in format "widthxheight" (e.g., "1024x1024", "720x1280", "1920x1080")
+        resolution: Image resolution in format "widthxheight"
         quality: Generation quality preset (draft, standard, high, premium)
-        style: Image generation style (photorealistic, anime, cartoon, artistic, 3d_render, fantasy, cinematic)
+        style: Image generation style
         nsfw_model: Optional preferred NSFW model name for better anatomy rendering
+        phases: Which phases to generate (structural, action, background, all, legacy)
         persona_service: Injected persona service
 
     Returns:
-        Dict with 'images' array containing objects with 'id', 'type', 'label', 'data_url'
+        Dict with:
+        - 'images': Array of generated images with id, label, data_url, caption_tags, etc.
+        - 'count': Number of images generated
+        - 'phases_generated': List of phases that were generated
+        - 'training_ready': Whether the set is complete for LoRA training
 
     Raises:
         400: Missing appearance or no image generation available
@@ -678,6 +849,54 @@ async def generate_sample_images(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Appearance description must be at least 10 characters",
             )
+
+        # Determine which image types to generate based on phases parameter
+        phases_lower = phases.lower() if phases else "structural"
+        image_types_to_generate = []
+        phases_generated = []
+
+        if phases_lower == "all":
+            image_types_to_generate = BASE_IMAGE_TYPES
+            phases_generated = ["structural", "action", "background"]
+        elif phases_lower == "legacy":
+            # Legacy 4-image mode for backward compatibility
+            legacy_types = [
+                {"id": "face_shot", "label": "Face Shot", "phase": "legacy", "order": 1,
+                 "prompt_addition": "close-up portrait, headshot, face centered, shoulders visible, looking at camera, detailed facial features, studio lighting",
+                 "controlnet_type": "none", "caption_tags": "portrait, from front"},
+                {"id": "bikini_front", "label": "Bikini Front View", "phase": "legacy", "order": 2,
+                 "prompt_addition": "full body shot, bikini, front view facing camera, beach or pool setting, natural lighting, standing pose",
+                 "controlnet_type": "canny", "caption_tags": "full body, standing, from front, beach"},
+                {"id": "bikini_side", "label": "Bikini Side View", "phase": "legacy", "order": 3,
+                 "prompt_addition": "full body shot, bikini, side profile view, beach or pool setting, natural lighting, standing pose",
+                 "controlnet_type": "canny", "caption_tags": "full body, standing, from side, beach"},
+                {"id": "bikini_rear", "label": "Bikini Rear View", "phase": "legacy", "order": 4,
+                 "prompt_addition": "full body shot, bikini, rear view from behind, beach or pool setting, natural lighting, standing pose",
+                 "controlnet_type": "canny", "caption_tags": "full body, standing, from behind, beach"},
+            ]
+            image_types_to_generate = legacy_types
+            phases_generated = ["legacy"]
+        else:
+            # Parse comma-separated phases
+            requested_phases = [p.strip().lower() for p in phases_lower.split(",")]
+            for phase in requested_phases:
+                if phase == "structural":
+                    image_types_to_generate.extend(STRUCTURAL_IMAGE_TYPES)
+                    phases_generated.append("structural")
+                elif phase == "action":
+                    image_types_to_generate.extend(ACTION_IMAGE_TYPES)
+                    phases_generated.append("action")
+                elif phase == "background":
+                    image_types_to_generate.extend(BACKGROUND_IMAGE_TYPES)
+                    phases_generated.append("background")
+            
+            # Default to structural if nothing matched
+            if not image_types_to_generate:
+                image_types_to_generate = STRUCTURAL_IMAGE_TYPES
+                phases_generated = ["structural"]
+
+        # Sort by order to ensure proper ControlNet chaining
+        image_types_to_generate = sorted(image_types_to_generate, key=lambda x: x.get("order", 0))
 
         # Initialize AI model manager
         ai_manager = AIModelManager()
@@ -714,14 +933,14 @@ async def generate_sample_images(
         quality_steps_map = {"draft": 20, "standard": 30, "high": 50, "premium": 80}
         num_steps = quality_steps_map.get(quality.lower(), 30)
 
-        logger.info(f"Generating 4 base images with appearance: {appearance[:50]}...")
+        total_images = len(image_types_to_generate)
+        logger.info(f"Generating {total_images} base images with appearance: {appearance[:50]}...")
         logger.info(f"Resolution: {width}x{height}, Quality: {quality}, Style: {style}")
-        logger.info("Using sequential ControlNet/img2img chain: face→front→side→rear for maximum body consistency")
+        logger.info(f"Phases: {', '.join(phases_generated)}")
+        logger.info("Using sequential ControlNet chain for maximum visual consistency")
 
-        # Generate 4 specific images using sequential ControlNet chain
-        # Each image uses the previous one as reference for progressive consistency:
-        # Face Shot → Bikini Front → Bikini Side → Bikini Rear
-        # ControlNet provides structural guidance while img2img maintains appearance
+        # Generate images using sequential ControlNet chain
+        # Each image uses the previous one as reference for progressive consistency
         images = []
         current_reference_path = None  # Chain: each image becomes reference for the next
         temp_files = []  # Track temp files for cleanup
@@ -745,19 +964,19 @@ async def generate_sample_images(
 
         try:
             # Sequential chain generation: each image becomes reference for the next
-            for i, image_type in enumerate(BASE_IMAGE_TYPES):
+            for i, image_type in enumerate(image_types_to_generate):
                 try:
                     specific_prompt = f"{appearance}, {image_type['prompt_addition']}"
                     
                     # Select GPU in round-robin fashion
                     device_id = available_gpus[i % len(available_gpus)] if available_gpus else None
                     
-                    # Determine generation mode based on position in chain
-                    # First image (face shot): pure text2img to establish the face
-                    # Subsequent images: ControlNet + img2img for structural + appearance consistency
-                    if i == 0:
-                        # Face shot - pure text2img, establishes the face
-                        logger.info(f"STEP {i+1}/4: Generating {image_type['label']} (chain start - text2img)")
+                    # Determine generation mode based on controlnet_type and position in chain
+                    controlnet_type = image_type.get("controlnet_type", "none")
+                    
+                    if controlnet_type == "none" or current_reference_path is None:
+                        # Pure text2img - starting point or no ControlNet needed
+                        logger.info(f"STEP {i+1}/{total_images}: Generating {image_type['label']} (text2img)")
                         result = await ai_manager._generate_reference_image_local(
                             appearance_prompt=specific_prompt,
                             personality_context=personality[:200] if personality else None,
@@ -771,16 +990,26 @@ async def generate_sample_images(
                             nsfw_model_pref=nsfw_model,
                         )
                     else:
-                        # Use ControlNet + img2img for structural guidance and appearance consistency
-                        # ControlNet strength varies: higher for direct pose changes, lower for subtle rotations
-                        if i == 1:
-                            # Front view from face - need more freedom to establish full body
-                            img2img_strength = 0.55  # More generation freedom
-                            logger.info(f"STEP {i+1}/4: Generating {image_type['label']} (ControlNet from face, strength={img2img_strength})")
+                        # Use ControlNet/img2img for structural guidance and appearance consistency
+                        # Strength varies based on the type of transformation needed
+                        phase = image_type.get("phase", "structural")
+                        
+                        if phase == "structural":
+                            # Structural images need high consistency
+                            img2img_strength = 0.50
+                        elif phase == "action":
+                            # Action poses need more freedom for dynamic movement
+                            img2img_strength = 0.60
+                        elif phase == "background":
+                            # Background variations need most freedom
+                            img2img_strength = 0.65
                         else:
-                            # Side/rear views - maintain body structure while rotating
-                            img2img_strength = 0.50  # Even more freedom for pose rotation
-                            logger.info(f"STEP {i+1}/4: Generating {image_type['label']} (ControlNet chain, strength={img2img_strength})")
+                            img2img_strength = 0.55
+                        
+                        logger.info(
+                            f"STEP {i+1}/{total_images}: Generating {image_type['label']} "
+                            f"({controlnet_type}, strength={img2img_strength})"
+                        )
                         
                         result = await ai_manager._generate_reference_image_local(
                             appearance_prompt=specific_prompt,
@@ -794,7 +1023,7 @@ async def generate_sample_images(
                             prefer_anatomy_model=True,
                             nsfw_model_pref=nsfw_model,
                             img2img_strength=img2img_strength,
-                            use_controlnet=True,  # Enable ControlNet for structural guidance
+                            use_controlnet=(controlnet_type in ["canny", "openpose"]),
                         )
 
                     # Save this image as reference for the next in the chain
@@ -808,17 +1037,29 @@ async def generate_sample_images(
                     base64_image = base64.b64encode(result["image_data"]).decode("utf-8")
                     data_url = f"data:image/png;base64,{base64_image}"
 
-                    images.append({
+                    # Build image response with training metadata
+                    image_response = {
                         "id": image_type["id"],
                         "type": image_type["id"],
                         "label": image_type["label"],
+                        "phase": image_type.get("phase", "unknown"),
+                        "order": image_type.get("order", i + 1),
                         "data_url": data_url,
                         "size": len(result["image_data"]),
                         "gpu_id": device_id if device_id is not None else "auto",
                         "chain_position": i + 1,
-                    })
+                        # LoRA training metadata
+                        "caption_tags": image_type.get("caption_tags", ""),
+                        "controlnet_type": image_type.get("controlnet_type", "none"),
+                    }
+                    
+                    # Add training purpose if available (for action/background phases)
+                    if "training_purpose" in image_type:
+                        image_response["training_purpose"] = image_type["training_purpose"]
 
-                    logger.info(f"Generated {image_type['label']} ({i+1}/4) - chain reference updated")
+                    images.append(image_response)
+
+                    logger.info(f"Generated {image_type['label']} ({i+1}/{total_images}) - chain reference updated")
 
                 except Exception as e:
                     logger.warning(f"Failed to generate {image_type['label']}: {str(e)}")
@@ -844,9 +1085,31 @@ async def generate_sample_images(
                 detail="Failed to generate any base images. Check that local Stable Diffusion models are properly loaded.",
             )
 
+        # Determine if the generated set is complete for LoRA training
+        # Complete set requires: structural + action + background (all 14 images)
+        training_ready = (
+            len(images) >= 14 and 
+            "structural" in phases_generated and 
+            "action" in phases_generated and 
+            "background" in phases_generated
+        )
+
         logger.info(f"Successfully generated {len(images)} base images with ControlNet chain")
 
-        return {"images": images, "count": len(images)}
+        return {
+            "images": images,
+            "count": len(images),
+            "phases_generated": phases_generated,
+            "training_ready": training_ready,
+            "training_guidance": {
+                "captioning_rule": "PERMANENT features (face, body) = NOT tagged. TEMPORARY aspects (pose, background) = TAGGED.",
+                "complete_for_lora": training_ready,
+                "recommended_next": (
+                    "Ready for LoRA training!" if training_ready
+                    else f"Add phases: {', '.join(set(['structural', 'action', 'background']) - set(phases_generated))}"
+                ),
+            },
+        }
 
     except HTTPException:
         raise
@@ -1451,12 +1714,33 @@ async def set_base_image_from_sample(
 
 
 class SetBaseImagesRequest(BaseModel):
-    """Request model for setting all 4 base images."""
+    """Request model for setting base images (supports both legacy 4-image and expanded 14-image sets)."""
     
-    face_shot: Optional[str] = Field(None, description="Base64 data URL for face shot")
-    bikini_front: Optional[str] = Field(None, description="Base64 data URL for bikini front view")
-    bikini_side: Optional[str] = Field(None, description="Base64 data URL for bikini side view")
-    bikini_rear: Optional[str] = Field(None, description="Base64 data URL for bikini rear view")
+    # Legacy 4-image fields (for backward compatibility)
+    face_shot: Optional[str] = Field(None, description="Base64 data URL for face shot (legacy)")
+    bikini_front: Optional[str] = Field(None, description="Base64 data URL for bikini front view (legacy)")
+    bikini_side: Optional[str] = Field(None, description="Base64 data URL for bikini side view (legacy)")
+    bikini_rear: Optional[str] = Field(None, description="Base64 data URL for bikini rear view (legacy)")
+    
+    # Phase 1 - Structural Set (8 images)
+    front_headshot: Optional[str] = Field(None, description="Base64 data URL for front headshot")
+    side_headshot: Optional[str] = Field(None, description="Base64 data URL for side headshot")
+    right_hand: Optional[str] = Field(None, description="Base64 data URL for right hand detail")
+    left_hand: Optional[str] = Field(None, description="Base64 data URL for left hand detail")
+    bust: Optional[str] = Field(None, description="Base64 data URL for bust view")
+    full_frontal: Optional[str] = Field(None, description="Base64 data URL for full frontal view")
+    side_profile: Optional[str] = Field(None, description="Base64 data URL for side profile view")
+    rear_view: Optional[str] = Field(None, description="Base64 data URL for rear view")
+    
+    # Phase 2 - Action Set (3 images)
+    compression_pose: Optional[str] = Field(None, description="Base64 data URL for compression pose (sitting/crouching)")
+    extension_pose: Optional[str] = Field(None, description="Base64 data URL for extension pose (reaching/running)")
+    twist_pose: Optional[str] = Field(None, description="Base64 data URL for twist pose (looking back)")
+    
+    # Phase 3 - Background Variation (3 images)
+    complex_bg_1: Optional[str] = Field(None, description="Base64 data URL for complex background 1 (urban)")
+    complex_bg_2: Optional[str] = Field(None, description="Base64 data URL for complex background 2 (nature)")
+    complex_bg_3: Optional[str] = Field(None, description="Base64 data URL for complex background 3 (interior)")
 
 
 @router.post("/{persona_id}/set-base-images")
@@ -1466,16 +1750,25 @@ async def set_base_images(
     persona_service: PersonaService = Depends(get_persona_service),
 ) -> PersonaResponse:
     """
-    Set all 4 base images for a persona to lock the physical appearance.
+    Set base images for a persona to lock the physical appearance.
 
-    This endpoint sets the 4 required base images for complete physical appearance locking:
-    1. face_shot - Portrait/headshot for facial consistency
-    2. bikini_front - Front view for body consistency
-    3. bikini_side - Side view for body consistency
-    4. bikini_rear - Rear view for body consistency
+    Supports both the legacy 4-image set and the expanded 14-image set for LoRA training:
 
-    All 4 images must be provided for complete appearance locking.
-    Images are saved to disk and paths stored in the persona's base_images field.
+    **Legacy Images (backward compatibility):**
+    - face_shot, bikini_front, bikini_side, bikini_rear
+
+    **Phase 1 - Structural Set (8 images):**
+    - front_headshot, side_headshot, right_hand, left_hand
+    - bust, full_frontal, side_profile, rear_view
+
+    **Phase 2 - Action Set (3 images):**
+    - compression_pose, extension_pose, twist_pose
+
+    **Phase 3 - Background Variation (3 images):**
+    - complex_bg_1, complex_bg_2, complex_bg_3
+
+    At least one image must be provided. Images are saved to disk and paths
+    stored in the persona's base_images field.
 
     Args:
         persona_id: The persona to update
@@ -1499,13 +1792,33 @@ async def set_base_images(
                 detail=f"Persona {persona_id} not found",
             )
 
-        # Process each image type
+        # Process all image types (legacy + expanded)
         base_images_dict = {}
+        
+        # Build list of all image types from the request model
         image_types = [
+            # Legacy images
             ("face_shot", images.face_shot),
             ("bikini_front", images.bikini_front),
             ("bikini_side", images.bikini_side),
             ("bikini_rear", images.bikini_rear),
+            # Phase 1 - Structural Set
+            ("front_headshot", images.front_headshot),
+            ("side_headshot", images.side_headshot),
+            ("right_hand", images.right_hand),
+            ("left_hand", images.left_hand),
+            ("bust", images.bust),
+            ("full_frontal", images.full_frontal),
+            ("side_profile", images.side_profile),
+            ("rear_view", images.rear_view),
+            # Phase 2 - Action Set
+            ("compression_pose", images.compression_pose),
+            ("extension_pose", images.extension_pose),
+            ("twist_pose", images.twist_pose),
+            # Phase 3 - Background Variation
+            ("complex_bg_1", images.complex_bg_1),
+            ("complex_bg_2", images.complex_bg_2),
+            ("complex_bg_3", images.complex_bg_3),
         ]
 
         for image_type, image_data_str in image_types:
@@ -1552,8 +1865,13 @@ async def set_base_images(
         # Update persona with all base images
         from backend.models.persona import PersonaUpdate
 
-        # Use face_shot as the primary base_image_path for backward compatibility
-        primary_image_path = base_images_dict.get("face_shot") or next(iter(base_images_dict.values()))
+        # Determine primary image for backward compatibility
+        # Priority: front_headshot > face_shot > first available
+        primary_image_path = (
+            base_images_dict.get("front_headshot") or 
+            base_images_dict.get("face_shot") or 
+            next(iter(base_images_dict.values()))
+        )
 
         updates = PersonaUpdate(
             base_image_path=primary_image_path,

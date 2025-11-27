@@ -415,6 +415,13 @@ class PromptGenerationService:
         else:
             instruction_parts.append("Content Rating: SFW only (family-friendly)")
 
+        # Add persona's AI model preferences if available
+        # These inform the prompt generator about the persona's preferred generation style
+        if hasattr(persona, 'image_model_preference') and persona.image_model_preference:
+            instruction_parts.append(f"Preferred Image Model: {persona.image_model_preference}")
+        if hasattr(persona, 'nsfw_model_preference') and persona.nsfw_model_preference:
+            instruction_parts.append(f"Preferred NSFW Model: {persona.nsfw_model_preference}")
+
         # Add context if provided
         # Interpret instruction-like text as hints rather than literal context
         if context:
