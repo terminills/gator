@@ -46,11 +46,6 @@ NSFW_MODEL_KEYWORDS = [
     "realvis", "juggernaut", "explicit", "adult"
 ]
 
-# Preferred CivitAI model version ID for image generation
-# When this model is installed, it will be used as the default
-# Model 1257570 is the preferred NSFW/anatomy model
-PREFERRED_CIVITAI_VERSION_ID = 1257570
-
 # Default guidance scale values for different model types
 DEFAULT_GUIDANCE_SCALE = 7.5  # Standard SD/SDXL guidance
 DEFAULT_FLUX_GUIDANCE_SCALE = 3.5  # FLUX models use lower guidance
@@ -1411,14 +1406,24 @@ class AIModelManager:
 
         # For image models
         if content_type == "image":
-            # HIGHEST PRIORITY: Check for preferred CivitAI model (version 1257570)
-            for model in available_models:
-                if model.get("civitai_version_id") == PREFERRED_CIVITAI_VERSION_ID:
-                    logger.info(
-                        f"🎯 Model selection: {model.get('display_name', model['name'])} "
-                        f"(reason: preferred CivitAI model v{PREFERRED_CIVITAI_VERSION_ID})"
-                    )
-                    return model
+            # HIGHEST PRIORITY: Check for persona's image_model_preference
+            image_model_pref = kwargs.get("image_model_pref") or kwargs.get("image_model")
+            if image_model_pref:
+                for model in available_models:
+                    if (
+                        image_model_pref.lower() in model["name"].lower()
+                        or image_model_pref.lower() in model.get("model_id", "").lower()
+                        or image_model_pref.lower() in model.get("display_name", "").lower()
+                    ):
+                        logger.info(
+                            f"🎯 Model selection: {model.get('display_name', model['name'])} "
+                            f"(reason: persona image_model_preference)"
+                        )
+                        return model
+                logger.warning(
+                    f"Persona's preferred image model '{image_model_pref}' not found, "
+                    f"falling back to intelligent selection"
+                )
 
             # Check for explicit NSFW model preference from persona settings
             nsfw_model_pref = kwargs.get("nsfw_model")
@@ -4940,12 +4945,6 @@ class AIModelManager:
                     return model
             logger.warning(f"Persona's preferred image model '{image_model_pref}' not found, using fallback selection")
 
-        # Check for preferred CivitAI model (version 1257570)
-        for model in local_models:
-            if model.get("civitai_version_id") == PREFERRED_CIVITAI_VERSION_ID:
-                logger.info(f"Using preferred CivitAI model (v{PREFERRED_CIVITAI_VERSION_ID}): {model.get('name')}")
-                return model
-
         # If specific NSFW model preference provided, try to find it
         if nsfw_model_pref:
             for model in local_models:
@@ -4957,7 +4956,7 @@ class AIModelManager:
                     logger.info(f"Using preferred NSFW model for better anatomy: {model.get('name')}")
                     return model
         
-        # Default behavior: Always look for NSFW/anatomy-focused models first
+        # Default behavior: Look for NSFW/anatomy-focused models first
         # Models known to be better at human anatomy/bodies
         for model in local_models:
             model_name_lower = model.get("name", "").lower()
