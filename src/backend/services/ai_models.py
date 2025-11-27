@@ -86,6 +86,57 @@ def strip_ansi_codes(text: str) -> str:
     return _ANSI_ESCAPE_PATTERN.sub("", text)
 
 
+def is_flux_model(model: Dict[str, Any]) -> bool:
+    """
+    Check if a model is a FLUX model.
+    
+    FLUX models have a completely different architecture from Stable Diffusion
+    and cannot be loaded with StableDiffusionPipeline. They require ComfyUI
+    or the FluxPipeline class from diffusers (when available).
+    
+    Detection patterns:
+    - Model name/path contains "flux" followed by version (flux.1, flux1, flux-1)
+    - Model name/path contains "fluxed" (common in CivitAI FLUX-based model names)
+    - HuggingFace model IDs with flux in the org/repo path
+    - CivitAI models with "Flux" in base_model field
+    - File names containing "flux" at start or after common separators
+    
+    Args:
+        model: Model dictionary with name, model_id, base_model, path fields
+        
+    Returns:
+        bool: True if this is a FLUX model
+    """
+    import re
+    
+    model_name = model.get("name", "").lower()
+    model_id = model.get("model_id", "").lower()
+    base_model = model.get("base_model", "").lower()
+    model_path = model.get("path", "").lower()
+    display_name = model.get("display_name", "").lower()
+    
+    # Combine all fields to check
+    all_text = f"{model_name} {model_id} {base_model} {model_path} {display_name}"
+    
+    # More specific patterns to match FLUX models:
+    # These patterns avoid false positives like "influx" or "reflux"
+    flux_patterns = [
+        r'\bflux[.\-_]?\d',        # flux.1, flux-1, flux_1, flux1
+        r'\bflux[.\-_]?dev\b',     # flux.dev, flux-dev, flux_dev
+        r'\bflux[.\-_]?schnell\b', # flux.schnell, flux-schnell
+        r'\bfluxed',               # fluxed, fluxedUp, fluxedUpFluxNSFW (CivitAI naming)
+        r'/flux[.\-_]',            # In HuggingFace paths like black-forest-labs/FLUX.1-dev
+        r'flux[.\-_]?nsfw',        # FLUX NSFW models like fluxNSFW, flux_nsfw
+        r'flux[.\-_]?up',          # fluxUp, flux-up patterns
+    ]
+    
+    for pattern in flux_patterns:
+        if re.search(pattern, all_text, re.IGNORECASE):
+            return True
+    
+    return False
+
+
 def disable_safety_checker(pipe: Any) -> bool:
     """
     Disable the safety checker on a diffusion pipeline for NSFW content generation.
@@ -3098,6 +3149,24 @@ class AIModelManager:
             model_name = model["name"]
             model_id = model["model_id"]
 
+            # Determine if this is a FLUX model
+            # FLUX models have a completely different architecture and require ComfyUI
+            # They cannot be loaded with StableDiffusionPipeline
+            if is_flux_model(model):
+                logger.info(f"Detected FLUX model: {model_name}")
+                logger.info("FLUX models require ComfyUI for inference, routing to ComfyUI pipeline...")
+                # Check if ComfyUI is available
+                comfyui_available = await self._check_inference_engine("comfyui")
+                if comfyui_available:
+                    return await self._generate_image_comfyui(prompt, model, **kwargs)
+                else:
+                    raise ValueError(
+                        f"FLUX model '{model_name}' detected but ComfyUI is not available. "
+                        f"FLUX models cannot be loaded with diffusers StableDiffusionPipeline. "
+                        f"Please install and configure ComfyUI, or select a different model "
+                        f"(e.g., SDXL or SD 1.5 models work with diffusers)."
+                    )
+            
             # Determine if this is an SDXL model
             # Check name, model_id, and base_model field (used by CivitAI models)
             base_model = model.get("base_model", "")
