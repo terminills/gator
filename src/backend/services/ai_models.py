@@ -4249,6 +4249,7 @@ class AIModelManager:
                             text_encoder=[pipe.text_encoder, pipe.text_encoder_2],
                             returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
                             requires_pooled=[False, True],
+                            truncate_long_prompts=False,  # Enable long prompt support (>77 tokens)
                             device=device,
                         )
 
@@ -4291,6 +4292,7 @@ class AIModelManager:
                         compel = Compel(
                             tokenizer=pipe.tokenizer,
                             text_encoder=pipe.text_encoder,
+                            truncate_long_prompts=False,  # Enable long prompt support (>77 tokens)
                             device=device,
                         )
 
