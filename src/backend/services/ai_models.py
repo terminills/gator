@@ -4273,6 +4273,16 @@ class AIModelManager:
                                 "Falling back to standard prompt encoding (will truncate at 77 tokens)"
                             )
                         else:
+                            # Pad conditioning tensors to same length to avoid shape mismatch
+                            # Long prompts may have more tokens than short negative prompts
+                            # SDXL pipeline requires prompt_embeds and negative_prompt_embeds to have matching shapes
+                            [conditioning, negative_conditioning] = compel.pad_conditioning_tensors_to_same_length(
+                                [conditioning, negative_conditioning]
+                            )
+                            logger.info(
+                                f"Padded embeddings to same length: {conditioning.shape[1]} tokens"
+                            )
+
                             # Set the SDXL embeddings to use
                             prompt_embeds = conditioning
                             pooled_prompt_embeds = pooled
@@ -4310,6 +4320,16 @@ class AIModelManager:
                                 "Falling back to standard prompt encoding (will truncate at 77 tokens)"
                             )
                         else:
+                            # Pad conditioning tensors to same length to avoid shape mismatch
+                            # Long prompts may have more tokens than short negative prompts
+                            # SD 1.5 pipeline requires prompt_embeds and negative_prompt_embeds to have matching shapes
+                            [conditioning, negative_conditioning] = compel.pad_conditioning_tensors_to_same_length(
+                                [conditioning, negative_conditioning]
+                            )
+                            logger.info(
+                                f"Padded embeddings to same length: {conditioning.shape[1]} tokens"
+                            )
+
                             # Set the SD 1.5 embeddings (no pooled embeddings for SD 1.5)
                             prompt_embeds = conditioning
                             negative_prompt_embeds = negative_conditioning
