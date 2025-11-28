@@ -1497,9 +1497,9 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
             from backend.services.acd_understanding_service import ACDUnderstandingService
             from uuid import UUID as UUIDType
             
-            # Try to extract a UUID from the query
-            uuid_pattern = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
-            uuid_match = re.search(uuid_pattern, query.lower())
+            # Try to extract a UUID from the query (case-insensitive)
+            uuid_pattern = r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+            uuid_match = re.search(uuid_pattern, query, re.IGNORECASE)
             
             if not uuid_match:
                 output.append("[ERROR] No valid context ID found in query.")

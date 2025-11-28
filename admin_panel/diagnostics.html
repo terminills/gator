@@ -1615,6 +1615,34 @@
             sendMessage();
         }
         
+        // ============================================================
+        // ACD Understanding Functions
+        // ============================================================
+        
+        // Get comprehensive system understanding
+        async function getSystemUnderstanding() {
+            document.getElementById('chat-input').value = 'system understanding';
+            sendMessage();
+        }
+        
+        // Search ACD contexts
+        async function searchACDContexts() {
+            document.getElementById('chat-input').value = 'search contexts';
+            sendMessage();
+        }
+        
+        // Show system errors
+        async function showSystemErrors() {
+            document.getElementById('chat-input').value = 'show errors';
+            sendMessage();
+        }
+        
+        // Explain ACD system
+        async function explainACD() {
+            document.getElementById('chat-input').value = 'explain acd';
+            sendMessage();
+        }
+        
         // Auto-refresh every 30 seconds
         setInterval(loadData, 30000);
         

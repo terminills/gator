@@ -567,8 +567,9 @@ class ACDUnderstandingService:
             users = user_result.scalars().all()
             
             # Analyze message patterns
-            user_messages = [m for m in messages if not getattr(m, 'is_ai_generated', True)]
-            ai_messages = [m for m in messages if getattr(m, 'is_ai_generated', True)]
+            # Default to False (user message) if is_ai_generated attribute doesn't exist
+            user_messages = [m for m in messages if not getattr(m, 'is_ai_generated', False)]
+            ai_messages = [m for m in messages if getattr(m, 'is_ai_generated', False)]
             
             # Unique active users (those who sent messages)
             active_user_ids = set(m.sender_id for m in user_messages if m.sender_id)
