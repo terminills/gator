@@ -742,6 +742,54 @@ async def add_persona_ai_model_preference_columns(conn, is_sqlite: bool) -> List
     return added_columns
 
 
+async def add_content_triggers_column(conn, is_sqlite: bool) -> List[str]:
+    """
+    Add content_triggers JSON column to personas table for trigger-based
+    model orchestration with LoRA stacking and dynamic prompts.
+    
+    Added in PR #428: Enables configurable trigger words that route to 
+    specific models/LoRAs with per-trigger positive/negative prompts 
+    and weight preferences.
+
+    Args:
+        conn: Database connection
+        is_sqlite: Whether the database is SQLite
+
+    Returns:
+        List of columns that were added
+    """
+    added_columns = []
+
+    # Check if table exists first
+    if not await table_exists(conn, "personas", is_sqlite):
+        logger.debug("Personas table does not exist, skipping content_triggers migration")
+        return added_columns
+
+    # Check and add content_triggers
+    if not await check_column_exists(conn, "personas", "content_triggers", is_sqlite):
+        logger.info("Adding content_triggers column to personas table")
+        if is_sqlite:
+            # SQLite uses TEXT for JSON storage
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN content_triggers TEXT DEFAULT '{}'")
+            )
+            # Update existing rows to have the default value
+            await conn.execute(
+                text("UPDATE personas SET content_triggers = '{}' WHERE content_triggers IS NULL")
+            )
+        else:
+            # PostgreSQL supports native JSONB type
+            await conn.execute(
+                text("ALTER TABLE personas ADD COLUMN content_triggers JSONB DEFAULT '{}'::jsonb")
+            )
+        added_columns.append("content_triggers")
+
+    if added_columns:
+        logger.info("✓ Added content_triggers column for trigger-based model orchestration")
+
+    return added_columns
+
+
 async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
     """
     Run all pending migrations on the database.
@@ -850,6 +898,18 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                 )
             else:
                 logger.info("All AI model preference columns are up to date")
+
+            # Run content triggers migration (PR #428)
+            content_triggers_added = await add_content_triggers_column(conn, is_sqlite)
+
+            if content_triggers_added:
+                results["migrations_run"].append("personas_content_triggers")
+                results["columns_added"].extend(content_triggers_added)
+                logger.info(
+                    f"Added content_triggers column for trigger-based model orchestration"
+                )
+            else:
+                logger.info("Content triggers column is up to date")
 
         return results
 
