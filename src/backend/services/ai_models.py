@@ -4499,20 +4499,45 @@ class AIModelManager:
                         )
                     else:
                         # Using standard text prompts
-                        result = await loop.run_in_executor(
-                            None,
-                            lambda: pipe(
-                                prompt=original_prompt,  # Use original prompt for img2img
-                                image=init_image,
-                                strength=img2img_strength,
-                                negative_prompt=original_negative_prompt,
-                                num_inference_steps=num_inference_steps,
-                                guidance_scale=guidance_scale,
-                                generator=generator,
-                            ),
-                        )
-                        image = safe_extract_image(result)
-                        logger.info("✓ Image generated successfully via img2img")
+                        # For SDXL img2img, we need to include additional parameters
+                        # that control the aesthetic embedding (original_size, target_size, etc.)
+                        if is_sdxl:
+                            # SDXL img2img with standard text prompts
+                            # Requires additional aesthetic parameters for proper embedding generation
+                            result = await loop.run_in_executor(
+                                None,
+                                lambda: pipe(
+                                    prompt=original_prompt,  # Use original prompt for img2img
+                                    image=init_image,
+                                    strength=img2img_strength,
+                                    negative_prompt=original_negative_prompt,
+                                    num_inference_steps=num_inference_steps,
+                                    guidance_scale=guidance_scale,
+                                    generator=generator,
+                                    # SDXL-specific parameters for proper aesthetic embeddings
+                                    original_size=(width, height),
+                                    target_size=(width, height),
+                                    crops_coords_top_left=(0, 0),
+                                ),
+                            )
+                            image = safe_extract_image(result)
+                            logger.info("✓ Image generated successfully via img2img (SDXL text prompt)")
+                        else:
+                            # SD 1.5 img2img with standard text prompts
+                            result = await loop.run_in_executor(
+                                None,
+                                lambda: pipe(
+                                    prompt=original_prompt,  # Use original prompt for img2img
+                                    image=init_image,
+                                    strength=img2img_strength,
+                                    negative_prompt=original_negative_prompt,
+                                    num_inference_steps=num_inference_steps,
+                                    guidance_scale=guidance_scale,
+                                    generator=generator,
+                                ),
+                            )
+                            image = safe_extract_image(result)
+                            logger.info("✓ Image generated successfully via img2img (SD 1.5)")
                 else:
                     # Standard text2img generation
                     # Use embeddings if available (from compel), otherwise use text prompts
