@@ -909,6 +909,30 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
             else:
                 logger.info("Content triggers column is up to date")
 
+            # Run ACD scheduling columns migration (PR #433)
+            acd_scheduling_added = await add_acd_scheduling_columns(conn, is_sqlite)
+
+            if acd_scheduling_added:
+                results["migrations_run"].append("acd_contexts_scheduling")
+                results["columns_added"].extend(acd_scheduling_added)
+                logger.info(
+                    f"Added {len(acd_scheduling_added)} ACD scheduling column(s) for LLM-driven scheduler"
+                )
+            else:
+                logger.info("All ACD scheduling columns are up to date")
+
+            # Create business intelligence tables (PR #433)
+            bi_tables_created = await create_business_intelligence_tables(conn, is_sqlite)
+
+            if bi_tables_created:
+                results["migrations_run"].append("business_intelligence_tables")
+                results["columns_added"].extend([f"table:{t}" for t in bi_tables_created])
+                logger.info(
+                    f"Created {len(bi_tables_created)} business intelligence table(s): {', '.join(bi_tables_created)}"
+                )
+            else:
+                logger.info("All business intelligence tables are up to date")
+
         return results
 
     except Exception as e:
@@ -916,3 +940,714 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
         results["success"] = False
         results["error"] = str(e)
         return results
+
+
+async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
+    """
+    Add scheduling-related columns to acd_contexts table for LLM-driven
+    scheduler integration.
+    
+    Added in PR #433: Enables LLM to reason about scheduling, timing optimization,
+    dependencies, orchestration groups, and resource planning.
+
+    Args:
+        conn: Database connection
+        is_sqlite: Whether the database is SQLite
+
+    Returns:
+        List of columns that were added
+    """
+    added_columns = []
+
+    # Check if table exists first
+    if not await table_exists(conn, "acd_contexts", is_sqlite):
+        logger.debug("acd_contexts table does not exist, skipping scheduling migration")
+        return added_columns
+
+    # ==================== SCHEDULE CONFIGURATION ====================
+    
+    if not await check_column_exists(conn, "acd_contexts", "schedule_type", is_sqlite):
+        logger.info("Adding schedule_type column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN schedule_type VARCHAR(30)")
+        )
+        added_columns.append("schedule_type")
+        # Create index
+        try:
+            await conn.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_acd_contexts_schedule_type ON acd_contexts (schedule_type)")
+            )
+        except Exception as e:
+            logger.warning(f"Could not create index on schedule_type: {e}")
+
+    if not await check_column_exists(conn, "acd_contexts", "scheduled_for", is_sqlite):
+        logger.info("Adding scheduled_for column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN scheduled_for TIMESTAMP")
+        )
+        added_columns.append("scheduled_for")
+        # Create index
+        try:
+            await conn.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_acd_contexts_scheduled_for ON acd_contexts (scheduled_for)")
+            )
+        except Exception as e:
+            logger.warning(f"Could not create index on scheduled_for: {e}")
+
+    if not await check_column_exists(conn, "acd_contexts", "schedule_window_start", is_sqlite):
+        logger.info("Adding schedule_window_start column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN schedule_window_start TIMESTAMP")
+        )
+        added_columns.append("schedule_window_start")
+
+    if not await check_column_exists(conn, "acd_contexts", "schedule_window_end", is_sqlite):
+        logger.info("Adding schedule_window_end column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN schedule_window_end TIMESTAMP")
+        )
+        added_columns.append("schedule_window_end")
+
+    if not await check_column_exists(conn, "acd_contexts", "recurring_pattern", is_sqlite):
+        logger.info("Adding recurring_pattern column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN recurring_pattern JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN recurring_pattern JSONB")
+            )
+        added_columns.append("recurring_pattern")
+
+    # ==================== LLM SCHEDULING DECISION CONTEXT ====================
+    
+    if not await check_column_exists(conn, "acd_contexts", "schedule_decision_source", is_sqlite):
+        logger.info("Adding schedule_decision_source column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN schedule_decision_source VARCHAR(30)")
+        )
+        added_columns.append("schedule_decision_source")
+
+    if not await check_column_exists(conn, "acd_contexts", "schedule_optimization_goal", is_sqlite):
+        logger.info("Adding schedule_optimization_goal column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN schedule_optimization_goal VARCHAR(30)")
+        )
+        added_columns.append("schedule_optimization_goal")
+
+    if not await check_column_exists(conn, "acd_contexts", "schedule_reasoning", is_sqlite):
+        logger.info("Adding schedule_reasoning column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN schedule_reasoning TEXT")
+        )
+        added_columns.append("schedule_reasoning")
+
+    if not await check_column_exists(conn, "acd_contexts", "schedule_constraints", is_sqlite):
+        logger.info("Adding schedule_constraints column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN schedule_constraints JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN schedule_constraints JSONB")
+            )
+        added_columns.append("schedule_constraints")
+
+    if not await check_column_exists(conn, "acd_contexts", "schedule_preferences", is_sqlite):
+        logger.info("Adding schedule_preferences column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN schedule_preferences JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN schedule_preferences JSONB")
+            )
+        added_columns.append("schedule_preferences")
+
+    # ==================== HISTORICAL CONTEXT FOR LLM LEARNING ====================
+    
+    if not await check_column_exists(conn, "acd_contexts", "historical_performance", is_sqlite):
+        logger.info("Adding historical_performance column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN historical_performance JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN historical_performance JSONB")
+            )
+        added_columns.append("historical_performance")
+
+    if not await check_column_exists(conn, "acd_contexts", "optimal_timing_learned", is_sqlite):
+        logger.info("Adding optimal_timing_learned column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN optimal_timing_learned JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN optimal_timing_learned JSONB")
+            )
+        added_columns.append("optimal_timing_learned")
+
+    if not await check_column_exists(conn, "acd_contexts", "audience_activity_pattern", is_sqlite):
+        logger.info("Adding audience_activity_pattern column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN audience_activity_pattern JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN audience_activity_pattern JSONB")
+            )
+        added_columns.append("audience_activity_pattern")
+
+    # ==================== FEEDBACK LOOP FOR SCHEDULER LEARNING ====================
+    
+    if not await check_column_exists(conn, "acd_contexts", "schedule_feedback_type", is_sqlite):
+        logger.info("Adding schedule_feedback_type column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN schedule_feedback_type VARCHAR(30)")
+        )
+        added_columns.append("schedule_feedback_type")
+
+    if not await check_column_exists(conn, "acd_contexts", "schedule_feedback_data", is_sqlite):
+        logger.info("Adding schedule_feedback_data column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN schedule_feedback_data JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN schedule_feedback_data JSONB")
+            )
+        added_columns.append("schedule_feedback_data")
+
+    if not await check_column_exists(conn, "acd_contexts", "schedule_effectiveness_score", is_sqlite):
+        logger.info("Adding schedule_effectiveness_score column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN schedule_effectiveness_score REAL")
+        )
+        added_columns.append("schedule_effectiveness_score")
+
+    # ==================== DEPENDENCIES AND ORCHESTRATION ====================
+    
+    if not await check_column_exists(conn, "acd_contexts", "depends_on_contexts", is_sqlite):
+        logger.info("Adding depends_on_contexts column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN depends_on_contexts JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN depends_on_contexts JSONB")
+            )
+        added_columns.append("depends_on_contexts")
+
+    if not await check_column_exists(conn, "acd_contexts", "blocks_contexts", is_sqlite):
+        logger.info("Adding blocks_contexts column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN blocks_contexts JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN blocks_contexts JSONB")
+            )
+        added_columns.append("blocks_contexts")
+
+    if not await check_column_exists(conn, "acd_contexts", "orchestration_group", is_sqlite):
+        logger.info("Adding orchestration_group column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN orchestration_group VARCHAR(100)")
+        )
+        added_columns.append("orchestration_group")
+        # Create index
+        try:
+            await conn.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_acd_contexts_orchestration_group ON acd_contexts (orchestration_group)")
+            )
+        except Exception as e:
+            logger.warning(f"Could not create index on orchestration_group: {e}")
+
+    if not await check_column_exists(conn, "acd_contexts", "execution_order", is_sqlite):
+        logger.info("Adding execution_order column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN execution_order INTEGER")
+        )
+        added_columns.append("execution_order")
+
+    # ==================== RESOURCE PLANNING ====================
+    
+    if not await check_column_exists(conn, "acd_contexts", "estimated_resources", is_sqlite):
+        logger.info("Adding estimated_resources column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN estimated_resources JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN estimated_resources JSONB")
+            )
+        added_columns.append("estimated_resources")
+
+    if not await check_column_exists(conn, "acd_contexts", "actual_resources", is_sqlite):
+        logger.info("Adding actual_resources column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN actual_resources JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN actual_resources JSONB")
+            )
+        added_columns.append("actual_resources")
+
+    if not await check_column_exists(conn, "acd_contexts", "resource_efficiency", is_sqlite):
+        logger.info("Adding resource_efficiency column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN resource_efficiency REAL")
+        )
+        added_columns.append("resource_efficiency")
+
+    if added_columns:
+        logger.info(f"✓ Added {len(added_columns)} ACD scheduling columns for LLM-driven scheduler")
+
+    return added_columns
+
+
+async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str]:
+    """
+    Create business intelligence tables for traffic, retention, revenue tracking,
+    and content scheduling.
+    
+    Added in PR #433: Enables LLM reasoning about business metrics including
+    traffic funnels, user churn, revenue trends, and scheduling feedback loops.
+
+    Args:
+        conn: Database connection
+        is_sqlite: Whether the database is SQLite
+
+    Returns:
+        List of tables that were created
+    """
+    created_tables = []
+
+    # ==================== TRAFFIC METRICS TABLE ====================
+    
+    if not await table_exists(conn, "traffic_metrics", is_sqlite):
+        logger.info("Creating traffic_metrics table for conversion funnel analysis")
+        if is_sqlite:
+            await conn.execute(text("""
+                CREATE TABLE traffic_metrics (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT,
+                    persona_id TEXT,
+                    session_id VARCHAR(100) NOT NULL,
+                    source_platform VARCHAR(50) NOT NULL,
+                    referrer_url VARCHAR(1000),
+                    utm_source VARCHAR(100),
+                    utm_medium VARCHAR(100),
+                    utm_campaign VARCHAR(100),
+                    entry_page VARCHAR(500),
+                    exit_page VARCHAR(500),
+                    pages_visited JSON,
+                    session_duration INTEGER,
+                    page_views INTEGER DEFAULT 1,
+                    device_type VARCHAR(50),
+                    browser VARCHAR(100),
+                    os VARCHAR(100),
+                    converted_to_dm BOOLEAN DEFAULT 0,
+                    converted_to_ppv BOOLEAN DEFAULT 0,
+                    converted_to_subscription BOOLEAN DEFAULT 0,
+                    revenue_generated DECIMAL(10, 2) DEFAULT 0,
+                    messages_sent INTEGER DEFAULT 0,
+                    content_viewed INTEGER DEFAULT 0,
+                    ppv_offers_seen INTEGER DEFAULT 0,
+                    ppv_offers_accepted INTEGER DEFAULT 0,
+                    session_start TIMESTAMP NOT NULL,
+                    session_end TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
+                )
+            """))
+        else:
+            await conn.execute(text("""
+                CREATE TABLE traffic_metrics (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                    persona_id UUID REFERENCES personas(id) ON DELETE CASCADE,
+                    session_id VARCHAR(100) NOT NULL,
+                    source_platform VARCHAR(50) NOT NULL,
+                    referrer_url VARCHAR(1000),
+                    utm_source VARCHAR(100),
+                    utm_medium VARCHAR(100),
+                    utm_campaign VARCHAR(100),
+                    entry_page VARCHAR(500),
+                    exit_page VARCHAR(500),
+                    pages_visited JSONB,
+                    session_duration INTEGER,
+                    page_views INTEGER DEFAULT 1,
+                    device_type VARCHAR(50),
+                    browser VARCHAR(100),
+                    os VARCHAR(100),
+                    converted_to_dm BOOLEAN DEFAULT FALSE,
+                    converted_to_ppv BOOLEAN DEFAULT FALSE,
+                    converted_to_subscription BOOLEAN DEFAULT FALSE,
+                    revenue_generated DECIMAL(10, 2) DEFAULT 0,
+                    messages_sent INTEGER DEFAULT 0,
+                    content_viewed INTEGER DEFAULT 0,
+                    ppv_offers_seen INTEGER DEFAULT 0,
+                    ppv_offers_accepted INTEGER DEFAULT 0,
+                    session_start TIMESTAMP WITH TIME ZONE NOT NULL,
+                    session_end TIMESTAMP WITH TIME ZONE,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                )
+            """))
+        created_tables.append("traffic_metrics")
+        # Create indexes
+        try:
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_traffic_metrics_session_id ON traffic_metrics (session_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_traffic_metrics_user_id ON traffic_metrics (user_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_traffic_metrics_persona_id ON traffic_metrics (persona_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_traffic_metrics_source_platform ON traffic_metrics (source_platform)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_traffic_metrics_created_at ON traffic_metrics (created_at)"))
+        except Exception as e:
+            logger.warning(f"Could not create indexes on traffic_metrics: {e}")
+
+    # ==================== USER RETENTION TABLE ====================
+    
+    if not await table_exists(conn, "user_retention", is_sqlite):
+        logger.info("Creating user_retention table for churn prediction")
+        if is_sqlite:
+            await conn.execute(text("""
+                CREATE TABLE user_retention (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL UNIQUE,
+                    first_interaction TIMESTAMP NOT NULL,
+                    last_interaction TIMESTAMP NOT NULL,
+                    total_sessions INTEGER DEFAULT 1,
+                    avg_session_duration INTEGER,
+                    total_time_spent INTEGER DEFAULT 0,
+                    active_days_last_7 INTEGER DEFAULT 0,
+                    active_days_last_30 INTEGER DEFAULT 0,
+                    peak_activity_hour INTEGER,
+                    preferred_platform VARCHAR(50),
+                    days_since_last_active INTEGER DEFAULT 0,
+                    churn_risk_score REAL DEFAULT 0.0,
+                    churn_risk_level VARCHAR(20) DEFAULT 'low',
+                    churn_predicted BOOLEAN DEFAULT 0,
+                    churn_predicted_date TIMESTAMP,
+                    lifetime_value DECIMAL(10, 2) DEFAULT 0,
+                    ppv_purchases INTEGER DEFAULT 0,
+                    total_spent DECIMAL(10, 2) DEFAULT 0,
+                    avg_purchase_value DECIMAL(10, 2),
+                    total_messages_sent INTEGER DEFAULT 0,
+                    total_messages_received INTEGER DEFAULT 0,
+                    response_rate REAL,
+                    avg_response_time INTEGER,
+                    favorite_personas JSON,
+                    preferred_content_type VARCHAR(50),
+                    re_engagement_attempts INTEGER DEFAULT 0,
+                    last_re_engagement_attempt TIMESTAMP,
+                    re_engagement_success BOOLEAN,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            """))
+        else:
+            await conn.execute(text("""
+                CREATE TABLE user_retention (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                    first_interaction TIMESTAMP WITH TIME ZONE NOT NULL,
+                    last_interaction TIMESTAMP WITH TIME ZONE NOT NULL,
+                    total_sessions INTEGER DEFAULT 1,
+                    avg_session_duration INTEGER,
+                    total_time_spent INTEGER DEFAULT 0,
+                    active_days_last_7 INTEGER DEFAULT 0,
+                    active_days_last_30 INTEGER DEFAULT 0,
+                    peak_activity_hour INTEGER,
+                    preferred_platform VARCHAR(50),
+                    days_since_last_active INTEGER DEFAULT 0,
+                    churn_risk_score REAL DEFAULT 0.0,
+                    churn_risk_level VARCHAR(20) DEFAULT 'low',
+                    churn_predicted BOOLEAN DEFAULT FALSE,
+                    churn_predicted_date TIMESTAMP WITH TIME ZONE,
+                    lifetime_value DECIMAL(10, 2) DEFAULT 0,
+                    ppv_purchases INTEGER DEFAULT 0,
+                    total_spent DECIMAL(10, 2) DEFAULT 0,
+                    avg_purchase_value DECIMAL(10, 2),
+                    total_messages_sent INTEGER DEFAULT 0,
+                    total_messages_received INTEGER DEFAULT 0,
+                    response_rate REAL,
+                    avg_response_time INTEGER,
+                    favorite_personas JSONB,
+                    preferred_content_type VARCHAR(50),
+                    re_engagement_attempts INTEGER DEFAULT 0,
+                    last_re_engagement_attempt TIMESTAMP WITH TIME ZONE,
+                    re_engagement_success BOOLEAN,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                )
+            """))
+        created_tables.append("user_retention")
+        # Create indexes
+        try:
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_retention_user_id ON user_retention (user_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_retention_last_interaction ON user_retention (last_interaction)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_retention_churn_predicted ON user_retention (churn_predicted)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_retention_days_since_last_active ON user_retention (days_since_last_active)"))
+        except Exception as e:
+            logger.warning(f"Could not create indexes on user_retention: {e}")
+
+    # ==================== REVENUE INSIGHTS TABLE ====================
+    
+    if not await table_exists(conn, "revenue_insights", is_sqlite):
+        logger.info("Creating revenue_insights table for revenue trend analysis")
+        if is_sqlite:
+            await conn.execute(text("""
+                CREATE TABLE revenue_insights (
+                    id TEXT PRIMARY KEY,
+                    persona_id TEXT,
+                    period_type VARCHAR(20) NOT NULL,
+                    period_start TIMESTAMP NOT NULL,
+                    period_end TIMESTAMP NOT NULL,
+                    ppv_revenue DECIMAL(10, 2) DEFAULT 0,
+                    subscription_revenue DECIMAL(10, 2) DEFAULT 0,
+                    tips_revenue DECIMAL(10, 2) DEFAULT 0,
+                    total_revenue DECIMAL(10, 2) DEFAULT 0,
+                    ppv_transactions INTEGER DEFAULT 0,
+                    subscription_transactions INTEGER DEFAULT 0,
+                    tip_transactions INTEGER DEFAULT 0,
+                    total_transactions INTEGER DEFAULT 0,
+                    ppv_conversion_rate REAL,
+                    avg_ppv_price DECIMAL(10, 2),
+                    revenue_per_user DECIMAL(10, 2),
+                    revenue_per_message DECIMAL(10, 2),
+                    revenue_change_percent REAL,
+                    conversion_change_percent REAL,
+                    active_users INTEGER DEFAULT 0,
+                    new_users INTEGER DEFAULT 0,
+                    paying_users INTEGER DEFAULT 0,
+                    top_performing_content_types JSON,
+                    top_performing_ppv_types JSON,
+                    optimization_suggestions JSON,
+                    predicted_next_period_revenue DECIMAL(10, 2),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
+                )
+            """))
+        else:
+            await conn.execute(text("""
+                CREATE TABLE revenue_insights (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    persona_id UUID REFERENCES personas(id) ON DELETE CASCADE,
+                    period_type VARCHAR(20) NOT NULL,
+                    period_start TIMESTAMP WITH TIME ZONE NOT NULL,
+                    period_end TIMESTAMP WITH TIME ZONE NOT NULL,
+                    ppv_revenue DECIMAL(10, 2) DEFAULT 0,
+                    subscription_revenue DECIMAL(10, 2) DEFAULT 0,
+                    tips_revenue DECIMAL(10, 2) DEFAULT 0,
+                    total_revenue DECIMAL(10, 2) DEFAULT 0,
+                    ppv_transactions INTEGER DEFAULT 0,
+                    subscription_transactions INTEGER DEFAULT 0,
+                    tip_transactions INTEGER DEFAULT 0,
+                    total_transactions INTEGER DEFAULT 0,
+                    ppv_conversion_rate REAL,
+                    avg_ppv_price DECIMAL(10, 2),
+                    revenue_per_user DECIMAL(10, 2),
+                    revenue_per_message DECIMAL(10, 2),
+                    revenue_change_percent REAL,
+                    conversion_change_percent REAL,
+                    active_users INTEGER DEFAULT 0,
+                    new_users INTEGER DEFAULT 0,
+                    paying_users INTEGER DEFAULT 0,
+                    top_performing_content_types JSONB,
+                    top_performing_ppv_types JSONB,
+                    optimization_suggestions JSONB,
+                    predicted_next_period_revenue DECIMAL(10, 2),
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                )
+            """))
+        created_tables.append("revenue_insights")
+        # Create indexes
+        try:
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_revenue_insights_persona_id ON revenue_insights (persona_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_revenue_insights_period_type ON revenue_insights (period_type)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_revenue_insights_period_start ON revenue_insights (period_start)"))
+        except Exception as e:
+            logger.warning(f"Could not create indexes on revenue_insights: {e}")
+
+    # ==================== CONTENT SCHEDULES TABLE ====================
+    
+    if not await table_exists(conn, "content_schedules", is_sqlite):
+        logger.info("Creating content_schedules table for LLM-driven scheduling")
+        if is_sqlite:
+            await conn.execute(text("""
+                CREATE TABLE content_schedules (
+                    id TEXT PRIMARY KEY,
+                    persona_id TEXT NOT NULL,
+                    acd_context_id TEXT,
+                    schedule_type VARCHAR(50) NOT NULL,
+                    scheduled_at TIMESTAMP NOT NULL,
+                    content_type VARCHAR(50) NOT NULL,
+                    content_data JSON NOT NULL,
+                    platform VARCHAR(50) NOT NULL,
+                    optimization_goal VARCHAR(50),
+                    decision_source VARCHAR(50) NOT NULL,
+                    decision_reasoning TEXT,
+                    predicted_engagement REAL,
+                    predicted_reach INTEGER,
+                    predicted_conversions INTEGER,
+                    confidence_score REAL,
+                    constraints JSON,
+                    competing_schedules JSON,
+                    status VARCHAR(20) DEFAULT 'scheduled',
+                    error_message TEXT,
+                    retry_count INTEGER DEFAULT 0,
+                    posted_at TIMESTAMP,
+                    result_post_id TEXT,
+                    result_content_id TEXT,
+                    actual_engagement REAL,
+                    actual_reach INTEGER,
+                    actual_conversions INTEGER,
+                    performance_vs_predicted REAL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE,
+                    FOREIGN KEY (acd_context_id) REFERENCES acd_contexts(id) ON DELETE SET NULL
+                )
+            """))
+        else:
+            await conn.execute(text("""
+                CREATE TABLE content_schedules (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    persona_id UUID NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+                    acd_context_id UUID REFERENCES acd_contexts(id) ON DELETE SET NULL,
+                    schedule_type VARCHAR(50) NOT NULL,
+                    scheduled_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                    content_type VARCHAR(50) NOT NULL,
+                    content_data JSONB NOT NULL,
+                    platform VARCHAR(50) NOT NULL,
+                    optimization_goal VARCHAR(50),
+                    decision_source VARCHAR(50) NOT NULL,
+                    decision_reasoning TEXT,
+                    predicted_engagement REAL,
+                    predicted_reach INTEGER,
+                    predicted_conversions INTEGER,
+                    confidence_score REAL,
+                    constraints JSONB,
+                    competing_schedules JSONB,
+                    status VARCHAR(20) DEFAULT 'scheduled',
+                    error_message TEXT,
+                    retry_count INTEGER DEFAULT 0,
+                    posted_at TIMESTAMP WITH TIME ZONE,
+                    result_post_id UUID,
+                    result_content_id UUID,
+                    actual_engagement REAL,
+                    actual_reach INTEGER,
+                    actual_conversions INTEGER,
+                    performance_vs_predicted REAL,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                )
+            """))
+        created_tables.append("content_schedules")
+        # Create indexes
+        try:
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_content_schedules_persona_id ON content_schedules (persona_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_content_schedules_scheduled_at ON content_schedules (scheduled_at)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_content_schedules_status ON content_schedules (status)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_content_schedules_schedule_type ON content_schedules (schedule_type)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_content_schedules_platform ON content_schedules (platform)"))
+        except Exception as e:
+            logger.warning(f"Could not create indexes on content_schedules: {e}")
+
+    # ==================== SCHEDULING FEEDBACK TABLE ====================
+    
+    if not await table_exists(conn, "scheduling_feedback", is_sqlite):
+        logger.info("Creating scheduling_feedback table for learning loop")
+        if is_sqlite:
+            await conn.execute(text("""
+                CREATE TABLE scheduling_feedback (
+                    id TEXT PRIMARY KEY,
+                    schedule_id TEXT NOT NULL,
+                    persona_id TEXT,
+                    schedule_type VARCHAR(50) NOT NULL,
+                    scheduled_time TIMESTAMP NOT NULL,
+                    actual_post_time TIMESTAMP,
+                    time_drift_seconds INTEGER,
+                    platform VARCHAR(50) NOT NULL,
+                    content_type VARCHAR(50) NOT NULL,
+                    predicted_engagement REAL,
+                    actual_engagement REAL,
+                    engagement_prediction_error REAL,
+                    predicted_reach INTEGER,
+                    actual_reach INTEGER,
+                    reach_prediction_error REAL,
+                    prediction_accuracy REAL,
+                    system_state_snapshot JSON,
+                    audience_state_snapshot JSON,
+                    competing_posts JSON,
+                    time_of_day INTEGER,
+                    day_of_week INTEGER,
+                    what_worked JSON,
+                    what_failed JSON,
+                    recommendations JSON,
+                    decision_source VARCHAR(50),
+                    decision_source_score REAL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (schedule_id) REFERENCES content_schedules(id) ON DELETE CASCADE,
+                    FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
+                )
+            """))
+        else:
+            await conn.execute(text("""
+                CREATE TABLE scheduling_feedback (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    schedule_id UUID NOT NULL REFERENCES content_schedules(id) ON DELETE CASCADE,
+                    persona_id UUID REFERENCES personas(id) ON DELETE CASCADE,
+                    schedule_type VARCHAR(50) NOT NULL,
+                    scheduled_time TIMESTAMP WITH TIME ZONE NOT NULL,
+                    actual_post_time TIMESTAMP WITH TIME ZONE,
+                    time_drift_seconds INTEGER,
+                    platform VARCHAR(50) NOT NULL,
+                    content_type VARCHAR(50) NOT NULL,
+                    predicted_engagement REAL,
+                    actual_engagement REAL,
+                    engagement_prediction_error REAL,
+                    predicted_reach INTEGER,
+                    actual_reach INTEGER,
+                    reach_prediction_error REAL,
+                    prediction_accuracy REAL,
+                    system_state_snapshot JSONB,
+                    audience_state_snapshot JSONB,
+                    competing_posts JSONB,
+                    time_of_day INTEGER,
+                    day_of_week INTEGER,
+                    what_worked JSONB,
+                    what_failed JSONB,
+                    recommendations JSONB,
+                    decision_source VARCHAR(50),
+                    decision_source_score REAL,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                )
+            """))
+        created_tables.append("scheduling_feedback")
+        # Create indexes
+        try:
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_scheduling_feedback_schedule_id ON scheduling_feedback (schedule_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_scheduling_feedback_persona_id ON scheduling_feedback (persona_id)"))
+        except Exception as e:
+            logger.warning(f"Could not create indexes on scheduling_feedback: {e}")
+
+    if created_tables:
+        logger.info(f"✓ Created {len(created_tables)} business intelligence tables for LLM reasoning")
+
+    return created_tables

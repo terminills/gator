@@ -347,16 +347,10 @@ class ContentScheduleModel(Base):
     
     # Execution results
     posted_at = Column(DateTime(timezone=True), nullable=True)
-    result_post_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("social_media_posts.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-    result_content_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("content.id", ondelete="SET NULL"),
-        nullable=True,
-    )
+    # Note: result_post_id and result_content_id are UUIDs but without FK constraints
+    # to avoid circular dependencies with tables that may not exist yet
+    result_post_id = Column(UUID(as_uuid=True), nullable=True)
+    result_content_id = Column(UUID(as_uuid=True), nullable=True)
     
     # Feedback data (filled after posting)
     actual_engagement = Column(Float, nullable=True)
