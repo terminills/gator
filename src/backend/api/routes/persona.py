@@ -2040,10 +2040,181 @@ IMAGE_TRIGGER_PHRASES = [
 ]
 
 
-def _check_image_trigger(message: str) -> bool:
-    """Check if the message contains an image generation trigger phrase."""
+def _check_image_trigger(message: str, persona=None) -> dict:
+    """
+    Check if the message contains an image generation trigger phrase.
+    
+    First checks persona-specific content_triggers if available, then falls back
+    to the default IMAGE_TRIGGER_PHRASES list.
+    
+    Args:
+        message: The user message to check
+        persona: Optional persona object with content_triggers configuration
+        
+    Returns:
+        dict: {
+            'should_generate': bool - whether to generate an image,
+            'matched_trigger': dict or None - the matched trigger config (if persona trigger),
+            'trigger_phrase': str or None - the phrase that triggered the match
+        }
+    """
     message_lower = message.lower()
-    return any(trigger in message_lower for trigger in IMAGE_TRIGGER_PHRASES)
+    
+    # First, check persona-specific content_triggers if available
+    if persona and hasattr(persona, 'content_triggers') and persona.content_triggers:
+        content_triggers = persona.content_triggers
+        
+        # Get triggers sorted by priority (highest first)
+        trigger_items = []
+        for trigger_id, trigger_config in content_triggers.items():
+            # Skip internal config keys
+            if trigger_id.startswith('_'):
+                continue
+            if isinstance(trigger_config, dict) and trigger_config.get('enabled', True):
+                priority = trigger_config.get('priority', 50)
+                trigger_items.append((trigger_id, trigger_config, priority))
+        
+        # Sort by priority (highest first)
+        trigger_items.sort(key=lambda x: x[2], reverse=True)
+        
+        for trigger_id, trigger_config, _ in trigger_items:
+            trigger_phrases = trigger_config.get('trigger_phrases', [])
+            for phrase in trigger_phrases:
+                if phrase.lower() in message_lower:
+                    logger.info(f"Matched persona trigger '{trigger_id}' with phrase: {phrase}")
+                    return {
+                        'should_generate': True,
+                        'matched_trigger': trigger_config,
+                        'trigger_id': trigger_id,
+                        'trigger_phrase': phrase
+                    }
+    
+    # Fall back to default trigger phrases
+    for trigger in IMAGE_TRIGGER_PHRASES:
+        if trigger in message_lower:
+            return {
+                'should_generate': True,
+                'matched_trigger': None,
+                'trigger_id': None,
+                'trigger_phrase': trigger
+            }
+    
+    return {
+        'should_generate': False,
+        'matched_trigger': None,
+        'trigger_id': None,
+        'trigger_phrase': None
+    }
+
+
+def _build_generation_params_from_trigger(persona, matched_trigger: Optional[dict] = None) -> dict:
+    """
+    Build image generation parameters from persona settings and matched trigger.
+    
+    This function extracts and combines:
+    - Persona's default model preferences (image_model_preference, nsfw_model_preference)
+    - Persona's default resolution and quality settings
+    - Persona's base images for consistency (seed images)
+    - Trigger-specific overrides (model, LoRAs, weight overrides, prompts)
+    
+    Args:
+        persona: The persona object with preferences
+        matched_trigger: Optional trigger config that was matched
+        
+    Returns:
+        dict: Generation parameters for image generation
+    """
+    params = {
+        'width': 1024,
+        'height': 1024,
+        'num_inference_steps': 30,
+        'guidance_scale': 7.5,
+        'negative_prompt': 'ugly, deformed, bad anatomy, blurry, low quality, distorted',
+        'image_model_pref': None,
+        'nsfw_model_pref': None,
+        'seed': None,
+        'reference_image_path': None,
+        'img2img_strength': 0.3,
+    }
+    
+    # Extract resolution from persona's default_image_resolution
+    if hasattr(persona, 'default_image_resolution') and persona.default_image_resolution:
+        try:
+            resolution = persona.default_image_resolution
+            if 'x' in resolution:
+                w, h = resolution.lower().split('x')
+                params['width'] = int(w)
+                params['height'] = int(h)
+        except (ValueError, AttributeError):
+            pass
+    
+    # Set model preferences from persona
+    if hasattr(persona, 'image_model_preference') and persona.image_model_preference:
+        params['image_model_pref'] = persona.image_model_preference
+        logger.info(f"Using persona's image_model_preference: {persona.image_model_preference}")
+    
+    if hasattr(persona, 'nsfw_model_preference') and persona.nsfw_model_preference:
+        params['nsfw_model_pref'] = persona.nsfw_model_preference
+        logger.info(f"Using persona's nsfw_model_preference: {persona.nsfw_model_preference}")
+    
+    # Get default negative prompt from content_triggers config if available
+    if hasattr(persona, 'content_triggers') and persona.content_triggers:
+        config = persona.content_triggers.get('_config', {})
+        if config.get('default_negative_prompt'):
+            params['negative_prompt'] = config['default_negative_prompt']
+    
+    # Check for base images (seed images) for consistency
+    # Prefer front_headshot as the reference if available
+    if hasattr(persona, 'base_images') and persona.base_images:
+        base_images = persona.base_images
+        # Use the appropriate base image based on trigger's view_type or default to front_headshot
+        view_type = 'front_headshot'
+        if matched_trigger and matched_trigger.get('view_type'):
+            view_type = matched_trigger['view_type']
+        
+        if view_type in base_images and base_images[view_type]:
+            params['reference_image_path'] = base_images[view_type]
+            logger.info(f"Using base image for view_type '{view_type}' as reference for consistency")
+        elif 'front_headshot' in base_images and base_images['front_headshot']:
+            params['reference_image_path'] = base_images['front_headshot']
+            logger.info("Using front_headshot base image as fallback reference")
+    
+    # Legacy single base_image_path support
+    if not params['reference_image_path'] and hasattr(persona, 'base_image_path') and persona.base_image_path:
+        params['reference_image_path'] = persona.base_image_path
+        logger.info("Using legacy base_image_path as reference")
+    
+    # Override with trigger-specific settings if available
+    if matched_trigger:
+        # Model override from trigger
+        if matched_trigger.get('model'):
+            params['image_model_pref'] = matched_trigger['model']
+            logger.info(f"Trigger overrides model to: {matched_trigger['model']}")
+        
+        # Negative prompt from trigger (append to default)
+        if matched_trigger.get('negative_prompt'):
+            params['negative_prompt'] = f"{params['negative_prompt']}, {matched_trigger['negative_prompt']}"
+        
+        # Weight overrides from trigger
+        weight_overrides = matched_trigger.get('weight_overrides', {})
+        if weight_overrides:
+            if weight_overrides.get('guidance_scale'):
+                params['guidance_scale'] = float(weight_overrides['guidance_scale'])
+            if weight_overrides.get('num_inference_steps'):
+                params['num_inference_steps'] = int(weight_overrides['num_inference_steps'])
+            if weight_overrides.get('strength'):
+                params['img2img_strength'] = float(weight_overrides['strength'])
+        
+        # TODO: Handle LoRAs - this requires changes to the AI model manager
+        # For now, log the LoRA configuration for visibility
+        if matched_trigger.get('loras'):
+            loras = matched_trigger['loras']
+            logger.info(f"Trigger specifies {len(loras)} LoRAs: {[l.get('name') for l in loras]}")
+            # LoRA handling would need to be implemented in ai_models.py
+            # For now, we pass the LoRA info to help with future implementation
+            params['loras'] = loras
+    
+    return params
 
 
 class ConversationMessage(BaseModel):
@@ -2089,6 +2260,7 @@ async def chat_with_persona(
     Features:
     - Conversation history support for context-aware responses
     - Natural image generation triggers (e.g., "take a picture", "send me a selfie")
+    - Persona-specific content triggers with LoRA and model routing
     - Responses filtered through humanizer service to remove AI artifacts
     
     Args:
@@ -2111,8 +2283,11 @@ async def chat_with_persona(
                 detail=f"Persona {persona_id} not found",
             )
         
-        # Check if this message triggers image generation
-        should_generate_image = _check_image_trigger(chat_request.message)
+        # Check if this message triggers image generation (now includes persona triggers)
+        trigger_result = _check_image_trigger(chat_request.message, persona)
+        should_generate_image = trigger_result['should_generate']
+        matched_trigger = trigger_result.get('matched_trigger')
+        trigger_id = trigger_result.get('trigger_id')
         
         # Get AI models manager
         from backend.services.ai_models import ai_models
@@ -2202,14 +2377,32 @@ async def chat_with_persona(
             ai_manager = None
             try:
                 logger.info(f"Image trigger detected in chat for persona {persona.name}")
+                if matched_trigger:
+                    logger.info(f"Using persona trigger '{trigger_id}' with config: model={matched_trigger.get('model')}, loras={len(matched_trigger.get('loras', []))}")
+                
+                # Get generation parameters from matched trigger or persona defaults
+                gen_params = _build_generation_params_from_trigger(persona, matched_trigger)
+                
+                # Build custom prompt additions from trigger if available
+                custom_prompt_addition = ""
+                if matched_trigger:
+                    if matched_trigger.get('positive_prompt'):
+                        custom_prompt_addition = matched_trigger.get('positive_prompt', '')
                 
                 # Generate image prompt based on persona and chat context
                 image_prompt = await _generate_image_prompt_with_ollama(
                     persona=persona,
                     chat_message=chat_request.message,
-                    custom_prompt="",
+                    custom_prompt=custom_prompt_addition,
                     include_nsfw=(persona.default_content_rating or "sfw").lower() != "sfw",
                 )
+                
+                # If matched trigger has additional positive prompt elements, append them
+                if matched_trigger and matched_trigger.get('positive_prompt'):
+                    # Append trigger-specific prompt elements if not already in prompt
+                    trigger_positive = matched_trigger.get('positive_prompt', '')
+                    if trigger_positive and trigger_positive.lower() not in image_prompt.lower():
+                        image_prompt = f"{image_prompt}, {trigger_positive}"
                 
                 # Generate the image
                 ai_manager = AIModelManager()
@@ -2222,15 +2415,22 @@ async def chat_with_persona(
                 if loaded_image_models:
                     result = await ai_manager.generate_image(
                         prompt=image_prompt,
-                        width=1024,
-                        height=1024,
-                        num_inference_steps=30,
-                        guidance_scale=7.5,
+                        width=gen_params.get('width', 1024),
+                        height=gen_params.get('height', 1024),
+                        num_inference_steps=gen_params.get('num_inference_steps', 30),
+                        guidance_scale=gen_params.get('guidance_scale', 7.5),
+                        negative_prompt=gen_params.get('negative_prompt'),
+                        image_model_pref=gen_params.get('image_model_pref'),
+                        nsfw_model_pref=gen_params.get('nsfw_model_pref'),
+                        seed=gen_params.get('seed'),
+                        # Pass base image for img2img consistency if available and trigger specifies view_type
+                        reference_image_path=gen_params.get('reference_image_path'),
+                        img2img_strength=gen_params.get('img2img_strength', 0.3),
                     )
                     
                     if result and result.get("image_data"):
                         image_data = f"data:image/png;base64,{base64.b64encode(result['image_data']).decode('utf-8')}"
-                        logger.info(f"Generated image for chat trigger")
+                        logger.info(f"Generated image for chat trigger using model preference: {gen_params.get('image_model_pref', 'default')}")
                 
             except Exception as img_error:
                 logger.warning(f"Failed to generate image for chat: {img_error}")
@@ -2743,4 +2943,186 @@ async def generate_chat_image(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate chat image: {str(e)}",
+        )
+
+
+# ==================== PERSONA TEMPLATE IMPORT/EXPORT ====================
+
+
+class PersonaTemplateExport(BaseModel):
+    """Model for persona template export data."""
+    version: str = Field(default="1.0", description="Template format version")
+    exported_at: str = Field(..., description="ISO timestamp of export")
+    persona_name: str = Field(..., description="Name of the source persona")
+    content_triggers: Dict[str, Any] = Field(default={}, description="Content triggers configuration")
+    model_preferences: Dict[str, Optional[str]] = Field(default={}, description="Model preferences")
+    generation_settings: Dict[str, Any] = Field(default={}, description="Default generation settings")
+
+
+class PersonaTemplateImport(BaseModel):
+    """Model for importing persona template data."""
+    content_triggers: Optional[Dict[str, Any]] = Field(None, description="Content triggers to import")
+    model_preferences: Optional[Dict[str, Optional[str]]] = Field(None, description="Model preferences to import")
+    generation_settings: Optional[Dict[str, Any]] = Field(None, description="Generation settings to import")
+    merge_triggers: bool = Field(default=False, description="If true, merge with existing triggers instead of replacing")
+
+
+@router.get("/{persona_id}/template/export", response_model=PersonaTemplateExport)
+async def export_persona_template(
+    persona_id: UUID,
+    persona_service: PersonaService = Depends(get_persona_service),
+):
+    """
+    Export persona's content triggers and model preferences as a template.
+    
+    This allows users to save their trigger configurations, model preferences,
+    and LoRA setups as reusable templates that can be imported into other personas
+    or shared with others.
+    
+    The export includes:
+    - Content triggers (trigger phrases, models, LoRAs, prompts, weight overrides)
+    - Model preferences (text, image, video, voice, NSFW models)
+    - Default generation settings (resolution, quality, style)
+    
+    Args:
+        persona_id: UUID of the persona to export from
+        persona_service: Injected persona service
+        
+    Returns:
+        PersonaTemplateExport: Exportable template data
+    """
+    try:
+        persona = await persona_service.get_persona(str(persona_id))
+        if not persona:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Persona {persona_id} not found",
+            )
+        
+        from datetime import datetime
+        
+        # Build the export template
+        template = PersonaTemplateExport(
+            version="1.0",
+            exported_at=datetime.now().isoformat(),
+            persona_name=persona.name,
+            content_triggers=persona.content_triggers or {},
+            model_preferences={
+                "text_model_preference": getattr(persona, 'text_model_preference', None),
+                "image_model_preference": getattr(persona, 'image_model_preference', None),
+                "video_model_preference": getattr(persona, 'video_model_preference', None),
+                "voice_model_preference": getattr(persona, 'voice_model_preference', None),
+                "nsfw_model_preference": getattr(persona, 'nsfw_model_preference', None),
+            },
+            generation_settings={
+                "default_image_resolution": getattr(persona, 'default_image_resolution', '1024x1024'),
+                "default_video_resolution": getattr(persona, 'default_video_resolution', '1920x1080'),
+                "generation_quality": getattr(persona, 'generation_quality', 'standard'),
+                "image_style": getattr(persona, 'image_style', 'photorealistic'),
+                "post_style": getattr(persona, 'post_style', 'casual'),
+            }
+        )
+        
+        logger.info(f"Exported template from persona {persona.name} ({persona_id})")
+        return template
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to export persona template: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to export template: {str(e)}",
+        )
+
+
+@router.post("/{persona_id}/template/import")
+async def import_persona_template(
+    persona_id: UUID,
+    template: PersonaTemplateImport,
+    persona_service: PersonaService = Depends(get_persona_service),
+):
+    """
+    Import content triggers and model preferences into a persona.
+    
+    This allows users to apply saved templates or configurations from other
+    personas to quickly set up new personas with proven trigger/model setups.
+    
+    Options:
+    - merge_triggers: If true, existing triggers are preserved and new ones added.
+                     If false (default), triggers are replaced entirely.
+    
+    Args:
+        persona_id: UUID of the persona to import into
+        template: The template data to import
+        persona_service: Injected persona service
+        
+    Returns:
+        dict: Success status and updated counts
+    """
+    try:
+        persona = await persona_service.get_persona(str(persona_id))
+        if not persona:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Persona {persona_id} not found",
+            )
+        
+        update_data = {}
+        
+        # Import content triggers
+        if template.content_triggers is not None:
+            if template.merge_triggers and persona.content_triggers:
+                # Merge: keep existing triggers, add/update new ones
+                merged_triggers = dict(persona.content_triggers)
+                for trigger_id, trigger_config in template.content_triggers.items():
+                    merged_triggers[trigger_id] = trigger_config
+                update_data['content_triggers'] = merged_triggers
+            else:
+                # Replace: use the imported triggers entirely
+                update_data['content_triggers'] = template.content_triggers
+        
+        # Import model preferences
+        if template.model_preferences is not None:
+            for key, value in template.model_preferences.items():
+                if value is not None:  # Only import non-null values
+                    update_data[key] = value
+        
+        # Import generation settings
+        if template.generation_settings is not None:
+            for key, value in template.generation_settings.items():
+                if value is not None:
+                    update_data[key] = value
+        
+        # Apply the updates
+        if update_data:
+            from backend.models.persona import PersonaUpdate
+            persona_update = PersonaUpdate(**update_data)
+            await persona_service.update_persona(str(persona_id), persona_update)
+        
+        # Count what was imported
+        triggers_imported = len(template.content_triggers) if template.content_triggers else 0
+        model_prefs_imported = len([v for v in (template.model_preferences or {}).values() if v is not None])
+        settings_imported = len([v for v in (template.generation_settings or {}).values() if v is not None])
+        
+        logger.info(f"Imported template into persona {persona.name}: {triggers_imported} triggers, {model_prefs_imported} model prefs, {settings_imported} settings")
+        
+        return {
+            "success": True,
+            "message": "Template imported successfully",
+            "imported": {
+                "triggers": triggers_imported,
+                "model_preferences": model_prefs_imported,
+                "generation_settings": settings_imported,
+                "merge_mode": template.merge_triggers,
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to import persona template: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to import template: {str(e)}",
         )

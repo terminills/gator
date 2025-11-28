@@ -1886,9 +1886,17 @@
                                 <span>🎯</span>
                                 Trigger-Based Model Orchestration
                             </h2>
-                            <button type="button" class="btn btn-primary" onclick="addContentTrigger()" style="font-size: 0.85rem; padding: 8px 16px;">
-                                + Add Trigger
-                            </button>
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" class="btn btn-secondary" onclick="exportTriggerTemplate()" style="font-size: 0.85rem; padding: 8px 16px;" title="Export triggers and model preferences as a template">
+                                    📤 Export
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="importTriggerTemplate()" style="font-size: 0.85rem; padding: 8px 16px;" title="Import triggers from a template file">
+                                    📥 Import
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="addContentTrigger()" style="font-size: 0.85rem; padding: 8px 16px;">
+                                    + Add Trigger
+                                </button>
+                            </div>
                         </div>
                         <p class="section-description">
                             Configure trigger words that route to specific models and LoRAs. When a trigger phrase is detected in chat or content requests, 
@@ -3265,12 +3273,19 @@
                 `<option value="${vt.value}" ${trigger.view_type === vt.value ? 'selected' : ''}>${vt.label}</option>`
             ).join('');
             
-            // Build LoRA rows HTML
+            // Build model options from installed models
+            const modelOptions = buildModelOptionsHtml(trigger.model);
+            
+            // Build LoRA options from installed models (filter for LoRAs)
+            const loraOptions = buildLoraOptionsHtml();
+            
+            // Build LoRA rows HTML with dropdowns
             const lorasHtml = (trigger.loras || []).map((lora, index) => `
                 <div class="lora-row" data-lora-index="${index}">
-                    <input type="text" class="form-input" value="${lora.name || ''}" 
-                           placeholder="LoRA name/path" 
-                           onchange="updateTriggerLora('${triggerId}', ${index}, 'name', this.value)">
+                    <select class="form-input" style="flex: 2;" onchange="updateTriggerLora('${triggerId}', ${index}, 'name', this.value)">
+                        <option value="">Select LoRA...</option>
+                        ${buildLoraOptionsHtml(lora.name)}
+                    </select>
                     <input type="range" min="0" max="2" step="0.05" value="${lora.weight || 0.8}"
                            oninput="updateTriggerLora('${triggerId}', ${index}, 'weight', this.value); this.nextElementSibling.textContent = this.value">
                     <span class="weight-display">${lora.weight || 0.8}</span>
@@ -3328,9 +3343,10 @@
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                             <div>
                                 <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; display: block;">Primary Model</label>
-                                <input type="text" class="form-input" value="${trigger.model || ''}" 
-                                       placeholder="Model name (leave empty for default)"
-                                       onchange="updateTriggerField('${triggerId}', 'model', this.value)">
+                                <select class="form-input" onchange="updateTriggerField('${triggerId}', 'model', this.value)">
+                                    <option value="">Use Default</option>
+                                    ${modelOptions}
+                                </select>
                             </div>
                             <div>
                                 <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; display: block;">View Type</label>
@@ -4720,6 +4736,63 @@
             audio: []
         };
         
+        // Helper function to build model options HTML for dropdowns
+        function buildModelOptionsHtml(selectedModel = null) {
+            let html = '';
+            
+            // Add image models as options
+            const imageModels = installedModels.image || [];
+            if (imageModels.length > 0) {
+                html += '<optgroup label="Image Models">';
+                imageModels.forEach(model => {
+                    const isSelected = selectedModel && (
+                        model.name === selectedModel ||
+                        (model.display_name && model.display_name === selectedModel)
+                    );
+                    const displayName = model.display_name || model.name;
+                    const loadedIndicator = model.loaded ? ' ✓' : '';
+                    const isLora = model.model_type === 'lora' || model.name.toLowerCase().includes('lora');
+                    if (!isLora) {  // Exclude LoRAs from main model list
+                        html += `<option value="${escapeHtml(model.name)}" ${isSelected ? 'selected' : ''}>${escapeHtml(displayName)}${loadedIndicator}</option>`;
+                    }
+                });
+                html += '</optgroup>';
+            }
+            
+            return html;
+        }
+        
+        // Helper function to build LoRA options HTML for dropdowns
+        function buildLoraOptionsHtml(selectedLora = null) {
+            let html = '';
+            
+            const imageModels = installedModels.image || [];
+            const loraModels = imageModels.filter(model => 
+                model.model_type === 'lora' || 
+                model.name.toLowerCase().includes('lora') ||
+                (model.base_model && model.base_model.toLowerCase() !== model.name.toLowerCase())
+            );
+            
+            if (loraModels.length > 0) {
+                loraModels.forEach(model => {
+                    const isSelected = selectedLora && (
+                        model.name === selectedLora ||
+                        (model.display_name && model.display_name === selectedLora)
+                    );
+                    const displayName = model.display_name || model.name;
+                    const loadedIndicator = model.loaded ? ' ✓' : '';
+                    html += `<option value="${escapeHtml(model.name)}" ${isSelected ? 'selected' : ''}>${escapeHtml(displayName)}${loadedIndicator}</option>`;
+                });
+            }
+            
+            // If no LoRAs found, add a placeholder
+            if (loraModels.length === 0) {
+                html = '<option value="" disabled>No LoRAs installed</option>';
+            }
+            
+            return html;
+        }
+        
         async function loadInstalledModels() {
             const loadingIndicator = document.getElementById('models-loading-indicator');
             const modelsGrid = document.getElementById('models-grid');
@@ -6049,6 +6122,320 @@
             const randomMessage = messages[Math.floor(Math.random() * messages.length)];
             document.getElementById('chat-input').value = randomMessage;
             await sendChatMessage();
+        }
+        
+        // ==================== TEMPLATE IMPORT/EXPORT FUNCTIONS ====================
+        
+        async function exportTriggerTemplate() {
+            if (editorMode !== 'edit' || !personaId) {
+                // For create mode, export the current unsaved configuration
+                const template = {
+                    version: '1.0',
+                    exported_at: new Date().toISOString(),
+                    persona_name: document.getElementById('name').value || 'Unsaved Persona',
+                    content_triggers: buildContentTriggersConfig(),
+                    model_preferences: {
+                        text_model_preference: document.getElementById('text_model_preference')?.value || null,
+                        image_model_preference: document.getElementById('image_model_preference')?.value || null,
+                        video_model_preference: document.getElementById('video_model_preference')?.value || null,
+                        voice_model_preference: document.getElementById('voice_model_preference')?.value || null,
+                        nsfw_model_preference: document.getElementById('nsfw_model_preference')?.value || null,
+                    },
+                    generation_settings: {
+                        default_image_resolution: document.getElementById('default_image_resolution')?.value || '1024x1024',
+                        default_video_resolution: document.getElementById('default_video_resolution')?.value || '1920x1080',
+                        generation_quality: document.getElementById('generation_quality')?.value || 'standard',
+                        image_style: document.getElementById('image_style')?.value || 'photorealistic',
+                        post_style: document.getElementById('post_style')?.value || 'casual',
+                    }
+                };
+                
+                downloadTemplate(template);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/v1/personas/${personaId}/template/export`);
+                if (!response.ok) {
+                    throw new Error('Failed to export template');
+                }
+                
+                const template = await response.json();
+                downloadTemplate(template);
+                showAlert('Template exported successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Export failed:', error);
+                showAlert('Failed to export template: ' + error.message, 'error');
+            }
+        }
+        
+        function downloadTemplate(template) {
+            const dataStr = JSON.stringify(template, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `persona-template-${template.persona_name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        function importTriggerTemplate() {
+            // Create a file input for import
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                try {
+                    const text = await file.text();
+                    const template = JSON.parse(text);
+                    
+                    // Validate template structure
+                    if (!template.version || !template.content_triggers) {
+                        throw new Error('Invalid template format - missing required fields');
+                    }
+                    
+                    // Show import options dialog
+                    showImportOptionsModal(template);
+                    
+                } catch (error) {
+                    console.error('Import failed:', error);
+                    showAlert('Failed to import template: ' + error.message, 'error');
+                }
+            };
+            
+            input.click();
+        }
+        
+        function showImportOptionsModal(template) {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay show';
+            modal.id = 'import-options-modal';
+            
+            const triggerCount = Object.keys(template.content_triggers || {}).filter(k => !k.startsWith('_')).length;
+            const hasModelPrefs = template.model_preferences && Object.values(template.model_preferences).some(v => v);
+            const hasGenSettings = template.generation_settings && Object.values(template.generation_settings).some(v => v);
+            
+            modal.innerHTML = `
+                <div class="modal-dialog">
+                    <h2 class="modal-header">📥 Import Template</h2>
+                    
+                    <div style="margin-bottom: 20px; padding: 12px; background: var(--dark-card); border-radius: 8px;">
+                        <p style="color: var(--text-secondary); margin-bottom: 8px;">
+                            <strong>Source:</strong> ${escapeHtml(template.persona_name || 'Unknown')}
+                        </p>
+                        <p style="color: var(--text-secondary); margin-bottom: 8px;">
+                            <strong>Exported:</strong> ${template.exported_at ? new Date(template.exported_at).toLocaleDateString() : 'Unknown'}
+                        </p>
+                        <p style="color: var(--text-secondary);">
+                            <strong>Contains:</strong> ${triggerCount} triggers${hasModelPrefs ? ', model preferences' : ''}${hasGenSettings ? ', generation settings' : ''}
+                        </p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">What to import:</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="import-triggers" checked ${triggerCount === 0 ? 'disabled' : ''}>
+                                <span>Content Triggers (${triggerCount})</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="import-model-prefs" ${hasModelPrefs ? 'checked' : 'disabled'}>
+                                <span>Model Preferences</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="import-gen-settings" ${hasGenSettings ? 'checked' : 'disabled'}>
+                                <span>Generation Settings</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Trigger merge mode:</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="merge-mode" value="replace" checked>
+                                <span>Replace existing triggers</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="merge-mode" value="merge">
+                                <span>Merge with existing triggers</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-actions" style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeImportModal()">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="applyImportedTemplate()" id="apply-import-btn">Import</button>
+                    </div>
+                </div>
+            `;
+            
+            // Store template data for use in apply function
+            modal.dataset.template = JSON.stringify(template);
+            
+            document.body.appendChild(modal);
+            
+            // Close on outside click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeImportModal();
+            });
+        }
+        
+        function closeImportModal() {
+            const modal = document.getElementById('import-options-modal');
+            if (modal) modal.remove();
+        }
+        
+        async function applyImportedTemplate() {
+            const modal = document.getElementById('import-options-modal');
+            if (!modal) return;
+            
+            try {
+                const template = JSON.parse(modal.dataset.template);
+                const importTriggers = document.getElementById('import-triggers').checked;
+                const importModelPrefs = document.getElementById('import-model-prefs').checked;
+                const importGenSettings = document.getElementById('import-gen-settings').checked;
+                const mergeMode = document.querySelector('input[name="merge-mode"]:checked').value === 'merge';
+                
+                // If editing existing persona, use the API endpoint
+                if (editorMode === 'edit' && personaId) {
+                    const importData = {
+                        content_triggers: importTriggers ? template.content_triggers : null,
+                        model_preferences: importModelPrefs ? template.model_preferences : null,
+                        generation_settings: importGenSettings ? template.generation_settings : null,
+                        merge_triggers: mergeMode
+                    };
+                    
+                    const response = await fetch(`/api/v1/personas/${personaId}/template/import`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(importData)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to import template');
+                    }
+                    
+                    const result = await response.json();
+                    showAlert(`Template imported: ${result.imported.triggers} triggers, ${result.imported.model_preferences} model prefs, ${result.imported.generation_settings} settings`, 'success');
+                    
+                    // Reload persona data to reflect changes
+                    await loadPersonaData();
+                    
+                } else {
+                    // For create mode or local apply, directly update the form
+                    if (importTriggers && template.content_triggers) {
+                        if (mergeMode) {
+                            // Merge triggers
+                            for (const [triggerId, triggerConfig] of Object.entries(template.content_triggers)) {
+                                if (!triggerId.startsWith('_')) {
+                                    contentTriggers[triggerId] = triggerConfig;
+                                }
+                            }
+                            // Also merge _config
+                            if (template.content_triggers._config) {
+                                const config = template.content_triggers._config;
+                                if (config.default_positive_prompt) {
+                                    document.getElementById('default_positive_prompt').value = config.default_positive_prompt;
+                                }
+                                if (config.default_negative_prompt) {
+                                    document.getElementById('default_negative_prompt').value = config.default_negative_prompt;
+                                }
+                                if (config.enable_auto_lora_selection !== undefined) {
+                                    document.getElementById('enable_auto_lora_selection').checked = config.enable_auto_lora_selection;
+                                }
+                                if (config.enable_multi_model_routing !== undefined) {
+                                    document.getElementById('enable_multi_model_routing').checked = config.enable_multi_model_routing;
+                                }
+                            }
+                        } else {
+                            // Replace triggers
+                            contentTriggers = {};
+                            for (const [triggerId, triggerConfig] of Object.entries(template.content_triggers)) {
+                                if (!triggerId.startsWith('_')) {
+                                    contentTriggers[triggerId] = triggerConfig;
+                                }
+                            }
+                            // Apply _config
+                            if (template.content_triggers._config) {
+                                const config = template.content_triggers._config;
+                                document.getElementById('default_positive_prompt').value = config.default_positive_prompt || '';
+                                document.getElementById('default_negative_prompt').value = config.default_negative_prompt || '';
+                                document.getElementById('enable_auto_lora_selection').checked = config.enable_auto_lora_selection !== false;
+                                document.getElementById('enable_multi_model_routing').checked = config.enable_multi_model_routing !== false;
+                            }
+                        }
+                        renderContentTriggers();
+                    }
+                    
+                    if (importModelPrefs && template.model_preferences) {
+                        const prefs = template.model_preferences;
+                        if (prefs.text_model_preference) {
+                            const el = document.getElementById('text_model_preference');
+                            if (el) el.dataset.preferredModel = prefs.text_model_preference;
+                        }
+                        if (prefs.image_model_preference) {
+                            const el = document.getElementById('image_model_preference');
+                            if (el) el.dataset.preferredModel = prefs.image_model_preference;
+                        }
+                        if (prefs.video_model_preference) {
+                            const el = document.getElementById('video_model_preference');
+                            if (el) el.dataset.preferredModel = prefs.video_model_preference;
+                        }
+                        if (prefs.voice_model_preference) {
+                            const el = document.getElementById('voice_model_preference');
+                            if (el) el.dataset.preferredModel = prefs.voice_model_preference;
+                        }
+                        if (prefs.nsfw_model_preference) {
+                            const el = document.getElementById('nsfw_model_preference');
+                            if (el) el.dataset.preferredModel = prefs.nsfw_model_preference;
+                        }
+                        // Re-populate dropdowns to apply preferences
+                        await loadInstalledModels();
+                    }
+                    
+                    if (importGenSettings && template.generation_settings) {
+                        const settings = template.generation_settings;
+                        if (settings.default_image_resolution) {
+                            const el = document.getElementById('default_image_resolution');
+                            if (el) el.value = settings.default_image_resolution;
+                        }
+                        if (settings.default_video_resolution) {
+                            const el = document.getElementById('default_video_resolution');
+                            if (el) el.value = settings.default_video_resolution;
+                        }
+                        if (settings.generation_quality) {
+                            const el = document.getElementById('generation_quality');
+                            if (el) el.value = settings.generation_quality;
+                        }
+                        if (settings.image_style) {
+                            const el = document.getElementById('image_style');
+                            if (el) el.value = settings.image_style;
+                        }
+                        if (settings.post_style) {
+                            const el = document.getElementById('post_style');
+                            if (el) el.value = settings.post_style;
+                        }
+                    }
+                    
+                    showAlert('Template applied locally! Save the persona to persist changes.', 'success');
+                }
+                
+                closeImportModal();
+                
+            } catch (error) {
+                console.error('Apply import failed:', error);
+                showAlert('Failed to apply template: ' + error.message, 'error');
+            }
         }
         
         // Initialize page
