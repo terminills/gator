@@ -1666,6 +1666,416 @@ JSON:"""
         )
 
 
+# Constants for AI generation validation
+VALID_CONTENT_RATINGS = ["sfw", "moderate", "nsfw"]
+OPTIMISM_SCALE_MIN = 1
+OPTIMISM_SCALE_MAX = 10
+OPTIMISM_SCALE_DEFAULT = 5
+
+
+class GenerateAllFieldsRequest(BaseModel):
+    """Request model for generating all persona fields."""
+    
+    name: Optional[str] = Field(default=None, description="Optional name hint (will be generated if not provided)")
+    persona_type: Optional[str] = Field(default=None, description="Optional persona type hint (e.g., fitness, tech, lifestyle)")
+    content_rating: str = Field(
+        default="sfw",
+        description="Content rating: sfw, moderate, or nsfw - affects generation style",
+        pattern="^(sfw|moderate|nsfw)$"
+    )
+
+
+class GenerateAllFieldsResponse(BaseModel):
+    """Response model for generated persona fields."""
+    
+    # Basic Information
+    name: str
+    appearance: str
+    personality: str
+    content_themes: List[str] = []
+    
+    # Physical Appearance Details
+    sex: Optional[str] = None
+    age_appearance: Optional[str] = None
+    ethnicity: Optional[str] = None
+    skin_tone: Optional[str] = None
+    hair_color: Optional[str] = None
+    hair_style: Optional[str] = None
+    eye_color: Optional[str] = None
+    height: Optional[str] = None
+    weight: Optional[str] = None
+    build_type: Optional[str] = None
+    distinctive_features: Optional[str] = None
+    
+    # Soul Fields - Origin & Demographics
+    hometown: Optional[str] = None
+    current_location: Optional[str] = None
+    generation_age: Optional[str] = None
+    education_level: Optional[str] = None
+    
+    # Soul Fields - Psychological Profile
+    mbti_type: Optional[str] = None
+    enneagram_type: Optional[str] = None
+    political_alignment: Optional[str] = None
+    risk_tolerance: Optional[str] = None
+    optimism_cynicism_scale: Optional[int] = None
+    
+    # Soul Fields - Voice & Speech Patterns
+    linguistic_register: Optional[str] = None
+    typing_quirks: Optional[Dict[str, Any]] = None
+    signature_phrases: Optional[List[str]] = None
+    trigger_topics: Optional[List[str]] = None
+    
+    # Soul Fields - Backstory & Lore
+    day_job: Optional[str] = None
+    war_story: Optional[str] = None
+    vices_hobbies: Optional[List[str]] = None
+    
+    # Soul Fields - Anti-Pattern
+    forbidden_phrases: Optional[List[str]] = None
+    warmth_level: Optional[str] = None
+    patience_level: Optional[str] = None
+    
+    # Content Settings
+    default_content_rating: str = "sfw"
+    post_style: Optional[str] = None
+    image_style: Optional[str] = None
+    
+    # Generation metadata
+    generation_method: str = "ollama_ai"
+    model_used: Optional[str] = None
+
+
+@router.post("/generate-all-fields", response_model=GenerateAllFieldsResponse)
+async def generate_all_fields(
+    request: GenerateAllFieldsRequest,
+):
+    """
+    Generate ALL persona fields using AI (Ollama with dolphin-mixtral).
+    
+    This endpoint generates a complete persona with all fields filled out:
+    - Basic info (name, appearance, personality, themes)
+    - Physical appearance details (sex, ethnicity, hair, eyes, build, etc.)
+    - Soul fields (origin, psychology, voice, backstory, anti-patterns)
+    - Content settings (rating, styles)
+    
+    The generated fields will match the tone appropriate for the content rating:
+    
+    - **SFW**: Family-friendly, professional persona attributes
+    - **Moderate**: More edgy, adult humor, but not explicit
+    - **NSFW**: Uninhibited, adult-oriented persona attributes
+    
+    Args:
+        request: Optional name/type hints and content rating
+        
+    Returns:
+        GenerateAllFieldsResponse: All generated fields ready to populate form
+        
+    Raises:
+        503: Ollama not available
+        500: Generation error
+    """
+    try:
+        # Check if Ollama is available (using module-level constants)
+        try:
+            async with httpx.AsyncClient(timeout=OLLAMA_CONNECT_TIMEOUT) as client:
+                response = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
+                if response.status_code != 200:
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail="Ollama is not available. Please ensure Ollama is running with dolphin-mixtral model.",
+                    )
+                
+                data = response.json()
+                available_models = [m["name"] for m in data.get("models", [])]
+                
+                # Find best model
+                preferred_models = [
+                    "dolphin-mixtral",
+                    "dolphin-mixtral:8x7b",
+                    "dolphin-mistral",
+                    "llama3.1:8b",
+                    "llama3:8b",
+                    "mistral",
+                ]
+                
+                model_to_use = None
+                for preferred in preferred_models:
+                    for available in available_models:
+                        if preferred in available.lower():
+                            model_to_use = available
+                            break
+                    if model_to_use:
+                        break
+                
+                if not model_to_use and available_models:
+                    model_to_use = available_models[0]
+                
+                if not model_to_use:
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail="No suitable models found in Ollama. Please install dolphin-mixtral.",
+                    )
+                    
+        except httpx.RequestError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Cannot connect to Ollama. Please ensure Ollama is running on localhost:11434",
+            )
+        
+        # Build content-rating-aware prompt
+        rating = request.content_rating.lower()
+        
+        rating_guidance = ""
+        if rating == "nsfw":
+            rating_guidance = """
+This persona is for ADULT/NSFW content. Generate edgy, uninhibited, provocative attributes.
+- They can have explicit interests, risqué humor, and adult-oriented backstory
+- Physical appearance should be detailed and attractive
+- Signature phrases can include innuendo or adult references
+- They should feel like a confident, uninhibited adult content creator
+- NO corporate speak, NO sanitized language - make them feel REAL and SPICY
+"""
+        elif rating == "moderate":
+            rating_guidance = """
+This persona is for MODERATE/edgy content. Generate slightly edgy, adult-humor-friendly attributes.
+- They can have mild adult humor, occasional crude jokes
+- More rebellious or edgy personality traits
+- Think "R-rated movie" level - suggestive but not explicit
+- They should feel like a fun, slightly rebellious influencer
+"""
+        else:  # SFW
+            rating_guidance = """
+This persona is for SFW/family-friendly content. Generate wholesome, professional attributes.
+- Keep everything appropriate for general audiences
+- Focus on positive, inspiring, or entertaining traits
+- No crude humor or adult references
+- They should feel like a mainstream, brand-safe influencer
+"""
+
+        type_hint = ""
+        if request.persona_type:
+            type_hint = f"\nThis persona should be focused on: {request.persona_type}. Make their personality, interests, and content align with this focus.\n"
+        
+        name_hint = ""
+        if request.name:
+            name_hint = f'\nThe persona\'s name should be: "{request.name}"\n'
+        else:
+            name_hint = "\nGenerate a creative, memorable name for this persona.\n"
+
+        prompt = f"""You are an expert at creating realistic AI influencer personas that feel like real people.
+
+Create a COMPLETE detailed persona profile.{name_hint}{type_hint}
+{rating_guidance}
+
+# CRITICAL RULES
+1. Make them feel HUMAN, not like an AI or customer service bot
+2. Give them strong opinions, quirks, and personality
+3. Everything should feel internally consistent
+4. Physical appearance should be detailed and specific
+5. They should feel like someone you'd actually follow on social media
+
+# OUTPUT FORMAT - Respond with ONLY valid JSON (no markdown, no explanation):
+
+{{
+  "name": "Creative memorable name",
+  "appearance": "Detailed 2-3 sentence physical description covering face, body, style",
+  "personality": "2-3 sentences describing their character traits, vibe, and how they interact",
+  "content_themes": ["theme1", "theme2", "theme3", "theme4"],
+  
+  "sex": "female|male|non-binary",
+  "age_appearance": "early_20s|mid_20s|late_20s|early_30s|mid_30s|late_30s|40s",
+  "ethnicity": "caucasian|asian|east_asian|south_asian|latina|african_american|middle_eastern|mixed",
+  "skin_tone": "fair|light|medium|olive|tan|brown|dark_brown",
+  "hair_color": "blonde|brunette|black|red|auburn|gray|pink|blue",
+  "hair_style": "specific description like 'long wavy' or 'short pixie cut'",
+  "eye_color": "blue|green|hazel|brown|dark_brown|amber|gray",
+  "height": "descriptive like 'tall at 5'10\"' or 'petite at 5'2\"'",
+  "weight": "descriptive like 'athletic 135lbs' or 'curvy'",
+  "build_type": "petite|slim|athletic|curvy|hourglass|muscular|plus_size",
+  "distinctive_features": "unique features like dimples, freckles, moles, smile",
+  
+  "hometown": "specific city/region they're from",
+  "current_location": "where they live now",
+  "generation_age": "generation with age (e.g., 'Gen Z - 24')",
+  "education_level": "their education background",
+  
+  "mbti_type": "XXXX - The Label",
+  "enneagram_type": "Type X - The Label",
+  "political_alignment": "their worldview",
+  "risk_tolerance": "their attitude toward risk",
+  "optimism_cynicism_scale": 7,
+  
+  "linguistic_register": "gen_z|millennial|southern|tech_bro|street|corporate|academic|blue_collar",
+  "typing_quirks": {{
+    "capitalization": "all lowercase|normal|RANDOM CAPS",
+    "emoji_usage": "none|minimal|moderate|heavy",
+    "punctuation": "their punctuation style"
+  }},
+  "signature_phrases": ["phrase1", "phrase2", "phrase3", "phrase4", "phrase5"],
+  "trigger_topics": ["topic1", "topic2", "topic3"],
+  
+  "day_job": "what they do for work/money",
+  "war_story": "one defining life moment that shaped them",
+  "vices_hobbies": ["hobby1", "hobby2", "hobby3", "hobby4"],
+  
+  "forbidden_phrases": ["phrase they'd NEVER say 1", "phrase2", "phrase3", "phrase4", "phrase5"],
+  "warmth_level": "cold|neutral|warm|buddy",
+  "patience_level": "short_fuse|normal|patient|infinite",
+  
+  "post_style": "casual|professional|artistic|edgy",
+  "image_style": "photorealistic|artistic|anime|cinematic"
+}}
+
+JSON:"""
+
+        # Generate with Ollama (using module-level timeout for comprehensive generation)
+        logger.info(f"Generating all persona fields with {model_to_use} (rating: {rating})")
+        
+        # Use a longer timeout for all-fields generation (more content than soul fields)
+        all_fields_timeout = OLLAMA_GENERATE_TIMEOUT * 1.5  # 90 seconds default
+        async with httpx.AsyncClient(timeout=all_fields_timeout) as client:
+            response = await client.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json={
+                    "model": model_to_use,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.9,
+                        "top_p": 0.95,
+                        "num_predict": 3000,
+                    }
+                }
+            )
+            
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Ollama generation failed with status {response.status_code}",
+                )
+            
+            output = response.json().get("response", "")
+        
+        # Parse JSON from output
+        start_idx = output.find('{')
+        end_idx = output.rfind('}')
+        
+        if start_idx == -1 or end_idx == -1:
+            logger.error(f"No JSON found in Ollama output: {output[:500]}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to parse AI response - no valid JSON found",
+            )
+        
+        json_str = output[start_idx:end_idx + 1]
+        
+        try:
+            persona_data = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error: {e}, content: {json_str[:500]}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to parse AI response - invalid JSON",
+            )
+        
+        # Helper functions for validation
+        def ensure_list(val, default=None):
+            if default is None:
+                default = []
+            if isinstance(val, list):
+                return val
+            return default
+        
+        def validate_enum(val, valid_values, default):
+            if val and str(val).lower() in [v.lower() for v in valid_values]:
+                return str(val).lower()
+            return default
+        
+        # Validate and normalize the response
+        optimism_scale = persona_data.get('optimism_cynicism_scale', OPTIMISM_SCALE_DEFAULT)
+        if isinstance(optimism_scale, (int, float)):
+            optimism_scale = max(OPTIMISM_SCALE_MIN, min(OPTIMISM_SCALE_MAX, int(optimism_scale)))
+        else:
+            optimism_scale = OPTIMISM_SCALE_DEFAULT
+        
+        # Ensure dict
+        typing_quirks = persona_data.get('typing_quirks', {})
+        if not isinstance(typing_quirks, dict):
+            typing_quirks = {}
+        
+        # Validate enum fields
+        valid_registers = ['blue_collar', 'academic', 'tech_bro', 'street', 'corporate', 'southern', 'millennial', 'gen_z']
+        valid_warmth = ['cold', 'neutral', 'warm', 'buddy']
+        valid_patience = ['short_fuse', 'normal', 'patient', 'infinite']
+        valid_sex = ['female', 'male', 'non-binary', 'trans_female', 'trans_male']
+        valid_age = ['late_teens', 'early_20s', 'mid_20s', 'late_20s', 'early_30s', 'mid_30s', 'late_30s', '40s', '50s', 'mature']
+        valid_build = ['petite', 'slim', 'lean', 'average', 'athletic', 'toned', 'curvy', 'hourglass', 'muscular', 'plus_size', 'thick']
+        
+        result = GenerateAllFieldsResponse(
+            # Basic info
+            name=persona_data.get('name', request.name or 'New Persona'),
+            appearance=persona_data.get('appearance', ''),
+            personality=persona_data.get('personality', ''),
+            content_themes=ensure_list(persona_data.get('content_themes'), ['lifestyle']),
+            
+            # Physical appearance
+            sex=validate_enum(persona_data.get('sex'), valid_sex, None),
+            age_appearance=validate_enum(persona_data.get('age_appearance'), valid_age, None),
+            ethnicity=persona_data.get('ethnicity'),
+            skin_tone=persona_data.get('skin_tone'),
+            hair_color=persona_data.get('hair_color'),
+            hair_style=persona_data.get('hair_style'),
+            eye_color=persona_data.get('eye_color'),
+            height=persona_data.get('height'),
+            weight=persona_data.get('weight'),
+            build_type=validate_enum(persona_data.get('build_type'), valid_build, None),
+            distinctive_features=persona_data.get('distinctive_features'),
+            
+            # Soul fields
+            hometown=persona_data.get('hometown'),
+            current_location=persona_data.get('current_location'),
+            generation_age=persona_data.get('generation_age'),
+            education_level=persona_data.get('education_level'),
+            mbti_type=persona_data.get('mbti_type'),
+            enneagram_type=persona_data.get('enneagram_type'),
+            political_alignment=persona_data.get('political_alignment'),
+            risk_tolerance=persona_data.get('risk_tolerance'),
+            optimism_cynicism_scale=optimism_scale,
+            linguistic_register=validate_enum(persona_data.get('linguistic_register'), valid_registers, 'blue_collar'),
+            typing_quirks=typing_quirks,
+            signature_phrases=ensure_list(persona_data.get('signature_phrases')),
+            trigger_topics=ensure_list(persona_data.get('trigger_topics')),
+            day_job=persona_data.get('day_job'),
+            war_story=persona_data.get('war_story'),
+            vices_hobbies=ensure_list(persona_data.get('vices_hobbies')),
+            forbidden_phrases=ensure_list(persona_data.get('forbidden_phrases')),
+            warmth_level=validate_enum(persona_data.get('warmth_level'), valid_warmth, 'warm'),
+            patience_level=validate_enum(persona_data.get('patience_level'), valid_patience, 'normal'),
+            
+            # Content settings
+            default_content_rating=rating,
+            post_style=persona_data.get('post_style', 'casual'),
+            image_style=persona_data.get('image_style', 'photorealistic'),
+            
+            # Metadata
+            generation_method="ollama_ai",
+            model_used=model_to_use,
+        )
+        
+        logger.info(f"Successfully generated all persona fields using {model_to_use}")
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate all persona fields: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate persona fields: {str(e)}",
+        )
+
+
 @router.post("/{persona_id}/set-base-image")
 async def set_base_image_from_sample(
     persona_id: str,

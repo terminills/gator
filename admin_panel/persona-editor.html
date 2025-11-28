@@ -1304,6 +1304,40 @@
             <div class="form-container" id="form-container" style="display: none;">
                 <div id="alert-container"></div>
                 
+                <!-- AI Auto-Fill Section -->
+                <div class="section" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(16, 185, 129, 0.1)); border-color: var(--primary);">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <span>✨</span>
+                            AI Auto-Fill
+                        </h2>
+                    </div>
+                    <p class="section-description">Use AI to automatically generate all persona fields. You can then review and edit the results.</p>
+                    
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+                        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+                            <label class="form-label">Persona Type (Optional)</label>
+                            <input type="text" class="form-input" id="ai-persona-type" placeholder="e.g., fitness, tech, lifestyle, gaming...">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; min-width: 150px;">
+                            <label class="form-label">Content Rating</label>
+                            <select class="form-input" id="ai-content-rating">
+                                <option value="sfw">SFW (Safe)</option>
+                                <option value="moderate">Moderate</option>
+                                <option value="nsfw">NSFW (Adult)</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="ai-autofill-btn" onclick="aiAutoFillFields()" style="height: fit-content; display: flex; align-items: center; gap: 8px;">
+                            <span id="ai-autofill-icon">✨</span>
+                            <span id="ai-autofill-text">AI Auto-Fill All Fields</span>
+                        </button>
+                    </div>
+                    <p style="margin-top: 12px; font-size: 0.8rem; color: var(--text-secondary);">
+                        💡 Requires Ollama running locally with dolphin-mixtral or similar model. 
+                        The AI will generate name, appearance, personality, content themes, physical details, and soul fields.
+                    </p>
+                </div>
+                
                 <form id="persona-form">
                     <!-- Basic Information -->
                     <div class="section">
@@ -2916,6 +2950,256 @@
             setTimeout(() => {
                 alert.classList.remove('show');
             }, 5000);
+        }
+        
+        // AI Auto-Fill all persona fields using LLM
+        async function aiAutoFillFields() {
+            const btn = document.getElementById('ai-autofill-btn');
+            const icon = document.getElementById('ai-autofill-icon');
+            const text = document.getElementById('ai-autofill-text');
+            
+            // Get options
+            const personaType = document.getElementById('ai-persona-type').value.trim();
+            const contentRating = document.getElementById('ai-content-rating').value;
+            const existingName = document.getElementById('name').value.trim();
+            
+            // Show loading state
+            btn.disabled = true;
+            icon.textContent = '⏳';
+            text.textContent = 'Generating with AI...';
+            
+            try {
+                const requestBody = {
+                    content_rating: contentRating
+                };
+                
+                // Include existing name if provided
+                if (existingName) {
+                    requestBody.name = existingName;
+                }
+                
+                // Include persona type if provided
+                if (personaType) {
+                    requestBody.persona_type = personaType;
+                }
+                
+                const response = await fetch('/api/v1/personas/generate-all-fields', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to generate persona fields');
+                }
+                
+                const data = await response.json();
+                
+                // Populate all the form fields with generated data
+                populateFormWithAIData(data);
+                
+                showAlert(`✨ AI generated persona "${data.name}" successfully! Review and edit the fields as needed.`, 'success');
+                
+            } catch (error) {
+                console.error('AI auto-fill failed:', error);
+                showAlert(`❌ AI generation failed: ${error.message}`, 'error');
+            } finally {
+                // Reset button state
+                btn.disabled = false;
+                icon.textContent = '✨';
+                text.textContent = 'AI Auto-Fill All Fields';
+            }
+        }
+        
+        // Populate all form fields with AI-generated data
+        function populateFormWithAIData(data) {
+            // Basic Information
+            if (data.name) document.getElementById('name').value = data.name;
+            if (data.personality) document.getElementById('personality').value = data.personality;
+            if (data.appearance) document.getElementById('appearance').value = data.appearance;
+            
+            // Content Themes
+            if (data.content_themes && Array.isArray(data.content_themes)) {
+                themes = data.content_themes;
+                renderThemes();
+            }
+            
+            // Physical Appearance Details
+            if (data.sex) {
+                const sexSelect = document.getElementById('sex');
+                if (sexSelect) sexSelect.value = data.sex;
+            }
+            if (data.age_appearance) {
+                const ageSelect = document.getElementById('age_appearance');
+                if (ageSelect) ageSelect.value = data.age_appearance;
+            }
+            if (data.ethnicity) {
+                const ethSelect = document.getElementById('ethnicity');
+                if (ethSelect) ethSelect.value = data.ethnicity;
+            }
+            if (data.skin_tone) {
+                const skinSelect = document.getElementById('skin_tone');
+                if (skinSelect) skinSelect.value = data.skin_tone;
+            }
+            if (data.hair_color) {
+                const hairColorSelect = document.getElementById('hair_color');
+                if (hairColorSelect) hairColorSelect.value = data.hair_color;
+            }
+            if (data.hair_style) {
+                const hairStyleInput = document.getElementById('hair_style');
+                if (hairStyleInput) hairStyleInput.value = data.hair_style;
+            }
+            if (data.eye_color) {
+                const eyeSelect = document.getElementById('eye_color');
+                if (eyeSelect) eyeSelect.value = data.eye_color;
+            }
+            if (data.height) {
+                const heightInput = document.getElementById('height');
+                if (heightInput) heightInput.value = data.height;
+            }
+            if (data.weight) {
+                const weightInput = document.getElementById('weight');
+                if (weightInput) weightInput.value = data.weight;
+            }
+            if (data.build_type) {
+                const buildSelect = document.getElementById('build_type');
+                if (buildSelect) buildSelect.value = data.build_type;
+            }
+            if (data.distinctive_features) {
+                const featuresInput = document.getElementById('distinctive_features');
+                if (featuresInput) featuresInput.value = data.distinctive_features;
+            }
+            
+            // Soul Fields - Origin & Demographics
+            if (data.hometown) {
+                const hometownInput = document.getElementById('hometown');
+                if (hometownInput) hometownInput.value = data.hometown;
+            }
+            if (data.current_location) {
+                const locationInput = document.getElementById('current_location');
+                if (locationInput) locationInput.value = data.current_location;
+            }
+            if (data.generation_age) {
+                const genAgeInput = document.getElementById('generation_age');
+                if (genAgeInput) genAgeInput.value = data.generation_age;
+            }
+            if (data.education_level) {
+                const eduInput = document.getElementById('education_level');
+                if (eduInput) eduInput.value = data.education_level;
+            }
+            
+            // Soul Fields - Psychological Profile
+            if (data.mbti_type && typeof data.mbti_type === 'string') {
+                const mbtiSelect = document.getElementById('mbti_type');
+                if (mbtiSelect) {
+                    // Try to match the MBTI type from the dropdown
+                    // Handle formats like "INTJ - The Architect" or just "INTJ"
+                    const mbtiValue = data.mbti_type.includes(' ') 
+                        ? data.mbti_type.split(' ')[0] 
+                        : data.mbti_type;
+                    mbtiSelect.value = mbtiValue;
+                }
+            }
+            if (data.enneagram_type && typeof data.enneagram_type === 'string') {
+                const enneaSelect = document.getElementById('enneagram_type');
+                if (enneaSelect) {
+                    // Try to extract the type number (e.g., "Type 7" -> "7")
+                    const match = data.enneagram_type.match(/Type\s*(\d)/i);
+                    if (match) {
+                        enneaSelect.value = match[1];
+                    }
+                }
+            }
+            if (data.political_alignment) {
+                const polInput = document.getElementById('political_alignment');
+                if (polInput) polInput.value = data.political_alignment;
+            }
+            if (data.risk_tolerance) {
+                const riskInput = document.getElementById('risk_tolerance');
+                if (riskInput) riskInput.value = data.risk_tolerance;
+            }
+            if (data.optimism_cynicism_scale !== undefined && data.optimism_cynicism_scale !== null) {
+                const optimismSlider = document.getElementById('optimism_cynicism_scale');
+                const optimismValue = document.getElementById('optimism_value');
+                if (optimismSlider) {
+                    optimismSlider.value = data.optimism_cynicism_scale;
+                    if (optimismValue) optimismValue.textContent = data.optimism_cynicism_scale;
+                }
+            }
+            
+            // Soul Fields - Voice & Speech Patterns
+            if (data.linguistic_register) {
+                const regSelect = document.getElementById('linguistic_register');
+                if (regSelect) regSelect.value = data.linguistic_register;
+            }
+            if (data.signature_phrases && Array.isArray(data.signature_phrases)) {
+                signaturePhrases = data.signature_phrases;
+                renderSignaturePhrases();
+            }
+            if (data.trigger_topics && Array.isArray(data.trigger_topics)) {
+                triggerTopics = data.trigger_topics;
+                renderTriggerTopics();
+            }
+            
+            // Soul Fields - Backstory & Lore
+            if (data.day_job) {
+                const jobInput = document.getElementById('day_job');
+                if (jobInput) jobInput.value = data.day_job;
+            }
+            if (data.war_story) {
+                const storyInput = document.getElementById('war_story');
+                if (storyInput) storyInput.value = data.war_story;
+            }
+            if (data.vices_hobbies && Array.isArray(data.vices_hobbies)) {
+                vicesHobbies = data.vices_hobbies;
+                renderVicesHobbies();
+            }
+            
+            // Soul Fields - Anti-Pattern
+            if (data.forbidden_phrases && Array.isArray(data.forbidden_phrases)) {
+                forbiddenPhrases = data.forbidden_phrases;
+                renderForbiddenPhrases();
+            }
+            if (data.warmth_level) {
+                const warmthSelect = document.getElementById('warmth_level');
+                if (warmthSelect) warmthSelect.value = data.warmth_level;
+            }
+            if (data.patience_level) {
+                const patienceSelect = document.getElementById('patience_level');
+                if (patienceSelect) patienceSelect.value = data.patience_level;
+            }
+            
+            // Content Settings
+            if (data.default_content_rating) {
+                // Set the default content rating radio
+                const ratingRadio = document.querySelector(`input[name="default_content_rating"][value="${data.default_content_rating}"]`);
+                if (ratingRadio) ratingRadio.checked = true;
+                
+                // Also check it in allowed ratings
+                const allowedCheckbox = document.querySelector(`input[name="allowed_ratings"][value="${data.default_content_rating}"]`);
+                if (allowedCheckbox) allowedCheckbox.checked = true;
+            }
+            if (data.post_style) {
+                const postStyleSelect = document.getElementById('post_style');
+                if (postStyleSelect) postStyleSelect.value = data.post_style;
+            }
+            if (data.image_style) {
+                const imageStyleSelect = document.getElementById('image_style');
+                if (imageStyleSelect) imageStyleSelect.value = data.image_style;
+            }
+            
+            // Also copy appearance to base_appearance_description if empty
+            if (data.appearance) {
+                const baseAppearanceInput = document.getElementById('base_appearance_description');
+                if (baseAppearanceInput && !baseAppearanceInput.value) {
+                    baseAppearanceInput.value = data.appearance;
+                }
+            }
+            
+            console.log('Form populated with AI-generated data:', data);
         }
         
         // Load persona data for editing
