@@ -992,6 +992,186 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
         }
+        
+        /* Trigger Card Styles */
+        .trigger-card {
+            background: var(--dark-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            transition: all 0.2s;
+        }
+        
+        .trigger-card:hover {
+            border-color: var(--primary);
+        }
+        
+        .trigger-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .trigger-card-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .trigger-card-title input {
+            font-size: 1.1rem;
+            font-weight: 600;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            width: 200px;
+        }
+        
+        .trigger-card-title input:focus {
+            outline: none;
+            background: var(--dark-surface);
+        }
+        
+        .trigger-card-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .trigger-card-body {
+            display: grid;
+            gap: 16px;
+        }
+        
+        .trigger-section {
+            padding: 16px;
+            background: var(--dark-surface);
+            border-radius: 8px;
+        }
+        
+        .trigger-section-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .lora-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 8px;
+            background: var(--dark-card);
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        
+        .lora-row input[type="text"] {
+            flex: 2;
+        }
+        
+        .lora-row input[type="range"] {
+            flex: 1;
+            min-width: 100px;
+        }
+        
+        .weight-display {
+            min-width: 50px;
+            text-align: center;
+            font-family: monospace;
+            color: var(--accent);
+        }
+        
+        .priority-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 12px;
+            background: var(--primary);
+            color: white;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        .category-select {
+            padding: 6px 12px;
+            background: var(--dark-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+        }
+        
+        .trigger-toggle {
+            position: relative;
+            width: 48px;
+            height: 24px;
+        }
+        
+        .trigger-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .trigger-toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border-color);
+            transition: .3s;
+            border-radius: 24px;
+        }
+        
+        .trigger-toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        
+        .trigger-toggle input:checked + .trigger-toggle-slider {
+            background-color: var(--accent);
+        }
+        
+        .trigger-toggle input:checked + .trigger-toggle-slider:before {
+            transform: translateX(24px);
+        }
+        
+        .collapsible-trigger {
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .collapsible-content {
+            display: none;
+        }
+        
+        .collapsible-content.show {
+            display: block;
+        }
+        
+        .collapse-icon {
+            transition: transform 0.2s;
+        }
+        
+        .collapsible-trigger.collapsed .collapse-icon {
+            transform: rotate(-90deg);
+        }
     </style>
 </head>
 <body>
@@ -1696,6 +1876,90 @@
                             <p style="margin-top: 8px; font-size: 0.8rem; color: var(--text-secondary);">
                                 <a href="/ai-models-setup" style="color: var(--accent-color);">→ Manage installed models</a>
                             </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Trigger-Based Model Orchestration -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <span>🎯</span>
+                                Trigger-Based Model Orchestration
+                            </h2>
+                            <button type="button" class="btn btn-primary" onclick="addContentTrigger()" style="font-size: 0.85rem; padding: 8px 16px;">
+                                + Add Trigger
+                            </button>
+                        </div>
+                        <p class="section-description">
+                            Configure trigger words that route to specific models and LoRAs. When a trigger phrase is detected in chat or content requests, 
+                            the system automatically selects the optimal model, applies LoRA weights, and injects positive/negative prompts.
+                            This enables fine-grained model selection for different poses, views, styles, and content types.
+                        </p>
+                        
+                        <div style="margin-bottom: 16px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; font-size: 0.85rem;">
+                            <strong>💡 Trigger Categories:</strong>
+                            <ul style="margin: 8px 0 0 20px; color: var(--text-secondary); display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
+                                <li><strong>Pose:</strong> selfie, full body</li>
+                                <li><strong>View:</strong> front, side, rear</li>
+                                <li><strong>Style:</strong> bikini, lingerie</li>
+                                <li><strong>Platform:</strong> instagram, tiktok</li>
+                                <li><strong>Anatomy:</strong> face detail, hands</li>
+                                <li><strong>Lighting:</strong> natural, studio</li>
+                                <li><strong>Mood:</strong> happy, seductive</li>
+                                <li><strong>Location:</strong> beach, bedroom</li>
+                                <li><strong>Action:</strong> sitting, walking</li>
+                            </ul>
+                        </div>
+                        
+                        <div id="content-triggers-container">
+                            <!-- Triggers will be rendered here -->
+                            <div id="triggers-empty-state" class="empty-state" style="padding: 40px; text-align: center; color: var(--text-secondary);">
+                                <span style="font-size: 2rem;">🎯</span>
+                                <h3 style="margin-top: 12px; color: var(--text-primary);">No Triggers Configured</h3>
+                                <p style="margin-top: 8px;">Add triggers to route specific keywords to different models and LoRAs.</p>
+                                <button type="button" class="btn btn-secondary" onclick="addContentTrigger()" style="margin-top: 16px;">
+                                    + Add Your First Trigger
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="triggers-list" style="display: none;">
+                            <!-- Trigger cards will be dynamically added here -->
+                        </div>
+                        
+                        <!-- Default Prompts -->
+                        <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color);">
+                            <h4 style="margin-bottom: 16px; color: var(--text-primary);">📝 Default Prompts (Applied to All Generations)</h4>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Default Positive Prompt</label>
+                                <span class="form-help">Additional positive prompt elements added to all image generations</span>
+                                <textarea class="form-input" id="default_positive_prompt" name="default_positive_prompt" style="min-height: 80px;" placeholder="high quality, detailed, professional photography, sharp focus"></textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Default Negative Prompt</label>
+                                <span class="form-help">Negative prompt elements to exclude from all image generations</span>
+                                <textarea class="form-input" id="default_negative_prompt" name="default_negative_prompt" style="min-height: 80px;" placeholder="ugly, deformed, bad anatomy, blurry, low quality, watermark, text"></textarea>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label class="checkbox-label" style="background: var(--dark-card); padding: 12px; border-radius: 8px;">
+                                        <input type="checkbox" id="enable_auto_lora_selection" name="enable_auto_lora_selection" checked>
+                                        <span>Enable Auto LoRA Selection</span>
+                                    </label>
+                                    <span class="form-help" style="margin-top: 4px;">Automatically select LoRAs based on detected attributes (hair, style, etc.)</span>
+                                </div>
+                                
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label class="checkbox-label" style="background: var(--dark-card); padding: 12px; border-radius: 8px;">
+                                        <input type="checkbox" id="enable_multi_model_routing" name="enable_multi_model_routing" checked>
+                                        <span>Enable Multi-Model Routing</span>
+                                    </label>
+                                    <span class="form-help" style="margin-top: 4px;">Route to different models based on view/pose requirements</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -2511,6 +2775,41 @@
         let turnOns = [];
         let turnOffs = [];
         
+        // ==================== TRIGGER-BASED MODEL ORCHESTRATION STATE ====================
+        let contentTriggers = {};
+        let triggerCounter = 0;
+        
+        // Trigger category options
+        const TRIGGER_CATEGORIES = [
+            { value: 'pose', label: '🎭 Pose', description: 'selfie, full body, portrait' },
+            { value: 'view', label: '👀 View', description: 'front, side, rear, bust' },
+            { value: 'style', label: '👗 Style', description: 'bikini, lingerie, casual' },
+            { value: 'platform', label: '📱 Platform', description: 'instagram, tiktok, onlyfans' },
+            { value: 'anatomy', label: '🎨 Anatomy', description: 'face detail, hands, body' },
+            { value: 'lighting', label: '💡 Lighting', description: 'natural, studio, warm' },
+            { value: 'mood', label: '😊 Mood', description: 'happy, seductive, serious' },
+            { value: 'location', label: '📍 Location', description: 'beach, bedroom, gym' },
+            { value: 'clothing', label: '👙 Clothing', description: 'specific clothing types' },
+            { value: 'action', label: '🏃 Action', description: 'sitting, walking, posing' },
+            { value: 'nsfw', label: '🔞 NSFW', description: 'adult content triggers' },
+            { value: 'sfw', label: '✅ SFW', description: 'safe content triggers' },
+            { value: 'custom', label: '⚙️ Custom', description: 'user-defined triggers' },
+        ];
+        
+        // View type options (for per-view model switching)
+        const VIEW_TYPES = [
+            { value: '', label: 'Not specified' },
+            { value: 'front_headshot', label: 'Front Headshot' },
+            { value: 'side_headshot', label: 'Side Headshot' },
+            { value: 'bust', label: 'Bust View' },
+            { value: 'full_frontal', label: 'Full Frontal' },
+            { value: 'side_profile', label: 'Side Profile' },
+            { value: 'rear_view', label: 'Rear View' },
+            { value: 'compression_pose', label: 'Compression Pose' },
+            { value: 'extension_pose', label: 'Extension Pose' },
+            { value: 'twist_pose', label: 'Twist Pose' },
+        ];
+        
         // Load branding configuration
         async function loadBranding() {
             try {
@@ -2715,6 +3014,25 @@
                 document.getElementById('warmth_level').value = persona.warmth_level || 'warm';
                 document.getElementById('patience_level').value = persona.patience_level || 'normal';
                 
+                // ==================== TRIGGER-BASED MODEL ORCHESTRATION ====================
+                contentTriggers = persona.content_triggers || {};
+                // Set trigger counter based on existing triggers to avoid ID collisions
+                const existingIds = Object.keys(contentTriggers).filter(id => id.startsWith('trigger_'));
+                if (existingIds.length > 0) {
+                    const maxNum = Math.max(...existingIds.map(id => parseInt(id.split('_')[1]) || 0));
+                    triggerCounter = maxNum;
+                }
+                renderContentTriggers();
+                
+                // Populate default prompts from content_triggers config (if they exist as special keys)
+                if (persona.content_triggers && persona.content_triggers._config) {
+                    const config = persona.content_triggers._config;
+                    document.getElementById('default_positive_prompt').value = config.default_positive_prompt || '';
+                    document.getElementById('default_negative_prompt').value = config.default_negative_prompt || '';
+                    document.getElementById('enable_auto_lora_selection').checked = config.enable_auto_lora_selection !== false;
+                    document.getElementById('enable_multi_model_routing').checked = config.enable_multi_model_routing !== false;
+                }
+                
                 // Show status badge
                 const badge = document.getElementById('status-badge');
                 if (persona.generation_count > 0) {
@@ -2856,6 +3174,411 @@
         function removePlatformRestriction(platform) {
             delete platformRestrictions[platform];
             renderPlatformRestrictions();
+        }
+        
+        // ==================== TRIGGER-BASED MODEL ORCHESTRATION MANAGEMENT ====================
+        
+        function renderContentTriggers() {
+            const container = document.getElementById('triggers-list');
+            const emptyState = document.getElementById('triggers-empty-state');
+            
+            const triggerKeys = Object.keys(contentTriggers);
+            
+            if (triggerKeys.length === 0) {
+                emptyState.style.display = 'block';
+                container.style.display = 'none';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            container.style.display = 'block';
+            container.innerHTML = '';
+            
+            // Sort triggers by priority (highest first)
+            triggerKeys.sort((a, b) => {
+                const priorityA = contentTriggers[a].priority || 50;
+                const priorityB = contentTriggers[b].priority || 50;
+                return priorityB - priorityA;
+            });
+            
+            triggerKeys.forEach(triggerId => {
+                const trigger = contentTriggers[triggerId];
+                const card = createTriggerCard(triggerId, trigger);
+                container.appendChild(card);
+            });
+        }
+        
+        function createTriggerCard(triggerId, trigger) {
+            const card = document.createElement('div');
+            card.className = 'trigger-card';
+            card.id = `trigger-card-${triggerId}`;
+            
+            const categoryOptions = TRIGGER_CATEGORIES.map(cat => 
+                `<option value="${cat.value}" ${trigger.category === cat.value ? 'selected' : ''}>${cat.label}</option>`
+            ).join('');
+            
+            const viewTypeOptions = VIEW_TYPES.map(vt => 
+                `<option value="${vt.value}" ${trigger.view_type === vt.value ? 'selected' : ''}>${vt.label}</option>`
+            ).join('');
+            
+            // Build LoRA rows HTML
+            const lorasHtml = (trigger.loras || []).map((lora, index) => `
+                <div class="lora-row" data-lora-index="${index}">
+                    <input type="text" class="form-input" value="${lora.name || ''}" 
+                           placeholder="LoRA name/path" 
+                           onchange="updateTriggerLora('${triggerId}', ${index}, 'name', this.value)">
+                    <input type="range" min="0" max="2" step="0.05" value="${lora.weight || 0.8}"
+                           oninput="updateTriggerLora('${triggerId}', ${index}, 'weight', this.value); this.nextElementSibling.textContent = this.value">
+                    <span class="weight-display">${lora.weight || 0.8}</span>
+                    <input type="text" class="form-input" value="${lora.trigger_word || ''}" 
+                           placeholder="Trigger word (optional)" style="flex: 1;"
+                           onchange="updateTriggerLora('${triggerId}', ${index}, 'trigger_word', this.value)">
+                    <button type="button" class="remove-btn" onclick="removeTriggerLora('${triggerId}', ${index})">×</button>
+                </div>
+            `).join('');
+            
+            card.innerHTML = `
+                <div class="trigger-card-header">
+                    <div class="trigger-card-title">
+                        <input type="text" value="${triggerId}" 
+                               onchange="renameTrigger('${triggerId}', this.value)"
+                               title="Trigger ID (click to edit)">
+                        <select class="category-select" onchange="updateTriggerField('${triggerId}', 'category', this.value)">
+                            ${categoryOptions}
+                        </select>
+                        <span class="priority-badge">
+                            Priority: <input type="number" min="0" max="100" value="${trigger.priority || 50}" 
+                                           style="width: 45px; background: transparent; border: none; color: white; text-align: center;"
+                                           onchange="updateTriggerField('${triggerId}', 'priority', parseInt(this.value))">
+                        </span>
+                    </div>
+                    <div class="trigger-card-actions">
+                        <label class="trigger-toggle">
+                            <input type="checkbox" ${trigger.enabled !== false ? 'checked' : ''} 
+                                   onchange="updateTriggerField('${triggerId}', 'enabled', this.checked)">
+                            <span class="trigger-toggle-slider"></span>
+                        </label>
+                        <button type="button" class="remove-btn" onclick="removeTrigger('${triggerId}')" title="Delete trigger">🗑️</button>
+                    </div>
+                </div>
+                
+                <div class="trigger-card-body">
+                    <!-- Trigger Phrases Section -->
+                    <div class="trigger-section">
+                        <div class="trigger-section-title">🎯 Trigger Phrases</div>
+                        <div class="tag-input-container" id="trigger-phrases-${triggerId}">
+                            ${(trigger.trigger_phrases || []).map((phrase, idx) => `
+                                <span class="tag">
+                                    ${escapeHtml(phrase)}
+                                    <span class="tag-remove" onclick="removeTriggerPhrase('${triggerId}', ${idx})">×</span>
+                                </span>
+                            `).join('')}
+                            <input type="text" class="tag-input" placeholder="Type phrase and press Enter..." 
+                                   onkeydown="handleTriggerPhraseInput(event, '${triggerId}')">
+                        </div>
+                    </div>
+                    
+                    <!-- Model Selection Section -->
+                    <div class="trigger-section">
+                        <div class="trigger-section-title">🤖 Model & LoRAs</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; display: block;">Primary Model</label>
+                                <input type="text" class="form-input" value="${trigger.model || ''}" 
+                                       placeholder="Model name (leave empty for default)"
+                                       onchange="updateTriggerField('${triggerId}', 'model', this.value)">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; display: block;">View Type</label>
+                                <select class="form-input" onchange="updateTriggerField('${triggerId}', 'view_type', this.value)">
+                                    ${viewTypeOptions}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 12px;">
+                            <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; display: block;">LoRAs to Stack</label>
+                            <div id="loras-${triggerId}">
+                                ${lorasHtml || '<p style="color: var(--text-secondary); font-size: 0.85rem;">No LoRAs added</p>'}
+                            </div>
+                            <button type="button" class="add-btn" onclick="addTriggerLora('${triggerId}')" style="margin-top: 8px;">
+                                + Add LoRA
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Prompts Section -->
+                    <div class="trigger-section">
+                        <div class="trigger-section-title">📝 Prompts</div>
+                        <div style="display: grid; gap: 12px;">
+                            <div>
+                                <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; display: block;">Positive Prompt</label>
+                                <textarea class="form-input" style="min-height: 60px;" 
+                                          placeholder="Additional positive prompt elements..."
+                                          onchange="updateTriggerField('${triggerId}', 'positive_prompt', this.value)">${trigger.positive_prompt || ''}</textarea>
+                            </div>
+                            <div>
+                                <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; display: block;">Negative Prompt</label>
+                                <textarea class="form-input" style="min-height: 60px;" 
+                                          placeholder="Additional negative prompt elements..."
+                                          onchange="updateTriggerField('${triggerId}', 'negative_prompt', this.value)">${trigger.negative_prompt || ''}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Weight Overrides Section (Collapsible) -->
+                    <div class="trigger-section">
+                        <div class="trigger-section-title collapsible-trigger collapsed" onclick="toggleCollapsible(this)">
+                            <span class="collapse-icon">▼</span> ⚖️ Weight Overrides (Advanced)
+                        </div>
+                        <div class="collapsible-content">
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px;">
+                                <div>
+                                    <label style="font-size: 0.75rem; color: var(--text-secondary);">Guidance Scale</label>
+                                    <input type="number" class="form-input" min="1" max="30" step="0.5" 
+                                           value="${trigger.weight_overrides?.guidance_scale || ''}"
+                                           placeholder="7.5"
+                                           onchange="updateWeightOverride('${triggerId}', 'guidance_scale', this.value)">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.75rem; color: var(--text-secondary);">Inference Steps</label>
+                                    <input type="number" class="form-input" min="1" max="150" 
+                                           value="${trigger.weight_overrides?.num_inference_steps || ''}"
+                                           placeholder="30"
+                                           onchange="updateWeightOverride('${triggerId}', 'num_inference_steps', this.value)">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.75rem; color: var(--text-secondary);">Strength (img2img)</label>
+                                    <input type="number" class="form-input" min="0" max="1" step="0.05" 
+                                           value="${trigger.weight_overrides?.strength || ''}"
+                                           placeholder="0.8"
+                                           onchange="updateWeightOverride('${triggerId}', 'strength', this.value)">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.75rem; color: var(--text-secondary);">CLIP Skip</label>
+                                    <input type="number" class="form-input" min="0" max="4" 
+                                           value="${trigger.weight_overrides?.clip_skip || ''}"
+                                           placeholder="0"
+                                           onchange="updateWeightOverride('${triggerId}', 'clip_skip', this.value)">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.75rem; color: var(--text-secondary);">Sampler</label>
+                                    <input type="text" class="form-input" 
+                                           value="${trigger.weight_overrides?.sampler || ''}"
+                                           placeholder="euler_a"
+                                           onchange="updateWeightOverride('${triggerId}', 'sampler', this.value)">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.75rem; color: var(--text-secondary);">Scheduler</label>
+                                    <input type="text" class="form-input" 
+                                           value="${trigger.weight_overrides?.scheduler || ''}"
+                                           placeholder="normal"
+                                           onchange="updateWeightOverride('${triggerId}', 'scheduler', this.value)">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Description -->
+                    <div style="margin-top: 8px;">
+                        <input type="text" class="form-input" 
+                               value="${trigger.description || ''}"
+                               placeholder="Description (optional - for documentation)"
+                               onchange="updateTriggerField('${triggerId}', 'description', this.value)">
+                    </div>
+                </div>
+            `;
+            
+            return card;
+        }
+        
+        function addContentTrigger() {
+            triggerCounter++;
+            const triggerId = `trigger_${triggerCounter}`;
+            
+            contentTriggers[triggerId] = {
+                trigger_phrases: [],
+                model: '',
+                loras: [],
+                positive_prompt: '',
+                negative_prompt: '',
+                category: 'custom',
+                view_type: '',
+                weight_overrides: {},
+                priority: 50,
+                enabled: true,
+                description: ''
+            };
+            
+            renderContentTriggers();
+            
+            // Scroll to the new trigger
+            setTimeout(() => {
+                const card = document.getElementById(`trigger-card-${triggerId}`);
+                if (card) {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
+        }
+        
+        function removeTrigger(triggerId) {
+            if (confirm(`Delete trigger "${triggerId}"? This cannot be undone.`)) {
+                delete contentTriggers[triggerId];
+                renderContentTriggers();
+            }
+        }
+        
+        function renameTrigger(oldId, newId) {
+            newId = newId.trim().replace(/\s+/g, '_').toLowerCase();
+            if (!newId || newId === oldId) return;
+            
+            if (contentTriggers[newId]) {
+                alert(`Trigger ID "${newId}" already exists. Please choose a different name.`);
+                renderContentTriggers();
+                return;
+            }
+            
+            contentTriggers[newId] = contentTriggers[oldId];
+            delete contentTriggers[oldId];
+            renderContentTriggers();
+        }
+        
+        function updateTriggerField(triggerId, field, value) {
+            if (contentTriggers[triggerId]) {
+                contentTriggers[triggerId][field] = value;
+            }
+        }
+        
+        function updateWeightOverride(triggerId, field, value) {
+            if (contentTriggers[triggerId]) {
+                if (!contentTriggers[triggerId].weight_overrides) {
+                    contentTriggers[triggerId].weight_overrides = {};
+                }
+                if (value === '' || value === null) {
+                    delete contentTriggers[triggerId].weight_overrides[field];
+                } else {
+                    contentTriggers[triggerId].weight_overrides[field] = parseFloat(value) || value;
+                }
+            }
+        }
+        
+        function handleTriggerPhraseInput(event, triggerId) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const input = event.target;
+                const phrase = input.value.trim();
+                
+                if (phrase && contentTriggers[triggerId]) {
+                    if (!contentTriggers[triggerId].trigger_phrases) {
+                        contentTriggers[triggerId].trigger_phrases = [];
+                    }
+                    if (!contentTriggers[triggerId].trigger_phrases.includes(phrase)) {
+                        contentTriggers[triggerId].trigger_phrases.push(phrase);
+                        input.value = '';
+                        renderContentTriggers();
+                    }
+                }
+            }
+        }
+        
+        function removeTriggerPhrase(triggerId, index) {
+            if (contentTriggers[triggerId] && contentTriggers[triggerId].trigger_phrases) {
+                contentTriggers[triggerId].trigger_phrases.splice(index, 1);
+                renderContentTriggers();
+            }
+        }
+        
+        function addTriggerLora(triggerId) {
+            if (contentTriggers[triggerId]) {
+                if (!contentTriggers[triggerId].loras) {
+                    contentTriggers[triggerId].loras = [];
+                }
+                contentTriggers[triggerId].loras.push({
+                    name: '',
+                    weight: 0.8,
+                    trigger_word: ''
+                });
+                renderContentTriggers();
+            }
+        }
+        
+        function removeTriggerLora(triggerId, index) {
+            if (contentTriggers[triggerId] && contentTriggers[triggerId].loras) {
+                contentTriggers[triggerId].loras.splice(index, 1);
+                renderContentTriggers();
+            }
+        }
+        
+        function updateTriggerLora(triggerId, index, field, value) {
+            if (contentTriggers[triggerId] && contentTriggers[triggerId].loras && contentTriggers[triggerId].loras[index]) {
+                if (field === 'weight') {
+                    contentTriggers[triggerId].loras[index][field] = parseFloat(value);
+                } else {
+                    contentTriggers[triggerId].loras[index][field] = value;
+                }
+            }
+        }
+        
+        function toggleCollapsible(element) {
+            element.classList.toggle('collapsed');
+            const content = element.nextElementSibling;
+            content.classList.toggle('show');
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function buildContentTriggersConfig() {
+            // Build the content_triggers object including the _config section
+            // for default prompts and global settings
+            const config = {
+                // Include the _config section for global settings
+                _config: {
+                    default_positive_prompt: document.getElementById('default_positive_prompt')?.value || '',
+                    default_negative_prompt: document.getElementById('default_negative_prompt')?.value || '',
+                    enable_auto_lora_selection: document.getElementById('enable_auto_lora_selection')?.checked !== false,
+                    enable_multi_model_routing: document.getElementById('enable_multi_model_routing')?.checked !== false
+                }
+            };
+            
+            // Add all the individual triggers (excluding any internal keys starting with _)
+            for (const [triggerId, trigger] of Object.entries(contentTriggers)) {
+                if (!triggerId.startsWith('_')) {
+                    // Clean up the trigger data before saving
+                    config[triggerId] = {
+                        trigger_phrases: trigger.trigger_phrases || [],
+                        model: trigger.model || null,
+                        loras: (trigger.loras || []).filter(lora => lora.name), // Only keep LoRAs with names
+                        positive_prompt: trigger.positive_prompt || '',
+                        negative_prompt: trigger.negative_prompt || '',
+                        category: trigger.category || 'custom',
+                        view_type: trigger.view_type || null,
+                        weight_overrides: cleanWeightOverrides(trigger.weight_overrides),
+                        priority: trigger.priority || 50,
+                        enabled: trigger.enabled !== false,
+                        description: trigger.description || null
+                    };
+                }
+            }
+            
+            return config;
+        }
+        
+        function cleanWeightOverrides(overrides) {
+            // Remove empty/null values from weight overrides
+            if (!overrides) return null;
+            
+            const cleaned = {};
+            for (const [key, value] of Object.entries(overrides)) {
+                if (value !== null && value !== undefined && value !== '') {
+                    cleaned[key] = value;
+                }
+            }
+            
+            return Object.keys(cleaned).length > 0 ? cleaned : null;
         }
         
         // ==================== PERSONA SOUL FIELDS MANAGEMENT ====================
@@ -4423,7 +5146,10 @@
                     // Anti-Pattern
                     forbidden_phrases: forbiddenPhrases,
                     warmth_level: document.getElementById('warmth_level').value,
-                    patience_level: document.getElementById('patience_level').value
+                    patience_level: document.getElementById('patience_level').value,
+                    
+                    // ==================== TRIGGER-BASED MODEL ORCHESTRATION ====================
+                    content_triggers: buildContentTriggersConfig()
                 };
                 
                 // Validate at least one allowed rating

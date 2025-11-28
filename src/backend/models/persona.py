@@ -78,6 +78,153 @@ class PatienceLevel(str, Enum):
     INFINITE = "infinite"  # Never gets frustrated
 
 
+class TriggerCategory(str, Enum):
+    """Categories for content trigger classification."""
+
+    POSE = "pose"  # Pose-related triggers (selfie, full body, side view)
+    STYLE = "style"  # Style triggers (bikini, lingerie, casual, formal)
+    VIEW = "view"  # View type triggers (front, side, rear, bust)
+    NSFW = "nsfw"  # NSFW content triggers
+    SFW = "sfw"  # SFW content triggers
+    PLATFORM = "platform"  # Platform-specific triggers (instagram, tiktok, onlyfans)
+    ANATOMY = "anatomy"  # Anatomy-focused triggers (face detail, hands, body)
+    LIGHTING = "lighting"  # Lighting triggers (natural, studio, warm, cold)
+    MOOD = "mood"  # Mood/emotion triggers (happy, seductive, serious)
+    LOCATION = "location"  # Location triggers (beach, bedroom, gym, outdoor)
+    CLOTHING = "clothing"  # Clothing-specific triggers
+    ACTION = "action"  # Action triggers (sitting, standing, walking, posing)
+    CUSTOM = "custom"  # User-defined custom triggers
+
+
+class LoRAConfig(BaseModel):
+    """Configuration for a single LoRA in a trigger."""
+
+    name: str = Field(..., description="LoRA model name or path")
+    weight: float = Field(
+        default=0.8,
+        ge=0.0,
+        le=2.0,
+        description="LoRA weight (0.0-2.0, typical range 0.5-1.0)"
+    )
+    trigger_word: Optional[str] = Field(
+        default=None,
+        description="Optional trigger word to inject into prompt when using this LoRA"
+    )
+
+
+class WeightOverrides(BaseModel):
+    """Model weight and parameter overrides for a trigger."""
+
+    guidance_scale: Optional[float] = Field(
+        default=None,
+        ge=1.0,
+        le=30.0,
+        description="CFG scale override (typically 5-15)"
+    )
+    num_inference_steps: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=150,
+        description="Number of inference steps override"
+    )
+    strength: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Image-to-image strength override"
+    )
+    clip_skip: Optional[int] = Field(
+        default=None,
+        ge=0,
+        le=4,
+        description="CLIP skip layers"
+    )
+    sampler: Optional[str] = Field(
+        default=None,
+        description="Sampler override (euler, dpm++, etc.)"
+    )
+    scheduler: Optional[str] = Field(
+        default=None,
+        description="Scheduler override"
+    )
+
+
+class TriggerConfig(BaseModel):
+    """Configuration for a single content trigger."""
+
+    trigger_phrases: List[str] = Field(
+        default=[],
+        description="List of phrases that activate this trigger"
+    )
+    model: Optional[str] = Field(
+        default=None,
+        description="Primary model to use when triggered (null = use persona default)"
+    )
+    loras: List[LoRAConfig] = Field(
+        default=[],
+        description="LoRAs to stack with their weights"
+    )
+    positive_prompt: str = Field(
+        default="",
+        description="Additional positive prompt elements to inject"
+    )
+    negative_prompt: str = Field(
+        default="",
+        description="Additional negative prompt elements to inject"
+    )
+    category: TriggerCategory = Field(
+        default=TriggerCategory.CUSTOM,
+        description="Category for trigger classification"
+    )
+    view_type: Optional[str] = Field(
+        default=None,
+        description="View type for this trigger (front_headshot, side_profile, full_frontal, etc.)"
+    )
+    weight_overrides: Optional[WeightOverrides] = Field(
+        default=None,
+        description="Model parameter overrides"
+    )
+    priority: int = Field(
+        default=50,
+        ge=0,
+        le=100,
+        description="Priority for trigger matching (higher = checked first)"
+    )
+    enabled: bool = Field(
+        default=True,
+        description="Whether this trigger is active"
+    )
+    description: Optional[str] = Field(
+        default=None,
+        description="Human-readable description of this trigger"
+    )
+
+
+class ContentTriggersConfig(BaseModel):
+    """Complete content triggers configuration for a persona."""
+
+    triggers: Dict[str, TriggerConfig] = Field(
+        default={},
+        description="Map of trigger_id -> TriggerConfig"
+    )
+    default_positive_prompt: str = Field(
+        default="",
+        description="Default positive prompt to always include"
+    )
+    default_negative_prompt: str = Field(
+        default="ugly, deformed, bad anatomy, blurry, low quality",
+        description="Default negative prompt to always include"
+    )
+    enable_auto_lora_selection: bool = Field(
+        default=True,
+        description="Enable automatic LoRA selection based on detected attributes"
+    )
+    enable_multi_model_routing: bool = Field(
+        default=True,
+        description="Enable routing to different models based on view/pose requirements"
+    )
+
+
 class PersonaModel(Base):
     """
     SQLAlchemy model for AI personas.
@@ -299,6 +446,44 @@ class PersonaModel(Base):
     patience_level = Column(
         String(20), default="normal", nullable=False
     )  # short_fuse, normal, patient, infinite
+
+    # ==================== TRIGGER-BASED MODEL ORCHESTRATION ====================
+    # content_triggers: Configurable trigger words that route to specific models/LoRAs
+    # Each trigger can have:
+    #   - trigger_phrases: List of phrases that activate this trigger
+    #   - model: Primary model to use when triggered
+    #   - loras: List of LoRAs to stack with weights
+    #   - positive_prompt: Additional positive prompt elements
+    #   - negative_prompt: Additional negative prompt elements
+    #   - category: Trigger category (pose, style, view, nsfw, platform, anatomy, etc.)
+    #   - weight_overrides: Model-specific weight overrides
+    #   - priority: Priority for trigger matching (higher = checked first)
+    # Example structure:
+    # {
+    #   "selfie_trigger": {
+    #     "trigger_phrases": ["take a selfie", "send selfie", "selfie"],
+    #     "model": "realvisxl",
+    #     "loras": [{"name": "face_detail_lora", "weight": 0.8}, {"name": "skin_texture_lora", "weight": 0.5}],
+    #     "positive_prompt": "front facing, looking at camera, natural lighting",
+    #     "negative_prompt": "side view, profile, back view",
+    #     "category": "pose",
+    #     "view_type": "front_headshot",
+    #     "weight_overrides": {"guidance_scale": 7.5, "num_inference_steps": 30},
+    #     "priority": 100
+    #   },
+    #   "bikini_trigger": {
+    #     "trigger_phrases": ["bikini", "swimsuit", "beach"],
+    #     "model": "nsfw_model_v2",
+    #     "loras": [{"name": "body_detail_lora", "weight": 0.7}],
+    #     "positive_prompt": "beach setting, natural sunlight, summer vibes",
+    #     "negative_prompt": "indoor, winter, clothed",
+    #     "category": "style",
+    #     "priority": 80
+    #   }
+    # }
+    content_triggers = Column(
+        JSON, nullable=False, default=dict
+    )
 
     # Timestamps
     created_at = Column(
@@ -614,6 +799,17 @@ class PersonaCreate(BaseModel):
         description="Patience level (short_fuse, normal, patient, infinite)",
     )
 
+    # ==================== TRIGGER-BASED MODEL ORCHESTRATION ====================
+    content_triggers: Dict[str, Any] = Field(
+        default={},
+        description=(
+            "Trigger-based model orchestration configuration. "
+            "Maps trigger_id to TriggerConfig with: trigger_phrases, model, loras (with weights), "
+            "positive_prompt, negative_prompt, category, view_type, weight_overrides, priority. "
+            "Enables automatic model/LoRA selection based on detected keywords, poses, styles, etc."
+        ),
+    )
+
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
@@ -841,6 +1037,16 @@ class PersonaUpdate(BaseModel):
         description="Patience level",
     )
 
+    # ==================== TRIGGER-BASED MODEL ORCHESTRATION ====================
+    content_triggers: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Trigger-based model orchestration configuration. "
+            "Maps trigger_id to TriggerConfig with: trigger_phrases, model, loras (with weights), "
+            "positive_prompt, negative_prompt, category, view_type, weight_overrides, priority."
+        ),
+    )
+
     @field_validator("platform_restrictions")
     @classmethod
     def validate_platform_restrictions(
@@ -951,5 +1157,8 @@ class PersonaResponse(BaseModel):
     forbidden_phrases: List[str] = []
     warmth_level: str = "warm"
     patience_level: str = "normal"
+
+    # ==================== TRIGGER-BASED MODEL ORCHESTRATION ====================
+    content_triggers: Dict[str, Any] = {}
 
     model_config = {"from_attributes": True}
