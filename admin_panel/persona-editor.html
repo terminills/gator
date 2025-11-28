@@ -3276,9 +3276,6 @@
             // Build model options from installed models
             const modelOptions = buildModelOptionsHtml(trigger.model);
             
-            // Build LoRA options from installed models (filter for LoRAs)
-            const loraOptions = buildLoraOptionsHtml();
-            
             // Build LoRA rows HTML with dropdowns
             const lorasHtml = (trigger.loras || []).map((lora, index) => `
                 <div class="lora-row" data-lora-index="${index}">

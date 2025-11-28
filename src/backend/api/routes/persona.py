@@ -2385,9 +2385,8 @@ async def chat_with_persona(
                 
                 # Build custom prompt additions from trigger if available
                 custom_prompt_addition = ""
-                if matched_trigger:
-                    if matched_trigger.get('positive_prompt'):
-                        custom_prompt_addition = matched_trigger.get('positive_prompt', '')
+                if matched_trigger and matched_trigger.get('positive_prompt'):
+                    custom_prompt_addition = matched_trigger['positive_prompt']
                 
                 # Generate image prompt based on persona and chat context
                 image_prompt = await _generate_image_prompt_with_ollama(
@@ -2396,13 +2395,6 @@ async def chat_with_persona(
                     custom_prompt=custom_prompt_addition,
                     include_nsfw=(persona.default_content_rating or "sfw").lower() != "sfw",
                 )
-                
-                # If matched trigger has additional positive prompt elements, append them
-                if matched_trigger and matched_trigger.get('positive_prompt'):
-                    # Append trigger-specific prompt elements if not already in prompt
-                    trigger_positive = matched_trigger.get('positive_prompt', '')
-                    if trigger_positive and trigger_positive.lower() not in image_prompt.lower():
-                        image_prompt = f"{image_prompt}, {trigger_positive}"
                 
                 # Generate the image
                 ai_manager = AIModelManager()
