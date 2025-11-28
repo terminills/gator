@@ -26,12 +26,18 @@ class MockCompel:
 
     def __call__(self, prompt):
         """Generate mock embeddings based on prompt length."""
-        # Estimate token count based on word count (rough approximation)
+        # Estimate token count based on word count.
+        # CLIP tokenizer typically produces ~1.3 tokens per word due to subword tokenization.
+        # SDXL uses two text encoders, which can result in longer sequence lengths (up to 2x).
+        TOKENS_PER_WORD = 1.3  # Average tokens per word for CLIP tokenizer
+        MIN_TOKENS = 77  # Standard CLIP sequence length
+        MAX_TOKENS = 300  # Maximum supported sequence length
+
         if isinstance(prompt, str):
             word_count = len(prompt.split())
-            token_count = min(max(word_count * 1.3, 77), 300)  # At least 77, max 300
+            token_count = min(max(word_count * TOKENS_PER_WORD, MIN_TOKENS), MAX_TOKENS)
         else:
-            token_count = 77
+            token_count = MIN_TOKENS
         return torch.randn(1, int(token_count), 2048)
 
     def pad_conditioning_tensors_to_same_length(self, conditionings):
@@ -76,8 +82,9 @@ class TestSdxlPromptEmbeddingPadding:
         compel = MockCompel()
 
         # Create embeddings with different lengths
-        prompt_embeds = torch.randn(1, 154, 2048)  # Long prompt (87 tokens)
-        negative_prompt_embeds = torch.randn(1, 77, 2048)  # Short prompt
+        # SDXL dual-encoder produces 154 tokens for long prompts (2x77 due to chunking)
+        prompt_embeds = torch.randn(1, 154, 2048)  # Long prompt embedding
+        negative_prompt_embeds = torch.randn(1, 77, 2048)  # Short prompt embedding
 
         # Apply padding (the fix)
         [
