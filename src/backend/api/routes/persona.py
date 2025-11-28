@@ -1666,6 +1666,13 @@ JSON:"""
         )
 
 
+# Constants for AI generation validation
+VALID_CONTENT_RATINGS = ["sfw", "moderate", "nsfw"]
+OPTIMISM_SCALE_MIN = 1
+OPTIMISM_SCALE_MAX = 10
+OPTIMISM_SCALE_DEFAULT = 5
+
+
 class GenerateAllFieldsRequest(BaseModel):
     """Request model for generating all persona fields."""
     
@@ -1673,7 +1680,8 @@ class GenerateAllFieldsRequest(BaseModel):
     persona_type: Optional[str] = Field(default=None, description="Optional persona type hint (e.g., fitness, tech, lifestyle)")
     content_rating: str = Field(
         default="sfw",
-        description="Content rating: sfw, moderate, or nsfw - affects generation style"
+        description="Content rating: sfw, moderate, or nsfw - affects generation style",
+        pattern="^(sfw|moderate|nsfw)$"
     )
 
 
@@ -1768,12 +1776,9 @@ async def generate_all_fields(
         500: Generation error
     """
     try:
-        # Ollama configuration
-        OLLAMA_BASE_URL = "http://localhost:11434"
-        
-        # Check if Ollama is available
+        # Check if Ollama is available (using module-level constants)
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=OLLAMA_CONNECT_TIMEOUT) as client:
                 response = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
                 if response.status_code != 200:
                     raise HTTPException(
@@ -1924,10 +1929,12 @@ Create a COMPLETE detailed persona profile.{name_hint}{type_hint}
 
 JSON:"""
 
-        # Generate with Ollama (90 second timeout for comprehensive generation)
+        # Generate with Ollama (using module-level timeout for comprehensive generation)
         logger.info(f"Generating all persona fields with {model_to_use} (rating: {rating})")
         
-        async with httpx.AsyncClient(timeout=90.0) as client:
+        # Use a longer timeout for all-fields generation (more content than soul fields)
+        all_fields_timeout = OLLAMA_GENERATE_TIMEOUT * 1.5  # 90 seconds default
+        async with httpx.AsyncClient(timeout=all_fields_timeout) as client:
             response = await client.post(
                 f"{OLLAMA_BASE_URL}/api/generate",
                 json={
@@ -1986,11 +1993,11 @@ JSON:"""
             return default
         
         # Validate and normalize the response
-        optimism_scale = persona_data.get('optimism_cynicism_scale', 5)
+        optimism_scale = persona_data.get('optimism_cynicism_scale', OPTIMISM_SCALE_DEFAULT)
         if isinstance(optimism_scale, (int, float)):
-            optimism_scale = max(1, min(10, int(optimism_scale)))
+            optimism_scale = max(OPTIMISM_SCALE_MIN, min(OPTIMISM_SCALE_MAX, int(optimism_scale)))
         else:
-            optimism_scale = 5
+            optimism_scale = OPTIMISM_SCALE_DEFAULT
         
         # Ensure dict
         typing_quirks = persona_data.get('typing_quirks', {})

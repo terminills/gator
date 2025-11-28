@@ -3092,15 +3092,18 @@
             }
             
             // Soul Fields - Psychological Profile
-            if (data.mbti_type) {
+            if (data.mbti_type && typeof data.mbti_type === 'string') {
                 const mbtiSelect = document.getElementById('mbti_type');
                 if (mbtiSelect) {
                     // Try to match the MBTI type from the dropdown
-                    const mbtiValue = data.mbti_type.split(' ')[0]; // Get just "INTJ" from "INTJ - The Architect"
+                    // Handle formats like "INTJ - The Architect" or just "INTJ"
+                    const mbtiValue = data.mbti_type.includes(' ') 
+                        ? data.mbti_type.split(' ')[0] 
+                        : data.mbti_type;
                     mbtiSelect.value = mbtiValue;
                 }
             }
-            if (data.enneagram_type) {
+            if (data.enneagram_type && typeof data.enneagram_type === 'string') {
                 const enneaSelect = document.getElementById('enneagram_type');
                 if (enneaSelect) {
                     // Try to extract the type number (e.g., "Type 7" -> "7")
