@@ -482,7 +482,7 @@ class PersonaModel(Base):
     #   }
     # }
     content_triggers = Column(
-        JSON, nullable=False, default=dict
+        JSON, nullable=False, default=lambda: {}
     )
 
     # Timestamps

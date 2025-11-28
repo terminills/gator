@@ -3429,16 +3429,22 @@
         }
         
         function renameTrigger(oldId, newId) {
-            newId = newId.trim().replace(/\s+/g, '_').toLowerCase();
-            if (!newId || newId === oldId) return;
+            // Normalize the ID: lowercase with underscores, no leading/trailing whitespace
+            const normalizedId = newId.trim().replace(/\s+/g, '_').toLowerCase();
+            if (!normalizedId || normalizedId === oldId) return;
             
-            if (contentTriggers[newId]) {
-                alert(`Trigger ID "${newId}" already exists. Please choose a different name.`);
+            if (contentTriggers[normalizedId]) {
+                alert(`Trigger ID "${normalizedId}" already exists. Please choose a different name.`);
                 renderContentTriggers();
                 return;
             }
             
-            contentTriggers[newId] = contentTriggers[oldId];
+            // Notify user if the ID was transformed
+            if (normalizedId !== newId.trim()) {
+                console.log(`Trigger ID normalized from "${newId}" to "${normalizedId}"`);
+            }
+            
+            contentTriggers[normalizedId] = contentTriggers[oldId];
             delete contentTriggers[oldId];
             renderContentTriggers();
         }
