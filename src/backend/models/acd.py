@@ -20,6 +20,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     ForeignKey,
+    Float,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
@@ -142,6 +143,54 @@ class SkillLevel(str, Enum):
     INTERMEDIATE = "INTERMEDIATE"
     EXPERT = "EXPERT"
     SPECIALIST = "SPECIALIST"
+
+
+# ============================================================
+# Scheduling Enums - For LLM-driven scheduler integration
+# ============================================================
+
+class ScheduleType(str, Enum):
+    """Type of scheduled task for LLM orchestration."""
+    
+    IMMEDIATE = "IMMEDIATE"  # Execute as soon as possible
+    SCHEDULED = "SCHEDULED"  # Execute at specific time
+    RECURRING = "RECURRING"  # Repeat on schedule
+    TRIGGERED = "TRIGGERED"  # Execute when condition is met
+    OPTIMIZED = "OPTIMIZED"  # LLM decides optimal time
+    DEFERRED = "DEFERRED"  # Low priority, execute when resources available
+
+
+class ScheduleOptimizationGoal(str, Enum):
+    """Goal for LLM scheduling optimization."""
+    
+    MAX_ENGAGEMENT = "MAX_ENGAGEMENT"  # Optimize for user engagement
+    MAX_REACH = "MAX_REACH"  # Optimize for maximum audience reach
+    MIN_COST = "MIN_COST"  # Minimize resource usage
+    MAX_CONVERSION = "MAX_CONVERSION"  # Optimize for PPV/sales conversion
+    BALANCED = "BALANCED"  # Balance all factors
+    CUSTOM = "CUSTOM"  # Custom LLM-defined optimization
+
+
+class ScheduleDecisionSource(str, Enum):
+    """Source of scheduling decision."""
+    
+    MANUAL = "MANUAL"  # Human-specified
+    RULE_BASED = "RULE_BASED"  # Simple rule engine
+    LLM_RECOMMENDED = "LLM_RECOMMENDED"  # LLM suggested, human approved
+    LLM_AUTONOMOUS = "LLM_AUTONOMOUS"  # Fully LLM-controlled
+    HISTORICAL = "HISTORICAL"  # Based on historical patterns
+    HYBRID = "HYBRID"  # Combination of sources
+
+
+class ScheduleFeedbackType(str, Enum):
+    """Type of feedback for schedule learning."""
+    
+    ENGAGEMENT_RESULT = "ENGAGEMENT_RESULT"  # How well content performed
+    TIMING_RESULT = "TIMING_RESULT"  # Was timing optimal
+    RESOURCE_USAGE = "RESOURCE_USAGE"  # Resource efficiency
+    USER_FEEDBACK = "USER_FEEDBACK"  # Direct user feedback
+    CONVERSION_RESULT = "CONVERSION_RESULT"  # Conversion metrics
+    SYSTEM_PERFORMANCE = "SYSTEM_PERFORMANCE"  # System health impact
 
 
 class AIDomain(str, Enum):
@@ -468,6 +517,45 @@ class ACDContextModel(Base):
     # Collaboration tracking
     ai_exchange_id = Column(String(50), nullable=True, index=True)
     ai_round = Column(Integer, nullable=True)
+
+    # ============================================================
+    # Scheduling Fields - For LLM-driven scheduler integration
+    # ============================================================
+    
+    # Schedule configuration
+    schedule_type = Column(String(30), nullable=True, index=True)  # ScheduleType enum
+    scheduled_for = Column(DateTime(timezone=True), nullable=True, index=True)
+    schedule_window_start = Column(DateTime(timezone=True), nullable=True)
+    schedule_window_end = Column(DateTime(timezone=True), nullable=True)
+    recurring_pattern = Column(JSON, nullable=True)  # Cron-like pattern or custom
+    
+    # LLM scheduling decision context
+    schedule_decision_source = Column(String(30), nullable=True)  # ScheduleDecisionSource enum
+    schedule_optimization_goal = Column(String(30), nullable=True)  # ScheduleOptimizationGoal enum
+    schedule_reasoning = Column(Text, nullable=True)  # LLM's reasoning for schedule decision
+    schedule_constraints = Column(JSON, nullable=True)  # Constraints LLM should consider
+    schedule_preferences = Column(JSON, nullable=True)  # User preferences for timing
+    
+    # Historical context for LLM learning
+    historical_performance = Column(JSON, nullable=True)  # Past results for similar operations
+    optimal_timing_learned = Column(JSON, nullable=True)  # Learned optimal timing patterns
+    audience_activity_pattern = Column(JSON, nullable=True)  # When audience is most active
+    
+    # Feedback loop for scheduler learning
+    schedule_feedback_type = Column(String(30), nullable=True)  # ScheduleFeedbackType enum
+    schedule_feedback_data = Column(JSON, nullable=True)  # Actual results vs predictions
+    schedule_effectiveness_score = Column(Float, nullable=True)  # 0-100 effectiveness
+    
+    # Dependencies and orchestration
+    depends_on_contexts = Column(JSON, nullable=True)  # List of context IDs this depends on
+    blocks_contexts = Column(JSON, nullable=True)  # List of context IDs blocked by this
+    orchestration_group = Column(String(100), nullable=True, index=True)  # Group for batch scheduling
+    execution_order = Column(Integer, nullable=True)  # Order within orchestration group
+    
+    # Resource planning
+    estimated_resources = Column(JSON, nullable=True)  # CPU, GPU, memory, time estimates
+    actual_resources = Column(JSON, nullable=True)  # Actual resource usage
+    resource_efficiency = Column(Float, nullable=True)  # Actual/Estimated ratio
 
     # Timestamps
     created_at = Column(
