@@ -1602,3 +1602,395 @@ and error patterns. This enables intelligent recommendations.""",
         except Exception as e:
             logger.error(f"Error getting scheduling learning data: {str(e)}")
             return {"error": str(e)}
+
+    # ============================================================
+    # Intelligent Task Recommendation and Agent Routing
+    # ============================================================
+
+    async def recommend_next_task(
+        self,
+        optimization_goal: str = "BALANCED",
+        persona_id: Optional[UUID] = None
+    ) -> Dict[str, Any]:
+        """
+        Use system understanding to recommend the next optimal task.
+        
+        This enables LLM-driven scheduling by providing:
+        - Which persona should act next
+        - What content type is optimal
+        - Which platform to target
+        - When to execute
+        
+        Args:
+            optimization_goal: What to optimize for (MAX_ENGAGEMENT, MAX_REACH, etc.)
+            persona_id: Optional specific persona to recommend for
+            
+        Returns:
+            Task recommendation with reasoning
+        """
+        try:
+            # Get current system state
+            understanding = await self.get_system_understanding(hours=24)
+            scheduling_context = await self.get_scheduling_context(hours=24)
+            
+            # Analyze queue state
+            queue_state = scheduling_context.get("queue_state", {})
+            queue_depth = queue_state.get("queue_depth", 0)
+            
+            # Analyze timing patterns
+            timing_patterns = scheduling_context.get("timing_patterns", {})
+            optimal_hours = timing_patterns.get("optimal_hours", [])
+            
+            # Get engagement metrics
+            engagement = understanding.get("engagement_metrics", {})
+            ppv_performance = understanding.get("ppv_performance", {})
+            
+            # Get persona performance
+            persona_status = understanding.get("persona_status", {})
+            personas = persona_status.get("personas", [])
+            
+            # Build recommendation
+            recommendation = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "optimization_goal": optimization_goal,
+                "queue_state": {
+                    "depth": queue_depth,
+                    "recommendation": "proceed" if queue_depth < 20 else "wait",
+                },
+            }
+            
+            # Recommend persona
+            if persona_id:
+                recommendation["persona"] = {
+                    "id": str(persona_id),
+                    "source": "specified",
+                }
+            elif personas:
+                # Select persona with best recent performance or lowest activity
+                active_personas = [p for p in personas if p.get("is_active")]
+                if active_personas:
+                    # Sort by post_count (lower = needs more activity)
+                    sorted_personas = sorted(active_personas, key=lambda p: p.get("post_count", 0))
+                    selected = sorted_personas[0]
+                    recommendation["persona"] = {
+                        "id": selected["id"],
+                        "name": selected["name"],
+                        "source": "load_balanced",
+                        "reasoning": f"Selected {selected['name']} - lowest recent activity ({selected.get('post_count', 0)} posts)",
+                    }
+            
+            # Recommend content type based on optimization goal
+            content_type_map = {
+                "MAX_ENGAGEMENT": "proactive_topic",  # Topics generate discussion
+                "MAX_REACH": "image",  # Images spread fastest
+                "MAX_CONVERSION": "ppv_offer",  # Direct revenue
+                "MIN_COST": "text",  # Lowest resource usage
+                "BALANCED": "proactive_topic",
+            }
+            
+            recommendation["content_type"] = {
+                "type": content_type_map.get(optimization_goal, "proactive_topic"),
+                "reasoning": f"Optimal for {optimization_goal} goal",
+            }
+            
+            # Recommend platform
+            by_platform = engagement.get("by_platform", {})
+            if by_platform:
+                # Find platform with best engagement
+                best_platform = max(by_platform.items(), key=lambda x: x[1].get("likes", 0) + x[1].get("comments", 0))
+                recommendation["platform"] = {
+                    "platform": best_platform[0],
+                    "reasoning": f"Best engagement on {best_platform[0]}",
+                }
+            else:
+                recommendation["platform"] = {
+                    "platform": "instagram",
+                    "reasoning": "Default platform (no historical data)",
+                }
+            
+            # Recommend timing
+            now = datetime.now(timezone.utc)
+            if optimal_hours:
+                best_hour = optimal_hours[0]["hour"]
+                current_hour = now.hour
+                
+                if abs(best_hour - current_hour) <= 2:
+                    recommendation["timing"] = {
+                        "execute": "now",
+                        "reasoning": f"Current time is near optimal hour ({best_hour}:00)",
+                    }
+                else:
+                    recommendation["timing"] = {
+                        "execute": "scheduled",
+                        "scheduled_hour": best_hour,
+                        "reasoning": f"Schedule for {best_hour}:00 UTC for {optimal_hours[0]['success_rate']}% success rate",
+                    }
+            else:
+                recommendation["timing"] = {
+                    "execute": "now",
+                    "reasoning": "No historical timing data - execute immediately",
+                }
+            
+            # Add PPV opportunity if conversion rate is high
+            ppv_conversion = ppv_performance.get("conversion_rate", 0)
+            if ppv_conversion > 20:
+                recommendation["ppv_opportunity"] = {
+                    "suggested": True,
+                    "conversion_rate": ppv_conversion,
+                    "reasoning": f"High PPV conversion rate ({ppv_conversion}%) - consider upsell opportunity",
+                }
+            
+            # Overall confidence
+            recommendation["confidence"] = {
+                "score": 0.8 if optimal_hours and personas else 0.5,
+                "factors": {
+                    "has_timing_data": bool(optimal_hours),
+                    "has_engagement_data": bool(by_platform),
+                    "has_persona_data": bool(personas),
+                    "queue_clear": queue_depth < 20,
+                },
+            }
+            
+            return recommendation
+            
+        except Exception as e:
+            logger.error(f"Error recommending next task: {str(e)}")
+            return {"error": str(e)}
+
+    async def route_to_agent(
+        self,
+        task: Dict[str, Any],
+        required_capabilities: List[str]
+    ) -> Dict[str, Any]:
+        """
+        Intelligent agent routing based on task requirements.
+        
+        Routes tasks to the optimal agent based on:
+        - Agent capabilities
+        - Current load
+        - Past performance
+        - Task complexity
+        
+        Args:
+            task: Task details including type, content, requirements
+            required_capabilities: List of required agent capabilities
+            
+        Returns:
+            Routing decision with agent assignment and reasoning
+        """
+        try:
+            # Get current agent states from ACD contexts
+            stmt = select(ACDContextModel).where(
+                and_(
+                    ACDContextModel.ai_state == "PROCESSING",
+                    ACDContextModel.ai_assigned_agent_id != None
+                )
+            )
+            result = await self.db.execute(stmt)
+            active_contexts = result.scalars().all()
+            
+            # Analyze agent load
+            agent_load = {}
+            for ctx in active_contexts:
+                agent_id = str(ctx.ai_assigned_agent_id)
+                agent_load[agent_id] = agent_load.get(agent_id, 0) + 1
+            
+            # Find historical performance by agent
+            perf_stmt = select(ACDContextModel).where(
+                and_(
+                    ACDContextModel.ai_state == "DONE",
+                    ACDContextModel.ai_assigned_agent_id != None
+                )
+            ).order_by(desc(ACDContextModel.updated_at)).limit(100)
+            
+            perf_result = await self.db.execute(perf_stmt)
+            completed_contexts = perf_result.scalars().all()
+            
+            # Calculate agent success rates
+            agent_performance = {}
+            for ctx in completed_contexts:
+                agent_id = str(ctx.ai_assigned_agent_id)
+                if agent_id not in agent_performance:
+                    agent_performance[agent_id] = {"total": 0, "success": 0}
+                agent_performance[agent_id]["total"] += 1
+                # Success if confidence is HIGH or status is COMPLETED
+                if ctx.ai_confidence == "HIGH" or ctx.ai_status == "COMPLETED":
+                    agent_performance[agent_id]["success"] += 1
+            
+            # Calculate success rates
+            for agent_id in agent_performance:
+                perf = agent_performance[agent_id]
+                perf["success_rate"] = perf["success"] / perf["total"] if perf["total"] > 0 else 0
+            
+            # Build routing decision
+            routing = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "task": {
+                    "type": task.get("type"),
+                    "domain": task.get("domain"),
+                    "complexity": task.get("complexity", "MEDIUM"),
+                },
+                "required_capabilities": required_capabilities,
+                "agent_analysis": {
+                    "total_active_agents": len(set(agent_load.keys())),
+                    "total_active_tasks": sum(agent_load.values()),
+                },
+            }
+            
+            # Select best agent
+            if agent_performance:
+                # Score agents: high success rate, low current load
+                agent_scores = []
+                for agent_id, perf in agent_performance.items():
+                    current_load = agent_load.get(agent_id, 0)
+                    score = perf["success_rate"] * 0.7 - (current_load * 0.1)
+                    agent_scores.append({
+                        "agent_id": agent_id,
+                        "score": score,
+                        "success_rate": perf["success_rate"],
+                        "current_load": current_load,
+                    })
+                
+                # Sort by score descending
+                agent_scores.sort(key=lambda x: x["score"], reverse=True)
+                
+                if agent_scores:
+                    best = agent_scores[0]
+                    routing["assignment"] = {
+                        "agent_id": best["agent_id"],
+                        "confidence": "HIGH" if best["score"] > 0.5 else "MEDIUM",
+                        "reasoning": f"Best scoring agent (score: {best['score']:.2f}, success: {best['success_rate']:.0%}, load: {best['current_load']})",
+                    }
+                    routing["alternatives"] = agent_scores[1:3]  # Top 3 alternatives
+                else:
+                    routing["assignment"] = {
+                        "agent_id": None,
+                        "confidence": "LOW",
+                        "reasoning": "No agent performance data available - assign to any available agent",
+                    }
+            else:
+                routing["assignment"] = {
+                    "agent_id": None,
+                    "confidence": "LOW",
+                    "reasoning": "No historical agent data - use round-robin assignment",
+                }
+            
+            return routing
+            
+        except Exception as e:
+            logger.error(f"Error routing to agent: {str(e)}")
+            return {"error": str(e)}
+
+    async def analyze_system_state(self) -> Dict[str, Any]:
+        """
+        Get comprehensive system state analysis for LLM reasoning.
+        
+        Returns insights on:
+        - Bottlenecks (what's blocked?)
+        - Resource utilization (queue depth, processing load)
+        - Performance trends (what's working?)
+        - Recommended actions (what should we do next?)
+        
+        This is the "brain" method that connects all system data.
+        """
+        try:
+            # Get all component analyses
+            understanding = await self.get_system_understanding(hours=24)
+            scheduling_context = await self.get_scheduling_context(hours=24)
+            
+            # Build comprehensive state analysis
+            analysis = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "overall_health": understanding.get("system_state", {}).get("health_status", "UNKNOWN"),
+            }
+            
+            # Bottleneck analysis
+            bottlenecks = []
+            
+            queue_state = scheduling_context.get("queue_state", {})
+            if queue_state.get("queue_depth", 0) > 50:
+                bottlenecks.append({
+                    "type": "QUEUE_BACKUP",
+                    "severity": "HIGH",
+                    "description": f"Queue depth is {queue_state['queue_depth']} - processing is falling behind",
+                    "suggestion": "Increase parallelism or defer low-priority tasks",
+                })
+            
+            if queue_state.get("max_wait_time_minutes", 0) > 60:
+                bottlenecks.append({
+                    "type": "STUCK_TASKS",
+                    "severity": "HIGH",
+                    "description": f"Max wait time is {queue_state['max_wait_time_minutes']}min - some tasks may be stuck",
+                    "suggestion": "Review stuck tasks and check for errors",
+                })
+            
+            error_analysis = understanding.get("error_analysis", {})
+            if error_analysis.get("total_errors", 0) > 10:
+                bottlenecks.append({
+                    "type": "ERROR_RATE",
+                    "severity": "MEDIUM",
+                    "description": f"{error_analysis['total_errors']} errors in last 24h",
+                    "suggestion": "Review error patterns and fix recurring issues",
+                })
+            
+            analysis["bottlenecks"] = bottlenecks
+            
+            # Resource utilization
+            analysis["resource_utilization"] = {
+                "queue_depth": queue_state.get("queue_depth", 0),
+                "processing_tasks": queue_state.get("total_in_progress", 0),
+                "pending_scheduled": scheduling_context.get("pending_scheduled", {}).get("total_pending", 0),
+                "status": "HEALTHY" if queue_state.get("queue_depth", 0) < 30 else "OVERLOADED",
+            }
+            
+            # Performance trends
+            content_activity = understanding.get("content_activity", {})
+            engagement = understanding.get("engagement_metrics", {})
+            ppv = understanding.get("ppv_performance", {})
+            
+            analysis["performance_trends"] = {
+                "content_success_rate": content_activity.get("success_rate", 0),
+                "avg_engagement_rate": engagement.get("avg_engagement_rate", 0),
+                "ppv_conversion_rate": ppv.get("conversion_rate", 0),
+                "trend": "IMPROVING" if content_activity.get("success_rate", 0) > 80 else "NEEDS_ATTENTION",
+            }
+            
+            # Recommended actions (prioritized)
+            actions = []
+            
+            if bottlenecks:
+                for b in bottlenecks:
+                    actions.append({
+                        "priority": 1 if b["severity"] == "HIGH" else 2,
+                        "action": b["suggestion"],
+                        "reason": b["description"],
+                    })
+            
+            # Add proactive recommendations
+            churn = understanding.get("churn_indicators", {})
+            if churn.get("risk_assessment", {}).get("level") in ["HIGH", "CRITICAL"]:
+                actions.append({
+                    "priority": 1,
+                    "action": "Implement re-engagement campaign",
+                    "reason": f"Churn risk is {churn['risk_assessment']['level']}",
+                })
+            
+            if ppv.get("conversion_rate", 0) < 15:
+                actions.append({
+                    "priority": 2,
+                    "action": "Optimize PPV offers - review pricing and timing",
+                    "reason": f"PPV conversion rate is only {ppv.get('conversion_rate', 0)}%",
+                })
+            
+            # Sort by priority
+            actions.sort(key=lambda x: x["priority"])
+            analysis["recommended_actions"] = actions[:5]  # Top 5
+            
+            # Next task recommendation
+            analysis["next_task_recommendation"] = await self.recommend_next_task()
+            
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"Error analyzing system state: {str(e)}")
+            return {"error": str(e)}
