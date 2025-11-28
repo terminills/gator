@@ -475,6 +475,13 @@
                     <button class="activity-btn" style="background: #f59e0b;" onclick="searchCivitAI()">🎯 Search CivitAI</button>
                     <button class="activity-btn" style="background: #ec4899;" onclick="searchHuggingFace()">🤗 Search HuggingFace</button>
                 </div>
+                <!-- ACD Understanding Row -->
+                <div class="activity-triggers" style="margin-top: 8px;">
+                    <button class="activity-btn" style="background: #3b82f6;" onclick="getSystemUnderstanding()">🧠 System Understanding</button>
+                    <button class="activity-btn" style="background: #6366f1;" onclick="searchACDContexts()">🔄 Search Contexts</button>
+                    <button class="activity-btn" style="background: #8b5cf6;" onclick="showSystemErrors()">📊 Show Errors</button>
+                    <button class="activity-btn" style="background: #a855f7;" onclick="explainACD()">💡 Explain ACD</button>
+                </div>
                 <div style="padding: 10px 0; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                         <input type="checkbox" id="verbose-mode" checked style="cursor: pointer;">
@@ -487,7 +494,7 @@
                         type="text" 
                         class="chat-input" 
                         id="chat-input" 
-                        placeholder="Try: 'create image of sunset', 'search civitai SDXL', 'install model 12345'..."
+                        placeholder="Try: 'system understanding', 'explain acd', 'search contexts', 'show errors'..."
                         onkeypress="if(event.key === 'Enter') sendMessage()"
                     />
                     <button class="chat-send-btn" id="send-btn" onclick="sendMessage()">Send</button>
