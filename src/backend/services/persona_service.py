@@ -108,6 +108,8 @@ class PersonaService:
                 forbidden_phrases=persona_data.forbidden_phrases,
                 warmth_level=persona_data.warmth_level.value,
                 patience_level=persona_data.patience_level.value,
+                # ==================== TRIGGER-BASED MODEL ORCHESTRATION ====================
+                content_triggers=persona_data.content_triggers,
             )
 
             # Add to session and commit
@@ -387,6 +389,10 @@ class PersonaService:
                     update_data["patience_level"] = updates.patience_level.value
                 else:
                     update_data["patience_level"] = str(updates.patience_level)
+
+            # ==================== TRIGGER-BASED MODEL ORCHESTRATION ====================
+            if updates.content_triggers is not None:
+                update_data["content_triggers"] = updates.content_triggers
 
             if not update_data:
                 # No updates provided, return existing persona
