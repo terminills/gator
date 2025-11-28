@@ -11,7 +11,7 @@ from typing import Optional, Dict, Any, List
 from decimal import Decimal
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy import (
     Column,
     String,
@@ -469,7 +469,7 @@ class TrafficMetricsResponse(BaseModel):
     revenue_generated: Decimal
     session_start: datetime
     
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserRetentionResponse(BaseModel):
@@ -485,7 +485,7 @@ class UserRetentionResponse(BaseModel):
     lifetime_value: Decimal
     ppv_purchases: int
     
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RevenueInsightResponse(BaseModel):
@@ -501,7 +501,7 @@ class RevenueInsightResponse(BaseModel):
     revenue_per_user: Optional[Decimal]
     optimization_suggestions: Optional[Dict[str, Any]]
     
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ContentScheduleCreate(BaseModel):
@@ -533,7 +533,7 @@ class ContentScheduleResponse(BaseModel):
     actual_engagement: Optional[float]
     posted_at: Optional[datetime]
     
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SchedulingFeedbackResponse(BaseModel):
@@ -547,4 +547,4 @@ class SchedulingFeedbackResponse(BaseModel):
     what_failed: Optional[Dict[str, Any]]
     recommendations: Optional[Dict[str, Any]]
     
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
