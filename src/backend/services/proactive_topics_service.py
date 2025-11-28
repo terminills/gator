@@ -9,7 +9,6 @@ This service enables personas to proactively share opinions on topics
 instead of only responding when users initiate conversations.
 """
 
-import asyncio
 import random
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any
@@ -275,7 +274,7 @@ class ProactiveTopicsService:
                 select(PersonaFeedModel, RSSFeedModel)
                 .join(RSSFeedModel, PersonaFeedModel.feed_id == RSSFeedModel.id)
                 .where(PersonaFeedModel.persona_id == persona_id)
-                .where(PersonaFeedModel.is_active == True)
+                .where(PersonaFeedModel.is_active.is_(True))
             )
             result = await self.db.execute(stmt)
             persona_feeds = result.all()
