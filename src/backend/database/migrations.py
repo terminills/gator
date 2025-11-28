@@ -770,15 +770,13 @@ async def add_content_triggers_column(conn, is_sqlite: bool) -> List[str]:
         logger.info("Adding content_triggers column to personas table")
         if is_sqlite:
             # SQLite uses TEXT for JSON storage
+            # DEFAULT value is automatically applied to existing rows
             await conn.execute(
                 text("ALTER TABLE personas ADD COLUMN content_triggers TEXT DEFAULT '{}'")
             )
-            # Update existing rows to have the default value
-            await conn.execute(
-                text("UPDATE personas SET content_triggers = '{}' WHERE content_triggers IS NULL")
-            )
         else:
             # PostgreSQL supports native JSONB type
+            # DEFAULT value is automatically applied to existing rows
             await conn.execute(
                 text("ALTER TABLE personas ADD COLUMN content_triggers JSONB DEFAULT '{}'::jsonb")
             )
