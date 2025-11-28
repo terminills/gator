@@ -2693,6 +2693,50 @@
                             </div>
                         </div>
                         
+                        <!-- Proactive Topics Section - Auto-generated content -->
+                        <div id="proactive-topics-panel" style="margin-bottom: 16px; padding: 16px; background: var(--dark-card); border-radius: 8px; border: 1px solid var(--border-color);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <label class="form-label" style="margin-bottom: 0;">
+                                    🎯 Proactive Topics
+                                </label>
+                                <button type="button" class="btn btn-secondary" onclick="refreshProactiveTopics()" style="padding: 6px 12px; font-size: 0.8rem;">
+                                    🔄 Refresh
+                                </button>
+                            </div>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
+                                Topics your persona can proactively share opinions on, based on RSS feeds or interests.
+                                Instead of waiting for users to chat, let your persona engage with current topics!
+                            </p>
+                            
+                            <div id="proactive-topics-container">
+                                <div class="loading-state" style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                                    <div>📭 No proactive topics loaded</div>
+                                    <div style="font-size: 0.8rem; margin-top: 4px;">Click refresh to load topics from RSS feeds or persona interests</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Generated Opinion Preview -->
+                            <div id="proactive-opinion-preview" style="display: none; margin-top: 16px; padding: 16px; background: var(--dark-surface); border-radius: 8px; border-left: 4px solid var(--primary);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <div style="font-size: 0.85rem; font-weight: 600; color: var(--primary);">
+                                        💭 Generated Opinion
+                                    </div>
+                                    <button type="button" onclick="closeProactiveOpinion()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer;">×</button>
+                                </div>
+                                <div id="proactive-opinion-topic" style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;"></div>
+                                <div id="proactive-opinion-text" style="font-size: 0.95rem; line-height: 1.5;"></div>
+                                <div id="proactive-opinion-sentiment" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px;"></div>
+                                <div style="margin-top: 12px; display: flex; gap: 8px;">
+                                    <button type="button" class="btn btn-secondary" onclick="copyProactiveOpinion()" style="padding: 6px 12px; font-size: 0.8rem;">
+                                        📋 Copy
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="discussProactiveOpinion()" style="padding: 6px 12px; font-size: 0.8rem;">
+                                        💬 Discuss in Chat
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="chat-status" id="chat-status">
                             <span class="dot"></span>
                             <span id="chat-status-text">Ready to chat</span>
@@ -5434,6 +5478,9 @@
             // Only show chat section in edit mode (when persona exists)
             if (editorMode === 'edit' && personaId) {
                 document.getElementById('chat-testing-section').style.display = 'block';
+                
+                // Auto-load proactive topics when showing the chat section
+                autoLoadProactiveTopics();
             }
         }
         
@@ -5623,6 +5670,207 @@
             const statusText = document.getElementById('chat-status-text');
             statusEl.classList.remove('loading');
             statusText.textContent = 'Ready to chat';
+        }
+        
+        // ==================== PROACTIVE TOPICS FUNCTIONS ====================
+        
+        // Store proactive topics state
+        let proactiveTopics = [];
+        let currentProactiveOpinion = null;
+        
+        async function refreshProactiveTopics() {
+            if (!currentPersonaId) {
+                showAlert('Please save the persona first to load proactive topics.', 'warning');
+                return;
+            }
+            
+            const container = document.getElementById('proactive-topics-container');
+            container.innerHTML = `
+                <div class="loading-state" style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                    <div>⏳ Loading proactive topics...</div>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch(`/api/v1/feeds/proactive/${currentPersonaId}/topics?limit=5&hours_window=48`);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to load topics: ${response.status}`);
+                }
+                
+                proactiveTopics = await response.json();
+                
+                if (!proactiveTopics || proactiveTopics.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state" style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                            <div>📭 No topics available</div>
+                            <div style="font-size: 0.8rem; margin-top: 4px;">
+                                Assign RSS feeds to this persona or add content themes for auto-generated topics.
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Render topics
+                renderProactiveTopics(proactiveTopics);
+                
+            } catch (error) {
+                console.error('Error loading proactive topics:', error);
+                container.innerHTML = `
+                    <div class="error-state" style="text-align: center; padding: 20px; color: var(--danger);">
+                        <div>❌ Failed to load topics</div>
+                        <div style="font-size: 0.8rem; margin-top: 4px; color: var(--text-secondary);">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        function renderProactiveTopics(topics) {
+            const container = document.getElementById('proactive-topics-container');
+            
+            let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+            
+            topics.forEach((topic, index) => {
+                const sourceIcon = topic.source === 'rss' ? '📰' : '💭';
+                const sentimentIcon = topic.sentiment_score > 0.2 ? '😊' : (topic.sentiment_score < -0.2 ? '😟' : '😐');
+                const relevanceBar = Math.min(100, topic.relevance_score || 50);
+                
+                html += `
+                    <div class="proactive-topic-card" style="padding: 12px; background: var(--dark-surface); border-radius: 8px; border: 1px solid var(--border-color); cursor: pointer; transition: all 0.2s;" onclick="selectProactiveTopic(${index})">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                            <div style="font-weight: 600; font-size: 0.9rem; flex: 1;">${sourceIcon} ${escapeHtml(topic.title || 'Untitled')}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-left: 8px;">${sentimentIcon}</div>
+                        </div>
+                        ${topic.summary ? `<div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; line-height: 1.4;">${escapeHtml(topic.summary.substring(0, 120))}${topic.summary.length > 120 ? '...' : ''}</div>` : ''}
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; gap: 4px;">
+                                ${(topic.categories || []).slice(0, 3).map(cat => `<span style="font-size: 0.7rem; padding: 2px 6px; background: var(--primary); color: white; border-radius: 4px;">${escapeHtml(cat)}</span>`).join('')}
+                            </div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary);">
+                                Relevance: ${relevanceBar}%
+                            </div>
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <button type="button" class="btn btn-primary" onclick="event.stopPropagation(); generateOpinionForTopic(${index})" style="padding: 6px 12px; font-size: 0.8rem;">
+                                💭 Generate Opinion
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        
+        function selectProactiveTopic(index) {
+            const topic = proactiveTopics[index];
+            if (!topic) return;
+            
+            // Highlight the selected topic
+            const cards = document.querySelectorAll('.proactive-topic-card');
+            cards.forEach((card, i) => {
+                if (i === index) {
+                    card.style.borderColor = 'var(--primary)';
+                    card.style.background = 'rgba(102, 126, 234, 0.1)';
+                } else {
+                    card.style.borderColor = 'var(--border-color)';
+                    card.style.background = 'var(--dark-surface)';
+                }
+            });
+        }
+        
+        async function generateOpinionForTopic(index) {
+            const topic = proactiveTopics[index];
+            if (!topic || !currentPersonaId) {
+                showAlert('Please select a topic and save the persona first.', 'warning');
+                return;
+            }
+            
+            // Show loading state in the opinion preview
+            const previewPanel = document.getElementById('proactive-opinion-preview');
+            previewPanel.style.display = 'block';
+            document.getElementById('proactive-opinion-topic').textContent = `Topic: ${topic.title}`;
+            document.getElementById('proactive-opinion-text').innerHTML = '<em style="color: var(--text-secondary);">⏳ Generating opinion...</em>';
+            document.getElementById('proactive-opinion-sentiment').textContent = '';
+            
+            try {
+                const response = await fetch(`/api/v1/feeds/proactive/${currentPersonaId}/opinion`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        topic: topic.title,
+                        topic_summary: topic.summary || null,
+                        use_ai: true
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to generate opinion: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentProactiveOpinion = result;
+                    document.getElementById('proactive-opinion-text').textContent = result.opinion;
+                    
+                    const sentimentEmoji = result.sentiment === 'positive' ? '😊 Positive' : 
+                                          (result.sentiment === 'negative' ? '😟 Negative' : '😐 Neutral');
+                    document.getElementById('proactive-opinion-sentiment').textContent = `Sentiment: ${sentimentEmoji}`;
+                    
+                    showAlert('Opinion generated successfully!', 'success');
+                } else {
+                    throw new Error(result.error || 'Unknown error');
+                }
+                
+            } catch (error) {
+                console.error('Error generating opinion:', error);
+                document.getElementById('proactive-opinion-text').innerHTML = `<em style="color: var(--danger);">❌ ${error.message}</em>`;
+                showAlert(`Failed to generate opinion: ${error.message}`, 'error');
+            }
+        }
+        
+        function closeProactiveOpinion() {
+            document.getElementById('proactive-opinion-preview').style.display = 'none';
+            currentProactiveOpinion = null;
+        }
+        
+        function copyProactiveOpinion() {
+            if (!currentProactiveOpinion) return;
+            
+            const text = currentProactiveOpinion.opinion;
+            navigator.clipboard.writeText(text).then(() => {
+                showAlert('Opinion copied to clipboard!', 'success');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                showAlert('Failed to copy to clipboard', 'error');
+            });
+        }
+        
+        function discussProactiveOpinion() {
+            if (!currentProactiveOpinion) return;
+            
+            // Put the topic in the chat input for further discussion
+            const chatInput = document.getElementById('chat-input');
+            chatInput.value = `I saw this topic: "${currentProactiveOpinion.topic}" - can you tell me more about what you think?`;
+            chatInput.focus();
+            
+            // Scroll to the chat section
+            document.getElementById('chat-input-area')?.scrollIntoView({ behavior: 'smooth' });
+            
+            showAlert('Topic added to chat - send to continue the conversation!', 'info');
+        }
+        
+        // Auto-load proactive topics when editing a persona
+        function autoLoadProactiveTopics() {
+            if (currentPersonaId) {
+                // Small delay to let the page settle
+                setTimeout(() => {
+                    refreshProactiveTopics();
+                }, 500);
+            }
         }
         
         // ==================== QUICK TEST FUNCTIONS ====================
