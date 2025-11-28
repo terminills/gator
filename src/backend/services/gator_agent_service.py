@@ -232,7 +232,7 @@ class GatorAgentService:
         """
         # Import database modules at module level would cause circular imports
         # These are lazy-loaded only when needed
-        from backend.database.connection import get_db_session
+        from backend.database.connection import database_manager
         from backend.services.persona_service import PersonaService
         
         try:
@@ -244,7 +244,7 @@ class GatorAgentService:
                 return self._personas_cache
             
             # Fetch from database
-            async with get_db_session() as db:
+            async with database_manager.get_session() as db:
                 persona_service = PersonaService(db)
                 personas = await persona_service.list_personas(limit=100, active_only=True)
                 
@@ -340,10 +340,10 @@ CURRENT PERSONAS IN THE SYSTEM ({len(personas_info)} total):
             Formatted context string for LLM reasoning
         """
         try:
-            from backend.database.connection import get_db_session
+            from backend.database.connection import database_manager
             from backend.services.acd_understanding_service import ACDUnderstandingService
             
-            async with get_db_session() as db:
+            async with database_manager.get_session() as db:
                 service = ACDUnderstandingService(db)
                 understanding = await service.get_system_understanding(hours=hours)
                 
@@ -1283,12 +1283,12 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
         output.append("")
         
         try:
-            from backend.database.connection import get_db_session
+            from backend.database.connection import database_manager
             from backend.services.acd_understanding_service import ACDUnderstandingService
             
             output.append("[STEP 1] Connecting to ACD Understanding Service...")
             
-            async with get_db_session() as db:
+            async with database_manager.get_session() as db:
                 service = ACDUnderstandingService(db)
                 
                 output.append("[STEP 2] Analyzing system state...")
@@ -1388,7 +1388,7 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
         output.append("")
         
         try:
-            from backend.database.connection import get_db_session
+            from backend.database.connection import database_manager
             from backend.services.acd_understanding_service import ACDUnderstandingService
             
             # Extract the topic to explain
@@ -1424,7 +1424,7 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
                     topic = canonical
                     break
             
-            async with get_db_session() as db:
+            async with database_manager.get_session() as db:
                 service = ACDUnderstandingService(db)
                 explanation = await service.get_explanation(topic)
                 
@@ -1447,10 +1447,10 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
         output.append("")
         
         try:
-            from backend.database.connection import get_db_session
+            from backend.database.connection import database_manager
             from backend.services.acd_understanding_service import ACDUnderstandingService
             
-            async with get_db_session() as db:
+            async with database_manager.get_session() as db:
                 service = ACDUnderstandingService(db)
                 
                 output.append("[STEP 1] Searching contexts...")
@@ -1493,7 +1493,7 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
         output.append("")
         
         try:
-            from backend.database.connection import get_db_session
+            from backend.database.connection import database_manager
             from backend.services.acd_understanding_service import ACDUnderstandingService
             from uuid import UUID as UUIDType
             
@@ -1509,7 +1509,7 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
             
             context_id = UUIDType(uuid_match.group())
             
-            async with get_db_session() as db:
+            async with database_manager.get_session() as db:
                 service = ACDUnderstandingService(db)
                 
                 output.append(f"[STEP 1] Recalling context {context_id}...")
@@ -1564,10 +1564,10 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
         output.append("")
         
         try:
-            from backend.database.connection import get_db_session
+            from backend.database.connection import database_manager
             from backend.services.acd_understanding_service import ACDUnderstandingService
             
-            async with get_db_session() as db:
+            async with database_manager.get_session() as db:
                 service = ACDUnderstandingService(db)
                 
                 output.append("[STEP 1] Analyzing system errors...")
@@ -1630,7 +1630,7 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
         output.append("")
         
         try:
-            from backend.database.connection import get_db_session
+            from backend.database.connection import database_manager
             from backend.services.acd_understanding_service import ACDUnderstandingService
             
             # Extract domain from query
@@ -1649,7 +1649,7 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
             if domain:
                 domain = domain_aliases.get(domain, domain)
             
-            async with get_db_session() as db:
+            async with database_manager.get_session() as db:
                 service = ACDUnderstandingService(db)
                 
                 if domain:
