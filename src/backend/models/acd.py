@@ -18,6 +18,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -412,6 +413,20 @@ class ACDContextModel(Base):
     """
 
     __tablename__ = "acd_contexts"
+
+    # Composite indexes for common query patterns
+    __table_args__ = (
+        # Index for finding contexts by domain and state
+        Index("ix_acd_domain_state", "ai_domain", "ai_state"),
+        # Index for queue management queries
+        Index("ix_acd_queue_priority_status", "ai_queue_priority", "ai_queue_status"),
+        # Index for finding contexts by status and phase
+        Index("ix_acd_status_phase", "ai_status", "ai_phase"),
+        # Index for finding contexts by assigned agent and state
+        Index("ix_acd_assigned_state", "ai_assigned_to", "ai_state"),
+        # Index for scheduled tasks
+        Index("ix_acd_schedule_type_time", "schedule_type", "scheduled_for"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
 

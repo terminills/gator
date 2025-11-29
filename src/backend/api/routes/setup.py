@@ -13,7 +13,7 @@ from backend.config.logging import get_logger
 from backend.services.setup_service import SetupService, get_setup_service
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/setup", tags=["setup"])
+router = APIRouter(prefix="/api/v1/setup", tags=["setup"])
 
 
 class SetupConfigRequest(BaseModel):

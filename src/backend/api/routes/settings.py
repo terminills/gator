@@ -20,7 +20,7 @@ from backend.models.settings import (
 from backend.services.settings_service import SettingsService
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/settings", tags=["settings"])
+router = APIRouter(prefix="/api/v1/settings", tags=["settings"])
 
 
 def get_settings_service(

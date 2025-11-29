@@ -28,7 +28,7 @@ from backend.plugins.manager import plugin_manager
 
 logger = get_logger(__name__)
 
-router = APIRouter(tags=["plugins"])
+router = APIRouter(prefix="/api/v1", tags=["plugins"])
 
 
 @router.get("/plugins/marketplace", response_model=List[PluginSchema])

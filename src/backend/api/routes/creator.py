@@ -28,7 +28,7 @@ from backend.services.rss_ingestion_service import RSSIngestionService
 logger = get_logger(__name__)
 
 router = APIRouter(
-    prefix="/creator",
+    prefix="/api/v1/creator",
     tags=["creator-panel"],
     responses={401: {"description": "Not authenticated"}},
 )

@@ -26,7 +26,7 @@ from backend.services.friend_groups_service import FriendGroupsService
 from backend.services.reel_generation_service import ReelGenerationService
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/friend-groups", tags=["friend-groups"])
+router = APIRouter(prefix="/api/v1/friend-groups", tags=["friend-groups"])
 
 
 def get_friend_groups_service(

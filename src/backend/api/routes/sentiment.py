@@ -16,7 +16,7 @@ from backend.database.connection import get_db_session
 from backend.services.sentiment_analysis_service import SentimentAnalysisService
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/sentiment", tags=["sentiment"])
+router = APIRouter(prefix="/api/v1/sentiment", tags=["sentiment"])
 
 
 class TextAnalysisRequest(BaseModel):

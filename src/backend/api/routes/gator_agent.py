@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from backend.services.gator_agent_service import gator_agent
 
-router = APIRouter(tags=["gator-agent"])
+router = APIRouter(prefix="/api/v1/gator-agent", tags=["gator-agent"])
 
 
 class ChatMessage(BaseModel):

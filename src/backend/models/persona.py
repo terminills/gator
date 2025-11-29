@@ -10,7 +10,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import JSON, Boolean, Column, DateTime, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Column, DateTime, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -207,6 +207,18 @@ class PersonaModel(Base):
     """
 
     __tablename__ = "personas"
+
+    # Composite indexes for common query patterns
+    __table_args__ = (
+        # Index for listing active personas sorted by creation date
+        Index("ix_persona_active_created", "is_active", "created_at"),
+        # Index for filtering by content rating and active status
+        Index("ix_persona_rating_active", "default_content_rating", "is_active"),
+        # Index for filtering by image style and active status
+        Index("ix_persona_style_active", "image_style", "is_active"),
+        # Index for filtering by base image status and active status
+        Index("ix_persona_image_status_active", "base_image_status", "is_active"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     name = Column(String(100), nullable=False, index=True)
