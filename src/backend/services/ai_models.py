@@ -2595,7 +2595,7 @@ class AIModelManager:
         self, prompt: str, model: Dict[str, Any], **kwargs
     ) -> Dict[str, Any]:
         """Generate image using local models."""
-        model["name"]
+        _model_name = model["name"]  # Available for logging
         inference_engine = model.get("inference_engine", "diffusers")
 
         if inference_engine == "comfyui":

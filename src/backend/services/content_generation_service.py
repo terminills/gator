@@ -1091,7 +1091,7 @@ class ContentGenerationService:
 
             # Get video generation parameters from persona settings
             quality = request.quality or persona.generation_quality or "standard"
-            VideoQuality(quality)
+            _video_quality = VideoQuality(quality)  # Validate quality enum
 
             # Use persona's default video resolution
             resolution = persona.default_video_resolution or "1920x1080"

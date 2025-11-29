@@ -197,9 +197,9 @@ async def get_public_persona(
         if not persona:
             raise HTTPException(status_code=404, detail="Persona not found")
 
-        # Get style from style_preferences
+        # Get style from style_preferences (for potential future use)
         if isinstance(persona.style_preferences, dict):
-            persona.style_preferences.get("visual_style", "realistic")
+            _style = persona.style_preferences.get("visual_style", "realistic")
 
         # Transform to public format
         return {

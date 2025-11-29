@@ -228,12 +228,8 @@ class DatabaseAdminService:
 
             # Get current database tables
             async with database_manager.engine.connect() as conn:
-                _inspector = await conn.run_sync(lambda sync_conn: inspect(sync_conn))
-                db_tables = set(
-                    await conn.run_sync(
-                        lambda sync_conn: inspect(sync_conn).get_table_names()
-                    )
-                )
+                inspector = await conn.run_sync(lambda sync_conn: inspect(sync_conn))
+                db_tables = set(inspector.get_table_names())
 
             # Get expected tables from models
             model_tables = set(Base.metadata.tables.keys())
