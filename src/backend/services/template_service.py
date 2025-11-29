@@ -24,7 +24,6 @@ class TemplateService:
 
     def __init__(self):
         """Initialize the template service."""
-        pass
 
     def generate_fallback_text(
         self, persona: PersonaModel, prompt: str = None, content_rating: str = None

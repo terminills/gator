@@ -14,7 +14,6 @@ Now includes full "soul" fields for human-like response patterns:
 - Anti-Pattern (forbidden phrases, warmth, patience)
 """
 
-import asyncio
 import json
 from typing import Any, Dict, List, Optional
 

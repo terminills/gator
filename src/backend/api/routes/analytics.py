@@ -6,10 +6,9 @@ Handles performance metrics and analytics data.
 
 import os
 import time
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 

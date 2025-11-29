@@ -15,7 +15,6 @@ from backend.models.audience_segment import (
     AudienceSegmentCreate,
     AudienceSegmentSchema,
     AudienceSegmentUpdate,
-    PersonalizationRecommendation,
     PersonalizationStrategy,
     PersonalizedContentCreate,
     PersonalizedContentSchema,

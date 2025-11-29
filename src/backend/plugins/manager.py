@@ -5,9 +5,7 @@ Manages plugin lifecycle including discovery, loading, execution, and unloading.
 Provides sandboxing and resource management for plugins.
 """
 
-import asyncio
 import importlib.util
-import logging
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type
@@ -15,9 +13,7 @@ from typing import Any, Dict, List, Optional, Type
 from backend.config.logging import get_logger
 from backend.plugins import (
     GatorPlugin,
-    PluginMetadata,
     PluginStatus,
-    PluginType,
 )
 
 logger = get_logger(__name__)
@@ -26,19 +22,16 @@ logger = get_logger(__name__)
 class PluginError(Exception):
     """Base exception for plugin-related errors."""
 
-    pass
 
 
 class PluginLoadError(PluginError):
     """Exception raised when plugin fails to load."""
 
-    pass
 
 
 class PluginExecutionError(PluginError):
     """Exception raised when plugin execution fails."""
 
-    pass
 
 
 class PluginManager:

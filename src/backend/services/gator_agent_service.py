@@ -5,7 +5,6 @@ Implements the LLM help agent with Gator's tough, no-nonsense attitude.
 Provides assistance and guidance with characteristic directness.
 """
 
-import os
 import random
 import re
 from datetime import datetime, timezone

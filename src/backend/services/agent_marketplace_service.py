@@ -4,13 +4,11 @@ Agent Marketplace and Plugin System Service
 Manages agent discovery, installation, versioning, and marketplace operations.
 """
 
-import hashlib
-import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger

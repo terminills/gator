@@ -12,13 +12,10 @@ limit when using SDXL with compel library support.
 """
 
 import asyncio
-import json
 import shutil
-import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

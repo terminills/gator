@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
-from backend.models.content import ContentCreate, ContentResponse, GenerationRequest
+from backend.models.content import ContentResponse, GenerationRequest
 from backend.services.content_generation_service import ContentGenerationService
 
 logger = get_logger(__name__)

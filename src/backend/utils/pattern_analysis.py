@@ -10,12 +10,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
-from sqlalchemy import and_, desc, func, select
+from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
-from backend.models.acd import ACDContextModel, AIConfidence, AIValidation
-from backend.models.generation_feedback import FeedbackRating, GenerationBenchmarkModel
+from backend.models.acd import ACDContextModel, AIValidation
+from backend.models.generation_feedback import GenerationBenchmarkModel
 from backend.models.social_media_post import PostStatus, SocialMediaPostModel
 
 logger = get_logger(__name__)

@@ -5,7 +5,6 @@ Handles RSS feed management, content parsing, and trend analysis
 for informing AI content generation.
 """
 
-import asyncio
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -14,7 +13,7 @@ from uuid import UUID
 
 import feedparser
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
@@ -554,7 +553,7 @@ class RSSIngestionService:
 
             # Try to use AI sentiment analysis if available
             try:
-                from backend.services.ai_models import ai_models
+                pass
 
                 # Use a simple prompt for sentiment analysis
                 prompt = f"Analyze the sentiment of this news headline and summary. Respond with only a number between -1 (very negative) and 1 (very positive):\n\n{text[:500]}"

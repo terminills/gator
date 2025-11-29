@@ -5,12 +5,11 @@ Manages ACD context metadata for content generation tasks,
 enabling autonomous decision-making and continuous improvement.
 """
 
-import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
@@ -26,7 +25,6 @@ from backend.models.acd import (
     ACDValidationReport,
     AIQueueStatus,
     AIState,
-    AIStatus,
 )
 
 logger = get_logger(__name__)
@@ -621,7 +619,7 @@ class ACDService:
             logger.info(f"   Found {len(contexts)} queued contexts to process")
 
             # Import content generation service here to avoid circular imports
-            from backend.models.content import ContentRating, ContentType
+            from backend.models.content import ContentType
             from backend.services.content_generation_service import (
                 ContentGenerationService,
                 GenerationRequest,

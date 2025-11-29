@@ -12,7 +12,7 @@ Implements the "Human Standard" guidelines:
 
 import random
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from backend.config.logging import get_logger
 from backend.models.persona import PersonaModel

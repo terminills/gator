@@ -11,11 +11,9 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
-from backend.models.persona import PersonaModel
 
 logger = get_logger(__name__)
 

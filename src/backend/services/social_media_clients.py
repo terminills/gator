@@ -5,17 +5,10 @@ Implementations for various social media platform APIs including
 Instagram, Facebook, Twitter, TikTok, and LinkedIn.
 """
 
-import asyncio
-import base64
-import hashlib
-import hmac
-import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
-from urllib.parse import urlencode
+from typing import Any, Dict
 
 import httpx
-from pydantic import BaseModel
 
 from backend.config.logging import get_logger
 from backend.services.social_media_service import (

@@ -15,7 +15,6 @@ from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
 from backend.models.feed import (
     FeedItemResponse,
-    FeedsByTopicResponse,
     PersonaFeedAssignment,
     PersonaFeedResponse,
     RSSFeedCreate,

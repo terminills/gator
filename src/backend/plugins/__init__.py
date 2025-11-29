@@ -8,7 +8,6 @@ Enables developers to create custom plugins that extend platform functionality.
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
 import httpx
 import jsonschema
@@ -286,7 +285,6 @@ class GatorPlugin(ABC):
         Raises:
             Exception: If initialization fails
         """
-        pass
 
     @abstractmethod
     async def shutdown(self) -> None:
@@ -299,7 +297,6 @@ class GatorPlugin(ABC):
         - Save state
         - Cleanup temporary files
         """
-        pass
 
     # Optional lifecycle hooks - override as needed
 
@@ -328,7 +325,6 @@ class GatorPlugin(ABC):
         Args:
             persona: Persona data
         """
-        pass
 
     async def on_persona_updated(self, persona: Dict[str, Any]) -> None:
         """
@@ -337,7 +333,6 @@ class GatorPlugin(ABC):
         Args:
             persona: Updated persona data
         """
-        pass
 
     async def on_post_published(self, post: Dict[str, Any]) -> None:
         """
@@ -346,7 +341,6 @@ class GatorPlugin(ABC):
         Args:
             post: Published post data including platform and post ID
         """
-        pass
 
     async def on_schedule_created(self, schedule: Dict[str, Any]) -> None:
         """
@@ -355,7 +349,6 @@ class GatorPlugin(ABC):
         Args:
             schedule: Schedule data
         """
-        pass
 
     # Optional custom methods - implement if plugin provides specific features
 

@@ -13,11 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
 from backend.services.ab_testing_service import (
-    ABTestConfig,
     ABTestingService,
-    ABTestResult,
 )
-from backend.services.ab_testing_service import AgentTaskCreate as ABTestCreate
 from backend.services.acd_service import ACDService
 from backend.services.cross_persona_learning import CrossPersonaLearningService
 from backend.services.ml_pattern_recognition import MLPatternRecognitionService

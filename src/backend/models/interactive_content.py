@@ -5,14 +5,13 @@ Database and API models for interactive content features (polls, stories, Q&A).
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import (
     JSON,
-    Boolean,
     Column,
     DateTime,
     ForeignKey,
@@ -21,7 +20,6 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from backend.database.connection import Base

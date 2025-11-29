@@ -4,8 +4,7 @@ Social Media Integration API Routes
 Handles social media account management, content publishing, and engagement tracking.
 """
 
-from typing import Any, Dict, List
-from uuid import UUID
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel

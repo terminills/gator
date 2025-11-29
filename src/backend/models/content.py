@@ -16,7 +16,6 @@ from sqlalchemy import (
     Column,
     DateTime,
 )
-from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import (
     Float,
     ForeignKey,

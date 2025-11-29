@@ -6,12 +6,10 @@ Database and API models for RSS feed management and content ingestion.
 
 import uuid
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy import (
-    ARRAY,
     JSON,
     Boolean,
     Column,

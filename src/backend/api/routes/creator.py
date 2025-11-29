@@ -11,13 +11,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
 from backend.models.content import ContentModel, ContentResponse
-from backend.models.persona import PersonaModel, PersonaResponse, PersonaUpdate
+from backend.models.persona import PersonaModel
 from backend.services.content_generation_service import (
     ContentGenerationService,
     GenerationRequest,

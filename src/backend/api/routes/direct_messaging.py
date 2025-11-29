@@ -389,7 +389,6 @@ async def _process_persona_response_queue(
                     break
 
             # Generate response using persona chat service (uses llama.cpp with personality)
-            from backend.models.message import MessageModel
             from backend.services.persona_chat_service import get_persona_chat_service
 
             chat_service = get_persona_chat_service()

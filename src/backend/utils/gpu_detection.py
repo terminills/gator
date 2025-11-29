@@ -8,7 +8,7 @@ Used to determine optimal inference engine selection.
 import re
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from backend.config.logging import get_logger
 

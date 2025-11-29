@@ -5,10 +5,7 @@ Core business logic for AI persona management including validation,
 moderation, and lifecycle management.
 """
 
-import os
-import shutil
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import List, Optional, Union
 from uuid import UUID
 
@@ -24,6 +21,7 @@ from backend.models.persona import (
     PersonaResponse,
     PersonaUpdate,
 )
+from backend.utils.paths import get_paths
 
 logger = get_logger(__name__)
 
@@ -569,8 +567,9 @@ class PersonaService:
             ValueError: If image save fails
         """
         try:
-            # Create base images directory if it doesn't exist
-            base_images_dir = Path("/opt/gator/data/models/base_images")
+            # Create base images directory if it doesn't exist using centralized paths
+            paths = get_paths()
+            base_images_dir = paths.base_images_dir
             base_images_dir.mkdir(parents=True, exist_ok=True)
 
             # Generate filename if not provided

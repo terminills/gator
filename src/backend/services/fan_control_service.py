@@ -6,10 +6,9 @@ Supports temperature-based automatic fan speed adjustment and manual control.
 """
 
 import asyncio
-import re
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from backend.config.logging import get_logger
 from backend.config.settings import get_settings

@@ -5,7 +5,6 @@ Provides endpoints for site branding and customization.
 Stores branding in database for dynamic updates without restarts.
 """
 
-from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select

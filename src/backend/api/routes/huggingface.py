@@ -7,7 +7,7 @@ Provides API endpoints for browsing, downloading, and managing models from Huggi
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from backend.config.logging import get_logger
@@ -18,8 +18,6 @@ from backend.utils.huggingface_utils import (
     HuggingFaceClient,
     HuggingFaceLibrary,
     HuggingFaceModelType,
-    download_huggingface_model,
-    search_huggingface_models,
 )
 
 logger = get_logger(__name__)

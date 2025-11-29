@@ -5,19 +5,16 @@ Celery tasks for scheduled content publishing and social media automation.
 """
 
 import asyncio
-import json
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
 from celery import Task
-from sqlalchemy import and_, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, select
 
 from backend.celery_app import app
 from backend.config.logging import get_logger
 from backend.database.connection import database_manager
 from backend.models.content import ContentModel
-from backend.models.persona import PersonaModel
 from backend.services.social_media_service import (
     PlatformType,
     PostRequest,

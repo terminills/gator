@@ -142,10 +142,8 @@ def validate_feed_urls():
     Checks each feed URL to ensure it's still accessible and working.
     """
     try:
-        import httpx
+        pass
 
-        from backend.database.connection import database_manager
-        from backend.models.feed import RSSFeedModel
 
         logger.info("Starting RSS feed URL validation")
 

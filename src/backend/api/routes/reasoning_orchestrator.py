@@ -7,7 +7,7 @@ Endpoints for the ACD reasoning orchestrator - the basal ganglia of the system.
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 

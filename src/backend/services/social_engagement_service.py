@@ -5,13 +5,11 @@ Handles real-time tracking of social media engagement metrics,
 filters out bot/persona interactions, and integrates with ACD for learning.
 """
 
-import asyncio
-import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 from uuid import UUID
 
-from sqlalchemy import and_, desc, func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
@@ -24,7 +22,6 @@ from backend.models.social_media_post import (
     SocialMediaPostCreate,
     SocialMediaPostModel,
     SocialMediaPostResponse,
-    SocialMediaPostUpdate,
     SocialPlatform,
 )
 from backend.services.acd_service import ACDService
