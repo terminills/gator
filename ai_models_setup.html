@@ -2268,7 +2268,7 @@
             try {
                 const triggerList = triggers.split(',').map(t => t.trim()).filter(t => t);
                 
-                const response = await fetch(`/api/v1/installed-models/${modelId}/set-trigger-words?${triggerList.map(t => `trigger_words=${encodeURIComponent(t)}`).join('&')}`, {
+                const response = await fetch(`/api/v1/installed-models/${modelId}/set-trigger-words`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

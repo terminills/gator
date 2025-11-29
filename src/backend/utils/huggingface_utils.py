@@ -26,6 +26,10 @@ logger = get_logger(__name__)
 HUGGINGFACE_API_BASE = "https://huggingface.co/api"
 HUGGINGFACE_CDN_BASE = "https://huggingface.co"
 
+# Environment variable names for HuggingFace token
+HF_TOKEN_ENV = "HF_TOKEN"
+HUGGING_FACE_TOKEN_ENV = "HUGGING_FACE_TOKEN"
+
 
 class HuggingFaceModelType(str, Enum):
     """Model types/tasks available on HuggingFace relevant to image generation."""
@@ -249,9 +253,12 @@ class HuggingFaceClient:
                                 progress_callback(downloaded_size, total_size)
                             
                             # Log progress every 10%
-                            if total_size > 10 and downloaded_size % (total_size // 10) < 8192:
-                                progress_pct = (downloaded_size / total_size) * 100
-                                logger.info(f"   Progress: {progress_pct:.1f}%")
+                            PROGRESS_LOG_INTERVAL = 10
+                            if total_size > PROGRESS_LOG_INTERVAL:
+                                chunk_threshold = total_size // PROGRESS_LOG_INTERVAL
+                                if chunk_threshold > 0 and downloaded_size % chunk_threshold < 8192:
+                                    progress_pct = (downloaded_size / total_size) * 100
+                                    logger.info(f"   Progress: {progress_pct:.1f}%")
             
             logger.info(f"✅ Downloaded successfully to {output_file}")
             
@@ -339,7 +346,7 @@ class HuggingFaceClient:
             model_info = await self.get_model_info(repo_id)
             
             # Set up token for authentication
-            token = self.api_token or os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_TOKEN")
+            token = self.api_token or os.environ.get(HF_TOKEN_ENV) or os.environ.get(HUGGING_FACE_TOKEN_ENV)
             
             output_path.mkdir(parents=True, exist_ok=True)
             

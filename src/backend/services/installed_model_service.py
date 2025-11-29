@@ -474,7 +474,7 @@ class InstalledModelService:
         """
         result = await self.db.execute(
             select(InstalledModelModel).where(
-                InstalledModelModel.is_active == True
+                InstalledModelModel.is_active.is_(True)
             )
         )
         models = result.scalars().all()
@@ -523,7 +523,7 @@ class InstalledModelService:
         """
         # Get all active models
         query = select(InstalledModelModel).where(
-            InstalledModelModel.is_active == True
+            InstalledModelModel.is_active.is_(True)
         )
         
         if model_type:
