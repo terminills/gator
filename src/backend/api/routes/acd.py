@@ -20,8 +20,18 @@ from backend.models.acd import (
     ACDTraceArtifactCreate,
     ACDTraceArtifactResponse,
     ACDValidationReport,
+    GenerationRating,
+    HILRatingCreate,
+    HILRatingResponse,
+    HILRatingStats,
+    LoRAIncompatibilityFlag,
+    MisgenerationPattern,
+    MisgenerationTag,
+    RecommendedConfiguration,
+    WorkflowEffectiveness,
 )
 from backend.services.acd_service import ACDService
+from backend.services.hil_rating_service import HILRatingService
 
 logger = get_logger(__name__)
 
@@ -349,4 +359,261 @@ async def process_queue(
         }
     except Exception as e:
         logger.error(f"Failed to process queue: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# HIL (Human-in-the-Loop) Rating Endpoints
+# ============================================================
+
+
+@router.post("/rate/{context_id}", response_model=HILRatingResponse, tags=["hil"])
+async def rate_generation(
+    context_id: UUID,
+    rating_data: HILRatingCreate,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Submit a human rating for generated content.
+
+    This rating is stored and used to:
+    - Train the correlation engine on quality patterns
+    - Build a knowledge base of working configurations
+    - Identify problematic LoRA/model combinations
+
+    Args:
+        context_id: UUID of the ACD context to rate
+        rating_data: Rating data including score, tags, and notes
+
+    Returns:
+        HILRatingResponse with the saved rating information
+    """
+    try:
+        service = HILRatingService(db)
+        result = await service.rate_generation(context_id, rating_data)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to rate generation: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/ratings", response_model=List[HILRatingResponse], tags=["hil"])
+async def get_recent_ratings(
+    limit: int = Query(50, ge=1, le=100, description="Maximum ratings to return"),
+    rating: Optional[GenerationRating] = Query(
+        None, description="Filter by specific rating"
+    ),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get recent ratings.
+
+    Args:
+        limit: Maximum number of ratings to return
+        rating: Optional filter by specific rating level
+
+    Returns:
+        List of recent ratings
+    """
+    try:
+        service = HILRatingService(db)
+        results = await service.get_recent_ratings(limit=limit, rating_filter=rating)
+        return results
+    except Exception as e:
+        logger.error(f"Failed to get ratings: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/ratings/stats", response_model=HILRatingStats, tags=["hil"])
+async def get_rating_stats(
+    time_window_hours: int = Query(
+        168, ge=1, description="Time window in hours (default 1 week)"
+    ),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get overall HIL rating statistics.
+
+    Returns statistics including:
+    - Total rated vs unrated contexts
+    - Rating distribution
+    - Average rating
+    - Most common misgeneration tags
+    - Breakdown by model and domain
+
+    Args:
+        time_window_hours: Time window to analyze
+
+    Returns:
+        HILRatingStats with overall statistics
+    """
+    try:
+        service = HILRatingService(db)
+        stats = await service.get_rating_stats(time_window_hours=time_window_hours)
+        return stats
+    except Exception as e:
+        logger.error(f"Failed to get rating stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/workflow-effectiveness", response_model=WorkflowEffectiveness, tags=["hil"]
+)
+async def get_workflow_effectiveness(
+    workflow_id: Optional[str] = Query(None, description="Workflow ID to analyze"),
+    model_id: Optional[str] = Query(None, description="Model ID to analyze"),
+    lora_ids: Optional[str] = Query(
+        None, description="Comma-separated list of LoRA IDs"
+    ),
+    time_window_hours: int = Query(
+        720, ge=1, description="Time window in hours (default 30 days)"
+    ),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Analyze effectiveness of specific workflows/models/LoRAs.
+
+    Returns:
+    - Average rating for this configuration
+    - Common misgeneration tags
+    - Recommended alternatives
+    - Success rate over time
+
+    Args:
+        workflow_id: Optional workflow to filter by
+        model_id: Optional model to filter by
+        lora_ids: Optional comma-separated list of LoRAs to filter by
+        time_window_hours: Time window to analyze (default 30 days)
+
+    Returns:
+        WorkflowEffectiveness analysis
+    """
+    try:
+        # Parse lora_ids if provided
+        parsed_lora_ids = None
+        if lora_ids:
+            parsed_lora_ids = [lid.strip() for lid in lora_ids.split(",")]
+
+        service = HILRatingService(db)
+        result = await service.get_workflow_effectiveness(
+            workflow_id=workflow_id,
+            model_id=model_id,
+            lora_ids=parsed_lora_ids,
+            time_window_hours=time_window_hours,
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Failed to get workflow effectiveness: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/best-configs",
+    response_model=List[RecommendedConfiguration],
+    tags=["hil"],
+)
+async def get_best_configurations(
+    content_type: Optional[str] = Query(None, description="Content type filter"),
+    style: Optional[str] = Query(None, description="Style filter"),
+    min_rating: float = Query(
+        4.0, ge=1.0, le=5.0, description="Minimum average rating threshold"
+    ),
+    limit: int = Query(10, ge=1, le=50, description="Maximum configurations to return"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get best-rated configurations for content generation.
+
+    Returns configurations that consistently produce highly-rated content,
+    learned from HIL feedback.
+
+    Args:
+        content_type: Optional content type to filter by
+        style: Optional style to filter by
+        min_rating: Minimum average rating threshold
+        limit: Maximum number of configurations to return
+
+    Returns:
+        List of recommended configurations
+    """
+    try:
+        service = HILRatingService(db)
+        results = await service.get_best_configurations(
+            content_type=content_type,
+            style=style,
+            min_rating=min_rating,
+            limit=limit,
+        )
+        return results
+    except Exception as e:
+        logger.error(f"Failed to get best configurations: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/flag-incompatibility", tags=["hil"])
+async def flag_lora_incompatibility(
+    flag_data: LoRAIncompatibilityFlag,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Flag incompatible LoRA combinations discovered through HIL.
+
+    System learns to avoid these combinations in future generations.
+
+    Args:
+        flag_data: LoRA incompatibility flag data
+
+    Returns:
+        Confirmation of the flag being recorded
+    """
+    try:
+        service = HILRatingService(db)
+        result = await service.flag_lora_incompatibility(flag_data)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to flag incompatibility: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/misgeneration-patterns",
+    response_model=List[MisgenerationPattern],
+    tags=["hil"],
+)
+async def get_misgeneration_patterns(
+    tag: Optional[MisgenerationTag] = Query(
+        None, description="Specific tag to analyze"
+    ),
+    time_window_hours: int = Query(
+        168, ge=1, description="Time window in hours (default 1 week)"
+    ),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Analyze patterns in misgenerated content.
+
+    Identifies:
+    - Common causes of specific misgeneration types
+    - Correlations between settings and failures
+    - Trends over time (improving or degrading)
+
+    Args:
+        tag: Optional specific tag to analyze
+        time_window_hours: Time window to analyze
+
+    Returns:
+        List of misgeneration patterns
+    """
+    try:
+        service = HILRatingService(db)
+        results = await service.get_misgeneration_patterns(
+            tag=tag, time_window_hours=time_window_hours
+        )
+        return results
+    except Exception as e:
+        logger.error(f"Failed to get misgeneration patterns: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

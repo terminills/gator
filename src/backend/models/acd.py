@@ -195,6 +195,49 @@ class ScheduleFeedbackType(str, Enum):
     SYSTEM_PERFORMANCE = "SYSTEM_PERFORMANCE"  # System health impact
 
 
+# ============================================================
+# HIL (Human-in-the-Loop) Rating Enums - For quality feedback
+# ============================================================
+
+
+class GenerationRating(str, Enum):
+    """Rating scale for generated content quality."""
+
+    EXCELLENT = "EXCELLENT"  # 5 - Perfect, use as exemplar
+    GOOD = "GOOD"  # 4 - Minor issues, acceptable
+    ACCEPTABLE = "ACCEPTABLE"  # 3 - Needs improvement
+    POOR = "POOR"  # 2 - Significant issues
+    FAILED = "FAILED"  # 1 - Complete misgeneration
+
+
+class MisgenerationTag(str, Enum):
+    """Tags for categorizing misgeneration issues."""
+
+    ANATOMY_ERROR = "ANATOMY_ERROR"  # Wrong body parts, proportions
+    STYLE_MISMATCH = "STYLE_MISMATCH"  # Wrong artistic style
+    PROMPT_IGNORED = "PROMPT_IGNORED"  # Key prompt elements missing
+    ARTIFACT = "ARTIFACT"  # Visual artifacts, noise
+    WRONG_SUBJECT = "WRONG_SUBJECT"  # Wrong person/object generated
+    NSFW_LEAK = "NSFW_LEAK"  # Unintended NSFW content
+    QUALITY_LOW = "QUALITY_LOW"  # General low quality
+    LORA_CONFLICT = "LORA_CONFLICT"  # LoRA incompatibility
+    MODEL_MISMATCH = "MODEL_MISMATCH"  # Wrong base model for task
+    TEXT_ERROR = "TEXT_ERROR"  # Incorrect or garbled text in image
+    COLOR_WRONG = "COLOR_WRONG"  # Colors don't match prompt
+    BACKGROUND_ERROR = "BACKGROUND_ERROR"  # Background issues
+    LIGHTING_ERROR = "LIGHTING_ERROR"  # Lighting doesn't match intent
+    COMPOSITION_ERROR = "COMPOSITION_ERROR"  # Poor composition/framing
+
+
+class MemoryType(str, Enum):
+    """Types of memory for ACD memory system."""
+
+    WORKING = "WORKING"  # Current task context
+    SHORT_TERM = "SHORT_TERM"  # Recent generations (24h)
+    LONG_TERM = "LONG_TERM"  # Persistent patterns
+    EPISODIC = "EPISODIC"  # Specific memorable outcomes
+
+
 class AIDomain(str, Enum):
     """
     Top-level domain classification for ACD contexts.
@@ -597,6 +640,56 @@ class ACDContextModel(Base):
     actual_resources = Column(JSON, nullable=True)  # Actual resource usage
     resource_efficiency = Column(Float, nullable=True)  # Actual/Estimated ratio
 
+    # ============================================================
+    # HIL (Human-in-the-Loop) Rating Fields
+    # ============================================================
+
+    # Human rating for generated content quality
+    hil_rating = Column(Integer, nullable=True, index=True)  # 1-5 rating from human
+    hil_rating_tags = Column(JSON, nullable=True)  # List of misgeneration tags
+    hil_rating_notes = Column(Text, nullable=True)  # Human feedback notes
+    hil_rated_by = Column(String(100), nullable=True)  # Rater identifier
+    hil_rated_at = Column(DateTime(timezone=True), nullable=True)  # When rated
+
+    # Workflow tracking for HIL learning
+    workflow_id = Column(
+        String(100), nullable=True, index=True
+    )  # Generation workflow used
+    model_id = Column(String(200), nullable=True, index=True)  # Base model used
+    lora_ids = Column(JSON, nullable=True)  # List of LoRAs applied
+    generation_params = Column(JSON, nullable=True)  # Full parameter snapshot
+
+    # ============================================================
+    # Learning and Correlation Fields (for ACD self-improvement)
+    # ============================================================
+
+    # Learning weights
+    learning_weight = Column(Float, default=1.0)  # How much to learn from this
+    outcome_score = Column(Float, nullable=True)  # 0-1 success metric
+    engagement_metrics = Column(JSON, nullable=True)  # Social engagement metrics
+    content_quality_score = Column(Float, nullable=True)  # Quality assessment 0-1
+
+    # Memory fields for context correlation
+    memory_consolidated = Column(Boolean, default=False)  # Moved to long-term memory
+    memory_importance = Column(Float, default=0.5)  # Importance weighting 0-1
+    memory_access_count = Column(Integer, default=0)  # Times this context was recalled
+    last_recalled_at = Column(
+        DateTime(timezone=True), nullable=True
+    )  # Last recall time
+    memory_type = Column(String(20), nullable=True)  # MemoryType enum value
+
+    # Cross-domain correlation fields
+    related_contexts = Column(JSON, nullable=True)  # List of related context IDs
+    correlation_scores = Column(JSON, nullable=True)  # {context_id: similarity_score}
+    cross_domain_insights = Column(JSON, nullable=True)  # Insights from correlations
+
+    # Self-improvement tracking
+    decision_confidence_actual = Column(
+        Float, nullable=True
+    )  # Actual vs predicted confidence
+    improvement_applied = Column(Boolean, default=False)  # If improvement was applied
+    improvement_notes = Column(Text, nullable=True)  # Notes on improvements made
+
     # Timestamps
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
@@ -725,6 +818,21 @@ class ACDContextResponse(BaseModel):
     compiler_err: Optional[str] = None
     ai_context: Optional[Dict[str, Any]] = None
     ai_metadata: Optional[Dict[str, Any]] = None
+    # HIL Rating fields
+    hil_rating: Optional[int] = None
+    hil_rating_tags: Optional[List[str]] = None
+    hil_rating_notes: Optional[str] = None
+    hil_rated_by: Optional[str] = None
+    hil_rated_at: Optional[datetime] = None
+    # Workflow tracking
+    workflow_id: Optional[str] = None
+    model_id: Optional[str] = None
+    lora_ids: Optional[List[str]] = None
+    # Learning fields
+    learning_weight: Optional[float] = None
+    outcome_score: Optional[float] = None
+    content_quality_score: Optional[float] = None
+    memory_importance: Optional[float] = None
     created_at: datetime
     updated_at: datetime
 
@@ -790,3 +898,190 @@ class ACDStats(BaseModel):
     active_contexts: int = 0
     completed_contexts: int = 0
     failed_contexts: int = 0
+
+
+# ============================================================
+# HIL (Human-in-the-Loop) Rating API Models
+# ============================================================
+
+
+class HILRatingCreate(BaseModel):
+    """API model for submitting a human rating for generated content."""
+
+    rating: GenerationRating = Field(description="Rating scale for content quality")
+    tags: Optional[List[MisgenerationTag]] = Field(
+        default=None, description="Tags for categorizing issues"
+    )
+    notes: Optional[str] = Field(
+        default=None, description="Human feedback notes", max_length=2000
+    )
+    rater_id: Optional[str] = Field(
+        default=None, description="Identifier for the rater", max_length=100
+    )
+
+
+class HILRatingResponse(BaseModel):
+    """API model for HIL rating response."""
+
+    context_id: uuid.UUID
+    rating: int  # 1-5 numeric value
+    rating_label: str  # GenerationRating label
+    tags: Optional[List[str]] = None
+    notes: Optional[str] = None
+    rated_by: Optional[str] = None
+    rated_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class WorkflowEffectiveness(BaseModel):
+    """API model for workflow/model/LoRA effectiveness analysis."""
+
+    workflow_id: Optional[str] = None
+    model_id: Optional[str] = None
+    lora_ids: Optional[List[str]] = None
+    total_generations: int = 0
+    rated_generations: int = 0
+    average_rating: Optional[float] = None
+    rating_distribution: Dict[str, int] = Field(
+        default_factory=dict, description="Count of each rating level"
+    )
+    common_tags: List[Dict[str, Any]] = Field(
+        default_factory=list, description="Most common misgeneration tags"
+    )
+    success_rate: Optional[float] = Field(
+        default=None, description="Percentage of GOOD or EXCELLENT ratings"
+    )
+    recommended_alternatives: List[Dict[str, Any]] = Field(
+        default_factory=list, description="Better performing alternatives"
+    )
+    trend: Optional[str] = Field(
+        default=None, description="improving, stable, or degrading"
+    )
+
+
+class RecommendedConfiguration(BaseModel):
+    """API model for recommended generation configurations."""
+
+    workflow_id: Optional[str] = None
+    model_id: str
+    lora_ids: Optional[List[str]] = None
+    generation_params: Optional[Dict[str, Any]] = None
+    average_rating: float
+    total_ratings: int
+    content_types: List[str] = Field(
+        default_factory=list, description="Content types this config excels at"
+    )
+    styles: List[str] = Field(
+        default_factory=list, description="Styles this config is good for"
+    )
+    confidence: float = Field(
+        description="Confidence in this recommendation (0-1)", ge=0, le=1
+    )
+
+
+class MisgenerationPattern(BaseModel):
+    """API model for misgeneration pattern analysis."""
+
+    tag: str
+    count: int
+    percentage: float = Field(description="Percentage of total misgenerations")
+    common_causes: List[str] = Field(
+        default_factory=list, description="Common causes identified"
+    )
+    associated_models: List[str] = Field(
+        default_factory=list, description="Models frequently associated with this tag"
+    )
+    associated_loras: List[str] = Field(
+        default_factory=list, description="LoRAs frequently associated with this tag"
+    )
+    trend: str = Field(
+        default="stable", description="Trend over time: increasing, stable, decreasing"
+    )
+    suggestions: List[str] = Field(
+        default_factory=list, description="Suggestions to avoid this misgeneration"
+    )
+
+
+class LoRAIncompatibilityFlag(BaseModel):
+    """API model for flagging LoRA incompatibility."""
+
+    lora_a: str = Field(description="First LoRA identifier")
+    lora_b: str = Field(description="Second LoRA identifier")
+    context_id: uuid.UUID = Field(description="Context where issue was observed")
+    severity: str = Field(
+        default="warning", description="Severity: info, warning, error"
+    )
+    notes: Optional[str] = Field(
+        default=None, description="Additional notes about the incompatibility"
+    )
+
+
+class HILRatingStats(BaseModel):
+    """API model for HIL rating statistics."""
+
+    total_rated: int = 0
+    total_unrated: int = 0
+    rating_distribution: Dict[str, int] = Field(
+        default_factory=dict, description="Count of each rating level"
+    )
+    average_rating: Optional[float] = None
+    most_common_tags: List[Dict[str, int]] = Field(
+        default_factory=list, description="Most common misgeneration tags"
+    )
+    ratings_by_model: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict, description="Ratings breakdown by model"
+    )
+    ratings_by_domain: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict, description="Ratings breakdown by domain"
+    )
+    trend_last_7_days: Optional[str] = None
+    trend_last_30_days: Optional[str] = None
+
+
+# ============================================================
+# Memory System API Models
+# ============================================================
+
+
+class MemoryCreate(BaseModel):
+    """API model for storing a memory."""
+
+    memory_type: MemoryType = Field(description="Type of memory to store")
+    content: Dict[str, Any] = Field(description="Memory content")
+    importance: float = Field(
+        default=0.5, description="Importance weighting 0-1", ge=0, le=1
+    )
+    context_id: Optional[uuid.UUID] = Field(
+        default=None, description="Associated context ID"
+    )
+
+
+class MemoryRecallRequest(BaseModel):
+    """API model for recalling memories."""
+
+    query: str = Field(description="Query to search memories")
+    memory_types: Optional[List[MemoryType]] = Field(
+        default=None, description="Filter by memory types"
+    )
+    max_results: int = Field(default=5, description="Maximum results to return", ge=1)
+    min_importance: Optional[float] = Field(
+        default=None, description="Minimum importance threshold", ge=0, le=1
+    )
+
+
+class MemoryResponse(BaseModel):
+    """API model for memory response."""
+
+    id: uuid.UUID
+    memory_type: str
+    content: Dict[str, Any]
+    importance: float
+    access_count: int
+    created_at: datetime
+    last_recalled_at: Optional[datetime] = None
+    relevance_score: Optional[float] = Field(
+        default=None, description="Relevance to query (if from search)"
+    )
+
+    model_config = {"from_attributes": True}
