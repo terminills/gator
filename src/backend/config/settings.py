@@ -5,11 +5,20 @@ Centralized configuration management using Pydantic settings.
 Follows best practices for environment-based configuration.
 """
 
+from enum import Enum
 from functools import lru_cache
 from typing import List, Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class GPULoadBalanceStrategy(str, Enum):
+    """GPU load balancing strategies."""
+
+    MEMORY = "memory"  # Select GPU with most free memory
+    ROUND_ROBIN = "round_robin"  # Rotate through GPUs
+    LEAST_LOADED = "least_loaded"  # Select GPU with lowest utilization
 
 
 class Settings(BaseSettings):
@@ -71,6 +80,17 @@ class Settings(BaseSettings):
     ai_model_path: Optional[str] = Field(
         default=None, description="Path to AI models directory"
     )
+    default_text_model: str = Field(
+        default="llama3:8b", description="Default text generation model"
+    )
+    default_image_model: str = Field(
+        default="stabilityai/stable-diffusion-xl-base-1.0",
+        description="Default image generation model",
+    )
+    default_voice_model: str = Field(
+        default="eleven_monolingual_v1",
+        description="Default voice synthesis model",
+    )
     openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key")
     anthropic_api_key: Optional[str] = Field(
         default=None, description="Anthropic Claude API key"
@@ -81,10 +101,65 @@ class Settings(BaseSettings):
     hugging_face_token: Optional[str] = Field(
         default=None, description="Hugging Face API token"
     )
+    civitai_api_key: Optional[str] = Field(
+        default=None, description="Civitai API key for model downloads"
+    )
+    ollama_base_url: str = Field(
+        default="http://localhost:11434", description="Ollama service base URL"
+    )
+    comfyui_base_url: Optional[str] = Field(
+        default=None, description="ComfyUI service base URL"
+    )
+
+    # GPU Configuration
+    gpu_memory_threshold: float = Field(
+        default=0.9,
+        ge=0.5,
+        le=1.0,
+        description="GPU memory utilization threshold (0.5-1.0)",
+    )
+    enable_multi_gpu: bool = Field(
+        default=True, description="Enable multi-GPU load balancing"
+    )
+    gpu_load_balance_strategy: GPULoadBalanceStrategy = Field(
+        default=GPULoadBalanceStrategy.MEMORY,
+        description="GPU load balancing strategy",
+    )
+    max_gpu_memory_gb: Optional[float] = Field(
+        default=None, description="Maximum GPU memory to use (GB), None for auto"
+    )
+
+    # ACD (Autonomous Continuous Development) Configuration
+    acd_enabled: bool = Field(
+        default=True, description="Enable ACD system for context tracking"
+    )
+    acd_learning_rate: float = Field(
+        default=0.1,
+        ge=0.01,
+        le=1.0,
+        description="ACD learning rate for self-improvement",
+    )
+    acd_correlation_threshold: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description="Minimum correlation score for pattern matching",
+    )
+    acd_memory_consolidation_hours: int = Field(
+        default=24,
+        ge=1,
+        description="Hours between automatic memory consolidation",
+    )
 
     # Content generation settings
     max_content_generations_per_hour: int = Field(
         default=10, description="Rate limit for content generation"
+    )
+    max_concurrent_generations: int = Field(
+        default=3, description="Maximum concurrent content generations"
+    )
+    generation_timeout_seconds: int = Field(
+        default=300, description="Timeout for content generation in seconds"
     )
 
     # Social media API settings
