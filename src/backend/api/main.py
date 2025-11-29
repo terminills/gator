@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.routes import (
     acd,
     analytics,
+    auth,
     branding,
     civitai,
     content,
@@ -240,6 +241,7 @@ def create_app() -> FastAPI:
     # Include API routers
     # All routers now consistently define their own /api/v1/ prefix internally
     app.include_router(public.router)
+    app.include_router(auth.router)  # Authentication routes
     app.include_router(branding.router)
     app.include_router(dns.router)
     app.include_router(setup.router)
