@@ -27,9 +27,10 @@
 
 The Gator AI Influencer Platform is a FastAPI-based application for AI-powered content generation with:
 
-- **263 Python files** across the codebase
-- **94 test files** with partial coverage
-- **129 markdown documentation files** in root (excessive, needs consolidation)
+- **263 Python files** across the codebase (verified count)
+- **94 test files** with partial coverage (verified count)
+- **130 markdown documentation files** in root (verified count, excessive - needs consolidation)
+- **4 text files** in root (implementation summaries)
 - **45+ services** handling various domains
 - **30+ API route modules**
 - **22+ model definitions**
@@ -131,7 +132,6 @@ ADMIN_ENHANCEMENT_SUMMARY.md
 ADMIN_PANEL_FIX.md
 ANALYSIS_COMPARISON.md
 ANALYSIS_INDEX.md
-ANALYSIS_VISUAL_SUMMARY.txt
 BOOT_FIX_SUMMARY.md
 COMFYUI_DETECTION_FIX_SUMMARY.md
 CONTENT_GENERATION_FIXES.md
@@ -165,9 +165,7 @@ IMPLEMENTATION_SUMMARY.md
 IMPLEMENTATION_SUMMARY_CONTENT_GENERATION_FIX.md
 IMPLEMENTATION_SUMMARY_GPU_LOAD_BALANCING.md
 IMPLEMENTATION_SUMMARY_OLD.md
-IMPLEMENTATION_SUMMARY_OLD.txt
 IMPLEMENTATION_SUMMARY_PYTORCH_COMPATIBILITY.md
-IMPLEMENTATION_SUMMARY_SEED_IMAGE.txt
 INCOMPLETE_APIS_COMPLETION.md
 ISSUE_RESOLUTION.md
 MIGRATION_FIX_SUMMARY.md
@@ -197,6 +195,12 @@ UNIMPLEMENTED_FEATURES_COMPLETE.md
 UPDATE_SCRIPT_IMPLEMENTATION.md
 VERIFICATION_SUMMARY.md
 VLLM_FIX_SUMMARY.md
+
+# Text Files (also delete)
+ANALYSIS_VISUAL_SUMMARY.txt
+AI_IMPLEMENTATION_COMPLETE.txt
+IMPLEMENTATION_SUMMARY_OLD.txt
+IMPLEMENTATION_SUMMARY_SEED_IMAGE.txt
 ```
 
 ### Files to MOVE to `docs/`
@@ -420,6 +424,8 @@ class GatorSettings(BaseSettings):
 ## ACD System Evolution
 
 The ACD (Autonomous Continuous Development) system is designed as a **context indexing system with human-based recall**. To become the main orchestration system, it needs significant enhancements for **cross-thinking** and **self-learning**.
+
+> **Note:** The code examples in this section are **conceptual designs** showing the intended API and structure. They use `pass` statements as placeholders and will require full implementation during Phase 4 of the roadmap.
 
 ### Current ACD Capabilities
 
