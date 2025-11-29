@@ -8,7 +8,7 @@ matches the current models. Handles missing columns safely.
 from typing import Any, Dict, List
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from backend.config.logging import get_logger
 
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 
 
 async def check_column_exists(
-    conn, table_name: str, column_name: str, is_sqlite: bool
+    conn: AsyncConnection, table_name: str, column_name: str, is_sqlite: bool
 ) -> bool:
     """
     Check if a column exists in a table.
@@ -49,7 +49,7 @@ async def check_column_exists(
     return column_name in columns
 
 
-async def table_exists(conn, table_name: str, is_sqlite: bool) -> bool:
+async def table_exists(conn: AsyncConnection, table_name: str, is_sqlite: bool) -> bool:
     """
     Check if a table exists in the database.
 
@@ -85,7 +85,9 @@ async def table_exists(conn, table_name: str, is_sqlite: bool) -> bool:
     return table_name in tables
 
 
-async def add_personas_appearance_columns(conn, is_sqlite: bool) -> List[str]:
+async def add_personas_appearance_columns(
+    conn: AsyncConnection, is_sqlite: bool
+) -> List[str]:
     """
     Add appearance locking columns to personas table if they don't exist.
 
@@ -96,7 +98,7 @@ async def add_personas_appearance_columns(conn, is_sqlite: bool) -> List[str]:
     Returns:
         List of columns that were added
     """
-    added_columns = []
+    added_columns: List[str] = []
 
     # Check if table exists first
     if not await table_exists(conn, "personas", is_sqlite):
@@ -207,7 +209,7 @@ async def add_personas_appearance_columns(conn, is_sqlite: bool) -> List[str]:
     return added_columns
 
 
-async def add_acd_domain_columns(conn, is_sqlite: bool) -> List[str]:
+async def add_acd_domain_columns(conn: AsyncConnection, is_sqlite: bool) -> List[str]:
     """
     Add domain classification columns to acd_contexts table if they don't exist.
 
@@ -218,7 +220,7 @@ async def add_acd_domain_columns(conn, is_sqlite: bool) -> List[str]:
     Returns:
         List of columns that were added
     """
-    added_columns = []
+    added_columns: List[str] = []
 
     # Check if table exists first
     if not await table_exists(conn, "acd_contexts", is_sqlite):
@@ -266,7 +268,7 @@ async def add_acd_domain_columns(conn, is_sqlite: bool) -> List[str]:
     return added_columns
 
 
-async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
+async def add_persona_soul_columns(conn: AsyncConnection, is_sqlite: bool) -> List[str]:
     """
     Add persona soul fields for human-like response generation.
 
@@ -284,7 +286,7 @@ async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
     Returns:
         List of columns that were added
     """
-    added_columns = []
+    added_columns: List[str] = []
 
     # Check if table exists first
     if not await table_exists(conn, "personas", is_sqlite):
@@ -550,7 +552,9 @@ async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
     return added_columns
 
 
-async def add_persona_physical_appearance_columns(conn, is_sqlite: bool) -> List[str]:
+async def add_persona_physical_appearance_columns(
+    conn: AsyncConnection, is_sqlite: bool
+) -> List[str]:
     """
     Add detailed physical appearance fields to personas table for fine-grained
     control over persona appearance generation.
@@ -565,7 +569,7 @@ async def add_persona_physical_appearance_columns(conn, is_sqlite: bool) -> List
     Returns:
         List of columns that were added
     """
-    added_columns = []
+    added_columns: List[str] = []
 
     # Check if table exists first
     if not await table_exists(conn, "personas", is_sqlite):
@@ -744,7 +748,9 @@ async def add_persona_physical_appearance_columns(conn, is_sqlite: bool) -> List
     return added_columns
 
 
-async def add_persona_ai_model_preference_columns(conn, is_sqlite: bool) -> List[str]:
+async def add_persona_ai_model_preference_columns(
+    conn: AsyncConnection, is_sqlite: bool
+) -> List[str]:
     """
     Add AI model preference fields to personas table for per-persona
     model selection across different content generation types.
@@ -758,7 +764,7 @@ async def add_persona_ai_model_preference_columns(conn, is_sqlite: bool) -> List
     Returns:
         List of columns that were added
     """
-    added_columns = []
+    added_columns: List[str] = []
 
     # Check if table exists first
     if not await table_exists(conn, "personas", is_sqlite):
@@ -813,7 +819,9 @@ async def add_persona_ai_model_preference_columns(conn, is_sqlite: bool) -> List
     return added_columns
 
 
-async def add_content_triggers_column(conn, is_sqlite: bool) -> List[str]:
+async def add_content_triggers_column(
+    conn: AsyncConnection, is_sqlite: bool
+) -> List[str]:
     """
     Add content_triggers JSON column to personas table for trigger-based
     model orchestration with LoRA stacking and dynamic prompts.
@@ -829,7 +837,7 @@ async def add_content_triggers_column(conn, is_sqlite: bool) -> List[str]:
     Returns:
         List of columns that were added
     """
-    added_columns = []
+    added_columns: List[str] = []
 
     # Check if table exists first
     if not await table_exists(conn, "personas", is_sqlite):
@@ -867,7 +875,9 @@ async def add_content_triggers_column(conn, is_sqlite: bool) -> List[str]:
     return added_columns
 
 
-async def add_persona_negative_prompt_column(conn, is_sqlite: bool) -> List[str]:
+async def add_persona_negative_prompt_column(
+    conn: AsyncConnection, is_sqlite: bool
+) -> List[str]:
     """
     Add default_negative_prompt column to personas table for decoupling
     negative prompts from hardcoded style defaults.
@@ -886,7 +896,7 @@ async def add_persona_negative_prompt_column(conn, is_sqlite: bool) -> List[str]
     Returns:
         List of columns that were added
     """
-    added_columns = []
+    added_columns: List[str] = []
 
     # Check if table exists first
     if not await table_exists(conn, "personas", is_sqlite):
@@ -971,9 +981,12 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
 
     logger.info("Checking for pending database migrations")
 
-    results = {
-        "migrations_run": [],
-        "columns_added": [],
+    # Initialize results with explicit types
+    migrations_run: List[str] = []
+    columns_added: List[str] = []
+    results: Dict[str, Any] = {
+        "migrations_run": migrations_run,
+        "columns_added": columns_added,
         "success": True,
         "error": None,
     }
@@ -981,75 +994,75 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
     try:
         async with engine.begin() as conn:
             # Run personas table migrations
-            columns_added = await add_personas_appearance_columns(conn, is_sqlite)
+            appearance_columns = await add_personas_appearance_columns(conn, is_sqlite)
 
-            if columns_added:
-                results["migrations_run"].append("personas_appearance_locking")
-                results["columns_added"].extend(columns_added)
+            if appearance_columns:
+                migrations_run.append("personas_appearance_locking")
+                columns_added.extend(appearance_columns)
                 logger.info(
-                    f"Added {len(columns_added)} column(s) to personas table: {', '.join(columns_added)}"
+                    f"Added {len(appearance_columns)} column(s) to personas table: {', '.join(appearance_columns)}"
                 )
             else:
                 logger.info("All personas appearance columns are up to date")
 
             # Run persona soul fields migration (for human-like responses)
-            soul_columns_added = await add_persona_soul_columns(conn, is_sqlite)
+            soul_columns = await add_persona_soul_columns(conn, is_sqlite)
 
-            if soul_columns_added:
-                results["migrations_run"].append("personas_soul_fields")
-                results["columns_added"].extend(soul_columns_added)
+            if soul_columns:
+                migrations_run.append("personas_soul_fields")
+                columns_added.extend(soul_columns)
                 logger.info(
-                    f"Added {len(soul_columns_added)} persona soul column(s): {', '.join(soul_columns_added)}"
+                    f"Added {len(soul_columns)} persona soul column(s): {', '.join(soul_columns)}"
                 )
             else:
                 logger.info("All persona soul columns are up to date")
 
             # Run ACD contexts table migrations
-            acd_columns_added = await add_acd_domain_columns(conn, is_sqlite)
+            acd_columns = await add_acd_domain_columns(conn, is_sqlite)
 
-            if acd_columns_added:
-                results["migrations_run"].append("acd_contexts_domain_fields")
-                results["columns_added"].extend(acd_columns_added)
+            if acd_columns:
+                migrations_run.append("acd_contexts_domain_fields")
+                columns_added.extend(acd_columns)
                 logger.info(
-                    f"Added {len(acd_columns_added)} column(s) to acd_contexts table: {', '.join(acd_columns_added)}"
+                    f"Added {len(acd_columns)} column(s) to acd_contexts table: {', '.join(acd_columns)}"
                 )
             else:
                 logger.info("All acd_contexts table columns are up to date")
 
             # Run physical appearance fields migration (PR #402)
-            physical_columns_added = await add_persona_physical_appearance_columns(
+            physical_columns = await add_persona_physical_appearance_columns(
                 conn, is_sqlite
             )
 
-            if physical_columns_added:
-                results["migrations_run"].append("personas_physical_appearance")
-                results["columns_added"].extend(physical_columns_added)
+            if physical_columns:
+                migrations_run.append("personas_physical_appearance")
+                columns_added.extend(physical_columns)
                 logger.info(
-                    f"Added {len(physical_columns_added)} physical appearance column(s): {', '.join(physical_columns_added)}"
+                    f"Added {len(physical_columns)} physical appearance column(s): {', '.join(physical_columns)}"
                 )
             else:
                 logger.info("All physical appearance columns are up to date")
 
             # Run AI model preference fields migration (PR #402)
-            ai_model_columns_added = await add_persona_ai_model_preference_columns(
+            ai_model_columns = await add_persona_ai_model_preference_columns(
                 conn, is_sqlite
             )
 
-            if ai_model_columns_added:
-                results["migrations_run"].append("personas_ai_model_preferences")
-                results["columns_added"].extend(ai_model_columns_added)
+            if ai_model_columns:
+                migrations_run.append("personas_ai_model_preferences")
+                columns_added.extend(ai_model_columns)
                 logger.info(
-                    f"Added {len(ai_model_columns_added)} AI model preference column(s): {', '.join(ai_model_columns_added)}"
+                    f"Added {len(ai_model_columns)} AI model preference column(s): {', '.join(ai_model_columns)}"
                 )
             else:
                 logger.info("All AI model preference columns are up to date")
 
             # Run content triggers migration (PR #428)
-            content_triggers_added = await add_content_triggers_column(conn, is_sqlite)
+            content_triggers = await add_content_triggers_column(conn, is_sqlite)
 
-            if content_triggers_added:
-                results["migrations_run"].append("personas_content_triggers")
-                results["columns_added"].extend(content_triggers_added)
+            if content_triggers:
+                migrations_run.append("personas_content_triggers")
+                columns_added.extend(content_triggers)
                 logger.info(
                     "Added content_triggers column for trigger-based model orchestration"
                 )
@@ -1057,13 +1070,11 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                 logger.info("Content triggers column is up to date")
 
             # Run negative prompt decoupling migration (PR #445)
-            negative_prompt_added = await add_persona_negative_prompt_column(
-                conn, is_sqlite
-            )
+            negative_prompt = await add_persona_negative_prompt_column(conn, is_sqlite)
 
-            if negative_prompt_added:
-                results["migrations_run"].append("personas_negative_prompt")
-                results["columns_added"].extend(negative_prompt_added)
+            if negative_prompt:
+                migrations_run.append("personas_negative_prompt")
+                columns_added.extend(negative_prompt)
                 logger.info(
                     "Added default_negative_prompt column for persona-specific negative prompts"
                 )
@@ -1071,43 +1082,35 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                 logger.info("Negative prompt column is up to date")
 
             # Run ACD scheduling columns migration (PR #433)
-            acd_scheduling_added = await add_acd_scheduling_columns(conn, is_sqlite)
+            acd_scheduling = await add_acd_scheduling_columns(conn, is_sqlite)
 
-            if acd_scheduling_added:
-                results["migrations_run"].append("acd_contexts_scheduling")
-                results["columns_added"].extend(acd_scheduling_added)
+            if acd_scheduling:
+                migrations_run.append("acd_contexts_scheduling")
+                columns_added.extend(acd_scheduling)
                 logger.info(
-                    f"Added {len(acd_scheduling_added)} ACD scheduling column(s) for LLM-driven scheduler"
+                    f"Added {len(acd_scheduling)} ACD scheduling column(s) for LLM-driven scheduler"
                 )
             else:
                 logger.info("All ACD scheduling columns are up to date")
 
             # Create business intelligence tables (PR #433)
-            bi_tables_created = await create_business_intelligence_tables(
-                conn, is_sqlite
-            )
+            bi_tables = await create_business_intelligence_tables(conn, is_sqlite)
 
-            if bi_tables_created:
-                results["migrations_run"].append("business_intelligence_tables")
-                results["columns_added"].extend(
-                    [f"table:{t}" for t in bi_tables_created]
-                )
+            if bi_tables:
+                migrations_run.append("business_intelligence_tables")
+                columns_added.extend([f"table:{t}" for t in bi_tables])
                 logger.info(
-                    f"Created {len(bi_tables_created)} business intelligence table(s): {', '.join(bi_tables_created)}"
+                    f"Created {len(bi_tables)} business intelligence table(s): {', '.join(bi_tables)}"
                 )
             else:
                 logger.info("All business intelligence tables are up to date")
 
             # Create installed_models table for AI model metadata
-            installed_models_created = await create_installed_models_table(
-                conn, is_sqlite
-            )
+            installed_models = await create_installed_models_table(conn, is_sqlite)
 
-            if installed_models_created:
-                results["migrations_run"].append("installed_models_table")
-                results["columns_added"].extend(
-                    [f"table:{t}" for t in installed_models_created]
-                )
+            if installed_models:
+                migrations_run.append("installed_models_table")
+                columns_added.extend([f"table:{t}" for t in installed_models])
                 logger.info(
                     "Created installed_models table for AI model metadata and triggers"
                 )
@@ -1115,13 +1118,13 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                 logger.info("Installed models table is up to date")
 
             # Run ACD HIL Rating columns migration (Phase 4)
-            hil_columns_added = await add_acd_hil_rating_columns(conn, is_sqlite)
+            hil_columns = await add_acd_hil_rating_columns(conn, is_sqlite)
 
-            if hil_columns_added:
-                results["migrations_run"].append("acd_contexts_hil_rating")
-                results["columns_added"].extend(hil_columns_added)
+            if hil_columns:
+                migrations_run.append("acd_contexts_hil_rating")
+                columns_added.extend(hil_columns)
                 logger.info(
-                    f"Added {len(hil_columns_added)} ACD HIL Rating column(s) for human feedback"
+                    f"Added {len(hil_columns)} ACD HIL Rating column(s) for human feedback"
                 )
             else:
                 logger.info("All ACD HIL Rating columns are up to date")
@@ -1135,7 +1138,9 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
         return results
 
 
-async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
+async def add_acd_scheduling_columns(
+    conn: AsyncConnection, is_sqlite: bool
+) -> List[str]:
     """
     Add scheduling-related columns to acd_contexts table for LLM-driven
     scheduler integration.
@@ -1150,7 +1155,7 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
     Returns:
         List of columns that were added
     """
-    added_columns = []
+    added_columns: List[str] = []
 
     # Check if table exists first
     if not await table_exists(conn, "acd_contexts", is_sqlite):
@@ -1474,7 +1479,9 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
     return added_columns
 
 
-async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str]:
+async def create_business_intelligence_tables(
+    conn: AsyncConnection, is_sqlite: bool
+) -> List[str]:
     """
     Create business intelligence tables for traffic, retention, revenue tracking,
     and content scheduling.
@@ -2026,7 +2033,9 @@ async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str
     return created_tables
 
 
-async def create_installed_models_table(conn, is_sqlite: bool) -> List[str]:
+async def create_installed_models_table(
+    conn: AsyncConnection, is_sqlite: bool
+) -> List[str]:
     """
     Create installed_models table for tracking AI model metadata including
     CivitAI details, trigger words, and usage statistics.
@@ -2191,7 +2200,9 @@ async def create_installed_models_table(conn, is_sqlite: bool) -> List[str]:
     return created_tables
 
 
-async def add_acd_hil_rating_columns(conn, is_sqlite: bool) -> List[str]:
+async def add_acd_hil_rating_columns(
+    conn: AsyncConnection, is_sqlite: bool
+) -> List[str]:
     """
     Add HIL (Human-in-the-Loop) Rating columns to acd_contexts table for
     human feedback on content generation quality.
@@ -2206,7 +2217,7 @@ async def add_acd_hil_rating_columns(conn, is_sqlite: bool) -> List[str]:
     Returns:
         List of columns that were added
     """
-    added_columns = []
+    added_columns: List[str] = []
 
     # Check if table exists first
     if not await table_exists(conn, "acd_contexts", is_sqlite):
