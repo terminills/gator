@@ -2313,6 +2313,14 @@
                                 <option value="cinematic">🎬 Cinematic</option>
                             </select>
                         </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                Persona Negative Prompt
+                            </label>
+                            <span class="form-help">Persona-specific negative prompt for image generation. Overrides style defaults when set. Example: anime personas shouldn't have "anime" in their negative prompt.</span>
+                            <textarea class="form-input" id="persona_negative_prompt" name="persona_negative_prompt" style="min-height: 80px;" placeholder="ugly, blurry, low quality, distorted, deformed, bad anatomy"></textarea>
+                        </div>
                     </div>
                     
                     <!-- RSS Feed Assignment -->
@@ -3253,6 +3261,7 @@
                 document.getElementById('base_image_status').value = persona.base_image_status || 'pending_upload';
                 document.getElementById('base_image_path').value = persona.base_image_path || '';
                 document.getElementById('image_style').value = persona.image_style || 'photorealistic';
+                document.getElementById('persona_negative_prompt').value = persona.default_negative_prompt || '';
                 
                 // Populate content generation preferences
                 document.getElementById('default_image_resolution').value = persona.default_image_resolution || '1024x1024';
@@ -5486,6 +5495,7 @@
                     base_image_status: document.getElementById('base_image_status').value,
                     base_image_path: document.getElementById('base_image_path').value.trim() || null,
                     image_style: document.getElementById('image_style').value,
+                    default_negative_prompt: document.getElementById('persona_negative_prompt').value.trim() || null,
                     default_image_resolution: document.getElementById('default_image_resolution').value,
                     default_video_resolution: document.getElementById('default_video_resolution').value,
                     post_style: document.getElementById('post_style').value,
