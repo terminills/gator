@@ -645,6 +645,120 @@ class ACDCrossThinking:
         pass
 ```
 
+#### 5. Human-in-the-Loop (HIL) Rating System
+
+Enable human feedback to train the system on generation quality:
+
+```python
+class HILRatingSystem:
+    """
+    Human-in-the-Loop rating system for content generation quality.
+    
+    Allows humans to rate generated content, tag misgenerated content,
+    and train the system to learn which workflows, LoRAs, models,
+    and parameter combinations work best together.
+    """
+    
+    class GenerationRating(str, Enum):
+        """Rating scale for generated content."""
+        EXCELLENT = "excellent"      # 5 - Perfect, use as exemplar
+        GOOD = "good"                # 4 - Minor issues, acceptable
+        ACCEPTABLE = "acceptable"    # 3 - Needs improvement
+        POOR = "poor"                # 2 - Significant issues
+        FAILED = "failed"            # 1 - Complete misgeneration
+        
+    class MisgenerationTag(str, Enum):
+        """Tags for categorizing misgeneration issues."""
+        ANATOMY_ERROR = "anatomy_error"         # Wrong body parts, proportions
+        STYLE_MISMATCH = "style_mismatch"       # Wrong artistic style
+        PROMPT_IGNORED = "prompt_ignored"       # Key prompt elements missing
+        ARTIFACT = "artifact"                   # Visual artifacts, noise
+        WRONG_SUBJECT = "wrong_subject"         # Wrong person/object generated
+        NSFW_LEAK = "nsfw_leak"                 # Unintended NSFW content
+        QUALITY_LOW = "quality_low"             # General low quality
+        LORA_CONFLICT = "lora_conflict"         # LoRA incompatibility
+        MODEL_MISMATCH = "model_mismatch"       # Wrong base model for task
+    
+    async def rate_generation(
+        self,
+        context_id: UUID,
+        rating: GenerationRating,
+        tags: Optional[List[MisgenerationTag]] = None,
+        notes: Optional[str] = None,
+        rater_id: Optional[str] = None,
+    ) -> None:
+        """
+        Submit a human rating for generated content.
+        
+        This rating is stored and used to:
+        - Train the correlation engine on quality patterns
+        - Build a knowledge base of working configurations
+        - Identify problematic LoRA/model combinations
+        """
+        pass
+    
+    async def get_workflow_effectiveness(
+        self,
+        workflow_id: Optional[str] = None,
+        model_id: Optional[str] = None,
+        lora_ids: Optional[List[str]] = None,
+        time_window_hours: int = 720,  # 30 days
+    ) -> WorkflowEffectiveness:
+        """
+        Analyze effectiveness of specific workflows/models/LoRAs.
+        
+        Returns:
+        - Average rating for this configuration
+        - Common misgeneration tags
+        - Recommended alternatives
+        - Success rate over time
+        """
+        pass
+    
+    async def get_best_configurations(
+        self,
+        content_type: str,
+        style: Optional[str] = None,
+        min_rating: float = 4.0,
+    ) -> List[RecommendedConfiguration]:
+        """
+        Get best-rated configurations for a content type.
+        
+        Returns configurations that consistently produce
+        highly-rated content, learned from HIL feedback.
+        """
+        pass
+    
+    async def flag_lora_incompatibility(
+        self,
+        lora_a: str,
+        lora_b: str,
+        context_id: UUID,
+        severity: str = "warning",
+    ) -> None:
+        """
+        Flag incompatible LoRA combinations discovered through HIL.
+        
+        System learns to avoid these combinations in future generations.
+        """
+        pass
+    
+    async def get_misgeneration_patterns(
+        self,
+        tag: Optional[MisgenerationTag] = None,
+        time_window_hours: int = 168,
+    ) -> List[MisgenerationPattern]:
+        """
+        Analyze patterns in misgenerated content.
+        
+        Identifies:
+        - Common causes of specific misgeneration types
+        - Correlations between settings and failures
+        - Trends over time (improving or degrading)
+        """
+        pass
+```
+
 ### New ACD Database Fields
 
 Add these fields to `ACDContextModel`:
@@ -671,6 +785,19 @@ cross_domain_insights = Column(JSON, nullable=True)
 decision_confidence_actual = Column(Float, nullable=True)  # Actual vs predicted
 improvement_applied = Column(Boolean, default=False)
 improvement_notes = Column(Text, nullable=True)
+
+# Human-in-the-Loop (HIL) Rating fields
+hil_rating = Column(Integer, nullable=True)  # 1-5 rating from human
+hil_rating_tags = Column(JSON, nullable=True)  # List of misgeneration tags
+hil_rating_notes = Column(Text, nullable=True)  # Human feedback notes
+hil_rated_by = Column(String(100), nullable=True)  # Rater identifier
+hil_rated_at = Column(DateTime(timezone=True), nullable=True)
+
+# Workflow tracking for HIL learning
+workflow_id = Column(String(100), nullable=True, index=True)  # Generation workflow used
+model_id = Column(String(200), nullable=True, index=True)  # Base model used
+lora_ids = Column(JSON, nullable=True)  # List of LoRAs applied
+generation_params = Column(JSON, nullable=True)  # Full parameter snapshot
 ```
 
 ### ACD API Enhancements
@@ -697,6 +824,15 @@ GET  /api/v1/acd/insights/cross-domain    # Get cross-domain insights
 GET  /api/v1/acd/analysis/decisions       # Analyze decision quality
 GET  /api/v1/acd/suggestions              # Get improvement suggestions
 POST /api/v1/acd/weights/update           # Update decision weights
+
+# HIL Rating endpoints
+POST /api/v1/acd/rate/{context_id}        # Submit human rating for generation
+GET  /api/v1/acd/ratings                  # Get recent ratings
+GET  /api/v1/acd/ratings/stats            # Rating statistics and trends
+GET  /api/v1/acd/workflow-effectiveness   # Analyze workflow/model/LoRA effectiveness
+GET  /api/v1/acd/best-configs             # Get best-rated configurations
+POST /api/v1/acd/flag-incompatibility     # Flag LoRA/model incompatibility
+GET  /api/v1/acd/misgeneration-patterns   # Analyze misgeneration patterns
 ```
 
 ---
