@@ -997,6 +997,18 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
             else:
                 logger.info("All business intelligence tables are up to date")
 
+            # Create installed_models table for AI model metadata
+            installed_models_created = await create_installed_models_table(conn, is_sqlite)
+
+            if installed_models_created:
+                results["migrations_run"].append("installed_models_table")
+                results["columns_added"].extend([f"table:{t}" for t in installed_models_created])
+                logger.info(
+                    f"Created installed_models table for AI model metadata and triggers"
+                )
+            else:
+                logger.info("Installed models table is up to date")
+
         return results
 
     except Exception as e:
@@ -1713,5 +1725,126 @@ async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str
 
     if created_tables:
         logger.info(f"✓ Created {len(created_tables)} business intelligence tables for LLM reasoning")
+
+    return created_tables
+
+
+async def create_installed_models_table(conn, is_sqlite: bool) -> List[str]:
+    """
+    Create installed_models table for tracking AI model metadata including
+    CivitAI details, trigger words, and usage statistics.
+    
+    This enables:
+    - Storing detailed metadata from CivitAI API
+    - Managing trigger words for models
+    - Matching models to triggers in workflows
+    - Tracking model usage across the platform
+
+    Args:
+        conn: Database connection
+        is_sqlite: Whether the database is SQLite
+
+    Returns:
+        List of tables that were created
+    """
+    created_tables = []
+
+    if not await table_exists(conn, "installed_models", is_sqlite):
+        logger.info("Creating installed_models table for AI model metadata and trigger words")
+        if is_sqlite:
+            await conn.execute(text("""
+                CREATE TABLE installed_models (
+                    id TEXT PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    display_name VARCHAR(255),
+                    model_type VARCHAR(50) NOT NULL,
+                    source VARCHAR(50) NOT NULL DEFAULT 'local',
+                    file_path VARCHAR(1000) NOT NULL UNIQUE,
+                    file_name VARCHAR(255) NOT NULL,
+                    file_size_mb REAL,
+                    file_hash VARCHAR(128),
+                    civitai_model_id INTEGER,
+                    civitai_version_id INTEGER,
+                    civitai_version_name VARCHAR(255),
+                    civitai_url VARCHAR(500),
+                    huggingface_repo_id VARCHAR(255),
+                    huggingface_revision VARCHAR(100),
+                    huggingface_filename VARCHAR(255),
+                    huggingface_url VARCHAR(500),
+                    description TEXT,
+                    base_model VARCHAR(100),
+                    trigger_words JSON DEFAULT '[]',
+                    trained_words JSON DEFAULT '[]',
+                    recommended_weight REAL DEFAULT 1.0,
+                    recommended_steps INTEGER,
+                    recommended_sampler VARCHAR(100),
+                    recommended_cfg_scale REAL,
+                    default_positive_prompt TEXT,
+                    default_negative_prompt TEXT,
+                    is_nsfw BOOLEAN DEFAULT 0,
+                    is_active BOOLEAN DEFAULT 1,
+                    usage_count INTEGER DEFAULT 0,
+                    last_used_at TIMESTAMP,
+                    extra_metadata JSON DEFAULT '{}',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+        else:
+            await conn.execute(text("""
+                CREATE TABLE installed_models (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    name VARCHAR(255) NOT NULL,
+                    display_name VARCHAR(255),
+                    model_type VARCHAR(50) NOT NULL,
+                    source VARCHAR(50) NOT NULL DEFAULT 'local',
+                    file_path VARCHAR(1000) NOT NULL UNIQUE,
+                    file_name VARCHAR(255) NOT NULL,
+                    file_size_mb REAL,
+                    file_hash VARCHAR(128),
+                    civitai_model_id INTEGER,
+                    civitai_version_id INTEGER,
+                    civitai_version_name VARCHAR(255),
+                    civitai_url VARCHAR(500),
+                    huggingface_repo_id VARCHAR(255),
+                    huggingface_revision VARCHAR(100),
+                    huggingface_filename VARCHAR(255),
+                    huggingface_url VARCHAR(500),
+                    description TEXT,
+                    base_model VARCHAR(100),
+                    trigger_words JSONB DEFAULT '[]',
+                    trained_words JSONB DEFAULT '[]',
+                    recommended_weight REAL DEFAULT 1.0,
+                    recommended_steps INTEGER,
+                    recommended_sampler VARCHAR(100),
+                    recommended_cfg_scale REAL,
+                    default_positive_prompt TEXT,
+                    default_negative_prompt TEXT,
+                    is_nsfw BOOLEAN DEFAULT FALSE,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    usage_count INTEGER DEFAULT 0,
+                    last_used_at TIMESTAMP WITH TIME ZONE,
+                    extra_metadata JSONB DEFAULT '{}',
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                )
+            """))
+        created_tables.append("installed_models")
+        
+        # Create indexes for common queries
+        try:
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_name ON installed_models (name)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_model_type ON installed_models (model_type)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_source ON installed_models (source)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_base_model ON installed_models (base_model)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_is_active ON installed_models (is_active)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_civitai_model_id ON installed_models (civitai_model_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_civitai_version_id ON installed_models (civitai_version_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_huggingface_repo_id ON installed_models (huggingface_repo_id)"))
+        except Exception as e:
+            logger.warning(f"Could not create indexes on installed_models: {e}")
+
+    if created_tables:
+        logger.info(f"✓ Created installed_models table for AI model metadata and triggers")
 
     return created_tables
