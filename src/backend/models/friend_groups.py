@@ -8,27 +8,26 @@ and participate in collaborative content like duets and reactions.
 
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional, Any
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 from sqlalchemy import (
-    Column,
-    String,
-    DateTime,
-    Boolean,
-    ForeignKey,
-    Text,
     JSON,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
     Integer,
+    String,
     Table,
+    Text,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from backend.database.connection import Base
-
 
 # Association table for many-to-many relationship between personas in groups
 persona_group_members = Table(

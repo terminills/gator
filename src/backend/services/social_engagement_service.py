@@ -6,34 +6,34 @@ filters out bot/persona interactions, and integrates with ACD for learning.
 """
 
 import asyncio
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Any
-from uuid import UUID
 import re
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, desc
 
-from backend.models.social_media_post import (
-    SocialMediaPostModel,
-    SocialMediaPostCreate,
-    SocialMediaPostUpdate,
-    SocialMediaPostResponse,
-    EngagementMetrics,
-    EngagementAnalysis,
-    SocialPlatform,
-    PostStatus,
-)
+from backend.config.logging import get_logger
+from backend.models.acd import ACDContextUpdate, AIConfidence, AIValidation
 from backend.models.persona import PersonaModel
-from backend.services.social_media_clients import (
-    InstagramClient,
-    FacebookClient,
-    TwitterClient,
-    TikTokClient,
+from backend.models.social_media_post import (
+    EngagementAnalysis,
+    EngagementMetrics,
+    PostStatus,
+    SocialMediaPostCreate,
+    SocialMediaPostModel,
+    SocialMediaPostResponse,
+    SocialMediaPostUpdate,
+    SocialPlatform,
 )
 from backend.services.acd_service import ACDService
-from backend.models.acd import ACDContextUpdate, AIValidation, AIConfidence
-from backend.config.logging import get_logger
+from backend.services.social_media_clients import (
+    FacebookClient,
+    InstagramClient,
+    TikTokClient,
+    TwitterClient,
+)
 
 logger = get_logger(__name__)
 
@@ -105,7 +105,9 @@ class SocialEngagementService:
             Updated post record
         """
         try:
-            stmt = select(SocialMediaPostModel).where(SocialMediaPostModel.id == post_id)
+            stmt = select(SocialMediaPostModel).where(
+                SocialMediaPostModel.id == post_id
+            )
             result = await self.db.execute(stmt)
             post = result.scalar_one_or_none()
 
@@ -139,7 +141,10 @@ class SocialEngagementService:
             # Calculate engagement rate
             if post.reach > 0:
                 total_engagement = (
-                    post.likes_count + post.comments_count + post.shares_count + post.saves_count
+                    post.likes_count
+                    + post.comments_count
+                    + post.shares_count
+                    + post.saves_count
                 )
                 post.engagement_rate = (total_engagement / post.reach) * 100
 
@@ -178,7 +183,9 @@ class SocialEngagementService:
             Latest engagement metrics with bot filtering applied
         """
         try:
-            stmt = select(SocialMediaPostModel).where(SocialMediaPostModel.id == post_id)
+            stmt = select(SocialMediaPostModel).where(
+                SocialMediaPostModel.id == post_id
+            )
             result = await self.db.execute(stmt)
             post = result.scalar_one_or_none()
 
@@ -237,12 +244,16 @@ class SocialEngagementService:
         try:
             # Extract raw counts
             total_likes = raw_metrics.get("likes", raw_metrics.get("like_count", 0))
-            total_comments = raw_metrics.get("comments", raw_metrics.get("reply_count", 0))
+            total_comments = raw_metrics.get(
+                "comments", raw_metrics.get("reply_count", 0)
+            )
             total_shares = raw_metrics.get("shares", raw_metrics.get("share_count", 0))
             total_saves = raw_metrics.get("saves", 0)
             impressions = raw_metrics.get("impressions", 0)
             reach = raw_metrics.get("reach", 0)
-            video_views = raw_metrics.get("video_views", raw_metrics.get("view_count", 0))
+            video_views = raw_metrics.get(
+                "video_views", raw_metrics.get("view_count", 0)
+            )
 
             # Fetch detailed interaction data for filtering
             # This would require additional API calls to get user data
@@ -259,7 +270,9 @@ class SocialEngagementService:
             genuine_count = max(0, total_interactions - bot_count - persona_count)
 
             # Adjust metrics based on filtering
-            filtering_ratio = genuine_count / total_interactions if total_interactions > 0 else 1.0
+            filtering_ratio = (
+                genuine_count / total_interactions if total_interactions > 0 else 1.0
+            )
 
             filtered_likes = int(total_likes * filtering_ratio)
             filtered_comments = int(total_comments * filtering_ratio)
@@ -348,8 +361,7 @@ class SocialEngagementService:
         try:
             # Get all known personas
             stmt = select(PersonaModel).where(
-                PersonaModel.id != post.persona_id,
-                PersonaModel.is_active == True
+                PersonaModel.id != post.persona_id, PersonaModel.is_active == True
             )
             result = await self.db.execute(stmt)
             known_personas = result.scalars().all()
@@ -391,12 +403,15 @@ class SocialEngagementService:
 
             # Calculate engagement quality score
             total_engagement = (
-                metrics.likes_count + metrics.comments_count + 
-                metrics.shares_count + metrics.saves_count
+                metrics.likes_count
+                + metrics.comments_count
+                + metrics.shares_count
+                + metrics.saves_count
             )
             genuine_ratio = (
-                metrics.genuine_user_count / total_engagement 
-                if total_engagement > 0 else 0
+                metrics.genuine_user_count / total_engagement
+                if total_engagement > 0
+                else 0
             )
 
             # Determine validation based on engagement quality
@@ -456,9 +471,7 @@ class SocialEngagementService:
         except Exception as e:
             logger.error(f"Failed to update ACD with engagement: {str(e)}")
 
-    async def analyze_post_performance(
-        self, post_id: UUID
-    ) -> EngagementAnalysis:
+    async def analyze_post_performance(self, post_id: UUID) -> EngagementAnalysis:
         """
         Analyze post performance and generate recommendations.
 
@@ -469,7 +482,9 @@ class SocialEngagementService:
             Detailed engagement analysis with recommendations
         """
         try:
-            stmt = select(SocialMediaPostModel).where(SocialMediaPostModel.id == post_id)
+            stmt = select(SocialMediaPostModel).where(
+                SocialMediaPostModel.id == post_id
+            )
             result = await self.db.execute(stmt)
             post = result.scalar_one_or_none()
 
@@ -478,16 +493,16 @@ class SocialEngagementService:
 
             # Calculate metrics
             total_engagement = (
-                post.likes_count + post.comments_count + 
-                post.shares_count + post.saves_count
+                post.likes_count
+                + post.comments_count
+                + post.shares_count
+                + post.saves_count
             )
             genuine_engagement = post.genuine_user_count
             engagement_rate = post.engagement_rate or 0.0
 
             # Get persona average for comparison
-            avg_stmt = select(
-                func.avg(SocialMediaPostModel.engagement_rate)
-            ).where(
+            avg_stmt = select(func.avg(SocialMediaPostModel.engagement_rate)).where(
                 SocialMediaPostModel.persona_id == post.persona_id,
                 SocialMediaPostModel.platform == post.platform,
                 SocialMediaPostModel.status == PostStatus.PUBLISHED.value,
@@ -497,7 +512,8 @@ class SocialEngagementService:
 
             performance_vs_average = (
                 ((engagement_rate - persona_avg) / persona_avg * 100)
-                if persona_avg > 0 else 0.0
+                if persona_avg > 0
+                else 0.0
             )
 
             # Identify top performing elements
@@ -512,15 +528,25 @@ class SocialEngagementService:
             # Generate recommendations
             recommendations = []
             if engagement_rate < persona_avg:
-                recommendations.append("Consider posting during peak hours (10am-2pm or 6pm-9pm)")
+                recommendations.append(
+                    "Consider posting during peak hours (10am-2pm or 6pm-9pm)"
+                )
                 recommendations.append("Try trending hashtags relevant to content")
             if post.comments_count < post.likes_count * 0.1:
-                recommendations.append("Add engaging questions to caption to encourage comments")
+                recommendations.append(
+                    "Add engaging questions to caption to encourage comments"
+                )
             if post.shares_count < total_engagement * 0.05:
-                recommendations.append("Create more shareable content (tips, quotes, infographics)")
+                recommendations.append(
+                    "Create more shareable content (tips, quotes, infographics)"
+                )
 
             # Sentiment analysis (basic for now)
-            sentiment = {"positive": 0.7, "neutral": 0.2, "negative": 0.1}  # Placeholder
+            sentiment = {
+                "positive": 0.7,
+                "neutral": 0.2,
+                "negative": 0.1,
+            }  # Placeholder
 
             return EngagementAnalysis(
                 post_id=post.id,
@@ -531,7 +557,9 @@ class SocialEngagementService:
                 performance_vs_average=performance_vs_average,
                 top_performing_elements=top_elements,
                 sentiment_analysis=sentiment,
-                best_performing_time=f"{post.published_at.hour}:00" if post.published_at else None,
+                best_performing_time=(
+                    f"{post.published_at.hour}:00" if post.published_at else None
+                ),
                 recommendations=recommendations,
             )
 

@@ -6,13 +6,14 @@ Enables developers to create custom plugins that extend platform functionality.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
 from enum import Enum
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
+from uuid import UUID
+
+import httpx
 import jsonschema
 from jsonschema import ValidationError as JSONSchemaValidationError
-from uuid import UUID
-import httpx
+from pydantic import BaseModel, Field
 
 
 class PluginType(str, Enum):
@@ -79,7 +80,7 @@ class GatorAPI:
         self._base_url = base_url or "http://localhost:8000"
         self._http_client = httpx.AsyncClient(
             timeout=30.0,
-            headers={"X-API-Key": self.api_key, "Content-Type": "application/json"}
+            headers={"X-API-Key": self.api_key, "Content-Type": "application/json"},
         )
 
     async def generate_content(
@@ -123,28 +124,23 @@ class GatorAPI:
                 "content_rating": kwargs.get("content_rating", "sfw"),
                 "target_platforms": kwargs.get("target_platforms", []),
             }
-            
+
             # Add optional parameters if provided
             if "style_override" in kwargs:
                 payload["style_override"] = kwargs["style_override"]
-            
+
             # Make API request to content generation endpoint
             response = await self._http_client.post(
-                f"{self._base_url}/api/v1/content/generate",
-                json=payload
+                f"{self._base_url}/api/v1/content/generate", json=payload
             )
             response.raise_for_status()
-            
+
             return response.json()
-            
+
         except httpx.HTTPError as e:
-            raise httpx.HTTPError(
-                f"Failed to generate content: {str(e)}"
-            ) from e
+            raise httpx.HTTPError(f"Failed to generate content: {str(e)}") from e
         except Exception as e:
-            raise ValueError(
-                f"Content generation request failed: {str(e)}"
-            ) from e
+            raise ValueError(f"Content generation request failed: {str(e)}") from e
 
     async def get_persona(self, persona_id: str) -> Dict[str, Any]:
         """
@@ -173,19 +169,15 @@ class GatorAPI:
                 f"{self._base_url}/api/v1/personas/{persona_id}"
             )
             response.raise_for_status()
-            
+
             return response.json()
-            
+
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 raise ValueError(f"Persona not found: {persona_id}") from e
-            raise httpx.HTTPError(
-                f"Failed to fetch persona: {str(e)}"
-            ) from e
+            raise httpx.HTTPError(f"Failed to fetch persona: {str(e)}") from e
         except Exception as e:
-            raise ValueError(
-                f"Persona fetch request failed: {str(e)}"
-            ) from e
+            raise ValueError(f"Persona fetch request failed: {str(e)}") from e
 
     async def publish_content(
         self,
@@ -229,25 +221,20 @@ class GatorAPI:
                 "schedule_time": kwargs.get("schedule_time"),
                 "platform_specific": kwargs.get("platform_specific", {}),
             }
-            
+
             # Make API request to publish content
             response = await self._http_client.post(
-                f"{self._base_url}/api/v1/social/publish",
-                json=payload
+                f"{self._base_url}/api/v1/social/publish", json=payload
             )
             response.raise_for_status()
-            
+
             return response.json()
-            
+
         except httpx.HTTPError as e:
-            raise httpx.HTTPError(
-                f"Failed to publish content: {str(e)}"
-            ) from e
+            raise httpx.HTTPError(f"Failed to publish content: {str(e)}") from e
         except Exception as e:
-            raise ValueError(
-                f"Content publishing request failed: {str(e)}"
-            ) from e
-    
+            raise ValueError(f"Content publishing request failed: {str(e)}") from e
+
     async def close(self):
         """Close the HTTP client connection."""
         await self._http_client.aclose()

@@ -6,28 +6,28 @@ enabling autonomous decision-making and continuous improvement.
 """
 
 import asyncio
-from typing import Dict, List, Optional, Any
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 from uuid import UUID
-from datetime import datetime, timezone, timedelta
 
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
 
+from backend.config.logging import get_logger
 from backend.models.acd import (
-    ACDContextModel,
-    ACDTraceArtifactModel,
     ACDContextCreate,
-    ACDContextUpdate,
+    ACDContextModel,
     ACDContextResponse,
+    ACDContextUpdate,
+    ACDStats,
     ACDTraceArtifactCreate,
+    ACDTraceArtifactModel,
     ACDTraceArtifactResponse,
     ACDValidationReport,
-    ACDStats,
-    AIStatus,
-    AIState,
     AIQueueStatus,
+    AIState,
+    AIStatus,
 )
-from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -71,12 +71,17 @@ class ACDService:
             if "ai_complexity" in context_dict and context_dict["ai_complexity"]:
                 if hasattr(context_dict["ai_complexity"], "value"):
                     context_dict["ai_complexity"] = context_dict["ai_complexity"].value
-            if "ai_state" in context_dict and hasattr(context_dict["ai_state"], "value"):
+            if "ai_state" in context_dict and hasattr(
+                context_dict["ai_state"], "value"
+            ):
                 context_dict["ai_state"] = context_dict["ai_state"].value
             if "ai_confidence" in context_dict and context_dict["ai_confidence"]:
                 if hasattr(context_dict["ai_confidence"], "value"):
                     context_dict["ai_confidence"] = context_dict["ai_confidence"].value
-            if "ai_queue_priority" in context_dict and context_dict["ai_queue_priority"]:
+            if (
+                "ai_queue_priority" in context_dict
+                and context_dict["ai_queue_priority"]
+            ):
                 if hasattr(context_dict["ai_queue_priority"], "value"):
                     context_dict["ai_queue_priority"] = context_dict[
                         "ai_queue_priority"
@@ -312,9 +317,7 @@ class ACDService:
             result = await self.db.execute(stmt)
             artifacts = result.scalars().all()
 
-            return [
-                ACDTraceArtifactResponse.model_validate(a) for a in artifacts
-            ]
+            return [ACDTraceArtifactResponse.model_validate(a) for a in artifacts]
 
         except Exception as e:
             logger.error(
@@ -322,9 +325,7 @@ class ACDService:
             )
             return []
 
-    async def get_stats(
-        self, hours: int = 24, phase: Optional[str] = None
-    ) -> ACDStats:
+    async def get_stats(self, hours: int = 24, phase: Optional[str] = None) -> ACDStats:
         """
         Get ACD context statistics.
 
@@ -400,7 +401,9 @@ class ACDService:
                     completed_count += 1
                     # Calculate completion time if we have started time
                     if context.ai_started:
-                        duration = (context.updated_at - context.ai_started).total_seconds()
+                        duration = (
+                            context.updated_at - context.ai_started
+                        ).total_seconds()
                         total_completion_time += duration
                         completion_count += 1
                 elif context.ai_state in ["FAILED", "CANCELLED"]:
@@ -538,9 +541,7 @@ class ACDService:
             await self.db.commit()
             await self.db.refresh(context)
 
-            logger.info(
-                f"Assigned context {context_id} to agent {agent_name}"
-            )
+            logger.info(f"Assigned context {context_id} to agent {agent_name}")
 
             return ACDContextResponse.model_validate(context)
 
@@ -554,91 +555,90 @@ class ACDService:
     ) -> Dict[str, Any]:
         """
         Process queued ACD contexts and trigger actual content generation.
-        
+
         This is the missing functionality - ACD contexts are created and logged,
         but this method actually triggers the content generation based on those contexts.
-        
+
         Args:
             max_contexts: Maximum number of contexts to process in this batch
             phase_filter: Optional filter for specific phase (e.g., "IMAGE_GENERATION")
-            
+
         Returns:
             Dict with processing results including successes and failures
         """
         try:
             logger.info(f"🔄 Processing queued ACD contexts (max: {max_contexts})")
-            
+
             # Query for contexts that are queued and ready to process
             # Define priority order with CASE for proper sorting
             from sqlalchemy import case
-            
+
             priority_order = case(
                 (ACDContextModel.ai_queue_priority == "CRITICAL", 1),
                 (ACDContextModel.ai_queue_priority == "HIGH", 2),
                 (ACDContextModel.ai_queue_priority == "NORMAL", 3),
                 (ACDContextModel.ai_queue_priority == "LOW", 4),
                 (ACDContextModel.ai_queue_priority == "DEFERRED", 5),
-                else_=6
+                else_=6,
             )
-            
+
             stmt = (
                 select(ACDContextModel)
                 .where(
                     and_(
-                        ACDContextModel.ai_queue_status.in_([
-                            AIQueueStatus.QUEUED.value,
-                            AIQueueStatus.ASSIGNED.value,
-                        ]),
-                        ACDContextModel.ai_state.in_([
-                            AIState.READY.value,
-                            AIState.PROCESSING.value,
-                        ])
+                        ACDContextModel.ai_queue_status.in_(
+                            [
+                                AIQueueStatus.QUEUED.value,
+                                AIQueueStatus.ASSIGNED.value,
+                            ]
+                        ),
+                        ACDContextModel.ai_state.in_(
+                            [
+                                AIState.READY.value,
+                                AIState.PROCESSING.value,
+                            ]
+                        ),
                     )
                 )
                 .order_by(
                     # Priority order: CRITICAL (1) > HIGH (2) > NORMAL (3) > LOW (4) > DEFERRED (5)
                     priority_order,
-                    ACDContextModel.created_at.asc()
+                    ACDContextModel.created_at.asc(),
                 )
                 .limit(max_contexts)
             )
-            
+
             if phase_filter:
                 stmt = stmt.where(ACDContextModel.ai_phase == phase_filter)
-            
+
             result = await self.db.execute(stmt)
             contexts = result.scalars().all()
-            
+
             if not contexts:
                 logger.info("   No queued contexts found to process")
-                return {
-                    "processed": 0,
-                    "successful": 0,
-                    "failed": 0,
-                    "results": []
-                }
-            
+                return {"processed": 0, "successful": 0, "failed": 0, "results": []}
+
             logger.info(f"   Found {len(contexts)} queued contexts to process")
-            
+
             # Import content generation service here to avoid circular imports
+            from backend.models.content import ContentRating, ContentType
             from backend.services.content_generation_service import (
                 ContentGenerationService,
                 GenerationRequest,
             )
-            from backend.models.content import ContentType, ContentRating
-            
+
             content_service = ContentGenerationService(self.db)
-            
+
             results = []
             successful = 0
             failed = 0
-            
+
             for context in contexts:
                 try:
                     logger.info(f"\n   📋 Processing context {context.id}")
                     logger.info(f"      Phase: {context.ai_phase}")
                     logger.info(f"      Priority: {context.ai_queue_priority}")
-                    
+
                     # Update status to IN_PROGRESS
                     await self.update_context(
                         context.id,
@@ -646,14 +646,14 @@ class ACDService:
                             ai_state=AIState.PROCESSING,
                             ai_queue_status=AIQueueStatus.IN_PROGRESS,
                             ai_started=datetime.now(timezone.utc),
-                        )
+                        ),
                     )
-                    
+
                     # Extract parameters from ACD context
                     ai_context = context.ai_context or {}
                     persona_id = ai_context.get("persona_id") or context.content_id
                     prompt = ai_context.get("prompt", "")
-                    
+
                     # Map phase to content type
                     content_type_map = {
                         "IMAGE_GENERATION": ContentType.IMAGE,
@@ -662,12 +662,11 @@ class ACDService:
                         "AUDIO_GENERATION": ContentType.AUDIO,
                         "VOICE_GENERATION": ContentType.VOICE,
                     }
-                    
+
                     content_type = content_type_map.get(
-                        context.ai_phase,
-                        ContentType.TEXT  # Default fallback
+                        context.ai_phase, ContentType.TEXT  # Default fallback
                     )
-                    
+
                     # Create generation request
                     gen_request = GenerationRequest(
                         persona_id=persona_id,
@@ -676,12 +675,14 @@ class ACDService:
                         content_rating=None,  # Use persona's default
                         quality=ai_context.get("quality", "standard"),
                     )
-                    
-                    logger.info(f"      🎯 Triggering {content_type.value} generation...")
-                    
+
+                    logger.info(
+                        f"      🎯 Triggering {content_type.value} generation..."
+                    )
+
                     # Actually generate the content
                     content_result = await content_service.generate_content(gen_request)
-                    
+
                     # Update context with success
                     await self.update_context(
                         context.id,
@@ -689,22 +690,28 @@ class ACDService:
                             ai_state=AIState.DONE,
                             ai_queue_status=AIQueueStatus.COMPLETED,
                             content_id=content_result.id if content_result else None,
-                        )
+                        ),
                     )
-                    
-                    logger.info(f"      ✅ Generation successful: {content_result.id if content_result else 'N/A'}")
-                    
+
+                    logger.info(
+                        f"      ✅ Generation successful: {content_result.id if content_result else 'N/A'}"
+                    )
+
                     successful += 1
-                    results.append({
-                        "context_id": str(context.id),
-                        "status": "success",
-                        "content_id": str(content_result.id) if content_result else None,
-                        "phase": context.ai_phase,
-                    })
-                    
+                    results.append(
+                        {
+                            "context_id": str(context.id),
+                            "status": "success",
+                            "content_id": (
+                                str(content_result.id) if content_result else None
+                            ),
+                            "phase": context.ai_phase,
+                        }
+                    )
+
                 except Exception as gen_error:
                     logger.error(f"      ❌ Generation failed: {str(gen_error)}")
-                    
+
                     # Create trace artifact for the error
                     try:
                         await self.create_trace_artifact(
@@ -717,8 +724,10 @@ class ACDService:
                             )
                         )
                     except Exception as trace_error:
-                        logger.error(f"      Failed to create trace artifact: {str(trace_error)}")
-                    
+                        logger.error(
+                            f"      Failed to create trace artifact: {str(trace_error)}"
+                        )
+
                     # Update context with failure
                     try:
                         await self.update_context(
@@ -726,33 +735,37 @@ class ACDService:
                             ACDContextUpdate(
                                 ai_state=AIState.FAILED,
                                 ai_queue_status=AIQueueStatus.ABANDONED,
-                            )
+                            ),
                         )
                     except Exception as update_error:
-                        logger.error(f"      Failed to update context: {str(update_error)}")
-                    
+                        logger.error(
+                            f"      Failed to update context: {str(update_error)}"
+                        )
+
                     failed += 1
-                    results.append({
-                        "context_id": str(context.id),
-                        "status": "failed",
-                        "error": str(gen_error),
-                        "phase": context.ai_phase,
-                    })
-            
+                    results.append(
+                        {
+                            "context_id": str(context.id),
+                            "status": "failed",
+                            "error": str(gen_error),
+                            "phase": context.ai_phase,
+                        }
+                    )
+
             summary = {
                 "processed": len(contexts),
                 "successful": successful,
                 "failed": failed,
                 "results": results,
             }
-            
+
             logger.info(f"\n✅ Batch processing complete:")
             logger.info(f"   Total processed: {summary['processed']}")
             logger.info(f"   Successful: {summary['successful']}")
             logger.info(f"   Failed: {summary['failed']}")
-            
+
             return summary
-            
+
         except Exception as e:
             logger.error(f"Failed to process queued contexts: {str(e)}")
             raise

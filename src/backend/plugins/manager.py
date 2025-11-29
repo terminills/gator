@@ -5,20 +5,20 @@ Manages plugin lifecycle including discovery, loading, execution, and unloading.
 Provides sandboxing and resource management for plugins.
 """
 
+import asyncio
 import importlib.util
+import logging
 import sys
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Type
-import logging
-import asyncio
+from typing import Any, Dict, List, Optional, Type
 
+from backend.config.logging import get_logger
 from backend.plugins import (
     GatorPlugin,
     PluginMetadata,
     PluginStatus,
     PluginType,
 )
-from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
 

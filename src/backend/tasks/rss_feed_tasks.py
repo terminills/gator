@@ -5,7 +5,9 @@ Handles periodic fetching and processing of RSS feeds.
 """
 
 import asyncio
+
 from celery import Task
+
 from backend.celery_app import app
 from backend.config.logging import get_logger
 
@@ -28,7 +30,7 @@ class AsyncTask(Task):
 async def fetch_all_rss_feeds():
     """
     Fetch content from all active RSS feeds.
-    
+
     This task runs periodically to update RSS feed content and populate
     the content suggestion system for personas.
     """
@@ -45,16 +47,16 @@ async def fetch_all_rss_feeds():
             # Get database session
             async with database_manager.get_session() as session:
                 rss_service = RSSIngestionService(session)
-                
+
                 # Fetch all active feeds
                 results = await rss_service.fetch_all_feeds()
-                
+
                 total_items = sum(results.values())
                 logger.info(
                     f"RSS feed fetch completed: {len(results)} feeds, {total_items} new items",
-                    extra={"feed_results": results}
+                    extra={"feed_results": results},
                 )
-                
+
                 return {
                     "success": True,
                     "feeds_processed": len(results),
@@ -80,15 +82,17 @@ async def fetch_all_rss_feeds():
 async def cleanup_old_feed_items(days_to_keep: int = 30):
     """
     Clean up old RSS feed items to prevent database bloat.
-    
+
     Args:
         days_to_keep: Number of days to keep feed items (default: 30)
     """
     try:
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
+
+        from sqlalchemy import delete
+
         from backend.database.connection import database_manager
         from backend.models.feed import FeedItemModel
-        from sqlalchemy import delete
 
         logger.info(f"Starting RSS feed cleanup (keeping last {days_to_keep} days)")
 
@@ -99,17 +103,19 @@ async def cleanup_old_feed_items(days_to_keep: int = 30):
             async with database_manager.get_session() as session:
                 # Calculate cutoff date
                 cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_to_keep)
-                
+
                 # Delete old items
                 stmt = delete(FeedItemModel).where(
                     FeedItemModel.created_at < cutoff_date
                 )
                 result = await session.execute(stmt)
                 await session.commit()
-                
+
                 deleted_count = result.rowcount
-                logger.info(f"RSS feed cleanup completed: {deleted_count} items removed")
-                
+                logger.info(
+                    f"RSS feed cleanup completed: {deleted_count} items removed"
+                )
+
                 return {
                     "success": True,
                     "items_deleted": deleted_count,
@@ -132,19 +138,20 @@ async def cleanup_old_feed_items(days_to_keep: int = 30):
 def validate_feed_urls():
     """
     Validate all RSS feed URLs and mark inactive ones.
-    
+
     Checks each feed URL to ensure it's still accessible and working.
     """
     try:
         import httpx
+
         from backend.database.connection import database_manager
         from backend.models.feed import RSSFeedModel
 
         logger.info("Starting RSS feed URL validation")
-        
+
         # This would need to be async, but keeping it simple for now
         # In production, this should be fully async
-        
+
         return {
             "success": True,
             "message": "Feed validation not yet implemented",

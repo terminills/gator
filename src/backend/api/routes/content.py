@@ -7,13 +7,13 @@ Handles content generation requests and management.
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.connection import get_db_session
-from backend.services.content_generation_service import ContentGenerationService
-from backend.models.content import ContentResponse, ContentCreate, GenerationRequest
 from backend.config.logging import get_logger
+from backend.database.connection import get_db_session
+from backend.models.content import ContentCreate, ContentResponse, GenerationRequest
+from backend.services.content_generation_service import ContentGenerationService
 
 logger = get_logger(__name__)
 
@@ -57,7 +57,7 @@ async def generate_content(
     try:
         if not request:
             # Provide a default generation request
-            from backend.models.content import GenerationRequest, ContentType
+            from backend.models.content import ContentType, GenerationRequest
 
             request = GenerationRequest(
                 content_type=ContentType.IMAGE,
@@ -93,45 +93,51 @@ async def generate_content(
 
 @router.post("/generate/all", status_code=status.HTTP_202_ACCEPTED)
 async def generate_content_for_all_personas(
-    content_type: str = Query(default="image", description="Type of content to generate"),
-    quality: Optional[str] = Query(default=None, description="Quality level override (None=use persona defaults)"),
-    content_rating: Optional[str] = Query(default=None, description="Content rating override (None=use persona defaults)"),
+    content_type: str = Query(
+        default="image", description="Type of content to generate"
+    ),
+    quality: Optional[str] = Query(
+        default=None, description="Quality level override (None=use persona defaults)"
+    ),
+    content_rating: Optional[str] = Query(
+        default=None, description="Content rating override (None=use persona defaults)"
+    ),
     content_service: ContentGenerationService = Depends(get_content_service),
 ):
     """
     Generate content for all active personas.
-    
+
     This endpoint creates content for every active persona in the system,
     making it easy to generate a batch of content with one request.
-    
+
     When quality or content_rating are not specified (None), each persona
     will use their own default settings from their configuration.
-    
+
     Args:
         content_type: Type of content (image, video, text, etc.)
         quality: Quality level override (None to use persona defaults)
         content_rating: Content rating override (None to use persona defaults)
         content_service: Injected content generation service
-        
+
     Returns:
         Batch generation results with statistics
-        
+
     Raises:
         400: Invalid parameters
         500: Generation failed
     """
     try:
-        from backend.models.content import ContentType, ContentRating
-        
+        from backend.models.content import ContentRating, ContentType
+
         # Parse and validate parameters
         try:
             ct = ContentType(content_type.lower())
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid content_type: {content_type}. Must be one of: image, video, text, audio, voice"
+                detail=f"Invalid content_type: {content_type}. Must be one of: image, video, text, audio, voice",
             )
-        
+
         # Parse content rating if provided, otherwise None means use persona defaults
         cr = None
         if content_rating is not None:
@@ -140,25 +146,25 @@ async def generate_content_for_all_personas(
             except ValueError:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid content_rating: {content_rating}. Must be one of: sfw, moderate, nsfw"
+                    detail=f"Invalid content_rating: {content_rating}. Must be one of: sfw, moderate, nsfw",
                 )
-        
+
         # Generate content for all personas
         result = await content_service.generate_content_for_all_personas(
             content_type=ct,
             quality=quality,  # Can be None to use persona defaults
-            content_rating=cr  # Can be None to use persona defaults
+            content_rating=cr,  # Can be None to use persona defaults
         )
-        
+
         # Handle case where result might not have total_personas (e.g., when no personas found)
-        persona_count = result.get('total_personas', 0)
-        
+        persona_count = result.get("total_personas", 0)
+
         return {
             "status": "accepted",
             "message": f"Batch content generation completed for {persona_count} personas",
-            "details": result
+            "details": result,
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -261,7 +267,7 @@ async def get_content_generation_status(
 ):
     """
     Get real-time generation status for content.
-    
+
     Retrieves ACD context to show what AI agents are actually doing
     during content generation.
 
@@ -284,12 +290,12 @@ async def get_content_generation_status(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Content not found"
             )
-        
+
         # Extract ACD context ID from generation params
         acd_context_id = None
         if content.generation_params and isinstance(content.generation_params, dict):
             acd_context_id = content.generation_params.get("acd_context_id")
-        
+
         # If no ACD context, return basic status
         if not acd_context_id:
             return {
@@ -298,19 +304,25 @@ async def get_content_generation_status(
                 "message": "Content generation completed (no tracking context)",
                 "has_acd_context": False,
             }
-        
+
         # Get ACD context for detailed status
         from backend.services.acd_service import ACDService
+
         acd_service = ACDService(db)
-        
+
         try:
             from uuid import UUID as UUIDType
-            acd_context_id_uuid = UUIDType(acd_context_id) if isinstance(acd_context_id, str) else acd_context_id
+
+            acd_context_id_uuid = (
+                UUIDType(acd_context_id)
+                if isinstance(acd_context_id, str)
+                else acd_context_id
+            )
             acd_context = await acd_service.get_context(acd_context_id_uuid)
         except Exception as e:
             logger.warning(f"Failed to parse ACD context ID: {str(e)}")
             acd_context = None
-        
+
         if not acd_context:
             return {
                 "status": "completed",
@@ -318,7 +330,7 @@ async def get_content_generation_status(
                 "message": "Content generation completed (context not found)",
                 "has_acd_context": False,
             }
-        
+
         # Return detailed status with ACD context
         return {
             "status": "tracked",
@@ -336,11 +348,19 @@ async def get_content_generation_status(
                 "assigned_to": acd_context.ai_assigned_to,
                 "context": acd_context.ai_context,
                 "metadata": acd_context.ai_metadata,
-                "created_at": acd_context.created_at.isoformat() if acd_context.created_at else None,
-                "updated_at": acd_context.updated_at.isoformat() if acd_context.updated_at else None,
+                "created_at": (
+                    acd_context.created_at.isoformat()
+                    if acd_context.created_at
+                    else None
+                ),
+                "updated_at": (
+                    acd_context.updated_at.isoformat()
+                    if acd_context.updated_at
+                    else None
+                ),
             },
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:

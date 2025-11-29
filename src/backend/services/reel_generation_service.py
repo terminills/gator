@@ -9,30 +9,30 @@ Handles generation of short-form video reels including:
 """
 
 import asyncio
+import json
 import os
 import subprocess
-from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
-import json
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models.persona import PersonaModel
-from backend.models.content import ContentModel, ContentType, ContentRating
+from backend.config.logging import get_logger
+from backend.models.content import ContentModel, ContentRating, ContentType
 from backend.models.friend_groups import (
     DuetRequestModel,
-    PersonaInteractionModel,
     InteractionType,
+    PersonaInteractionModel,
 )
+from backend.models.persona import PersonaModel
 from backend.services.video_processing_service import (
+    TransitionType,
     VideoProcessingService,
     VideoQuality,
-    TransitionType,
 )
-from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
 

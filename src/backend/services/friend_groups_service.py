@@ -6,30 +6,30 @@ Handles friend group CRUD, member management, and interaction generation.
 """
 
 import asyncio
-from typing import Dict, List, Optional, Any
-from uuid import UUID
-from datetime import datetime, timezone, timedelta
 import random
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, func, text
 from sqlalchemy.orm import selectinload
 
-from backend.models.persona import PersonaModel
+from backend.config.logging import get_logger
 from backend.models.content import ContentModel
 from backend.models.friend_groups import (
-    FriendGroupModel,
-    PersonaInteractionModel,
     DuetRequestModel,
     FriendGroupCreate,
-    FriendGroupUpdate,
+    FriendGroupModel,
     FriendGroupResponse,
-    PersonaInteractionCreate,
-    PersonaInteractionResponse,
+    FriendGroupUpdate,
     InteractionType,
+    PersonaInteractionCreate,
+    PersonaInteractionModel,
+    PersonaInteractionResponse,
     persona_group_members,
 )
-from backend.config.logging import get_logger
+from backend.models.persona import PersonaModel
 
 logger = get_logger(__name__)
 

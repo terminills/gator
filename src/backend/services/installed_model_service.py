@@ -8,21 +8,21 @@ CivitAI metadata enrichment, trigger word management, and model lookup.
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from sqlalchemy import select, update, delete, func, or_
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
 from backend.models.installed_model import (
-    InstalledModelModel,
     InstalledModelCreate,
-    InstalledModelUpdate,
+    InstalledModelModel,
     InstalledModelResponse,
+    InstalledModelUpdate,
     TriggerWordResponse,
 )
-from backend.utils.civitai_utils import CivitAIClient
 from backend.services.settings_service import get_db_setting
+from backend.utils.civitai_utils import CivitAIClient
 
 logger = get_logger(__name__)
 
@@ -30,27 +30,26 @@ logger = get_logger(__name__)
 class InstalledModelService:
     """
     Service for managing installed AI models.
-    
+
     Provides functionality for:
     - CRUD operations on installed models
     - Enriching models with CivitAI metadata
     - Managing trigger words
     - Finding models by trigger word
     """
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
-    
+
     async def create_model(
-        self,
-        model_data: InstalledModelCreate
+        self, model_data: InstalledModelCreate
     ) -> InstalledModelResponse:
         """
         Create a new installed model record.
-        
+
         Args:
             model_data: Model creation data
-            
+
         Returns:
             Created model response
         """
@@ -86,22 +85,22 @@ class InstalledModelService:
             is_active=model_data.is_active,
             extra_metadata=model_data.extra_metadata or {},
         )
-        
+
         self.db.add(model)
         await self.db.commit()
         await self.db.refresh(model)
-        
+
         logger.info(f"Created installed model: {model.name} ({model.id})")
-        
+
         return self._to_response(model)
-    
+
     async def get_model(self, model_id: str) -> Optional[InstalledModelResponse]:
         """
         Get a model by ID.
-        
+
         Args:
             model_id: Model UUID
-            
+
         Returns:
             Model response or None if not found
         """
@@ -111,18 +110,20 @@ class InstalledModelService:
             )
         )
         model = result.scalars().first()
-        
+
         if model:
             return self._to_response(model)
         return None
-    
-    async def get_model_by_path(self, file_path: str) -> Optional[InstalledModelResponse]:
+
+    async def get_model_by_path(
+        self, file_path: str
+    ) -> Optional[InstalledModelResponse]:
         """
         Get a model by file path.
-        
+
         Args:
             file_path: Full path to the model file
-            
+
         Returns:
             Model response or None if not found
         """
@@ -132,21 +133,20 @@ class InstalledModelService:
             )
         )
         model = result.scalars().first()
-        
+
         if model:
             return self._to_response(model)
         return None
-    
+
     async def get_model_by_civitai_version(
-        self,
-        version_id: int
+        self, version_id: int
     ) -> Optional[InstalledModelResponse]:
         """
         Get a model by CivitAI version ID.
-        
+
         Args:
             version_id: CivitAI version ID
-            
+
         Returns:
             Model response or None if not found
         """
@@ -156,11 +156,11 @@ class InstalledModelService:
             )
         )
         model = result.scalars().first()
-        
+
         if model:
             return self._to_response(model)
         return None
-    
+
     async def list_models(
         self,
         model_type: Optional[str] = None,
@@ -172,7 +172,7 @@ class InstalledModelService:
     ) -> List[InstalledModelResponse]:
         """
         List installed models with optional filtering.
-        
+
         Args:
             model_type: Filter by model type (Checkpoint, LORA, etc.)
             source: Filter by source (civitai, huggingface, local)
@@ -180,12 +180,12 @@ class InstalledModelService:
             is_active: Filter by active status
             limit: Maximum results
             offset: Results offset
-            
+
         Returns:
             List of model responses
         """
         query = select(InstalledModelModel)
-        
+
         if model_type:
             query = query.where(InstalledModelModel.model_type == model_type)
         if source:
@@ -194,26 +194,24 @@ class InstalledModelService:
             query = query.where(InstalledModelModel.base_model == base_model)
         if is_active is not None:
             query = query.where(InstalledModelModel.is_active == is_active)
-        
+
         query = query.order_by(InstalledModelModel.name).limit(limit).offset(offset)
-        
+
         result = await self.db.execute(query)
         models = result.scalars().all()
-        
+
         return [self._to_response(m) for m in models]
-    
+
     async def update_model(
-        self,
-        model_id: str,
-        update_data: InstalledModelUpdate
+        self, model_id: str, update_data: InstalledModelUpdate
     ) -> Optional[InstalledModelResponse]:
         """
         Update an installed model.
-        
+
         Args:
             model_id: Model UUID
             update_data: Update data
-            
+
         Returns:
             Updated model response or None if not found
         """
@@ -223,30 +221,30 @@ class InstalledModelService:
             )
         )
         model = result.scalars().first()
-        
+
         if not model:
             return None
-        
+
         # Update fields that are provided
         update_dict = update_data.model_dump(exclude_unset=True)
         for field, value in update_dict.items():
             if hasattr(model, field):
                 setattr(model, field, value)
-        
+
         await self.db.commit()
         await self.db.refresh(model)
-        
+
         logger.info(f"Updated installed model: {model.name} ({model.id})")
-        
+
         return self._to_response(model)
-    
+
     async def delete_model(self, model_id: str) -> bool:
         """
         Delete an installed model.
-        
+
         Args:
             model_id: Model UUID
-            
+
         Returns:
             True if deleted, False if not found
         """
@@ -256,24 +254,22 @@ class InstalledModelService:
             )
         )
         await self.db.commit()
-        
+
         if result.rowcount > 0:
             logger.info(f"Deleted installed model: {model_id}")
             return True
         return False
-    
+
     async def enrich_from_civitai(
-        self,
-        model_id: str,
-        civitai_version_id: int
+        self, model_id: str, civitai_version_id: int
     ) -> Optional[InstalledModelResponse]:
         """
         Enrich a model's metadata from CivitAI API.
-        
+
         Args:
             model_id: Model UUID
             civitai_version_id: CivitAI version ID to fetch details from
-            
+
         Returns:
             Updated model response or None if not found
         """
@@ -284,24 +280,24 @@ class InstalledModelService:
             )
         )
         model = result.scalars().first()
-        
+
         if not model:
             return None
-        
+
         # Get CivitAI API key
         api_key = await get_db_setting("civitai_api_key")
-        
+
         # Fetch details from CivitAI
         client = CivitAIClient(api_key=api_key)
-        
+
         try:
             version_info = await client.get_model_version(civitai_version_id)
-            
+
             # Update model with CivitAI data
             model.civitai_version_id = civitai_version_id
             model.civitai_version_name = version_info.get("name")
             model.civitai_model_id = version_info.get("modelId")
-            
+
             # Get trained words (trigger words)
             trained_words = version_info.get("trainedWords", [])
             if trained_words:
@@ -309,29 +305,32 @@ class InstalledModelService:
                 # If no trigger words set, use trained words
                 if not model.trigger_words:
                     model.trigger_words = trained_words
-            
+
             # Get base model
             model.base_model = version_info.get("baseModel")
-            
+
             # Get description from model info
             model_info = version_info.get("model", {})
             if model_info:
                 model.description = model_info.get("description", model.description)
                 model.is_nsfw = model_info.get("nsfw", model.is_nsfw)
                 model.display_name = model_info.get("name", model.display_name)
-                model.civitai_url = f"https://civitai.com/models/{model.civitai_model_id}"
-            
+                model.civitai_url = (
+                    f"https://civitai.com/models/{model.civitai_model_id}"
+                )
+
             # Store additional metadata
             model.extra_metadata = {
                 **(model.extra_metadata or {}),
                 "civitai_enriched_at": datetime.utcnow().isoformat(),
                 "civitai_stats": version_info.get("stats", {}),
                 "civitai_images": [
-                    img.get("url") for img in version_info.get("images", [])[:5]
+                    img.get("url")
+                    for img in version_info.get("images", [])[:5]
                     if img.get("url")
                 ],
             }
-            
+
             # Get file info for recommended settings
             files = version_info.get("files", [])
             if files:
@@ -341,40 +340,38 @@ class InstalledModelService:
                     file_meta = file_info.get("metadata")
                     # Extract fp and size settings if available
                     model.extra_metadata["file_metadata"] = file_meta
-            
+
             model.source = "civitai"
-            
+
             await self.db.commit()
             await self.db.refresh(model)
-            
+
             logger.info(
                 f"Enriched model {model.name} with CivitAI data "
                 f"(model_id={model.civitai_model_id}, version_id={civitai_version_id})"
             )
-            
+
             return self._to_response(model)
-            
+
         except Exception as e:
             logger.error(f"Failed to enrich model from CivitAI: {str(e)}")
             raise
-    
+
     async def enrich_from_huggingface(
-        self,
-        model_id: str,
-        huggingface_repo_id: str
+        self, model_id: str, huggingface_repo_id: str
     ) -> Optional[InstalledModelResponse]:
         """
         Enrich a model's metadata from HuggingFace API.
-        
+
         Args:
             model_id: Model UUID
             huggingface_repo_id: HuggingFace repository ID (e.g., "stabilityai/stable-diffusion-xl-base-1.0")
-            
+
         Returns:
             Updated model response or None if not found
         """
         from backend.utils.huggingface_utils import HuggingFaceClient
-        
+
         # Get the model
         result = await self.db.execute(
             select(InstalledModelModel).where(
@@ -382,49 +379,59 @@ class InstalledModelService:
             )
         )
         model = result.scalars().first()
-        
+
         if not model:
             return None
-        
+
         # Get HuggingFace API token
         api_token = await get_db_setting("hugging_face_token")
-        
+
         # Fetch details from HuggingFace
         client = HuggingFaceClient(api_token=api_token)
-        
+
         try:
             model_info = await client.get_model_info(huggingface_repo_id)
-            
+
             # Update model with HuggingFace data
             model.huggingface_repo_id = huggingface_repo_id
             model.huggingface_url = f"https://huggingface.co/{huggingface_repo_id}"
-            
+
             # Get model name from repo ID
-            model_name = huggingface_repo_id.split("/")[-1] if "/" in huggingface_repo_id else huggingface_repo_id
+            model_name = (
+                huggingface_repo_id.split("/")[-1]
+                if "/" in huggingface_repo_id
+                else huggingface_repo_id
+            )
             if not model.display_name:
                 model.display_name = model_name
-            
+
             # Get description from model card if available
             if model_info.get("cardData", {}).get("description"):
                 model.description = model_info["cardData"]["description"]
-            
+
             # Get library/framework type to infer model type
             library_name = model_info.get("library_name")
             pipeline_tag = model_info.get("pipeline_tag")
             tags = model_info.get("tags", [])
-            
+
             # Infer base model from tags or card data
             if not model.base_model:
                 card_data = model_info.get("cardData", {})
                 if card_data.get("base_model"):
                     model.base_model = card_data["base_model"]
-                elif "sdxl" in model_name.lower() or "stable-diffusion-xl" in model_name.lower():
+                elif (
+                    "sdxl" in model_name.lower()
+                    or "stable-diffusion-xl" in model_name.lower()
+                ):
                     model.base_model = "SDXL 1.0"
-                elif "sd-1.5" in model_name.lower() or "stable-diffusion-v1-5" in model_name.lower():
+                elif (
+                    "sd-1.5" in model_name.lower()
+                    or "stable-diffusion-v1-5" in model_name.lower()
+                ):
                     model.base_model = "SD 1.5"
                 elif "flux" in model_name.lower():
                     model.base_model = "Flux.1"
-            
+
             # Extract trigger words from widget examples if available
             widget = model_info.get("cardData", {}).get("widget", [])
             if widget and isinstance(widget, list):
@@ -434,7 +441,7 @@ class InstalledModelService:
                         **(model.extra_metadata or {}),
                         "example_prompts": example_prompts,
                     }
-            
+
             # Store additional metadata
             model.extra_metadata = {
                 **(model.extra_metadata or {}),
@@ -448,19 +455,19 @@ class InstalledModelService:
                 "private": model_info.get("private", False),
                 "gated": model_info.get("gated", False),
             }
-            
+
             model.source = "huggingface"
-            
+
             await self.db.commit()
             await self.db.refresh(model)
-            
+
             logger.info(
                 f"Enriched model {model.name} with HuggingFace data "
                 f"(repo_id={huggingface_repo_id})"
             )
-            
+
             return self._to_response(model)
-            
+
         except Exception as e:
             logger.error(f"Failed to enrich model from HuggingFace: {str(e)}")
             raise
@@ -468,21 +475,19 @@ class InstalledModelService:
     async def get_all_trigger_words(self) -> List[TriggerWordResponse]:
         """
         Get all unique trigger words from all models.
-        
+
         Returns:
             List of trigger word responses with associated models
         """
         result = await self.db.execute(
-            select(InstalledModelModel).where(
-                InstalledModelModel.is_active.is_(True)
-            )
+            select(InstalledModelModel).where(InstalledModelModel.is_active.is_(True))
         )
         models = result.scalars().all()
-        
+
         # Aggregate trigger words
         trigger_map: Dict[str, List[str]] = {}
         usage_map: Dict[str, int] = {}
-        
+
         for model in models:
             if model.trigger_words:
                 for trigger in model.trigger_words:
@@ -493,17 +498,17 @@ class InstalledModelService:
                             usage_map[trigger_lower] = 0
                         trigger_map[trigger_lower].append(model.name)
                         usage_map[trigger_lower] += model.usage_count
-        
+
         return [
             TriggerWordResponse(
                 trigger_word=trigger,
                 source="model",
                 models=model_names,
-                usage_count=usage_map[trigger]
+                usage_count=usage_map[trigger],
             )
             for trigger, model_names in sorted(trigger_map.items())
         ]
-    
+
     async def find_models_by_trigger(
         self,
         trigger_word: str,
@@ -512,12 +517,12 @@ class InstalledModelService:
     ) -> List[InstalledModelResponse]:
         """
         Find models that have a specific trigger word.
-        
+
         Args:
             trigger_word: The trigger word to search for
             model_type: Optional filter by model type
             base_model: Optional filter by base model
-            
+
         Returns:
             List of matching models
         """
@@ -525,31 +530,31 @@ class InstalledModelService:
         query = select(InstalledModelModel).where(
             InstalledModelModel.is_active.is_(True)
         )
-        
+
         if model_type:
             query = query.where(InstalledModelModel.model_type == model_type)
         if base_model:
             query = query.where(InstalledModelModel.base_model == base_model)
-        
+
         result = await self.db.execute(query)
         models = result.scalars().all()
-        
+
         # Filter by trigger word (case-insensitive)
         trigger_lower = trigger_word.lower().strip()
         matching_models = []
-        
+
         for model in models:
             if model.trigger_words:
                 model_triggers = [t.lower().strip() for t in model.trigger_words]
                 if trigger_lower in model_triggers:
                     matching_models.append(model)
-        
+
         return [self._to_response(m) for m in matching_models]
-    
+
     async def increment_usage(self, model_id: str) -> None:
         """
         Increment usage count for a model.
-        
+
         Args:
             model_id: Model UUID
         """
@@ -558,11 +563,11 @@ class InstalledModelService:
             .where(InstalledModelModel.id == uuid.UUID(model_id))
             .values(
                 usage_count=InstalledModelModel.usage_count + 1,
-                last_used_at=datetime.utcnow()
+                last_used_at=datetime.utcnow(),
             )
         )
         await self.db.commit()
-    
+
     async def scan_and_register_models(
         self,
         models_directory: str,
@@ -570,11 +575,11 @@ class InstalledModelService:
     ) -> Dict[str, Any]:
         """
         Scan a directory for model files and register them in the database.
-        
+
         Args:
             models_directory: Directory to scan
             model_type: Model type for all found models (if not specified, will be guessed)
-            
+
         Returns:
             Dict with scan results
         """
@@ -582,27 +587,27 @@ class InstalledModelService:
             "scanned_count": 0,
             "registered_count": 0,
             "skipped_count": 0,
-            "errors": []
+            "errors": [],
         }
-        
+
         models_path = Path(models_directory)
         if not models_path.exists():
             logger.warning(f"Models directory does not exist: {models_directory}")
             return results
-        
+
         # Find model files
         extensions = [".safetensors", ".ckpt", ".pt", ".bin"]
         for ext in extensions:
             for model_file in models_path.glob(f"**/*{ext}"):
                 results["scanned_count"] += 1
-                
+
                 try:
                     # Check if already registered
                     existing = await self.get_model_by_path(str(model_file))
                     if existing:
                         results["skipped_count"] += 1
                         continue
-                    
+
                     # Determine model type based on directory or extension
                     detected_type = model_type
                     if not detected_type:
@@ -617,23 +622,26 @@ class InstalledModelService:
                             detected_type = "TextualInversion"
                         else:
                             detected_type = "Other"
-                    
+
                     # Check for metadata file
-                    metadata_file = model_file.parent / f"{model_file.stem}_metadata.json"
+                    metadata_file = (
+                        model_file.parent / f"{model_file.stem}_metadata.json"
+                    )
                     metadata = {}
                     civitai_model_id = None
                     civitai_version_id = None
                     trained_words = []
-                    
+
                     if metadata_file.exists():
                         import json
+
                         with open(metadata_file, "r") as f:
                             metadata = json.load(f)
-                        
+
                         civitai_model_id = metadata.get("model_id")
                         civitai_version_id = metadata.get("version_id")
                         trained_words = metadata.get("trained_words", [])
-                    
+
                     # Create model entry
                     model_data = InstalledModelCreate(
                         name=model_file.stem,
@@ -656,21 +664,21 @@ class InstalledModelService:
                         huggingface_filename=metadata.get("filename"),
                         extra_metadata=metadata,
                     )
-                    
+
                     await self.create_model(model_data)
                     results["registered_count"] += 1
-                    
+
                 except Exception as e:
                     logger.error(f"Error registering model {model_file}: {str(e)}")
                     results["errors"].append(str(e))
-        
+
         logger.info(
             f"Model scan complete: {results['registered_count']} registered, "
             f"{results['skipped_count']} skipped, {len(results['errors'])} errors"
         )
-        
+
         return results
-    
+
     def _to_response(self, model: InstalledModelModel) -> InstalledModelResponse:
         """Convert model to response."""
         return InstalledModelResponse(

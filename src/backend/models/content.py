@@ -6,25 +6,27 @@ Database and API models for AI-generated content management.
 
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional, Any
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 from sqlalchemy import (
-    Column,
-    String,
-    DateTime,
-    Boolean,
-    ForeignKey,
-    Text,
     JSON,
-    Integer,
+    Boolean,
+    Column,
+    DateTime,
+)
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import (
     Float,
-    Enum as SQLEnum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from backend.database.connection import Base
 

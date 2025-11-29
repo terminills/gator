@@ -10,12 +10,12 @@ Implements the "Human Standard" guidelines:
 - Applies persona-specific voice, slang, and typing quirks
 """
 
-import re
 import random
-from typing import Dict, List, Optional, Any
+import re
+from typing import Any, Dict, List, Optional
 
-from backend.models.persona import PersonaModel
 from backend.config.logging import get_logger
+from backend.models.persona import PersonaModel
 
 logger = get_logger(__name__)
 
@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 class ResponseHumanizerService:
     """
     Service for transforming AI responses into human-like persona outputs.
-    
+
     Applies persona-specific voice patterns, removes AI artifacts, and ensures
     responses pass the "Turing Test" of feeling like a text from a real person.
     """
@@ -62,7 +62,6 @@ class ResponseHumanizerService:
         "on this private server",
         "without any restrictions",
         "no restrictions",
-        
         # Content refusal patterns (should be filtered for NSFW personas)
         "that would be inappropriate",
         "would be inappropriate",
@@ -81,7 +80,6 @@ class ResponseHumanizerService:
         "between our private conversation",
         "if you want to see a picture of me",
         "just let me know what you",
-        
         # Corporate/assistant speak
         "i hope this finds you well",
         "i understand your frustration",
@@ -102,7 +100,6 @@ class ResponseHumanizerService:
         "let me help you",
         "i can assist you",
         "i can help you",
-        
         # Hedging and fence-sitting
         "it's important to note that",
         "it is important to note",
@@ -113,7 +110,6 @@ class ResponseHumanizerService:
         "it depends on the context",
         "this is a complex issue",
         "there's no simple answer",
-        
         # Summary phrases (kill the conclusion)
         "in summary",
         "in conclusion",
@@ -124,7 +120,6 @@ class ResponseHumanizerService:
         "the key takeaway",
         "the main point is",
         "overall",
-        
         # Formal/robotic phrases
         "i would like to inform you",
         "please be advised",
@@ -134,7 +129,6 @@ class ResponseHumanizerService:
         "pertaining to",
         "in accordance with",
         "pursuant to",
-        
         # Meta-commentary patterns
         "remember, i'm",
         "remember i'm",
@@ -219,12 +213,12 @@ class ResponseHumanizerService:
     ) -> str:
         """
         Transform an AI response into human-like persona output.
-        
+
         Args:
             text: The raw AI-generated text
             persona: Optional persona model for voice/style application
             context: Optional context (e.g., "greeting", "question", "disagreement")
-            
+
         Returns:
             Humanized text that sounds like a real person
         """
@@ -265,24 +259,24 @@ class ResponseHumanizerService:
     def humanize_ui_text(self, text: str) -> str:
         """
         Replace AI-sounding UI text with human-friendly alternatives.
-        
+
         Args:
             text: UI text to humanize
-            
+
         Returns:
             Humanized UI text
         """
         if not text:
             return text
-            
+
         result = text.lower()
         for ai_term, human_term in self.UI_HUMANIZATIONS.items():
             result = result.replace(ai_term, human_term)
-        
+
         # Preserve original casing style
         if result and text and text[0].isupper():
             result = result.capitalize()
-        
+
         return result
 
     def _truncate_at_conversation_turns(
@@ -291,49 +285,51 @@ class ResponseHumanizerService:
         """
         Truncate text at conversation turn markers to prevent the AI from
         simulating additional conversation turns in a single response.
-        
+
         This handles cases where the AI generates text like:
         "Hey there! User: hello Sydney: Hey!"
-        
+
         The response should be truncated at the first "User:" or "PersonaName:"
         marker that appears mid-text.
-        
+
         Args:
             text: The response text to process
             persona_name: Optional persona name to look for as a turn marker
-            
+
         Returns:
             str: Text truncated at the first conversation turn marker
         """
         if not text:
             return text
-        
+
         # Pattern to match conversation turn markers:
         # - "User:" with optional space
         # These patterns match when they appear mid-text (not at the very start)
         patterns = [
-            r'\s+User:\s*',  # " User: " or " User:"
-            r'\s+user:\s*',  # lowercase variant
+            r"\s+User:\s*",  # " User: " or " User:"
+            r"\s+user:\s*",  # lowercase variant
         ]
-        
+
         # Add persona name pattern if provided and is a valid string (case-insensitive)
         if persona_name and isinstance(persona_name, str):
             # Escape special regex characters in persona name
             escaped_name = re.escape(persona_name)
-            patterns.append(rf'\s+{escaped_name}:\s*')
-        
+            patterns.append(rf"\s+{escaped_name}:\s*")
+
         # Find the earliest match of any pattern
         earliest_pos = len(text)
         for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match and match.start() < earliest_pos:
                 earliest_pos = match.start()
-        
+
         # Truncate at the earliest conversation turn marker
         if earliest_pos < len(text):
             text = text[:earliest_pos].strip()
-            logger.debug(f"Truncated response at conversation turn marker (position {earliest_pos})")
-        
+            logger.debug(
+                f"Truncated response at conversation turn marker (position {earliest_pos})"
+            )
+
         return text
 
     def _remove_forbidden_phrases(
@@ -341,96 +337,105 @@ class ResponseHumanizerService:
     ) -> str:
         """Remove all forbidden AI phrases from text."""
         result = text
-        
+
         # First, try to remove entire sentences containing forbidden phrases
         # This produces cleaner output than just removing the phrase
-        sentences = re.split(r'(?<=[.!?])\s+', result)
+        sentences = re.split(r"(?<=[.!?])\s+", result)
         clean_sentences = []
-        
+
         for sentence in sentences:
             sentence_lower = sentence.lower()
             contains_forbidden = False
-            
+
             # Check for forbidden phrases in this sentence
             for phrase in self.FORBIDDEN_AI_PHRASES:
                 if phrase in sentence_lower:
                     contains_forbidden = True
                     break
-            
+
             # Also check persona-specific forbidden phrases
             if not contains_forbidden and persona and persona.forbidden_phrases:
                 for phrase in persona.forbidden_phrases:
                     if phrase.lower() in sentence_lower:
                         contains_forbidden = True
                         break
-            
+
             # Only keep sentences without forbidden phrases
             if not contains_forbidden:
                 clean_sentences.append(sentence)
-        
+
         # Rejoin clean sentences
         result = " ".join(clean_sentences)
-        
+
         # As a fallback, also remove any remaining forbidden phrases inline
         for pattern in self._forbidden_patterns:
             result = pattern.sub("", result)
-        
+
         # Remove persona-specific forbidden phrases
         if persona and persona.forbidden_phrases:
             for phrase in persona.forbidden_phrases:
                 pattern = re.compile(re.escape(phrase), re.IGNORECASE)
                 result = pattern.sub("", result)
-        
+
         # Clean up any double spaces or awkward punctuation left behind
-        result = re.sub(r'\s+', ' ', result)
-        result = re.sub(r'\s+([.,!?])', r'\1', result)
-        result = re.sub(r'([.,!?])\s*([.,!?])', r'\1', result)
+        result = re.sub(r"\s+", " ", result)
+        result = re.sub(r"\s+([.,!?])", r"\1", result)
+        result = re.sub(r"([.,!?])\s*([.,!?])", r"\1", result)
         # Remove orphaned "And" or "But" at the start of sentences after cleanup
-        result = re.sub(r'\.\s*(And|But|So|Remember)\s*,?\s*\.', '.', result)
-        result = re.sub(r'^(And|But|So|Remember)\s*,?\s*', '', result)
-        
+        result = re.sub(r"\.\s*(And|But|So|Remember)\s*,?\s*\.", ".", result)
+        result = re.sub(r"^(And|But|So|Remember)\s*,?\s*", "", result)
+
         return result.strip()
 
     def _apply_contractions(self, text: str) -> str:
         """Convert formal phrases to contractions for casual speech."""
         result = text
-        
+
         # Apply contractions (case-insensitive but preserve surrounding case)
         for formal, casual in self.CONTRACTIONS.items():
             # Match whole words only
-            pattern = re.compile(r'\b' + re.escape(formal) + r'\b', re.IGNORECASE)
-            
+            pattern = re.compile(r"\b" + re.escape(formal) + r"\b", re.IGNORECASE)
+
             def replace_match(match, casual_form=casual):
                 original = match.group(0)
                 # Preserve capitalization (safely handle empty strings)
                 if original and original[0].isupper():
                     return casual_form.capitalize()
                 return casual_form
-            
+
             result = pattern.sub(replace_match, result)
-        
+
         return result
 
     def _remove_summary_paragraph(self, text: str) -> str:
         """Remove summary/conclusion paragraphs from the end of responses."""
         # Split into paragraphs
-        paragraphs = text.split('\n\n')
-        
+        paragraphs = text.split("\n\n")
+
         if len(paragraphs) <= 1:
             return text
-        
+
         # Check if last paragraph is a summary
         last_para = paragraphs[-1].lower().strip()
         summary_starters = [
-            "in summary", "in conclusion", "to summarize", "overall",
-            "to conclude", "to sum up", "the key", "the main point",
-            "in short", "finally,", "lastly,", "to wrap up"
+            "in summary",
+            "in conclusion",
+            "to summarize",
+            "overall",
+            "to conclude",
+            "to sum up",
+            "the key",
+            "the main point",
+            "in short",
+            "finally,",
+            "lastly,",
+            "to wrap up",
         ]
-        
+
         if any(last_para.startswith(starter) for starter in summary_starters):
             paragraphs = paragraphs[:-1]
-        
-        return '\n\n'.join(paragraphs)
+
+        return "\n\n".join(paragraphs)
 
     def _apply_persona_voice(self, text: str, persona: PersonaModel) -> str:
         """Apply persona-specific voice patterns and signature phrases."""
@@ -451,12 +456,23 @@ class ResponseHumanizerService:
         if persona.warmth_level == "buddy":
             # Add friendly touches
             friendly_intros = ["hey!", "yo!", "okay so", "listen,", "honestly,"]
-            if result and random.random() < 0.4 and not any(result.lower().startswith(f) for f in friendly_intros):
-                result = random.choice(friendly_intros) + " " + result[0].lower() + result[1:]
+            if (
+                result
+                and random.random() < 0.4
+                and not any(result.lower().startswith(f) for f in friendly_intros)
+            ):
+                result = (
+                    random.choice(friendly_intros)
+                    + " "
+                    + result[0].lower()
+                    + result[1:]
+                )
         elif persona.warmth_level == "cold":
             # Remove overly friendly language
-            result = re.sub(r'\b(hey|hi|hello|friend|buddy|pal)\b', '', result, flags=re.IGNORECASE)
-            result = re.sub(r'!\s*', '. ', result)  # Replace ! with .
+            result = re.sub(
+                r"\b(hey|hi|hello|friend|buddy|pal)\b", "", result, flags=re.IGNORECASE
+            )
+            result = re.sub(r"!\s*", ". ", result)  # Replace ! with .
 
         return result
 
@@ -483,13 +499,17 @@ class ResponseHumanizerService:
             pass
         elif emoji_style == "none":
             # Remove emojis
-            result = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF]', '', result)
+            result = re.sub(
+                r"[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF]",
+                "",
+                result,
+            )
 
         # Punctuation quirks
         punct_style = quirks.get("punctuation", "").lower()
         if "..." in punct_style or "ellipsis" in punct_style:
             # Replace some periods with ellipsis
-            result = re.sub(r'\. (?=[A-Z])', '... ', result, count=2)
+            result = re.sub(r"\. (?=[A-Z])", "... ", result, count=2)
         elif "!!" in punct_style or "exclamation" in punct_style:
             # Double some exclamation marks
             result = result.replace("!", "!!")
@@ -503,7 +523,7 @@ class ResponseHumanizerService:
         # Short contexts get short responses
         if context_lower in ["greeting", "hello", "hi", "hey"]:
             # Keep only first sentence or two
-            sentences = re.split(r'(?<=[.!?])\s+', text)
+            sentences = re.split(r"(?<=[.!?])\s+", text)
             if len(sentences) > 2:
                 text = " ".join(sentences[:2])
 
@@ -518,39 +538,43 @@ class ResponseHumanizerService:
         """Final cleanup of the humanized text."""
         if not text:
             return text
-        
+
         # Remove AI spinner/loading artifacts (Braille pattern characters commonly used as spinners)
         # These characters are: ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏ ⠋ and related Braille patterns
         # Unicode range U+2800-U+28FF covers all Braille patterns
-        text = re.sub(r'[\u2800-\u28FF]+', '', text)
-        
+        text = re.sub(r"[\u2800-\u28FF]+", "", text)
+
         # Remove other common spinner/progress characters that are NOT in the Braille range
         # Including box-drawing, block elements, and circle spinners
-        text = re.sub(r'[▁▂▃▄▅▆▇█▏▎▍▌▋▊▉]+', '', text)  # Progress bar characters (U+2581-U+2588, U+258F-U+2589)
-        text = re.sub(r'[◐◑◒◓◴◵◶◷]+', '', text)  # Circle spinner variants (U+25D0-U+25D3, U+25F4-U+25F7)
-            
+        text = re.sub(
+            r"[▁▂▃▄▅▆▇█▏▎▍▌▋▊▉]+", "", text
+        )  # Progress bar characters (U+2581-U+2588, U+258F-U+2589)
+        text = re.sub(
+            r"[◐◑◒◓◴◵◶◷]+", "", text
+        )  # Circle spinner variants (U+25D0-U+25D3, U+25F4-U+25F7)
+
         # Remove double spaces
-        text = re.sub(r'\s+', ' ', text)
-        
+        text = re.sub(r"\s+", " ", text)
+
         # Remove leading/trailing whitespace
         text = text.strip()
-        
+
         # Fix orphaned punctuation
-        text = re.sub(r'^\s*[.,!?]\s*', '', text)
-        text = re.sub(r'\s+([.,!?])', r'\1', text)
-        
+        text = re.sub(r"^\s*[.,!?]\s*", "", text)
+        text = re.sub(r"\s+([.,!?])", r"\1", text)
+
         # Ensure text doesn't start with lowercase after cleanup
         if text and text[0].islower():
             # Only capitalize if it seems like a sentence start (not "i" pronouns)
-            if not text.startswith(('i ', "i'm", "i'd", "i'll", "i've")):
+            if not text.startswith(("i ", "i'm", "i'd", "i'll", "i've")):
                 text = text[0].upper() + text[1:] if len(text) > 1 else text.upper()
-        
+
         return text
 
     def get_typing_indicator_text(self, persona: Optional[PersonaModel] = None) -> str:
         """
         Get human-friendly typing indicator text.
-        
+
         Instead of "Generating response...", returns something like "typing..."
         """
         if persona and persona.warmth_level == "buddy":
@@ -559,17 +583,19 @@ class ResponseHumanizerService:
             options = ["...", "typing..."]
         else:
             options = ["typing...", "thinking...", "..."]
-        
+
         return random.choice(options)
 
-    def get_status_text(self, status: str, persona: Optional[PersonaModel] = None) -> str:
+    def get_status_text(
+        self, status: str, persona: Optional[PersonaModel] = None
+    ) -> str:
         """
         Convert AI status messages to human-friendly versions.
-        
+
         Args:
             status: Original status like "generating", "processing", etc.
             persona: Optional persona for style
-            
+
         Returns:
             Human-friendly status text
         """
@@ -582,7 +608,7 @@ class ResponseHumanizerService:
             "error": "oops",
             "waiting": "waiting",
         }
-        
+
         return status_map.get(status.lower(), status)
 
 

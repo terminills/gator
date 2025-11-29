@@ -6,22 +6,24 @@ Database and API models for DM conversations between users and AI personas.
 
 import uuid
 from datetime import datetime
-from typing import Optional
 from enum import Enum
+from typing import Optional
 
 from pydantic import BaseModel, Field
 from sqlalchemy import (
-    Column,
-    String,
-    DateTime,
     Boolean,
+    Column,
+    DateTime,
+)
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import (
     ForeignKey,
     Integer,
-    Enum as SQLEnum,
+    String,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from backend.database.connection import Base
 

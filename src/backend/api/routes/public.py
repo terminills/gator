@@ -7,15 +7,15 @@ without requiring authentication. Designed for public consumption.
 
 import random
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Query, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
 
 from backend.database.connection import get_db_session
-from backend.models.persona import PersonaModel
 from backend.models.content import ContentModel
+from backend.models.persona import PersonaModel
 
 router = APIRouter(
     prefix="/public",
@@ -53,59 +53,72 @@ async def list_public_personas(
     try:
         # Build query for active personas
         query = select(PersonaModel).where(PersonaModel.is_active == True)
-        
+
         # Apply category filter if provided
         if category:
             # Filter by content_themes containing the category
             query = query.where(PersonaModel.content_themes.contains([category]))
-        
+
         # Order by generation count for trending
         if trending:
             query = query.order_by(desc(PersonaModel.generation_count))
         else:
             query = query.order_by(desc(PersonaModel.created_at))
-        
+
         # Apply limit
         query = query.limit(limit)
-        
+
         result = await db.execute(query)
         personas = result.scalars().all()
-        
+
         # Transform to public-facing format
         public_personas = []
         for persona in personas:
             # Determine primary category from content themes
-            primary_category = persona.content_themes[0] if persona.content_themes else "general"
-            
+            primary_category = (
+                persona.content_themes[0] if persona.content_themes else "general"
+            )
+
             # Get style from style_preferences or default
             style = "realistic"
             if isinstance(persona.style_preferences, dict):
                 style = persona.style_preferences.get("visual_style", "realistic")
-            
-            public_personas.append({
-                "id": str(persona.id),
-                "name": persona.name,
-                "bio": persona.personality[:200] if len(persona.personality) > 200 else persona.personality,
-                "themes": persona.content_themes,
-                "content_count": persona.generation_count,
-                "style": style,
-                "category": primary_category,
-                "featured": persona.generation_count > 10,  # Featured if has generated content
-                "trending": persona.generation_count > 5,
-                "trending_score": min(100, persona.generation_count * 2),
-            })
-        
+
+            public_personas.append(
+                {
+                    "id": str(persona.id),
+                    "name": persona.name,
+                    "bio": (
+                        persona.personality[:200]
+                        if len(persona.personality) > 200
+                        else persona.personality
+                    ),
+                    "themes": persona.content_themes,
+                    "content_count": persona.generation_count,
+                    "style": style,
+                    "category": primary_category,
+                    "featured": persona.generation_count
+                    > 10,  # Featured if has generated content
+                    "trending": persona.generation_count > 5,
+                    "trending_score": min(100, persona.generation_count * 2),
+                }
+            )
+
         return public_personas
-        
+
     except Exception as e:
         # Fallback to sample data if database query fails
         import logging
+
         logging.error(f"Failed to fetch personas from database: {e}")
-        
+
         # Return minimal fallback data
         return _get_fallback_personas(limit=limit, category=category)
 
-def _get_fallback_personas(limit: int = 10, category: Optional[str] = None) -> List[Dict[str, Any]]:
+
+def _get_fallback_personas(
+    limit: int = 10, category: Optional[str] = None
+) -> List[Dict[str, Any]]:
     """
     Fallback sample personas when database is not available.
     Used only for development/testing.
@@ -140,18 +153,17 @@ def _get_fallback_personas(limit: int = 10, category: Optional[str] = None) -> L
             "trending_score": 50,
         },
     ]
-    
+
     # Apply category filter if provided
     if category:
         sample_personas = [p for p in sample_personas if p.get("category") == category]
-    
+
     return sample_personas[:limit]
 
 
 @router.get("/personas/{persona_id}", response_model=Dict[str, Any])
 async def get_public_persona(
-    persona_id: str,
-    db: AsyncSession = Depends(get_db_session)
+    persona_id: str, db: AsyncSession = Depends(get_db_session)
 ):
     """
     Get detailed public information about specific persona from database.
@@ -168,29 +180,28 @@ async def get_public_persona(
     """
     try:
         from uuid import UUID
-        
+
         # Convert string to UUID
         try:
             persona_uuid = UUID(persona_id)
         except ValueError:
             raise HTTPException(status_code=404, detail="Invalid persona ID format")
-        
+
         # Query database for persona
         query = select(PersonaModel).where(
-            PersonaModel.id == persona_uuid,
-            PersonaModel.is_active == True
+            PersonaModel.id == persona_uuid, PersonaModel.is_active == True
         )
         result = await db.execute(query)
         persona = result.scalar_one_or_none()
-        
+
         if not persona:
             raise HTTPException(status_code=404, detail="Persona not found")
-        
+
         # Get style from style_preferences
         style = "realistic"
         if isinstance(persona.style_preferences, dict):
             style = persona.style_preferences.get("visual_style", "realistic")
-        
+
         # Transform to public format
         return {
             "id": str(persona.id),
@@ -205,11 +216,12 @@ async def get_public_persona(
                 "last_updated": persona.updated_at.isoformat(),
             },
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         import logging
+
         logging.error(f"Failed to fetch persona {persona_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch persona")
 
@@ -228,44 +240,42 @@ async def get_persona_gallery(
     Get public gallery of content for specific persona from database.
 
     Returns approved, publicly viewable content created by the AI persona.
-    
+
     Args:
         persona_id: Persona UUID
         content_type: Filter by content type (image, video, text)
         limit: Maximum items to return
         offset: Number of items to skip
         db: Database session
-        
+
     Returns:
         List of content items for the persona
     """
     try:
         from uuid import UUID
-        
+
         # Convert string to UUID
         try:
             persona_uuid = UUID(persona_id)
         except ValueError:
             return []  # Return empty list for invalid UUID
-        
+
         # Build query for persona content
-        query = select(ContentModel).where(
-            ContentModel.persona_id == persona_uuid
-        )
-        
+        query = select(ContentModel).where(ContentModel.persona_id == persona_uuid)
+
         # Filter by content type if specified
         if content_type:
             query = query.where(ContentModel.content_type == content_type)
-        
+
         # Order by creation date (newest first)
         query = query.order_by(desc(ContentModel.created_at))
-        
+
         # Apply pagination
         query = query.limit(limit).offset(offset)
-        
+
         result = await db.execute(query)
         content_items = result.scalars().all()
-        
+
         # Transform to public format
         return [
             {
@@ -278,9 +288,10 @@ async def get_persona_gallery(
             }
             for item in content_items
         ]
-        
+
     except Exception as e:
         import logging
+
         logging.error(f"Failed to fetch gallery for persona {persona_id}: {e}")
         return []  # Return empty list on error
 
@@ -298,14 +309,16 @@ async def list_categories(db: AsyncSession = Depends(get_db_session)):
         query = select(PersonaModel).where(PersonaModel.is_active == True)
         result = await db.execute(query)
         personas = result.scalars().all()
-        
+
         # Count personas by category (using first theme as category)
         category_counts = {}
         for persona in personas:
             if persona.content_themes:
                 primary_category = persona.content_themes[0]
-                category_counts[primary_category] = category_counts.get(primary_category, 0) + 1
-        
+                category_counts[primary_category] = (
+                    category_counts.get(primary_category, 0) + 1
+                )
+
         # Define category metadata with icons
         category_info = {
             "politics": {
@@ -344,39 +357,63 @@ async def list_categories(db: AsyncSession = Depends(get_db_session)):
                 "icon": "🎬",
             },
         }
-        
+
         # Build categories list
         categories = []
-        
+
         # Add categories that have personas
         for category, count in category_counts.items():
-            info = category_info.get(category, {
-                "name": category.title(),
-                "description": f"Personas focused on {category}",
-                "icon": "📁",
-            })
-            categories.append({
-                "id": category,
-                "name": info["name"],
-                "description": info["description"],
-                "icon": info["icon"],
-                "persona_count": count,
-            })
-        
+            info = category_info.get(
+                category,
+                {
+                    "name": category.title(),
+                    "description": f"Personas focused on {category}",
+                    "icon": "📁",
+                },
+            )
+            categories.append(
+                {
+                    "id": category,
+                    "name": info["name"],
+                    "description": info["description"],
+                    "icon": info["icon"],
+                    "persona_count": count,
+                }
+            )
+
         # Sort by persona count (descending)
         categories.sort(key=lambda x: x["persona_count"], reverse=True)
-        
+
         return categories
-        
+
     except Exception as e:
         import logging
+
         logging.error(f"Failed to fetch categories: {e}")
-        
+
         # Return basic fallback categories
         return [
-            {"id": "politics", "name": "Politics & Policy", "description": "Political content", "icon": "🗳️", "persona_count": 0},
-            {"id": "technology", "name": "Technology", "description": "Tech content", "icon": "🚀", "persona_count": 0},
-            {"id": "art", "name": "Art & Creativity", "description": "Creative content", "icon": "🎨", "persona_count": 0},
+            {
+                "id": "politics",
+                "name": "Politics & Policy",
+                "description": "Political content",
+                "icon": "🗳️",
+                "persona_count": 0,
+            },
+            {
+                "id": "technology",
+                "name": "Technology",
+                "description": "Tech content",
+                "icon": "🚀",
+                "persona_count": 0,
+            },
+            {
+                "id": "art",
+                "name": "Art & Creativity",
+                "description": "Creative content",
+                "icon": "🎨",
+                "persona_count": 0,
+            },
         ]
 
 

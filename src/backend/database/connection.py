@@ -5,8 +5,8 @@ Handles database connectivity and session management using SQLAlchemy.
 Supports async operations for better performance.
 """
 
-from typing import AsyncGenerator, Optional
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator, Optional
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import (
@@ -17,8 +17,8 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import declarative_base
 
-from backend.config.settings import get_settings
 from backend.config.logging import get_logger
+from backend.config.settings import get_settings
 
 logger = get_logger(__name__)
 

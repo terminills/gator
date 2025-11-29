@@ -5,16 +5,17 @@ Provides endpoints for database backup and schema synchronization
 through the admin panel.
 """
 
-from typing import Dict, Any
+from pathlib import Path
+from typing import Any, Dict
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
-from pathlib import Path
 
+from backend.config.logging import get_logger
 from backend.services.database_admin_service import (
     DatabaseAdminService,
     get_database_admin_service,
 )
-from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/admin/database", tags=["admin", "database"])
@@ -148,27 +149,30 @@ async def optimize_database(
 ) -> Dict[str, Any]:
     """
     Optimize the database for better performance.
-    
+
     For SQLite: Runs VACUUM and ANALYZE commands
     For PostgreSQL: Runs VACUUM ANALYZE
-    
+
     Returns:
         Dict with optimization result including success status and message
     """
     result = await service.optimize_database()
-    
+
     if not result["success"]:
         # Sanitize error message to avoid exposing stack traces
-        logger.error(f"Database optimization failed: {result.get('message', 'Unknown error')}")
+        logger.error(
+            f"Database optimization failed: {result.get('message', 'Unknown error')}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database optimization failed. Check server logs for details.",
         )
-    
+
     # Return sanitized success response without any data from service
     from datetime import datetime
+
     return {
         "success": True,
         "message": "Database optimized successfully",
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }

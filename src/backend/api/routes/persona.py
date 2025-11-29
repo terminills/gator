@@ -4,29 +4,29 @@ Persona Management API Routes
 Handles AI persona creation, management, and configuration.
 """
 
-from typing import List, Optional, Dict, Any
-from uuid import UUID
-from datetime import datetime
-import os
-import base64
 import asyncio
+import base64
 import json
+import os
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
 from backend.models.persona import (
+    BaseImageStatus,
     PersonaCreate,
     PersonaResponse,
     PersonaUpdate,
-    BaseImageStatus,
 )
-from backend.services.persona_service import PersonaService
 from backend.services.ai_models import AIModelManager
-from backend.config.logging import get_logger
+from backend.services.persona_service import PersonaService
 
 logger = get_logger(__name__)
 
@@ -289,9 +289,11 @@ async def upload_seed_image(
 
         # Read file data
         image_data = await file.read()
-        
+
         # Log the size immediately after reading
-        logger.info(f"Read {len(image_data)} bytes from uploaded file '{file.filename}'")
+        logger.info(
+            f"Read {len(image_data)} bytes from uploaded file '{file.filename}'"
+        )
 
         # Validate file size (max 10MB)
         max_size = MAX_IMAGE_SIZE_BYTES
@@ -304,8 +306,10 @@ async def upload_seed_image(
         # Save image to disk
         file_extension = file.filename.split(".")[-1] if "." in file.filename else "png"
         custom_filename = f"persona_{persona_id}_uploaded.{file_extension}"
-        
-        logger.info(f"Saving image to disk: {len(image_data)} bytes as {custom_filename}")
+
+        logger.info(
+            f"Saving image to disk: {len(image_data)} bytes as {custom_filename}"
+        )
         image_path = await persona_service._save_image_to_disk(
             persona_id=persona_id, image_data=image_data, filename=custom_filename
         )
@@ -444,8 +448,8 @@ async def generate_seed_image_local(
     Triggers generation using local ROCm/MI25 hardware with Stable Diffusion.
     Can use existing draft image with ControlNet for refinement.
     Sets base_image_status to DRAFT.
-    
-    Uses the persona's saved model preferences (image_model_preference, 
+
+    Uses the persona's saved model preferences (image_model_preference,
     nsfw_model_preference) if set, otherwise falls back to default model selection.
 
     Args:
@@ -495,10 +499,10 @@ async def generate_seed_image_local(
             )
 
         # Get persona's model preferences
-        image_model_pref = getattr(persona, 'image_model_preference', None)
-        nsfw_model_pref = getattr(persona, 'nsfw_model_preference', None)
-        image_style = getattr(persona, 'image_style', 'photorealistic')
-        
+        image_model_pref = getattr(persona, "image_model_preference", None)
+        nsfw_model_pref = getattr(persona, "nsfw_model_preference", None)
+        image_style = getattr(persona, "image_style", "photorealistic")
+
         if image_model_pref or nsfw_model_pref:
             logger.info(
                 f"Using persona model preferences: image_model={image_model_pref}, "
@@ -875,21 +879,25 @@ async def generate_sample_images(
         # These will be used if not overridden by query parameters
         persona_image_model_pref = None
         persona_nsfw_model_pref = None
-        
+
         if persona_id:
             try:
                 persona = await persona_service.get_persona(persona_id)
                 if persona:
                     # Get persona's saved model preferences
-                    persona_image_model_pref = getattr(persona, 'image_model_preference', None)
-                    persona_nsfw_model_pref = getattr(persona, 'nsfw_model_preference', None)
+                    persona_image_model_pref = getattr(
+                        persona, "image_model_preference", None
+                    )
+                    persona_nsfw_model_pref = getattr(
+                        persona, "nsfw_model_preference", None
+                    )
                     logger.info(
                         f"Using persona {persona_id} model preferences: "
                         f"image_model={persona_image_model_pref}, nsfw_model={persona_nsfw_model_pref}"
                     )
             except Exception as e:
                 logger.warning(f"Failed to look up persona {persona_id}: {e}")
-        
+
         # Determine effective model preferences (query params override persona preferences)
         # Priority: query param > persona preference > default
         effective_image_model = image_model or persona_image_model_pref
@@ -916,14 +924,16 @@ async def generate_sample_images(
                 elif phase == "background":
                     image_types_to_generate.extend(BACKGROUND_IMAGE_TYPES)
                     phases_generated.append("background")
-            
+
             # Default to structural if nothing matched
             if not image_types_to_generate:
                 image_types_to_generate = STRUCTURAL_IMAGE_TYPES
                 phases_generated = ["structural"]
 
         # Sort by order to ensure proper ControlNet chaining
-        image_types_to_generate = sorted(image_types_to_generate, key=lambda x: x.get("order", 0))
+        image_types_to_generate = sorted(
+            image_types_to_generate, key=lambda x: x.get("order", 0)
+        )
 
         # Initialize AI model manager
         ai_manager = AIModelManager()
@@ -941,8 +951,8 @@ async def generate_sample_images(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Local Stable Diffusion models are required for base image generation with ControlNet chaining. "
-                       "Cloud APIs like DALL-E cannot provide the visual consistency needed for body reference images. "
-                       "Please install Stable Diffusion XL locally.",
+                "Cloud APIs like DALL-E cannot provide the visual consistency needed for body reference images. "
+                "Please install Stable Diffusion XL locally.",
             )
 
         # Parse resolution
@@ -961,7 +971,9 @@ async def generate_sample_images(
         num_steps = quality_steps_map.get(quality.lower(), 30)
 
         total_images = len(image_types_to_generate)
-        logger.info(f"Generating {total_images} base images with appearance: {appearance[:50]}...")
+        logger.info(
+            f"Generating {total_images} base images with appearance: {appearance[:50]}..."
+        )
         logger.info(f"Resolution: {width}x{height}, Quality: {quality}, Style: {style}")
         logger.info(f"Phases: {', '.join(phases_generated)}")
         logger.info("Using sequential ControlNet chain for maximum visual consistency")
@@ -969,17 +981,22 @@ async def generate_sample_images(
         # Generate images using sequential ControlNet chain
         # Each image uses the previous one as reference for progressive consistency
         images = []
-        current_reference_path = None  # Chain: each image becomes reference for the next
+        current_reference_path = (
+            None  # Chain: each image becomes reference for the next
+        )
         temp_files = []  # Track temp files for cleanup
 
-        logger.info("Using local Stable Diffusion models with ControlNet for generation")
+        logger.info(
+            "Using local Stable Diffusion models with ControlNet for generation"
+        )
 
         # Get available GPUs
+        import os
+        import tempfile
+
         from backend.services.gpu_monitoring_service import (
             get_gpu_monitoring_service,
         )
-        import tempfile
-        import os
 
         gpu_service = get_gpu_monitoring_service()
         available_gpus = await gpu_service.get_available_gpus()
@@ -994,10 +1011,14 @@ async def generate_sample_images(
             for i, image_type in enumerate(image_types_to_generate):
                 try:
                     specific_prompt = f"{appearance}, {image_type['prompt_addition']}"
-                    
+
                     # Select GPU in round-robin fashion
-                    device_id = available_gpus[i % len(available_gpus)] if available_gpus else None
-                    
+                    device_id = (
+                        available_gpus[i % len(available_gpus)]
+                        if available_gpus
+                        else None
+                    )
+
                     # Determine generation mode based on controlnet_type and position in chain
                     # controlnet_type values:
                     #   - "none": Pure text2img, no reference (e.g., front_headshot, right_hand)
@@ -1006,15 +1027,19 @@ async def generate_sample_images(
                     # Note: If current_reference_path is None, we fall back to text2img
                     # regardless of controlnet_type to avoid errors
                     controlnet_type = image_type.get("controlnet_type", "none")
-                    
+
                     if controlnet_type == "none" or current_reference_path is None:
                         # Pure text2img - starting point or no ControlNet needed
                         # Images with controlnet_type="none" (e.g., front_headshot, right_hand)
                         # are generated fresh without reference to establish identity
-                        logger.info(f"STEP {i+1}/{total_images}: Generating {image_type['label']} (text2img)")
+                        logger.info(
+                            f"STEP {i+1}/{total_images}: Generating {image_type['label']} (text2img)"
+                        )
                         result = await ai_manager._generate_reference_image_local(
                             appearance_prompt=specific_prompt,
-                            personality_context=personality[:200] if personality else None,
+                            personality_context=(
+                                personality[:200] if personality else None
+                            ),
                             reference_image_path=None,
                             width=width,
                             height=height,
@@ -1029,7 +1054,7 @@ async def generate_sample_images(
                         # Use ControlNet/img2img for structural guidance and appearance consistency
                         # Strength varies based on the type of transformation needed
                         phase = image_type.get("phase", "structural")
-                        
+
                         if phase == "structural":
                             # Structural images need high consistency
                             img2img_strength = 0.50
@@ -1041,15 +1066,17 @@ async def generate_sample_images(
                             img2img_strength = 0.65
                         else:
                             img2img_strength = 0.55
-                        
+
                         logger.info(
                             f"STEP {i+1}/{total_images}: Generating {image_type['label']} "
                             f"({controlnet_type}, strength={img2img_strength})"
                         )
-                        
+
                         result = await ai_manager._generate_reference_image_local(
                             appearance_prompt=specific_prompt,
-                            personality_context=personality[:200] if personality else None,
+                            personality_context=(
+                                personality[:200] if personality else None
+                            ),
                             reference_image_path=current_reference_path,
                             width=width,
                             height=height,
@@ -1064,14 +1091,20 @@ async def generate_sample_images(
                         )
 
                     # Save this image as reference for the next in the chain
-                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+                    with tempfile.NamedTemporaryFile(
+                        suffix=".png", delete=False
+                    ) as tmp_file:
                         tmp_file.write(result["image_data"])
                         current_reference_path = tmp_file.name
                         temp_files.append(tmp_file.name)
-                        logger.info(f"Saved {image_type['label']} as chain reference: {current_reference_path}")
+                        logger.info(
+                            f"Saved {image_type['label']} as chain reference: {current_reference_path}"
+                        )
 
                     # Convert to base64 data URL
-                    base64_image = base64.b64encode(result["image_data"]).decode("utf-8")
+                    base64_image = base64.b64encode(result["image_data"]).decode(
+                        "utf-8"
+                    )
                     data_url = f"data:image/png;base64,{base64_image}"
 
                     # Build image response with training metadata
@@ -1089,26 +1122,32 @@ async def generate_sample_images(
                         "caption_tags": image_type.get("caption_tags", ""),
                         "controlnet_type": image_type.get("controlnet_type", "none"),
                     }
-                    
+
                     # Add training purpose if available (for action/background phases)
                     if "training_purpose" in image_type:
-                        image_response["training_purpose"] = image_type["training_purpose"]
+                        image_response["training_purpose"] = image_type[
+                            "training_purpose"
+                        ]
 
                     images.append(image_response)
 
-                    logger.info(f"Generated {image_type['label']} ({i+1}/{total_images}) - chain reference updated")
+                    logger.info(
+                        f"Generated {image_type['label']} ({i+1}/{total_images}) - chain reference updated"
+                    )
 
                 except Exception as e:
                     error_str = str(e)
-                    logger.warning(f"Failed to generate {image_type['label']}: {error_str}")
-                    
+                    logger.warning(
+                        f"Failed to generate {image_type['label']}: {error_str}"
+                    )
+
                     # Check for CUDA/ROCm compatibility issues and provide actionable guidance
                     if "libcudart" in error_str or "xformers" in error_str.lower():
                         logger.warning(
                             "This error is likely caused by xFormers CUDA incompatibility on a ROCm system. "
                             "To fix: Call POST /setup/xformers/uninstall or run 'pip uninstall xformers'"
                         )
-                    
+
                     # If an image in the chain fails, try to continue with text2img for remaining
                     current_reference_path = None
 
@@ -1120,7 +1159,9 @@ async def generate_sample_images(
                 except Exception as e:
                     logger.warning(f"Failed to clean up temp file {temp_file}: {e}")
             if temp_files:
-                logger.info(f"Cleaned up {len(temp_files)} temporary chain reference files")
+                logger.info(
+                    f"Cleaned up {len(temp_files)} temporary chain reference files"
+                )
 
         # Clean up AI manager
         await ai_manager.close()
@@ -1134,13 +1175,15 @@ async def generate_sample_images(
         # Determine if the generated set is complete for LoRA training
         # Complete set requires: structural + action + background (all images from expanded system)
         training_ready = (
-            len(images) >= TOTAL_EXPANDED_IMAGE_COUNT and 
-            "structural" in phases_generated and 
-            "action" in phases_generated and 
-            "background" in phases_generated
+            len(images) >= TOTAL_EXPANDED_IMAGE_COUNT
+            and "structural" in phases_generated
+            and "action" in phases_generated
+            and "background" in phases_generated
         )
 
-        logger.info(f"Successfully generated {len(images)} base images with ControlNet chain")
+        logger.info(
+            f"Successfully generated {len(images)} base images with ControlNet chain"
+        )
 
         return {
             "images": images,
@@ -1151,7 +1194,8 @@ async def generate_sample_images(
                 "captioning_rule": "PERMANENT features (face, body) = NOT tagged. TEMPORARY aspects (pose, background) = TAGGED.",
                 "complete_for_lora": training_ready,
                 "recommended_next": (
-                    "Ready for LoRA training!" if training_ready
+                    "Ready for LoRA training!"
+                    if training_ready
                     else f"Add phases: {', '.join(set(['structural', 'action', 'background']) - set(phases_generated))}"
                 ),
             },
@@ -1340,48 +1384,52 @@ async def create_random_persona(
 
 class GenerateSoulFieldsRequest(BaseModel):
     """Request model for generating soul fields."""
-    
+
     name: str = Field(..., description="Persona name for context")
-    appearance: str = Field(default="", description="Appearance description for context")
-    personality: str = Field(default="", description="Personality description for context")
+    appearance: str = Field(
+        default="", description="Appearance description for context"
+    )
+    personality: str = Field(
+        default="", description="Personality description for context"
+    )
     content_rating: str = Field(
         default="sfw",
-        description="Content rating: sfw, moderate, or nsfw - affects generation style"
+        description="Content rating: sfw, moderate, or nsfw - affects generation style",
     )
 
 
 class GenerateSoulFieldsResponse(BaseModel):
     """Response model for generated soul fields."""
-    
+
     # Origin & Demographics
     hometown: Optional[str] = None
     current_location: Optional[str] = None
     generation_age: Optional[str] = None
     education_level: Optional[str] = None
-    
+
     # Psychological Profile
     mbti_type: Optional[str] = None
     enneagram_type: Optional[str] = None
     political_alignment: Optional[str] = None
     risk_tolerance: Optional[str] = None
     optimism_cynicism_scale: Optional[int] = None
-    
+
     # Voice & Speech Patterns
     linguistic_register: Optional[str] = None
     typing_quirks: Optional[Dict[str, Any]] = None
     signature_phrases: Optional[List[str]] = None
     trigger_topics: Optional[List[str]] = None
-    
+
     # Backstory & Lore
     day_job: Optional[str] = None
     war_story: Optional[str] = None
     vices_hobbies: Optional[List[str]] = None
-    
+
     # Anti-Pattern
     forbidden_phrases: Optional[List[str]] = None
     warmth_level: Optional[str] = None
     patience_level: Optional[str] = None
-    
+
     # Generation metadata
     generation_method: str = "ollama_ai"
     model_used: Optional[str] = None
@@ -1393,21 +1441,21 @@ async def generate_soul_fields(
 ):
     """
     Generate soul fields for a persona using AI (Ollama with dolphin-mixtral).
-    
+
     This endpoint generates comprehensive soul fields based on the persona's name,
     appearance, personality, and content rating. The generated fields will match
     the tone appropriate for the content rating:
-    
+
     - **SFW**: Family-friendly, professional persona attributes
     - **Moderate**: More edgy, adult humor, but not explicit
     - **NSFW**: Uninhibited, adult-oriented persona attributes
-    
+
     Args:
         request: Persona context and content rating for generation
-        
+
     Returns:
         GenerateSoulFieldsResponse: Generated soul fields ready to populate form
-        
+
     Raises:
         503: Ollama not available
         500: Generation error
@@ -1415,7 +1463,7 @@ async def generate_soul_fields(
     try:
         # Ollama configuration
         OLLAMA_BASE_URL = "http://localhost:11434"
-        
+
         # Check if Ollama is available
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
@@ -1425,10 +1473,10 @@ async def generate_soul_fields(
                         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                         detail="Ollama is not available. Please ensure Ollama is running with dolphin-mixtral model.",
                     )
-                
+
                 data = response.json()
                 available_models = [m["name"] for m in data.get("models", [])]
-                
+
                 # Find best model
                 preferred_models = [
                     "dolphin-mixtral",
@@ -1438,7 +1486,7 @@ async def generate_soul_fields(
                     "llama3:8b",
                     "mistral",
                 ]
-                
+
                 model_to_use = None
                 for preferred in preferred_models:
                     for available in available_models:
@@ -1447,25 +1495,25 @@ async def generate_soul_fields(
                             break
                     if model_to_use:
                         break
-                
+
                 if not model_to_use and available_models:
                     model_to_use = available_models[0]
-                
+
                 if not model_to_use:
                     raise HTTPException(
                         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                         detail="No suitable models found in Ollama. Please install dolphin-mixtral.",
                     )
-                    
+
         except httpx.RequestError:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Cannot connect to Ollama. Please ensure Ollama is running on localhost:11434",
             )
-        
+
         # Build content-rating-aware prompt
         rating = request.content_rating.lower()
-        
+
         rating_guidance = ""
         if rating == "nsfw":
             rating_guidance = """
@@ -1544,8 +1592,10 @@ Personality: {request.personality or 'Not specified'}
 JSON:"""
 
         # Generate with Ollama (60 second timeout for reasonable user experience)
-        logger.info(f"Generating soul fields for '{request.name}' with {model_to_use} (rating: {rating})")
-        
+        logger.info(
+            f"Generating soul fields for '{request.name}' with {model_to_use} (rating: {rating})"
+        )
+
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
                 f"{OLLAMA_BASE_URL}/api/generate",
@@ -1557,31 +1607,31 @@ JSON:"""
                         "temperature": 0.9,
                         "top_p": 0.95,
                         "num_predict": 2000,
-                    }
-                }
+                    },
+                },
             )
-            
+
             if response.status_code != 200:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Ollama generation failed with status {response.status_code}",
                 )
-            
+
             output = response.json().get("response", "")
-        
+
         # Parse JSON from output - find outermost { } block
-        start_idx = output.find('{')
-        end_idx = output.rfind('}')
-        
+        start_idx = output.find("{")
+        end_idx = output.rfind("}")
+
         if start_idx == -1 or end_idx == -1:
             logger.error(f"No JSON found in Ollama output: {output[:500]}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to parse AI response - no valid JSON found",
             )
-        
-        json_str = output[start_idx:end_idx + 1]
-        
+
+        json_str = output[start_idx : end_idx + 1]
+
         try:
             soul_data = json.loads(json_str)
         except json.JSONDecodeError as e:
@@ -1590,14 +1640,14 @@ JSON:"""
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to parse AI response - invalid JSON",
             )
-        
+
         # Validate and normalize the response
-        optimism_scale = soul_data.get('optimism_cynicism_scale', 5)
+        optimism_scale = soul_data.get("optimism_cynicism_scale", 5)
         if isinstance(optimism_scale, (int, float)):
             optimism_scale = max(1, min(10, int(optimism_scale)))
         else:
             optimism_scale = 5
-        
+
         # Ensure lists are lists
         def ensure_list(val, default=None):
             if default is None:
@@ -1605,57 +1655,68 @@ JSON:"""
             if isinstance(val, list):
                 return val
             return default
-        
+
         # Ensure dict
-        typing_quirks = soul_data.get('typing_quirks', {})
+        typing_quirks = soul_data.get("typing_quirks", {})
         if not isinstance(typing_quirks, dict):
             typing_quirks = {}
-        
+
         # Map linguistic register
-        register_str = soul_data.get('linguistic_register', 'blue_collar').lower()
-        valid_registers = ['blue_collar', 'academic', 'tech_bro', 'street', 'corporate', 'southern', 'millennial', 'gen_z']
+        register_str = soul_data.get("linguistic_register", "blue_collar").lower()
+        valid_registers = [
+            "blue_collar",
+            "academic",
+            "tech_bro",
+            "street",
+            "corporate",
+            "southern",
+            "millennial",
+            "gen_z",
+        ]
         if register_str not in valid_registers:
-            register_str = 'blue_collar'
-        
+            register_str = "blue_collar"
+
         # Map warmth level
-        warmth_str = soul_data.get('warmth_level', 'warm').lower()
-        valid_warmth = ['cold', 'neutral', 'warm', 'buddy']
+        warmth_str = soul_data.get("warmth_level", "warm").lower()
+        valid_warmth = ["cold", "neutral", "warm", "buddy"]
         if warmth_str not in valid_warmth:
-            warmth_str = 'warm'
-        
+            warmth_str = "warm"
+
         # Map patience level
-        patience_str = soul_data.get('patience_level', 'normal').lower()
-        valid_patience = ['short_fuse', 'normal', 'patient', 'infinite']
+        patience_str = soul_data.get("patience_level", "normal").lower()
+        valid_patience = ["short_fuse", "normal", "patient", "infinite"]
         if patience_str not in valid_patience:
-            patience_str = 'normal'
-        
+            patience_str = "normal"
+
         result = GenerateSoulFieldsResponse(
-            hometown=soul_data.get('hometown'),
-            current_location=soul_data.get('current_location'),
-            generation_age=soul_data.get('generation_age'),
-            education_level=soul_data.get('education_level'),
-            mbti_type=soul_data.get('mbti_type'),
-            enneagram_type=soul_data.get('enneagram_type'),
-            political_alignment=soul_data.get('political_alignment'),
-            risk_tolerance=soul_data.get('risk_tolerance'),
+            hometown=soul_data.get("hometown"),
+            current_location=soul_data.get("current_location"),
+            generation_age=soul_data.get("generation_age"),
+            education_level=soul_data.get("education_level"),
+            mbti_type=soul_data.get("mbti_type"),
+            enneagram_type=soul_data.get("enneagram_type"),
+            political_alignment=soul_data.get("political_alignment"),
+            risk_tolerance=soul_data.get("risk_tolerance"),
             optimism_cynicism_scale=optimism_scale,
             linguistic_register=register_str,
             typing_quirks=typing_quirks,
-            signature_phrases=ensure_list(soul_data.get('signature_phrases')),
-            trigger_topics=ensure_list(soul_data.get('trigger_topics')),
-            day_job=soul_data.get('day_job'),
-            war_story=soul_data.get('war_story'),
-            vices_hobbies=ensure_list(soul_data.get('vices_hobbies')),
-            forbidden_phrases=ensure_list(soul_data.get('forbidden_phrases')),
+            signature_phrases=ensure_list(soul_data.get("signature_phrases")),
+            trigger_topics=ensure_list(soul_data.get("trigger_topics")),
+            day_job=soul_data.get("day_job"),
+            war_story=soul_data.get("war_story"),
+            vices_hobbies=ensure_list(soul_data.get("vices_hobbies")),
+            forbidden_phrases=ensure_list(soul_data.get("forbidden_phrases")),
             warmth_level=warmth_str,
             patience_level=patience_str,
             generation_method="ollama_ai",
             model_used=model_to_use,
         )
-        
-        logger.info(f"Successfully generated soul fields for '{request.name}' using {model_to_use}")
+
+        logger.info(
+            f"Successfully generated soul fields for '{request.name}' using {model_to_use}"
+        )
         return result
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1675,25 +1736,31 @@ OPTIMISM_SCALE_DEFAULT = 5
 
 class GenerateAllFieldsRequest(BaseModel):
     """Request model for generating all persona fields."""
-    
-    name: Optional[str] = Field(default=None, description="Optional name hint (will be generated if not provided)")
-    persona_type: Optional[str] = Field(default=None, description="Optional persona type hint (e.g., fitness, tech, lifestyle)")
+
+    name: Optional[str] = Field(
+        default=None,
+        description="Optional name hint (will be generated if not provided)",
+    )
+    persona_type: Optional[str] = Field(
+        default=None,
+        description="Optional persona type hint (e.g., fitness, tech, lifestyle)",
+    )
     content_rating: str = Field(
         default="sfw",
         description="Content rating: sfw, moderate, or nsfw - affects generation style",
-        pattern="^(sfw|moderate|nsfw)$"
+        pattern="^(sfw|moderate|nsfw)$",
     )
 
 
 class GenerateAllFieldsResponse(BaseModel):
     """Response model for generated persona fields."""
-    
+
     # Basic Information
     name: str
     appearance: str
     personality: str
     content_themes: List[str] = []
-    
+
     # Physical Appearance Details
     sex: Optional[str] = None
     age_appearance: Optional[str] = None
@@ -1706,41 +1773,41 @@ class GenerateAllFieldsResponse(BaseModel):
     weight: Optional[str] = None
     build_type: Optional[str] = None
     distinctive_features: Optional[str] = None
-    
+
     # Soul Fields - Origin & Demographics
     hometown: Optional[str] = None
     current_location: Optional[str] = None
     generation_age: Optional[str] = None
     education_level: Optional[str] = None
-    
+
     # Soul Fields - Psychological Profile
     mbti_type: Optional[str] = None
     enneagram_type: Optional[str] = None
     political_alignment: Optional[str] = None
     risk_tolerance: Optional[str] = None
     optimism_cynicism_scale: Optional[int] = None
-    
+
     # Soul Fields - Voice & Speech Patterns
     linguistic_register: Optional[str] = None
     typing_quirks: Optional[Dict[str, Any]] = None
     signature_phrases: Optional[List[str]] = None
     trigger_topics: Optional[List[str]] = None
-    
+
     # Soul Fields - Backstory & Lore
     day_job: Optional[str] = None
     war_story: Optional[str] = None
     vices_hobbies: Optional[List[str]] = None
-    
+
     # Soul Fields - Anti-Pattern
     forbidden_phrases: Optional[List[str]] = None
     warmth_level: Optional[str] = None
     patience_level: Optional[str] = None
-    
+
     # Content Settings
     default_content_rating: str = "sfw"
     post_style: Optional[str] = None
     image_style: Optional[str] = None
-    
+
     # Generation metadata
     generation_method: str = "ollama_ai"
     model_used: Optional[str] = None
@@ -1752,25 +1819,25 @@ async def generate_all_fields(
 ):
     """
     Generate ALL persona fields using AI (Ollama with dolphin-mixtral).
-    
+
     This endpoint generates a complete persona with all fields filled out:
     - Basic info (name, appearance, personality, themes)
     - Physical appearance details (sex, ethnicity, hair, eyes, build, etc.)
     - Soul fields (origin, psychology, voice, backstory, anti-patterns)
     - Content settings (rating, styles)
-    
+
     The generated fields will match the tone appropriate for the content rating:
-    
+
     - **SFW**: Family-friendly, professional persona attributes
     - **Moderate**: More edgy, adult humor, but not explicit
     - **NSFW**: Uninhibited, adult-oriented persona attributes
-    
+
     Args:
         request: Optional name/type hints and content rating
-        
+
     Returns:
         GenerateAllFieldsResponse: All generated fields ready to populate form
-        
+
     Raises:
         503: Ollama not available
         500: Generation error
@@ -1785,10 +1852,10 @@ async def generate_all_fields(
                         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                         detail="Ollama is not available. Please ensure Ollama is running with dolphin-mixtral model.",
                     )
-                
+
                 data = response.json()
                 available_models = [m["name"] for m in data.get("models", [])]
-                
+
                 # Find best model
                 preferred_models = [
                     "dolphin-mixtral",
@@ -1798,7 +1865,7 @@ async def generate_all_fields(
                     "llama3:8b",
                     "mistral",
                 ]
-                
+
                 model_to_use = None
                 for preferred in preferred_models:
                     for available in available_models:
@@ -1807,25 +1874,25 @@ async def generate_all_fields(
                             break
                     if model_to_use:
                         break
-                
+
                 if not model_to_use and available_models:
                     model_to_use = available_models[0]
-                
+
                 if not model_to_use:
                     raise HTTPException(
                         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                         detail="No suitable models found in Ollama. Please install dolphin-mixtral.",
                     )
-                    
+
         except httpx.RequestError:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Cannot connect to Ollama. Please ensure Ollama is running on localhost:11434",
             )
-        
+
         # Build content-rating-aware prompt
         rating = request.content_rating.lower()
-        
+
         rating_guidance = ""
         if rating == "nsfw":
             rating_guidance = """
@@ -1856,7 +1923,7 @@ This persona is for SFW/family-friendly content. Generate wholesome, professiona
         type_hint = ""
         if request.persona_type:
             type_hint = f"\nThis persona should be focused on: {request.persona_type}. Make their personality, interests, and content align with this focus.\n"
-        
+
         name_hint = ""
         if request.name:
             name_hint = f'\nThe persona\'s name should be: "{request.name}"\n'
@@ -1930,8 +1997,10 @@ Create a COMPLETE detailed persona profile.{name_hint}{type_hint}
 JSON:"""
 
         # Generate with Ollama (using module-level timeout for comprehensive generation)
-        logger.info(f"Generating all persona fields with {model_to_use} (rating: {rating})")
-        
+        logger.info(
+            f"Generating all persona fields with {model_to_use} (rating: {rating})"
+        )
+
         # Use a longer timeout for all-fields generation (more content than soul fields)
         all_fields_timeout = OLLAMA_GENERATE_TIMEOUT * 1.5  # 90 seconds default
         async with httpx.AsyncClient(timeout=all_fields_timeout) as client:
@@ -1945,31 +2014,31 @@ JSON:"""
                         "temperature": 0.9,
                         "top_p": 0.95,
                         "num_predict": 3000,
-                    }
-                }
+                    },
+                },
             )
-            
+
             if response.status_code != 200:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Ollama generation failed with status {response.status_code}",
                 )
-            
+
             output = response.json().get("response", "")
-        
+
         # Parse JSON from output
-        start_idx = output.find('{')
-        end_idx = output.rfind('}')
-        
+        start_idx = output.find("{")
+        end_idx = output.rfind("}")
+
         if start_idx == -1 or end_idx == -1:
             logger.error(f"No JSON found in Ollama output: {output[:500]}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to parse AI response - no valid JSON found",
             )
-        
-        json_str = output[start_idx:end_idx + 1]
-        
+
+        json_str = output[start_idx : end_idx + 1]
+
         try:
             persona_data = json.loads(json_str)
         except json.JSONDecodeError as e:
@@ -1978,7 +2047,7 @@ JSON:"""
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to parse AI response - invalid JSON",
             )
-        
+
         # Helper functions for validation
         def ensure_list(val, default=None):
             if default is None:
@@ -1986,86 +2055,128 @@ JSON:"""
             if isinstance(val, list):
                 return val
             return default
-        
+
         def validate_enum(val, valid_values, default):
             if val and str(val).lower() in [v.lower() for v in valid_values]:
                 return str(val).lower()
             return default
-        
+
         # Validate and normalize the response
-        optimism_scale = persona_data.get('optimism_cynicism_scale', OPTIMISM_SCALE_DEFAULT)
+        optimism_scale = persona_data.get(
+            "optimism_cynicism_scale", OPTIMISM_SCALE_DEFAULT
+        )
         if isinstance(optimism_scale, (int, float)):
-            optimism_scale = max(OPTIMISM_SCALE_MIN, min(OPTIMISM_SCALE_MAX, int(optimism_scale)))
+            optimism_scale = max(
+                OPTIMISM_SCALE_MIN, min(OPTIMISM_SCALE_MAX, int(optimism_scale))
+            )
         else:
             optimism_scale = OPTIMISM_SCALE_DEFAULT
-        
+
         # Ensure dict
-        typing_quirks = persona_data.get('typing_quirks', {})
+        typing_quirks = persona_data.get("typing_quirks", {})
         if not isinstance(typing_quirks, dict):
             typing_quirks = {}
-        
+
         # Validate enum fields
-        valid_registers = ['blue_collar', 'academic', 'tech_bro', 'street', 'corporate', 'southern', 'millennial', 'gen_z']
-        valid_warmth = ['cold', 'neutral', 'warm', 'buddy']
-        valid_patience = ['short_fuse', 'normal', 'patient', 'infinite']
-        valid_sex = ['female', 'male', 'non-binary', 'trans_female', 'trans_male']
-        valid_age = ['late_teens', 'early_20s', 'mid_20s', 'late_20s', 'early_30s', 'mid_30s', 'late_30s', '40s', '50s', 'mature']
-        valid_build = ['petite', 'slim', 'lean', 'average', 'athletic', 'toned', 'curvy', 'hourglass', 'muscular', 'plus_size', 'thick']
-        
+        valid_registers = [
+            "blue_collar",
+            "academic",
+            "tech_bro",
+            "street",
+            "corporate",
+            "southern",
+            "millennial",
+            "gen_z",
+        ]
+        valid_warmth = ["cold", "neutral", "warm", "buddy"]
+        valid_patience = ["short_fuse", "normal", "patient", "infinite"]
+        valid_sex = ["female", "male", "non-binary", "trans_female", "trans_male"]
+        valid_age = [
+            "late_teens",
+            "early_20s",
+            "mid_20s",
+            "late_20s",
+            "early_30s",
+            "mid_30s",
+            "late_30s",
+            "40s",
+            "50s",
+            "mature",
+        ]
+        valid_build = [
+            "petite",
+            "slim",
+            "lean",
+            "average",
+            "athletic",
+            "toned",
+            "curvy",
+            "hourglass",
+            "muscular",
+            "plus_size",
+            "thick",
+        ]
+
         result = GenerateAllFieldsResponse(
             # Basic info
-            name=persona_data.get('name', request.name or 'New Persona'),
-            appearance=persona_data.get('appearance', ''),
-            personality=persona_data.get('personality', ''),
-            content_themes=ensure_list(persona_data.get('content_themes'), ['lifestyle']),
-            
+            name=persona_data.get("name", request.name or "New Persona"),
+            appearance=persona_data.get("appearance", ""),
+            personality=persona_data.get("personality", ""),
+            content_themes=ensure_list(
+                persona_data.get("content_themes"), ["lifestyle"]
+            ),
             # Physical appearance
-            sex=validate_enum(persona_data.get('sex'), valid_sex, None),
-            age_appearance=validate_enum(persona_data.get('age_appearance'), valid_age, None),
-            ethnicity=persona_data.get('ethnicity'),
-            skin_tone=persona_data.get('skin_tone'),
-            hair_color=persona_data.get('hair_color'),
-            hair_style=persona_data.get('hair_style'),
-            eye_color=persona_data.get('eye_color'),
-            height=persona_data.get('height'),
-            weight=persona_data.get('weight'),
-            build_type=validate_enum(persona_data.get('build_type'), valid_build, None),
-            distinctive_features=persona_data.get('distinctive_features'),
-            
+            sex=validate_enum(persona_data.get("sex"), valid_sex, None),
+            age_appearance=validate_enum(
+                persona_data.get("age_appearance"), valid_age, None
+            ),
+            ethnicity=persona_data.get("ethnicity"),
+            skin_tone=persona_data.get("skin_tone"),
+            hair_color=persona_data.get("hair_color"),
+            hair_style=persona_data.get("hair_style"),
+            eye_color=persona_data.get("eye_color"),
+            height=persona_data.get("height"),
+            weight=persona_data.get("weight"),
+            build_type=validate_enum(persona_data.get("build_type"), valid_build, None),
+            distinctive_features=persona_data.get("distinctive_features"),
             # Soul fields
-            hometown=persona_data.get('hometown'),
-            current_location=persona_data.get('current_location'),
-            generation_age=persona_data.get('generation_age'),
-            education_level=persona_data.get('education_level'),
-            mbti_type=persona_data.get('mbti_type'),
-            enneagram_type=persona_data.get('enneagram_type'),
-            political_alignment=persona_data.get('political_alignment'),
-            risk_tolerance=persona_data.get('risk_tolerance'),
+            hometown=persona_data.get("hometown"),
+            current_location=persona_data.get("current_location"),
+            generation_age=persona_data.get("generation_age"),
+            education_level=persona_data.get("education_level"),
+            mbti_type=persona_data.get("mbti_type"),
+            enneagram_type=persona_data.get("enneagram_type"),
+            political_alignment=persona_data.get("political_alignment"),
+            risk_tolerance=persona_data.get("risk_tolerance"),
             optimism_cynicism_scale=optimism_scale,
-            linguistic_register=validate_enum(persona_data.get('linguistic_register'), valid_registers, 'blue_collar'),
+            linguistic_register=validate_enum(
+                persona_data.get("linguistic_register"), valid_registers, "blue_collar"
+            ),
             typing_quirks=typing_quirks,
-            signature_phrases=ensure_list(persona_data.get('signature_phrases')),
-            trigger_topics=ensure_list(persona_data.get('trigger_topics')),
-            day_job=persona_data.get('day_job'),
-            war_story=persona_data.get('war_story'),
-            vices_hobbies=ensure_list(persona_data.get('vices_hobbies')),
-            forbidden_phrases=ensure_list(persona_data.get('forbidden_phrases')),
-            warmth_level=validate_enum(persona_data.get('warmth_level'), valid_warmth, 'warm'),
-            patience_level=validate_enum(persona_data.get('patience_level'), valid_patience, 'normal'),
-            
+            signature_phrases=ensure_list(persona_data.get("signature_phrases")),
+            trigger_topics=ensure_list(persona_data.get("trigger_topics")),
+            day_job=persona_data.get("day_job"),
+            war_story=persona_data.get("war_story"),
+            vices_hobbies=ensure_list(persona_data.get("vices_hobbies")),
+            forbidden_phrases=ensure_list(persona_data.get("forbidden_phrases")),
+            warmth_level=validate_enum(
+                persona_data.get("warmth_level"), valid_warmth, "warm"
+            ),
+            patience_level=validate_enum(
+                persona_data.get("patience_level"), valid_patience, "normal"
+            ),
             # Content settings
             default_content_rating=rating,
-            post_style=persona_data.get('post_style', 'casual'),
-            image_style=persona_data.get('image_style', 'photorealistic'),
-            
+            post_style=persona_data.get("post_style", "casual"),
+            image_style=persona_data.get("image_style", "photorealistic"),
             # Metadata
             generation_method="ollama_ai",
             model_used=model_to_use,
         )
-        
+
         logger.info(f"Successfully generated all persona fields using {model_to_use}")
         return result
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2171,26 +2282,50 @@ async def set_base_image_from_sample(
 
 class SetBaseImagesRequest(BaseModel):
     """Request model for setting base images (14-image expanded set for LoRA training)."""
-    
+
     # Phase 1 - Structural Set (8 images)
-    front_headshot: Optional[str] = Field(None, description="Base64 data URL for front headshot")
-    side_headshot: Optional[str] = Field(None, description="Base64 data URL for side headshot")
-    right_hand: Optional[str] = Field(None, description="Base64 data URL for right hand detail")
-    left_hand: Optional[str] = Field(None, description="Base64 data URL for left hand detail")
+    front_headshot: Optional[str] = Field(
+        None, description="Base64 data URL for front headshot"
+    )
+    side_headshot: Optional[str] = Field(
+        None, description="Base64 data URL for side headshot"
+    )
+    right_hand: Optional[str] = Field(
+        None, description="Base64 data URL for right hand detail"
+    )
+    left_hand: Optional[str] = Field(
+        None, description="Base64 data URL for left hand detail"
+    )
     bust: Optional[str] = Field(None, description="Base64 data URL for bust view")
-    full_frontal: Optional[str] = Field(None, description="Base64 data URL for full frontal view")
-    side_profile: Optional[str] = Field(None, description="Base64 data URL for side profile view")
+    full_frontal: Optional[str] = Field(
+        None, description="Base64 data URL for full frontal view"
+    )
+    side_profile: Optional[str] = Field(
+        None, description="Base64 data URL for side profile view"
+    )
     rear_view: Optional[str] = Field(None, description="Base64 data URL for rear view")
-    
+
     # Phase 2 - Action Set (3 images)
-    compression_pose: Optional[str] = Field(None, description="Base64 data URL for compression pose (sitting/crouching)")
-    extension_pose: Optional[str] = Field(None, description="Base64 data URL for extension pose (reaching/running)")
-    twist_pose: Optional[str] = Field(None, description="Base64 data URL for twist pose (looking back)")
-    
+    compression_pose: Optional[str] = Field(
+        None, description="Base64 data URL for compression pose (sitting/crouching)"
+    )
+    extension_pose: Optional[str] = Field(
+        None, description="Base64 data URL for extension pose (reaching/running)"
+    )
+    twist_pose: Optional[str] = Field(
+        None, description="Base64 data URL for twist pose (looking back)"
+    )
+
     # Phase 3 - Background Variation (3 images)
-    complex_bg_1: Optional[str] = Field(None, description="Base64 data URL for complex background 1 (urban)")
-    complex_bg_2: Optional[str] = Field(None, description="Base64 data URL for complex background 2 (nature)")
-    complex_bg_3: Optional[str] = Field(None, description="Base64 data URL for complex background 3 (interior)")
+    complex_bg_1: Optional[str] = Field(
+        None, description="Base64 data URL for complex background 1 (urban)"
+    )
+    complex_bg_2: Optional[str] = Field(
+        None, description="Base64 data URL for complex background 2 (nature)"
+    )
+    complex_bg_3: Optional[str] = Field(
+        None, description="Base64 data URL for complex background 3 (interior)"
+    )
 
 
 @router.post("/{persona_id}/set-base-images")
@@ -2241,7 +2376,7 @@ async def set_base_images(
 
         # Process all image types
         base_images_dict = {}
-        
+
         # Build list of all image types from the request model
         image_types = [
             # Phase 1 - Structural Set
@@ -2308,9 +2443,8 @@ async def set_base_images(
         from backend.models.persona import PersonaUpdate
 
         # Determine primary image - use front_headshot or first available
-        primary_image_path = (
-            base_images_dict.get("front_headshot") or 
-            next(iter(base_images_dict.values()))
+        primary_image_path = base_images_dict.get("front_headshot") or next(
+            iter(base_images_dict.values())
         )
 
         updates = PersonaUpdate(
@@ -2341,29 +2475,29 @@ async def get_base_image_url(
 ) -> Dict[str, Any]:
     """
     Get the URLs for a persona's base images.
-    
-    Returns URLs for accessing all 4 base images (face_shot, bikini_front, 
-    bikini_side, bikini_rear), plus the legacy base_image_url for backward 
+
+    Returns URLs for accessing all 4 base images (face_shot, bikini_front,
+    bikini_side, bikini_rear), plus the legacy base_image_url for backward
     compatibility.
-    
+
     Args:
         persona_id: The persona to retrieve the base image URLs for
         persona_service: Injected persona service
-        
+
     Returns:
         Dict with:
         - base_image_url: Legacy primary base image URL (or None)
         - base_images: Dict of all 4 base image URLs (face_shot, bikini_front, bikini_side, bikini_rear)
         - appearance_locked: bool
         - base_image_status: str
-        
+
     Raises:
         404: Persona not found
         500: Internal server error
     """
     try:
         from pathlib import Path
-        
+
         # Get the persona
         persona = await persona_service.get_persona(persona_id)
         if not persona:
@@ -2371,33 +2505,35 @@ async def get_base_image_url(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Persona {persona_id} not found",
             )
-        
+
         # Convert file paths to URL paths for all base images
         base_images_urls = {}
-        base_images = getattr(persona, 'base_images', None) or {}
-        
+        base_images = getattr(persona, "base_images", None) or {}
+
         for image_type, image_path in base_images.items():
             if image_path:
                 image_filename = Path(image_path).name
                 base_images_urls[image_type] = f"/base_images/{image_filename}"
-        
+
         # Legacy base_image_url for backward compatibility
         base_image_url = None
         if persona.base_image_path:
             image_filename = Path(persona.base_image_path).name
             base_image_url = f"/base_images/{image_filename}"
-        
+
         return {
             "base_image_url": base_image_url,
             "base_images": base_images_urls,
             "appearance_locked": bool(persona.appearance_locked),
             "base_image_status": str(persona.base_image_status),
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get base image URLs for persona {persona_id}: {str(e)}")
+        logger.error(
+            f"Failed to get base image URLs for persona {persona_id}: {str(e)}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get base image URLs: {str(e)}",
@@ -2453,14 +2589,14 @@ IMAGE_TRIGGER_PHRASES = [
 def _check_image_trigger(message: str, persona=None) -> dict:
     """
     Check if the message contains an image generation trigger phrase.
-    
+
     First checks persona-specific content_triggers if available, then falls back
     to the default IMAGE_TRIGGER_PHRASES list.
-    
+
     Args:
         message: The user message to check
         persona: Optional persona object with content_triggers configuration
-        
+
     Returns:
         dict: {
             'should_generate': bool - whether to generate an image,
@@ -2469,166 +2605,190 @@ def _check_image_trigger(message: str, persona=None) -> dict:
         }
     """
     message_lower = message.lower()
-    
+
     # First, check persona-specific content_triggers if available
-    if persona and hasattr(persona, 'content_triggers') and persona.content_triggers:
+    if persona and hasattr(persona, "content_triggers") and persona.content_triggers:
         content_triggers = persona.content_triggers
-        
+
         # Get triggers sorted by priority (highest first)
         trigger_items = []
         for trigger_id, trigger_config in content_triggers.items():
             # Skip internal config keys
-            if trigger_id.startswith('_'):
+            if trigger_id.startswith("_"):
                 continue
-            if isinstance(trigger_config, dict) and trigger_config.get('enabled', True):
-                priority = trigger_config.get('priority', 50)
+            if isinstance(trigger_config, dict) and trigger_config.get("enabled", True):
+                priority = trigger_config.get("priority", 50)
                 trigger_items.append((trigger_id, trigger_config, priority))
-        
+
         # Sort by priority (highest first)
         trigger_items.sort(key=lambda x: x[2], reverse=True)
-        
+
         for trigger_id, trigger_config, _ in trigger_items:
-            trigger_phrases = trigger_config.get('trigger_phrases', [])
+            trigger_phrases = trigger_config.get("trigger_phrases", [])
             for phrase in trigger_phrases:
                 if phrase.lower() in message_lower:
-                    logger.info(f"Matched persona trigger '{trigger_id}' with phrase: {phrase}")
+                    logger.info(
+                        f"Matched persona trigger '{trigger_id}' with phrase: {phrase}"
+                    )
                     return {
-                        'should_generate': True,
-                        'matched_trigger': trigger_config,
-                        'trigger_id': trigger_id,
-                        'trigger_phrase': phrase
+                        "should_generate": True,
+                        "matched_trigger": trigger_config,
+                        "trigger_id": trigger_id,
+                        "trigger_phrase": phrase,
                     }
-    
+
     # Fall back to default trigger phrases
     for trigger in IMAGE_TRIGGER_PHRASES:
         if trigger in message_lower:
             return {
-                'should_generate': True,
-                'matched_trigger': None,
-                'trigger_id': None,
-                'trigger_phrase': trigger
+                "should_generate": True,
+                "matched_trigger": None,
+                "trigger_id": None,
+                "trigger_phrase": trigger,
             }
-    
+
     return {
-        'should_generate': False,
-        'matched_trigger': None,
-        'trigger_id': None,
-        'trigger_phrase': None
+        "should_generate": False,
+        "matched_trigger": None,
+        "trigger_id": None,
+        "trigger_phrase": None,
     }
 
 
-def _build_generation_params_from_trigger(persona, matched_trigger: Optional[dict] = None) -> dict:
+def _build_generation_params_from_trigger(
+    persona, matched_trigger: Optional[dict] = None
+) -> dict:
     """
     Build image generation parameters from persona settings and matched trigger.
-    
+
     This function extracts and combines:
     - Persona's default model preferences (image_model_preference, nsfw_model_preference)
     - Persona's default resolution and quality settings
     - Persona's base images for consistency (seed images)
     - Trigger-specific overrides (model, LoRAs, weight overrides, prompts)
-    
+
     Args:
         persona: The persona object with preferences
         matched_trigger: Optional trigger config that was matched
-        
+
     Returns:
         dict: Generation parameters for image generation
     """
     params = {
-        'width': 1024,
-        'height': 1024,
-        'num_inference_steps': 30,
-        'guidance_scale': 7.5,
-        'negative_prompt': 'ugly, deformed, bad anatomy, blurry, low quality, distorted',
-        'image_model_pref': None,
-        'nsfw_model_pref': None,
-        'seed': None,
-        'reference_image_path': None,
-        'img2img_strength': 0.3,
+        "width": 1024,
+        "height": 1024,
+        "num_inference_steps": 30,
+        "guidance_scale": 7.5,
+        "negative_prompt": "ugly, deformed, bad anatomy, blurry, low quality, distorted",
+        "image_model_pref": None,
+        "nsfw_model_pref": None,
+        "seed": None,
+        "reference_image_path": None,
+        "img2img_strength": 0.3,
     }
-    
+
     # Extract resolution from persona's default_image_resolution
-    if hasattr(persona, 'default_image_resolution') and persona.default_image_resolution:
+    if (
+        hasattr(persona, "default_image_resolution")
+        and persona.default_image_resolution
+    ):
         try:
             resolution = persona.default_image_resolution
-            if 'x' in resolution:
-                w, h = resolution.lower().split('x')
-                params['width'] = int(w)
-                params['height'] = int(h)
+            if "x" in resolution:
+                w, h = resolution.lower().split("x")
+                params["width"] = int(w)
+                params["height"] = int(h)
         except (ValueError, AttributeError):
             pass
-    
+
     # Set model preferences from persona
-    if hasattr(persona, 'image_model_preference') and persona.image_model_preference:
-        params['image_model_pref'] = persona.image_model_preference
-        logger.info(f"Using persona's image_model_preference: {persona.image_model_preference}")
-    
-    if hasattr(persona, 'nsfw_model_preference') and persona.nsfw_model_preference:
-        params['nsfw_model_pref'] = persona.nsfw_model_preference
-        logger.info(f"Using persona's nsfw_model_preference: {persona.nsfw_model_preference}")
-    
+    if hasattr(persona, "image_model_preference") and persona.image_model_preference:
+        params["image_model_pref"] = persona.image_model_preference
+        logger.info(
+            f"Using persona's image_model_preference: {persona.image_model_preference}"
+        )
+
+    if hasattr(persona, "nsfw_model_preference") and persona.nsfw_model_preference:
+        params["nsfw_model_pref"] = persona.nsfw_model_preference
+        logger.info(
+            f"Using persona's nsfw_model_preference: {persona.nsfw_model_preference}"
+        )
+
     # Get default negative prompt from content_triggers config if available
-    if hasattr(persona, 'content_triggers') and persona.content_triggers:
-        config = persona.content_triggers.get('_config', {})
-        if config.get('default_negative_prompt'):
-            params['negative_prompt'] = config['default_negative_prompt']
-    
+    if hasattr(persona, "content_triggers") and persona.content_triggers:
+        config = persona.content_triggers.get("_config", {})
+        if config.get("default_negative_prompt"):
+            params["negative_prompt"] = config["default_negative_prompt"]
+
     # Check for base images (seed images) for consistency
     # Prefer front_headshot as the reference if available
-    if hasattr(persona, 'base_images') and persona.base_images:
+    if hasattr(persona, "base_images") and persona.base_images:
         base_images = persona.base_images
         # Use the appropriate base image based on trigger's view_type or default to front_headshot
-        view_type = 'front_headshot'
-        if matched_trigger and matched_trigger.get('view_type'):
-            view_type = matched_trigger['view_type']
-        
+        view_type = "front_headshot"
+        if matched_trigger and matched_trigger.get("view_type"):
+            view_type = matched_trigger["view_type"]
+
         if view_type in base_images and base_images[view_type]:
-            params['reference_image_path'] = base_images[view_type]
-            logger.info(f"Using base image for view_type '{view_type}' as reference for consistency")
-        elif 'front_headshot' in base_images and base_images['front_headshot']:
-            params['reference_image_path'] = base_images['front_headshot']
+            params["reference_image_path"] = base_images[view_type]
+            logger.info(
+                f"Using base image for view_type '{view_type}' as reference for consistency"
+            )
+        elif "front_headshot" in base_images and base_images["front_headshot"]:
+            params["reference_image_path"] = base_images["front_headshot"]
             logger.info("Using front_headshot base image as fallback reference")
-    
+
     # Legacy single base_image_path support
-    if not params['reference_image_path'] and hasattr(persona, 'base_image_path') and persona.base_image_path:
-        params['reference_image_path'] = persona.base_image_path
+    if (
+        not params["reference_image_path"]
+        and hasattr(persona, "base_image_path")
+        and persona.base_image_path
+    ):
+        params["reference_image_path"] = persona.base_image_path
         logger.info("Using legacy base_image_path as reference")
-    
+
     # Override with trigger-specific settings if available
     if matched_trigger:
         # Model override from trigger
-        if matched_trigger.get('model'):
-            params['image_model_pref'] = matched_trigger['model']
+        if matched_trigger.get("model"):
+            params["image_model_pref"] = matched_trigger["model"]
             logger.info(f"Trigger overrides model to: {matched_trigger['model']}")
-        
+
         # Negative prompt from trigger (append to default)
-        if matched_trigger.get('negative_prompt'):
-            params['negative_prompt'] = f"{params['negative_prompt']}, {matched_trigger['negative_prompt']}"
-        
+        if matched_trigger.get("negative_prompt"):
+            params["negative_prompt"] = (
+                f"{params['negative_prompt']}, {matched_trigger['negative_prompt']}"
+            )
+
         # Weight overrides from trigger
-        weight_overrides = matched_trigger.get('weight_overrides', {})
+        weight_overrides = matched_trigger.get("weight_overrides", {})
         if weight_overrides:
-            if weight_overrides.get('guidance_scale'):
-                params['guidance_scale'] = float(weight_overrides['guidance_scale'])
-            if weight_overrides.get('num_inference_steps'):
-                params['num_inference_steps'] = int(weight_overrides['num_inference_steps'])
-            if weight_overrides.get('strength'):
-                params['img2img_strength'] = float(weight_overrides['strength'])
-        
+            if weight_overrides.get("guidance_scale"):
+                params["guidance_scale"] = float(weight_overrides["guidance_scale"])
+            if weight_overrides.get("num_inference_steps"):
+                params["num_inference_steps"] = int(
+                    weight_overrides["num_inference_steps"]
+                )
+            if weight_overrides.get("strength"):
+                params["img2img_strength"] = float(weight_overrides["strength"])
+
         # TODO: Handle LoRAs - this requires changes to the AI model manager
         # For now, log the LoRA configuration for visibility
-        if matched_trigger.get('loras'):
-            loras = matched_trigger['loras']
-            logger.info(f"Trigger specifies {len(loras)} LoRAs: {[l.get('name') for l in loras]}")
+        if matched_trigger.get("loras"):
+            loras = matched_trigger["loras"]
+            logger.info(
+                f"Trigger specifies {len(loras)} LoRAs: {[l.get('name') for l in loras]}"
+            )
             # LoRA handling would need to be implemented in ai_models.py
             # For now, we pass the LoRA info to help with future implementation
-            params['loras'] = loras
-    
+            params["loras"] = loras
+
     return params
 
 
 class ConversationMessage(BaseModel):
     """A single message in the conversation history."""
+
     role: str = Field(..., description="'user' or 'persona'")
     content: str = Field(..., description="Message content")
     timestamp: Optional[str] = Field(None, description="Message timestamp")
@@ -2636,22 +2796,32 @@ class ConversationMessage(BaseModel):
 
 class PersonaChatRequest(BaseModel):
     """Request model for persona chat testing."""
-    message: str = Field(..., min_length=1, max_length=2000, description="User message to the persona")
+
+    message: str = Field(
+        ..., min_length=1, max_length=2000, description="User message to the persona"
+    )
     conversation_history: Optional[List[ConversationMessage]] = Field(
         default=None,
-        description="Previous conversation messages for context (up to 10 most recent)"
+        description="Previous conversation messages for context (up to 10 most recent)",
     )
 
 
 class PersonaChatResponse(BaseModel):
     """Response model for persona chat testing."""
+
     response: str = Field(..., description="Persona's response")
     persona_name: str = Field(..., description="Name of the persona responding")
     model_used: str = Field(..., description="AI model used for generation")
     timestamp: str = Field(..., description="Response timestamp")
-    image_generated: bool = Field(default=False, description="Whether an image was generated")
-    image_data: Optional[str] = Field(None, description="Base64-encoded image if generated")
-    image_prompt: Optional[str] = Field(None, description="The prompt used for image generation")
+    image_generated: bool = Field(
+        default=False, description="Whether an image was generated"
+    )
+    image_data: Optional[str] = Field(
+        None, description="Base64-encoded image if generated"
+    )
+    image_prompt: Optional[str] = Field(
+        None, description="The prompt used for image generation"
+    )
 
 
 @router.post("/{persona_id}/chat", response_model=PersonaChatResponse)
@@ -2662,28 +2832,29 @@ async def chat_with_persona(
 ):
     """
     Chat with a persona using the dolphin-mixtral model.
-    
+
     This endpoint allows testing persona consistency by chatting with
     the persona using its configured appearance, personality, and filters.
     Uses the dolphin-mixtral model (uncensored) for unrestricted responses.
-    
+
     Features:
     - Conversation history support for context-aware responses
     - Natural image generation triggers (e.g., "take a picture", "send me a selfie")
     - Persona-specific content triggers with LoRA and model routing
     - Responses filtered through humanizer service to remove AI artifacts
-    
+
     Args:
         persona_id: UUID of the persona to chat with
         chat_request: The user message and optional conversation history
         persona_service: Injected persona service
-        
+
     Returns:
         PersonaChatResponse: The persona's response, optionally with generated image
     """
     from datetime import datetime
+
     from backend.services.response_humanizer_service import get_humanizer_service
-    
+
     try:
         # Get the persona data
         persona = await persona_service.get_persona(str(persona_id))
@@ -2692,51 +2863,55 @@ async def chat_with_persona(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Persona {persona_id} not found",
             )
-        
+
         # Check if this message triggers image generation (now includes persona triggers)
         trigger_result = _check_image_trigger(chat_request.message, persona)
-        should_generate_image = trigger_result['should_generate']
-        matched_trigger = trigger_result.get('matched_trigger')
-        trigger_id = trigger_result.get('trigger_id')
-        
+        should_generate_image = trigger_result["should_generate"]
+        matched_trigger = trigger_result.get("matched_trigger")
+        trigger_id = trigger_result.get("trigger_id")
+
         # Get AI models manager
         from backend.services.ai_models import ai_models
-        
+
         # Check for Ollama models with dolphin-mixtral preference
         text_models = ai_models.available_models.get("text", [])
-        ollama_models = [m for m in text_models if m.get("inference_engine") == "ollama" and m.get("loaded")]
-        
+        ollama_models = [
+            m
+            for m in text_models
+            if m.get("inference_engine") == "ollama" and m.get("loaded")
+        ]
+
         # Prefer dolphin-mixtral for unrestricted persona testing
         selected_model = None
         model_name = "fallback"
-        
+
         for model in ollama_models:
             if "dolphin" in model.get("name", "").lower():
                 selected_model = model
                 model_name = model.get("name", "dolphin-mixtral")
                 break
-        
+
         # Fall back to any available Ollama model if dolphin not found
         if not selected_model and ollama_models:
             selected_model = ollama_models[0]
             model_name = selected_model.get("name", "ollama")
-        
+
         # Fall back to any loaded text model
         if not selected_model:
             loaded_models = [m for m in text_models if m.get("loaded")]
             if loaded_models:
                 selected_model = loaded_models[0]
                 model_name = selected_model.get("name", "unknown")
-        
+
         if not selected_model:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="No text generation models available. Please install dolphin-mixtral via Ollama.",
             )
-        
+
         # Build persona system prompt
         system_prompt = _build_persona_chat_prompt(persona)
-        
+
         # Build conversation context from history (last 10 messages max)
         conversation_context = ""
         if chat_request.conversation_history:
@@ -2749,91 +2924,107 @@ async def chat_with_persona(
                 else:
                     history_lines.append(f"{persona.name}: {msg.content}")
             if history_lines:
-                conversation_context = "\n# RECENT CONVERSATION\n" + "\n".join(history_lines) + "\n"
-        
+                conversation_context = (
+                    "\n# RECENT CONVERSATION\n" + "\n".join(history_lines) + "\n"
+                )
+
         # Generate response using AI models
         full_prompt = f"{system_prompt}{conversation_context}\n\nUser: {chat_request.message}\n{persona.name}:"
-        
+
         try:
             response_text = await ai_models.generate_text(
                 full_prompt,
                 max_tokens=500,
                 temperature=0.8,
-                inference_engine="ollama" if "ollama" in str(selected_model.get("inference_engine", "")).lower() else None,
+                inference_engine=(
+                    "ollama"
+                    if "ollama"
+                    in str(selected_model.get("inference_engine", "")).lower()
+                    else None
+                ),
             )
-            
+
             # Clean up response (remove any leading/trailing whitespace or duplicate name)
             response_text = response_text.strip()
             if response_text.startswith(f"{persona.name}:"):
-                response_text = response_text[len(f"{persona.name}:"):].strip()
-            
+                response_text = response_text[len(f"{persona.name}:") :].strip()
+
             # CRITICAL: Apply humanizer to remove any AI artifacts from the response
             # This filters out phrases like "as an AI", "I'm here to help", etc.
             humanizer = get_humanizer_service()
             response_text = humanizer.humanize_response(response_text, persona)
-                
+
         except Exception as e:
             logger.error(f"AI generation failed: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"AI generation failed: {str(e)}",
             )
-        
+
         # Handle image generation if triggered
         image_data = None
         image_prompt = None
-        
+
         if should_generate_image:
             ai_manager = None
             try:
-                logger.info(f"Image trigger detected in chat for persona {persona.name}")
+                logger.info(
+                    f"Image trigger detected in chat for persona {persona.name}"
+                )
                 if matched_trigger:
-                    logger.info(f"Using persona trigger '{trigger_id}' with config: model={matched_trigger.get('model')}, loras={len(matched_trigger.get('loras', []))}")
-                
+                    logger.info(
+                        f"Using persona trigger '{trigger_id}' with config: model={matched_trigger.get('model')}, loras={len(matched_trigger.get('loras', []))}"
+                    )
+
                 # Get generation parameters from matched trigger or persona defaults
-                gen_params = _build_generation_params_from_trigger(persona, matched_trigger)
-                
+                gen_params = _build_generation_params_from_trigger(
+                    persona, matched_trigger
+                )
+
                 # Build custom prompt additions from trigger if available
                 custom_prompt_addition = ""
-                if matched_trigger and matched_trigger.get('positive_prompt'):
-                    custom_prompt_addition = matched_trigger['positive_prompt']
-                
+                if matched_trigger and matched_trigger.get("positive_prompt"):
+                    custom_prompt_addition = matched_trigger["positive_prompt"]
+
                 # Generate image prompt based on persona and chat context
                 image_prompt = await _generate_image_prompt_with_ollama(
                     persona=persona,
                     chat_message=chat_request.message,
                     custom_prompt=custom_prompt_addition,
-                    include_nsfw=(persona.default_content_rating or "sfw").lower() != "sfw",
+                    include_nsfw=(persona.default_content_rating or "sfw").lower()
+                    != "sfw",
                 )
-                
+
                 # Generate the image
                 ai_manager = AIModelManager()
                 await ai_manager.initialize_models()
-                
+
                 # Check for available image models
                 image_models = ai_manager.available_models.get("image", [])
                 loaded_image_models = [m for m in image_models if m.get("loaded")]
-                
+
                 if loaded_image_models:
                     result = await ai_manager.generate_image(
                         prompt=image_prompt,
-                        width=gen_params.get('width', 1024),
-                        height=gen_params.get('height', 1024),
-                        num_inference_steps=gen_params.get('num_inference_steps', 30),
-                        guidance_scale=gen_params.get('guidance_scale', 7.5),
-                        negative_prompt=gen_params.get('negative_prompt'),
-                        image_model_pref=gen_params.get('image_model_pref'),
-                        nsfw_model_pref=gen_params.get('nsfw_model_pref'),
-                        seed=gen_params.get('seed'),
+                        width=gen_params.get("width", 1024),
+                        height=gen_params.get("height", 1024),
+                        num_inference_steps=gen_params.get("num_inference_steps", 30),
+                        guidance_scale=gen_params.get("guidance_scale", 7.5),
+                        negative_prompt=gen_params.get("negative_prompt"),
+                        image_model_pref=gen_params.get("image_model_pref"),
+                        nsfw_model_pref=gen_params.get("nsfw_model_pref"),
+                        seed=gen_params.get("seed"),
                         # Pass base image for img2img consistency if available and trigger specifies view_type
-                        reference_image_path=gen_params.get('reference_image_path'),
-                        img2img_strength=gen_params.get('img2img_strength', 0.3),
+                        reference_image_path=gen_params.get("reference_image_path"),
+                        img2img_strength=gen_params.get("img2img_strength", 0.3),
                     )
-                    
+
                     if result and result.get("image_data"):
                         image_data = f"data:image/png;base64,{base64.b64encode(result['image_data']).decode('utf-8')}"
-                        logger.info(f"Generated image for chat trigger using model preference: {gen_params.get('image_model_pref', 'default')}")
-                
+                        logger.info(
+                            f"Generated image for chat trigger using model preference: {gen_params.get('image_model_pref', 'default')}"
+                        )
+
             except Exception as img_error:
                 logger.warning(f"Failed to generate image for chat: {img_error}")
                 # Don't fail the chat - just skip image generation
@@ -2844,7 +3035,7 @@ async def chat_with_persona(
                         await ai_manager.close()
                     except Exception:
                         pass
-        
+
         return PersonaChatResponse(
             response=response_text,
             persona_name=persona.name,
@@ -2854,7 +3045,7 @@ async def chat_with_persona(
             image_data=image_data,
             image_prompt=image_prompt,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2868,25 +3059,29 @@ async def chat_with_persona(
 def _build_persona_chat_prompt(persona) -> str:
     """
     Build a system prompt for persona chat based on persona configuration.
-    
+
     Creates a prompt that ensures the persona responds as a real person,
     never acknowledging being an AI, bot, or assistant.
-    
+
     Args:
         persona: The persona object with appearance, personality, etc.
-        
+
     Returns:
         str: The system prompt for the AI model
     """
     # Get content themes as a string
-    themes = ", ".join(persona.content_themes) if persona.content_themes else "general topics"
-    
+    themes = (
+        ", ".join(persona.content_themes)
+        if persona.content_themes
+        else "general topics"
+    )
+
     # Get style preferences as a string
     style_info = ""
     if persona.style_preferences:
         style_parts = [f"{k}: {v}" for k, v in persona.style_preferences.items()]
         style_info = f"\nStyle: {', '.join(style_parts)}"
-    
+
     # Get soul fields for richer persona voice
     soul_context = ""
     if persona.hometown:
@@ -2902,24 +3097,28 @@ def _build_persona_chat_prompt(persona) -> str:
             "cold": "Keep responses brief and direct.",
             "neutral": "Be friendly but not overly warm.",
             "warm": "Be genuinely friendly and engaging.",
-            "buddy": "Talk like they're your best friend."
+            "buddy": "Talk like they're your best friend.",
         }
         soul_context += f"\nWarmth: {warmth_desc.get(persona.warmth_level, 'Normal')}"
-    
+
     # Get forbidden phrases
     forbidden_list = ""
     if persona.forbidden_phrases:
-        forbidden_list = "\nNEVER say these phrases: " + ", ".join([f'"{p}"' for p in persona.forbidden_phrases[:5]])
-    
+        forbidden_list = "\nNEVER say these phrases: " + ", ".join(
+            [f'"{p}"' for p in persona.forbidden_phrases[:5]]
+        )
+
     # Get signature phrases
     signature_list = ""
     if persona.signature_phrases:
-        signature_list = "\nYou often say things like: " + ", ".join([f'"{p}"' for p in persona.signature_phrases[:5]])
-    
+        signature_list = "\nYou often say things like: " + ", ".join(
+            [f'"{p}"' for p in persona.signature_phrases[:5]]
+        )
+
     # Determine if this is an NSFW/adult persona
     content_rating = (persona.default_content_rating or "sfw").lower()
     is_nsfw = content_rating in ["nsfw", "explicit", "adult", "moderate"]
-    
+
     # Build content guidance based on rating
     content_guidance = ""
     if is_nsfw:
@@ -2961,36 +3160,42 @@ Keep conversations appropriate for general audiences.
 8. Match the user's energy and tone{forbidden_list}
 
 Now respond naturally as {persona.name}:"""
-    
+
     return prompt
 
 
 # Pydantic models for chat image generation
 class ChatImageRequest(BaseModel):
     """Request model for generating images from chat context."""
-    
+
     message: str = Field(
         default="",
         max_length=2000,
-        description="Optional chat message to incorporate into the image context"
+        description="Optional chat message to incorporate into the image context",
     )
     custom_prompt: str = Field(
         default="",
         max_length=1000,
-        description="Optional custom prompt to add to the generated image prompt"
+        description="Optional custom prompt to add to the generated image prompt",
     )
     include_nsfw: bool = Field(
         default=True,
-        description="Whether to allow NSFW content based on persona settings"
+        description="Whether to allow NSFW content based on persona settings",
     )
 
 
 class ChatImageResponse(BaseModel):
     """Response model for chat-generated images."""
-    
-    image_data: str = Field(..., description="Base64-encoded image data with data URL prefix")
-    image_prompt: str = Field(..., description="The AI-generated prompt used for image creation")
-    persona_name: str = Field(..., description="Name of the persona the image is based on")
+
+    image_data: str = Field(
+        ..., description="Base64-encoded image data with data URL prefix"
+    )
+    image_prompt: str = Field(
+        ..., description="The AI-generated prompt used for image creation"
+    )
+    persona_name: str = Field(
+        ..., description="Name of the persona the image is based on"
+    )
     model_used: str = Field(..., description="Image generation model used")
     timestamp: str = Field(..., description="Generation timestamp")
     width: int = Field(default=1024, description="Image width")
@@ -3005,19 +3210,19 @@ async def _generate_image_prompt_with_ollama(
 ) -> str:
     """
     Use Ollama to generate an image prompt based on persona and chat context.
-    
+
     This creates a detailed, contextual image prompt that incorporates:
     - The persona's appearance and personality
     - The current chat context/message
     - Any custom prompt additions
     - NSFW elements if enabled and appropriate for persona
-    
+
     Args:
         persona: The persona model with appearance and personality
         chat_message: Current chat message for context
         custom_prompt: Optional custom additions to the prompt
         include_nsfw: Whether to include NSFW elements
-        
+
     Returns:
         str: A detailed image generation prompt
     """
@@ -3027,21 +3232,23 @@ async def _generate_image_prompt_with_ollama(
             response = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
             if response.status_code != 200:
                 logger.warning("Ollama not available, using fallback prompt generation")
-                return _generate_fallback_image_prompt(persona, chat_message, custom_prompt, include_nsfw)
-            
+                return _generate_fallback_image_prompt(
+                    persona, chat_message, custom_prompt, include_nsfw
+                )
+
             data = response.json()
             available_models = [m["name"] for m in data.get("models", [])]
-            
+
             # Prefer uncensored models for NSFW content
             preferred_models = [
                 "dolphin-mixtral",
-                "dolphin-mixtral:8x7b", 
+                "dolphin-mixtral:8x7b",
                 "dolphin-mistral",
                 "llama3.1:8b",
                 "llama3:8b",
                 "mistral",
             ]
-            
+
             model_to_use = None
             for preferred in preferred_models:
                 for available in available_models:
@@ -3050,22 +3257,26 @@ async def _generate_image_prompt_with_ollama(
                         break
                 if model_to_use:
                     break
-            
+
             if not model_to_use and available_models:
                 model_to_use = available_models[0]
-            
+
             if not model_to_use:
                 logger.warning("No Ollama models available, using fallback")
-                return _generate_fallback_image_prompt(persona, chat_message, custom_prompt, include_nsfw)
-                
+                return _generate_fallback_image_prompt(
+                    persona, chat_message, custom_prompt, include_nsfw
+                )
+
     except httpx.RequestError:
         logger.warning("Cannot connect to Ollama, using fallback prompt generation")
-        return _generate_fallback_image_prompt(persona, chat_message, custom_prompt, include_nsfw)
-    
+        return _generate_fallback_image_prompt(
+            persona, chat_message, custom_prompt, include_nsfw
+        )
+
     # Determine content rating context
     content_rating = persona.default_content_rating or "sfw"
     is_nsfw = include_nsfw and content_rating.lower() in ["nsfw", "explicit", "adult"]
-    
+
     # Build the prompt generation instruction
     nsfw_guidance = ""
     if is_nsfw:
@@ -3121,30 +3332,41 @@ Image prompt:"""
                         "temperature": 0.8,
                         "top_p": 0.9,
                         "num_predict": 300,
-                    }
-                }
+                    },
+                },
             )
-            
+
             if response.status_code != 200:
                 logger.warning(f"Ollama generation failed: {response.status_code}")
-                return _generate_fallback_image_prompt(persona, chat_message, custom_prompt, include_nsfw)
-            
+                return _generate_fallback_image_prompt(
+                    persona, chat_message, custom_prompt, include_nsfw
+                )
+
             output = response.json().get("response", "").strip()
-            
+
             # Clean up the output (remove any meta-text)
             if output:
                 # Remove common prefixes that might appear
-                for prefix in ["Image prompt:", "Prompt:", "Here is the prompt:", "Here's the image prompt:"]:
+                for prefix in [
+                    "Image prompt:",
+                    "Prompt:",
+                    "Here is the prompt:",
+                    "Here's the image prompt:",
+                ]:
                     if output.lower().startswith(prefix.lower()):
-                        output = output[len(prefix):].strip()
-                
-                logger.info(f"Generated image prompt with Ollama ({model_to_use}): {output[:100]}...")
+                        output = output[len(prefix) :].strip()
+
+                logger.info(
+                    f"Generated image prompt with Ollama ({model_to_use}): {output[:100]}..."
+                )
                 return output
-            
+
     except Exception as e:
         logger.error(f"Ollama image prompt generation failed: {e}")
-    
-    return _generate_fallback_image_prompt(persona, chat_message, custom_prompt, include_nsfw)
+
+    return _generate_fallback_image_prompt(
+        persona, chat_message, custom_prompt, include_nsfw
+    )
 
 
 def _generate_fallback_image_prompt(
@@ -3155,17 +3377,17 @@ def _generate_fallback_image_prompt(
 ) -> str:
     """
     Generate a fallback image prompt without Ollama.
-    
+
     This creates a basic but functional prompt using the persona's attributes.
     """
     parts = []
-    
+
     # Base description from appearance
     if persona.appearance:
         parts.append(persona.appearance)
     else:
         parts.append(f"Portrait of {persona.name}")
-    
+
     # Add personality-influenced elements
     if persona.personality:
         # Extract key personality traits
@@ -3180,23 +3402,23 @@ def _generate_fallback_image_prompt(
             parts.append("enigmatic expression, dramatic lighting")
         if "sensual" in personality_lower or "seductive" in personality_lower:
             parts.append("alluring pose, intimate atmosphere")
-    
+
     # Add chat context
     if chat_message:
         parts.append(f"themed around: {chat_message[:100]}")
-    
+
     # Add custom prompt
     if custom_prompt:
         parts.append(custom_prompt)
-    
+
     # Add quality modifiers
     parts.append("highly detailed, professional photography, studio lighting")
-    
+
     # Add NSFW elements if appropriate
     content_rating = persona.default_content_rating or "sfw"
     if include_nsfw and content_rating.lower() in ["nsfw", "explicit", "adult"]:
         parts.append("artistic nude, sensual, intimate setting")
-    
+
     return ", ".join(parts)
 
 
@@ -3208,27 +3430,27 @@ async def generate_chat_image(
 ):
     """
     Generate an image from chat context for a specific persona.
-    
+
     This endpoint uses Ollama to create an intelligent image prompt based on:
     - The persona's appearance and personality
     - The current chat message or theme
     - Any custom prompt additions
     - NSFW settings if enabled for the persona
-    
+
     The generated image can be displayed directly in the chat interface.
-    
+
     This is a PRIVATE SERVER - NSFW content is fully supported when:
     - The persona's content_rating allows it
     - The include_nsfw parameter is True
-    
+
     Args:
         persona_id: UUID of the persona
         request: Chat image request with optional message and custom prompt
         persona_service: Injected persona service
-        
+
     Returns:
         ChatImageResponse: Generated image with base64 data and metadata
-        
+
     Raises:
         404: Persona not found
         503: No image generation models available
@@ -3242,9 +3464,9 @@ async def generate_chat_image(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Persona {persona_id} not found",
             )
-        
+
         logger.info(f"Generating chat image for persona {persona.name}")
-        
+
         # Generate image prompt using Ollama
         image_prompt = await _generate_image_prompt_with_ollama(
             persona=persona,
@@ -3252,35 +3474,38 @@ async def generate_chat_image(
             custom_prompt=request.custom_prompt,
             include_nsfw=request.include_nsfw,
         )
-        
+
         logger.info(f"Image prompt generated: {image_prompt[:100]}...")
-        
+
         # Initialize AI model manager and generate image
         ai_manager = AIModelManager()
         await ai_manager.initialize_models()
-        
+
         # Check for available image models
         image_models = ai_manager.available_models.get("image", [])
         loaded_models = [m for m in image_models if m.get("loaded")]
-        
+
         if not loaded_models:
             await ai_manager.close()
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="No image generation models available. Please install Stable Diffusion XL or configure image models.",
             )
-        
+
         # Select model (prefer local SDXL)
         selected_model = None
         model_name = "unknown"
-        
+
         # Prefer local models with SDXL
         for model in loaded_models:
-            if model.get("provider") == "local" and "xl" in model.get("name", "").lower():
+            if (
+                model.get("provider") == "local"
+                and "xl" in model.get("name", "").lower()
+            ):
                 selected_model = model
                 model_name = model.get("name", "sdxl")
                 break
-        
+
         # Fall back to any local model
         if not selected_model:
             for model in loaded_models:
@@ -3288,14 +3513,14 @@ async def generate_chat_image(
                     selected_model = model
                     model_name = model.get("name", "local")
                     break
-        
+
         # Fall back to any available model
         if not selected_model:
             selected_model = loaded_models[0]
             model_name = selected_model.get("name", "unknown")
-        
+
         logger.info(f"Using image model: {model_name}")
-        
+
         # Generate the image
         try:
             result = await ai_manager.generate_image(
@@ -3305,21 +3530,21 @@ async def generate_chat_image(
                 num_inference_steps=30,
                 guidance_scale=7.5,
             )
-            
+
             if not result or not result.get("image_data"):
                 await ai_manager.close()
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Image generation failed - no image data returned",
                 )
-            
+
             # Convert to base64 data URL
             image_data = result["image_data"]
             base64_image = base64.b64encode(image_data).decode("utf-8")
             data_url = f"data:image/png;base64,{base64_image}"
-            
+
             await ai_manager.close()
-            
+
             return ChatImageResponse(
                 image_data=data_url,
                 image_prompt=image_prompt,
@@ -3329,7 +3554,7 @@ async def generate_chat_image(
                 width=result.get("width", 1024),
                 height=result.get("height", 1024),
             )
-            
+
         except Exception as gen_error:
             await ai_manager.close()
             logger.error(f"Image generation failed: {gen_error}")
@@ -3337,7 +3562,7 @@ async def generate_chat_image(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Image generation failed: {str(gen_error)}",
             )
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -3353,20 +3578,37 @@ async def generate_chat_image(
 
 class PersonaTemplateExport(BaseModel):
     """Model for persona template export data."""
+
     version: str = Field(default="1.0", description="Template format version")
     exported_at: str = Field(..., description="ISO timestamp of export")
     persona_name: str = Field(..., description="Name of the source persona")
-    content_triggers: Dict[str, Any] = Field(default={}, description="Content triggers configuration")
-    model_preferences: Dict[str, Optional[str]] = Field(default={}, description="Model preferences")
-    generation_settings: Dict[str, Any] = Field(default={}, description="Default generation settings")
+    content_triggers: Dict[str, Any] = Field(
+        default={}, description="Content triggers configuration"
+    )
+    model_preferences: Dict[str, Optional[str]] = Field(
+        default={}, description="Model preferences"
+    )
+    generation_settings: Dict[str, Any] = Field(
+        default={}, description="Default generation settings"
+    )
 
 
 class PersonaTemplateImport(BaseModel):
     """Model for importing persona template data."""
-    content_triggers: Optional[Dict[str, Any]] = Field(None, description="Content triggers to import")
-    model_preferences: Optional[Dict[str, Optional[str]]] = Field(None, description="Model preferences to import")
-    generation_settings: Optional[Dict[str, Any]] = Field(None, description="Generation settings to import")
-    merge_triggers: bool = Field(default=False, description="If true, merge with existing triggers instead of replacing")
+
+    content_triggers: Optional[Dict[str, Any]] = Field(
+        None, description="Content triggers to import"
+    )
+    model_preferences: Optional[Dict[str, Optional[str]]] = Field(
+        None, description="Model preferences to import"
+    )
+    generation_settings: Optional[Dict[str, Any]] = Field(
+        None, description="Generation settings to import"
+    )
+    merge_triggers: bool = Field(
+        default=False,
+        description="If true, merge with existing triggers instead of replacing",
+    )
 
 
 @router.get("/{persona_id}/template/export", response_model=PersonaTemplateExport)
@@ -3376,20 +3618,20 @@ async def export_persona_template(
 ):
     """
     Export persona's content triggers and model preferences as a template.
-    
+
     This allows users to save their trigger configurations, model preferences,
     and LoRA setups as reusable templates that can be imported into other personas
     or shared with others.
-    
+
     The export includes:
     - Content triggers (trigger phrases, models, LoRAs, prompts, weight overrides)
     - Model preferences (text, image, video, voice, NSFW models)
     - Default generation settings (resolution, quality, style)
-    
+
     Args:
         persona_id: UUID of the persona to export from
         persona_service: Injected persona service
-        
+
     Returns:
         PersonaTemplateExport: Exportable template data
     """
@@ -3400,9 +3642,9 @@ async def export_persona_template(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Persona {persona_id} not found",
             )
-        
+
         from datetime import datetime
-        
+
         # Build the export template
         template = PersonaTemplateExport(
             version="1.0",
@@ -3410,24 +3652,40 @@ async def export_persona_template(
             persona_name=persona.name,
             content_triggers=persona.content_triggers or {},
             model_preferences={
-                "text_model_preference": getattr(persona, 'text_model_preference', None),
-                "image_model_preference": getattr(persona, 'image_model_preference', None),
-                "video_model_preference": getattr(persona, 'video_model_preference', None),
-                "voice_model_preference": getattr(persona, 'voice_model_preference', None),
-                "nsfw_model_preference": getattr(persona, 'nsfw_model_preference', None),
+                "text_model_preference": getattr(
+                    persona, "text_model_preference", None
+                ),
+                "image_model_preference": getattr(
+                    persona, "image_model_preference", None
+                ),
+                "video_model_preference": getattr(
+                    persona, "video_model_preference", None
+                ),
+                "voice_model_preference": getattr(
+                    persona, "voice_model_preference", None
+                ),
+                "nsfw_model_preference": getattr(
+                    persona, "nsfw_model_preference", None
+                ),
             },
             generation_settings={
-                "default_image_resolution": getattr(persona, 'default_image_resolution', '1024x1024'),
-                "default_video_resolution": getattr(persona, 'default_video_resolution', '1920x1080'),
-                "generation_quality": getattr(persona, 'generation_quality', 'standard'),
-                "image_style": getattr(persona, 'image_style', 'photorealistic'),
-                "post_style": getattr(persona, 'post_style', 'casual'),
-            }
+                "default_image_resolution": getattr(
+                    persona, "default_image_resolution", "1024x1024"
+                ),
+                "default_video_resolution": getattr(
+                    persona, "default_video_resolution", "1920x1080"
+                ),
+                "generation_quality": getattr(
+                    persona, "generation_quality", "standard"
+                ),
+                "image_style": getattr(persona, "image_style", "photorealistic"),
+                "post_style": getattr(persona, "post_style", "casual"),
+            },
         )
-        
+
         logger.info(f"Exported template from persona {persona.name} ({persona_id})")
         return template
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -3446,19 +3704,19 @@ async def import_persona_template(
 ):
     """
     Import content triggers and model preferences into a persona.
-    
+
     This allows users to apply saved templates or configurations from other
     personas to quickly set up new personas with proven trigger/model setups.
-    
+
     Options:
     - merge_triggers: If true, existing triggers are preserved and new ones added.
                      If false (default), triggers are replaced entirely.
-    
+
     Args:
         persona_id: UUID of the persona to import into
         template: The template data to import
         persona_service: Injected persona service
-        
+
     Returns:
         dict: Success status and updated counts
     """
@@ -3469,9 +3727,9 @@ async def import_persona_template(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Persona {persona_id} not found",
             )
-        
+
         update_data = {}
-        
+
         # Import content triggers
         if template.content_triggers is not None:
             if template.merge_triggers and persona.content_triggers:
@@ -3479,36 +3737,45 @@ async def import_persona_template(
                 merged_triggers = dict(persona.content_triggers)
                 for trigger_id, trigger_config in template.content_triggers.items():
                     merged_triggers[trigger_id] = trigger_config
-                update_data['content_triggers'] = merged_triggers
+                update_data["content_triggers"] = merged_triggers
             else:
                 # Replace: use the imported triggers entirely
-                update_data['content_triggers'] = template.content_triggers
-        
+                update_data["content_triggers"] = template.content_triggers
+
         # Import model preferences
         if template.model_preferences is not None:
             for key, value in template.model_preferences.items():
                 if value is not None:  # Only import non-null values
                     update_data[key] = value
-        
+
         # Import generation settings
         if template.generation_settings is not None:
             for key, value in template.generation_settings.items():
                 if value is not None:
                     update_data[key] = value
-        
+
         # Apply the updates
         if update_data:
             from backend.models.persona import PersonaUpdate
+
             persona_update = PersonaUpdate(**update_data)
             await persona_service.update_persona(str(persona_id), persona_update)
-        
+
         # Count what was imported
-        triggers_imported = len(template.content_triggers) if template.content_triggers else 0
-        model_prefs_imported = len([v for v in (template.model_preferences or {}).values() if v is not None])
-        settings_imported = len([v for v in (template.generation_settings or {}).values() if v is not None])
-        
-        logger.info(f"Imported template into persona {persona.name}: {triggers_imported} triggers, {model_prefs_imported} model prefs, {settings_imported} settings")
-        
+        triggers_imported = (
+            len(template.content_triggers) if template.content_triggers else 0
+        )
+        model_prefs_imported = len(
+            [v for v in (template.model_preferences or {}).values() if v is not None]
+        )
+        settings_imported = len(
+            [v for v in (template.generation_settings or {}).values() if v is not None]
+        )
+
+        logger.info(
+            f"Imported template into persona {persona.name}: {triggers_imported} triggers, {model_prefs_imported} model prefs, {settings_imported} settings"
+        )
+
         return {
             "success": True,
             "message": "Template imported successfully",
@@ -3517,9 +3784,9 @@ async def import_persona_template(
                 "model_preferences": model_prefs_imported,
                 "generation_settings": settings_imported,
                 "merge_mode": template.merge_triggers,
-            }
+            },
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:

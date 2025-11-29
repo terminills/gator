@@ -5,20 +5,21 @@ Manages system settings stored in the database.
 Provides CRUD operations for configuration values.
 """
 
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 from uuid import UUID
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
-from sqlalchemy.exc import IntegrityError
 
-from backend.models.settings import (
-    SystemSettingModel,
-    SettingCreate,
-    SettingUpdate,
-    SettingResponse,
-    SettingCategory,
-)
+from sqlalchemy import delete, select, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.config.logging import get_logger
+from backend.models.settings import (
+    SettingCategory,
+    SettingCreate,
+    SettingResponse,
+    SettingUpdate,
+    SystemSettingModel,
+)
 
 logger = get_logger(__name__)
 
@@ -47,8 +48,7 @@ class SettingsService:
         """
         try:
             stmt = select(SystemSettingModel).where(
-                SystemSettingModel.key == key,
-                SystemSettingModel.is_active == True
+                SystemSettingModel.key == key, SystemSettingModel.is_active == True
             )
             result = await self.db.execute(stmt)
             setting = result.scalar_one_or_none()
@@ -86,27 +86,33 @@ class SettingsService:
             List of settings
         """
         try:
-            stmt = select(SystemSettingModel).where(
-                SystemSettingModel.category == category.value,
-                SystemSettingModel.is_active == True
-            ).order_by(SystemSettingModel.key)
+            stmt = (
+                select(SystemSettingModel)
+                .where(
+                    SystemSettingModel.category == category.value,
+                    SystemSettingModel.is_active == True,
+                )
+                .order_by(SystemSettingModel.key)
+            )
 
             result = await self.db.execute(stmt)
             settings = result.scalars().all()
 
             # Convert UUID to string for Pydantic validation
             return [
-                SettingResponse.model_validate({
-                    "id": str(s.id),
-                    "key": s.key,
-                    "category": s.category,
-                    "value": s.value,
-                    "description": s.description,
-                    "is_sensitive": s.is_sensitive,
-                    "is_active": s.is_active,
-                    "created_at": s.created_at,
-                    "updated_at": s.updated_at,
-                })
+                SettingResponse.model_validate(
+                    {
+                        "id": str(s.id),
+                        "key": s.key,
+                        "category": s.category,
+                        "value": s.value,
+                        "description": s.description,
+                        "is_sensitive": s.is_sensitive,
+                        "is_active": s.is_active,
+                        "created_at": s.created_at,
+                        "updated_at": s.updated_at,
+                    }
+                )
                 for s in settings
             ]
 
@@ -122,26 +128,30 @@ class SettingsService:
             List of all settings
         """
         try:
-            stmt = select(SystemSettingModel).where(
-                SystemSettingModel.is_active == True
-            ).order_by(SystemSettingModel.category, SystemSettingModel.key)
+            stmt = (
+                select(SystemSettingModel)
+                .where(SystemSettingModel.is_active == True)
+                .order_by(SystemSettingModel.category, SystemSettingModel.key)
+            )
 
             result = await self.db.execute(stmt)
             settings = result.scalars().all()
 
             # Convert UUID to string for Pydantic validation
             return [
-                SettingResponse.model_validate({
-                    "id": str(s.id),
-                    "key": s.key,
-                    "category": s.category,
-                    "value": s.value,
-                    "description": s.description,
-                    "is_sensitive": s.is_sensitive,
-                    "is_active": s.is_active,
-                    "created_at": s.created_at,
-                    "updated_at": s.updated_at,
-                })
+                SettingResponse.model_validate(
+                    {
+                        "id": str(s.id),
+                        "key": s.key,
+                        "category": s.category,
+                        "value": s.value,
+                        "description": s.description,
+                        "is_sensitive": s.is_sensitive,
+                        "is_active": s.is_active,
+                        "created_at": s.created_at,
+                        "updated_at": s.updated_at,
+                    }
+                )
                 for s in settings
             ]
 
@@ -149,7 +159,9 @@ class SettingsService:
             logger.error(f"Error listing all settings: {e}")
             return []
 
-    async def create_setting(self, setting_data: SettingCreate) -> Optional[SettingResponse]:
+    async def create_setting(
+        self, setting_data: SettingCreate
+    ) -> Optional[SettingResponse]:
         """
         Create a new setting.
 
@@ -174,17 +186,19 @@ class SettingsService:
 
             logger.info(f"Created setting: {setting_data.key}")
             # Convert UUID to string for Pydantic validation
-            return SettingResponse.model_validate({
-                "id": str(db_setting.id),
-                "key": db_setting.key,
-                "category": db_setting.category,
-                "value": db_setting.value,
-                "description": db_setting.description,
-                "is_sensitive": db_setting.is_sensitive,
-                "is_active": db_setting.is_active,
-                "created_at": db_setting.created_at,
-                "updated_at": db_setting.updated_at,
-            })
+            return SettingResponse.model_validate(
+                {
+                    "id": str(db_setting.id),
+                    "key": db_setting.key,
+                    "category": db_setting.category,
+                    "value": db_setting.value,
+                    "description": db_setting.description,
+                    "is_sensitive": db_setting.is_sensitive,
+                    "is_active": db_setting.is_active,
+                    "created_at": db_setting.created_at,
+                    "updated_at": db_setting.updated_at,
+                }
+            )
 
         except IntegrityError:
             await self.db.rollback()
@@ -236,17 +250,19 @@ class SettingsService:
             if updated_setting:
                 logger.info(f"Updated setting: {key}")
                 # Convert UUID to string for Pydantic validation
-                return SettingResponse.model_validate({
-                    "id": str(updated_setting.id),
-                    "key": updated_setting.key,
-                    "category": updated_setting.category,
-                    "value": updated_setting.value,
-                    "description": updated_setting.description,
-                    "is_sensitive": updated_setting.is_sensitive,
-                    "is_active": updated_setting.is_active,
-                    "created_at": updated_setting.created_at,
-                    "updated_at": updated_setting.updated_at,
-                })
+                return SettingResponse.model_validate(
+                    {
+                        "id": str(updated_setting.id),
+                        "key": updated_setting.key,
+                        "category": updated_setting.category,
+                        "value": updated_setting.value,
+                        "description": updated_setting.description,
+                        "is_sensitive": updated_setting.is_sensitive,
+                        "is_active": updated_setting.is_active,
+                        "created_at": updated_setting.created_at,
+                        "updated_at": updated_setting.updated_at,
+                    }
+                )
 
             return None
 
@@ -316,22 +332,22 @@ class SettingsService:
 async def get_db_setting(key: str) -> Optional[Any]:
     """
     Get a setting value from the database.
-    
+
     This is a convenience function that can be used outside of FastAPI
     dependency injection context (e.g., in services or utility functions).
     It creates its own database session for each call.
-    
+
     Note: For code that has access to a database session (e.g., route handlers),
     prefer using SettingsService directly for better efficiency.
-    
+
     Args:
         key: Setting key to retrieve
-        
+
     Returns:
         Setting value if found, None otherwise
     """
     from backend.database.connection import database_manager
-    
+
     try:
         async with database_manager.get_session() as session:
             service = SettingsService(session)

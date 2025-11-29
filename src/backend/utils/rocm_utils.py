@@ -8,8 +8,8 @@ for ROCm 5.7 (legacy) and ROCm 6.5+ (standard wheels and nightly builds).
 import os
 import re
 import subprocess
-from typing import Optional, Tuple, Dict
 from pathlib import Path
+from typing import Dict, Optional, Tuple
 
 
 class ROCmVersionInfo:

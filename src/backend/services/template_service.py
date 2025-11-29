@@ -5,11 +5,11 @@ Handles enhanced fallback text generation using persona characteristics and prom
 This service provides sophisticated template-based content generation with multi-dimensional scoring.
 """
 
-from typing import Dict, Any, List
 import random
+from typing import Any, Dict, List
 
-from backend.models.persona import PersonaModel
 from backend.config.logging import get_logger
+from backend.models.persona import PersonaModel
 
 logger = get_logger(__name__)
 
@@ -96,7 +96,10 @@ class TemplateService:
         return customized_template
 
     def generate_fallback_text_from_data(
-        self, persona_data: Dict[str, Any], prompt: str = None, content_rating: str = None
+        self,
+        persona_data: Dict[str, Any],
+        prompt: str = None,
+        content_rating: str = None,
     ) -> str:
         """
         Create enhanced fallback text using pre-extracted persona data.
@@ -121,25 +124,26 @@ class TemplateService:
         """
         # Extract key elements - use locked appearance if available
         appearance_desc = (
-            persona_data.get('base_appearance_description')
-            if persona_data.get('appearance_locked') and persona_data.get('base_appearance_description')
-            else persona_data.get('appearance', '')
+            persona_data.get("base_appearance_description")
+            if persona_data.get("appearance_locked")
+            and persona_data.get("base_appearance_description")
+            else persona_data.get("appearance", "")
         )
 
         # Parse personality traits more comprehensively
-        personality = persona_data.get('personality', 'friendly')
+        personality = persona_data.get("personality", "friendly")
         personality_full = personality.lower()
         personality_traits = [t.strip() for t in personality.split(",")]
 
         themes = (
-            persona_data.get('content_themes', [])[:3]
-            if persona_data.get('content_themes')
+            persona_data.get("content_themes", [])[:3]
+            if persona_data.get("content_themes")
             else ["lifestyle", "thoughts"]
         )
         prompt_keywords = prompt.lower().split() if prompt else ["content"]
 
         # Extract style preferences for sophisticated content styling
-        style_prefs = persona_data.get('style_preferences', {}) or {}
+        style_prefs = persona_data.get("style_preferences", {}) or {}
         aesthetic = style_prefs.get("aesthetic", "").lower()
         voice_style = style_prefs.get("voice_style", "").lower()
         tone_pref = style_prefs.get("tone", "").lower()
@@ -300,7 +304,7 @@ class TemplateService:
     ) -> str:
         """
         Generate dynamic appearance context based on multiple factors (data-only version).
-        
+
         Safe to call from async contexts as it doesn't access SQLAlchemy models.
 
         Args:
@@ -312,10 +316,9 @@ class TemplateService:
             str: Appearance context string to append to templates
         """
         appearance_keywords = appearance_desc.lower() if appearance_desc else ""
-        is_visual_locked = (
-            persona_data.get('appearance_locked', False) 
-            and persona_data.get('base_appearance_description')
-        )
+        is_visual_locked = persona_data.get(
+            "appearance_locked", False
+        ) and persona_data.get("base_appearance_description")
 
         appearance_context = ""
         if is_visual_locked:

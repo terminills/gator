@@ -6,28 +6,28 @@ for informing AI content generation.
 """
 
 import asyncio
-import feedparser
-from datetime import datetime, timezone, timedelta
-from typing import List, Optional, Dict, Any
-from uuid import UUID
 import re
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
+from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+import feedparser
 import httpx
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.config.logging import get_logger
 from backend.models.feed import (
-    RSSFeedModel,
     FeedItemModel,
-    PersonaFeedModel,
-    RSSFeedCreate,
-    RSSFeedResponse,
     FeedItemResponse,
     PersonaFeedAssignment,
+    PersonaFeedModel,
     PersonaFeedResponse,
+    RSSFeedCreate,
+    RSSFeedModel,
+    RSSFeedResponse,
 )
-from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
 

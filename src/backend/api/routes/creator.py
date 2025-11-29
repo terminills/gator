@@ -5,25 +5,25 @@ Provides authenticated endpoints for content creators to manage their
 AI personas, monitor performance, and configure content generation.
 """
 
-from typing import List, Optional, Dict, Any
-from uuid import UUID
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
-from backend.models.persona import PersonaModel, PersonaResponse, PersonaUpdate
 from backend.models.content import ContentModel, ContentResponse
-from backend.services.persona_service import PersonaService
+from backend.models.persona import PersonaModel, PersonaResponse, PersonaUpdate
 from backend.services.content_generation_service import (
     ContentGenerationService,
     GenerationRequest,
 )
+from backend.services.persona_service import PersonaService
 from backend.services.rss_ingestion_service import RSSIngestionService
-from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
 

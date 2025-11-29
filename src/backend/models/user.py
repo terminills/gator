@@ -8,8 +8,8 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field, EmailStr, field_validator
-from sqlalchemy import Column, String, DateTime, Boolean, Text
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from sqlalchemy import Boolean, Column, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 

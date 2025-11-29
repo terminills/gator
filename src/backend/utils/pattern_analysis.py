@@ -5,18 +5,18 @@ Helper functions to analyze patterns from successful content generations,
 extract insights from social media engagement, and provide recommendations.
 """
 
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, timedelta, timezone
 from collections import defaultdict
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, desc
 
-from backend.models.acd import ACDContextModel, AIValidation, AIConfidence
-from backend.models.social_media_post import SocialMediaPostModel, PostStatus
-from backend.models.generation_feedback import GenerationBenchmarkModel, FeedbackRating
 from backend.config.logging import get_logger
+from backend.models.acd import ACDContextModel, AIConfidence, AIValidation
+from backend.models.generation_feedback import FeedbackRating, GenerationBenchmarkModel
+from backend.models.social_media_post import PostStatus, SocialMediaPostModel
 
 logger = get_logger(__name__)
 
@@ -59,18 +59,19 @@ class PatternAnalyzer:
             cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
             # Query high-performing social posts
-            stmt = select(
-                SocialMediaPostModel,
-                ACDContextModel
-            ).join(
-                ACDContextModel,
-                SocialMediaPostModel.acd_context_id == ACDContextModel.id,
-                isouter=True
-            ).where(
-                and_(
-                    SocialMediaPostModel.status == PostStatus.PUBLISHED.value,
-                    SocialMediaPostModel.engagement_rate >= min_engagement_rate,
-                    SocialMediaPostModel.published_at >= cutoff,
+            stmt = (
+                select(SocialMediaPostModel, ACDContextModel)
+                .join(
+                    ACDContextModel,
+                    SocialMediaPostModel.acd_context_id == ACDContextModel.id,
+                    isouter=True,
+                )
+                .where(
+                    and_(
+                        SocialMediaPostModel.status == PostStatus.PUBLISHED.value,
+                        SocialMediaPostModel.engagement_rate >= min_engagement_rate,
+                        SocialMediaPostModel.published_at >= cutoff,
+                    )
                 )
             )
 
@@ -91,7 +92,9 @@ class PatternAnalyzer:
                     "platform": post.platform,
                     "engagement_rate": post.engagement_rate,
                     "hashtags": post.hashtags,
-                    "published_hour": post.published_at.hour if post.published_at else None,
+                    "published_hour": (
+                        post.published_at.hour if post.published_at else None
+                    ),
                     "genuine_users": post.genuine_user_count,
                     "likes": post.likes_count,
                     "comments": post.comments_count,
@@ -162,21 +165,29 @@ class PatternAnalyzer:
 
                 failure_phases[context.ai_phase] += 1
 
-                failure_examples.append({
-                    "phase": context.ai_phase,
-                    "complexity": context.ai_complexity,
-                    "error": context.runtime_err or context.compiler_err,
-                    "issues": context.ai_issues,
-                    "note": context.ai_note,
-                })
+                failure_examples.append(
+                    {
+                        "phase": context.ai_phase,
+                        "complexity": context.ai_complexity,
+                        "error": context.runtime_err or context.compiler_err,
+                        "issues": context.ai_issues,
+                        "note": context.ai_note,
+                    }
+                )
 
             patterns = []
             for reason, count in failure_reasons.items():
-                patterns.append({
-                    "failure_type": reason,
-                    "occurrence_count": count,
-                    "percentage": (count / len(failed_contexts) * 100) if failed_contexts else 0,
-                })
+                patterns.append(
+                    {
+                        "failure_type": reason,
+                        "occurrence_count": count,
+                        "percentage": (
+                            (count / len(failed_contexts) * 100)
+                            if failed_contexts
+                            else 0
+                        ),
+                    }
+                )
 
             logger.info(f"Analyzed {len(failed_contexts)} failure contexts")
 
@@ -237,7 +248,9 @@ class PatternAnalyzer:
                 optimal_times[hour] = sum(rates) / len(rates)
 
             # Sort by engagement rate
-            sorted_times = dict(sorted(optimal_times.items(), key=lambda x: x[1], reverse=True))
+            sorted_times = dict(
+                sorted(optimal_times.items(), key=lambda x: x[1], reverse=True)
+            )
 
             logger.info(
                 f"Analyzed posting times for {len(posts)} posts, "
@@ -287,7 +300,7 @@ class PatternAnalyzer:
 
             # Analyze hashtag performance
             hashtag_stats = defaultdict(lambda: {"rates": [], "count": 0})
-            
+
             for post in posts:
                 if post.hashtags and post.engagement_rate:
                     for hashtag in post.hashtags:
@@ -360,16 +373,23 @@ class PatternAnalyzer:
                 (p.likes_count + p.comments_count + p.shares_count + p.saves_count)
                 for p in social_posts
             )
-            avg_engagement_rate = sum(
-                p.engagement_rate for p in social_posts if p.engagement_rate
-            ) / total_posts if total_posts > 0 else 0
+            avg_engagement_rate = (
+                sum(p.engagement_rate for p in social_posts if p.engagement_rate)
+                / total_posts
+                if total_posts > 0
+                else 0
+            )
 
             # Platform breakdown
-            platform_performance = defaultdict(lambda: {"posts": 0, "avg_engagement": 0.0})
+            platform_performance = defaultdict(
+                lambda: {"posts": 0, "avg_engagement": 0.0}
+            )
             for post in social_posts:
                 platform_performance[post.platform]["posts"] += 1
                 if post.engagement_rate:
-                    platform_performance[post.platform]["avg_engagement"] += post.engagement_rate
+                    platform_performance[post.platform][
+                        "avg_engagement"
+                    ] += post.engagement_rate
 
             for platform in platform_performance:
                 count = platform_performance[platform]["posts"]
@@ -379,23 +399,30 @@ class PatternAnalyzer:
             top_posts = sorted(
                 social_posts,
                 key=lambda p: p.engagement_rate if p.engagement_rate else 0,
-                reverse=True
+                reverse=True,
             )[:5]
 
             # Generate recommendations
             recommendations = []
-            
-            best_platform = max(
-                platform_performance.items(),
-                key=lambda x: x[1]["avg_engagement"]
-            )[0] if platform_performance else None
-            
+
+            best_platform = (
+                max(platform_performance.items(), key=lambda x: x[1]["avg_engagement"])[
+                    0
+                ]
+                if platform_performance
+                else None
+            )
+
             if best_platform:
-                recommendations.append(f"Focus more on {best_platform} (highest engagement)")
+                recommendations.append(
+                    f"Focus more on {best_platform} (highest engagement)"
+                )
 
             if avg_engagement_rate < 3.0:
-                recommendations.append("Overall engagement below target - review content strategy")
-            
+                recommendations.append(
+                    "Overall engagement below target - review content strategy"
+                )
+
             return {
                 "time_window_days": days,
                 "total_posts": total_posts,
@@ -456,7 +483,9 @@ class PatternAnalyzer:
             # Get successful patterns
             patterns = await self.get_successful_patterns(persona_id, platform, days=30)
             if patterns:
-                avg_engagement = sum(p["engagement_rate"] for p in patterns) / len(patterns)
+                avg_engagement = sum(p["engagement_rate"] for p in patterns) / len(
+                    patterns
+                )
                 suggestions.append(
                     f"Replicate elements from {len(patterns)} high-performing posts "
                     f"(avg {avg_engagement:.1f}% engagement)"

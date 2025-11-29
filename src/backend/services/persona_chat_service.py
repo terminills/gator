@@ -11,15 +11,15 @@ import asyncio
 import os
 import random
 import shutil
-from typing import Dict, List, Optional, Any
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import httpx
 
 from backend.config.logging import get_logger
-from backend.models.persona import PersonaModel
 from backend.models.message import MessageModel, MessageSender
+from backend.models.persona import PersonaModel
 from backend.services.response_humanizer_service import get_humanizer_service
 
 logger = get_logger(__name__)
@@ -32,7 +32,7 @@ MODELS_BASE_DIR = Path(os.environ.get("MODELS_DIR", "./models"))
 class PersonaChatService:
     """
     Service for generating persona-based chat responses using llama.cpp.
-    
+
     Creates human-like responses that reflect the persona's soul:
     - Voice patterns and linguistic register
     - Typing quirks and signature phrases
@@ -40,75 +40,82 @@ class PersonaChatService:
     - Warmth and patience levels
     - Forbidden phrases (things they'd never say)
     """
-    
+
     def __init__(self):
         self.llamacpp_binary = shutil.which("llama-cli") or shutil.which("main")
         if not self.llamacpp_binary:
-            logger.warning("llama.cpp not found in PATH. Chat will use fallback responses.")
-        
+            logger.warning(
+                "llama.cpp not found in PATH. Chat will use fallback responses."
+            )
+
         # Cache for loaded models
         self._model_cache: Dict[str, str] = {}
-        
+
         # Get humanizer service for response filtering
         self._humanizer = get_humanizer_service()
-    
+
     async def generate_response(
         self,
         persona: PersonaModel,
         user_message: str,
         conversation_history: Optional[List[MessageModel]] = None,
-        use_ai: bool = True
+        use_ai: bool = True,
     ) -> str:
         """
         Generate a chat response from the persona to the user.
-        
+
         Uses the persona's text_model_preference if set, otherwise falls back
         to default model selection.
-        
+
         Args:
             persona: Persona model with personality and traits
             user_message: The user's message to respond to
             conversation_history: Recent message history for context
             use_ai: Whether to use AI (llama.cpp) or fall back to templates
-            
+
         Returns:
             str: The persona's response message
         """
         try:
             # Get persona's preferred text model if set
-            text_model_pref = getattr(persona, 'text_model_preference', None)
-            
+            text_model_pref = getattr(persona, "text_model_preference", None)
+
             # Check if we should use AI generation
             model_file = self._get_llama_model(text_model_preference=text_model_pref)
             if use_ai and self.llamacpp_binary and model_file:
                 if text_model_pref:
-                    logger.info(f"Generating AI chat response for persona {persona.name} using preferred model: {text_model_pref}")
+                    logger.info(
+                        f"Generating AI chat response for persona {persona.name} using preferred model: {text_model_pref}"
+                    )
                 else:
-                    logger.info(f"Generating AI chat response for persona {persona.name}")
+                    logger.info(
+                        f"Generating AI chat response for persona {persona.name}"
+                    )
                 return await self._generate_with_ai(
                     persona=persona,
                     user_message=user_message,
                     conversation_history=conversation_history or [],
-                    model_file=model_file
+                    model_file=model_file,
                 )
             else:
                 logger.info(f"Using template response for persona {persona.name}")
                 return self._generate_fallback_response(
-                    persona=persona,
-                    user_message=user_message
+                    persona=persona, user_message=user_message
                 )
-                
+
         except Exception as e:
             logger.error(f"Chat response generation failed: {e}")
             return self._generate_error_response(persona)
-    
-    def _get_llama_model(self, text_model_preference: Optional[str] = None) -> Optional[str]:
+
+    def _get_llama_model(
+        self, text_model_preference: Optional[str] = None
+    ) -> Optional[str]:
         """
         Find a suitable llama.cpp model for chat.
-        
+
         Args:
             text_model_preference: Optional persona-specific model preference
-        
+
         Returns:
             Path to model file or None if not found
         """
@@ -118,20 +125,24 @@ class PersonaChatService:
             cache_key = f"chat_model_{text_model_preference}"
             if cache_key in self._model_cache:
                 return self._model_cache[cache_key]
-            
+
             # Try to find the preferred model
             preferred_model = self._find_preferred_model(text_model_preference)
             if preferred_model:
-                logger.info(f"Using persona's preferred text model: {text_model_preference}")
+                logger.info(
+                    f"Using persona's preferred text model: {text_model_preference}"
+                )
                 self._model_cache[cache_key] = preferred_model
                 return preferred_model
             else:
-                logger.warning(f"Persona's preferred model '{text_model_preference}' not found, using fallback")
-        
+                logger.warning(
+                    f"Persona's preferred model '{text_model_preference}' not found, using fallback"
+                )
+
         # Check default cache
         if "chat_model" in self._model_cache:
             return self._model_cache["chat_model"]
-        
+
         # Look for models in standard locations (prefer smaller, faster models for chat)
         # Use configurable MODELS_BASE_DIR for flexibility
         model_dirs = [
@@ -142,7 +153,7 @@ class PersonaChatService:
             MODELS_BASE_DIR / "text" / "mixtral-8x7b",
             MODELS_BASE_DIR / "mixtral-8x7b",
         ]
-        
+
         for model_dir in model_dirs:
             if model_dir.exists():
                 # Look for GGUF model files
@@ -155,40 +166,40 @@ class PersonaChatService:
                     logger.debug(f"Found llama chat model: {model_file}")
                     self._model_cache["chat_model"] = str(model_file)
                     return str(model_file)
-        
+
         logger.debug("No llama.cpp chat model found")
         return None
-    
+
     def _find_preferred_model(self, model_preference: str) -> Optional[str]:
         """
         Find a model matching the persona's preference.
-        
+
         Searches for model files by name/path in common locations.
         Also checks if the AI model manager has the model available.
-        
+
         Args:
             model_preference: Model name or identifier to search for
-            
+
         Returns:
             Path to model file or None if not found
         """
         model_pref_lower = model_preference.lower()
-        
+
         # Search in model directories using configurable MODELS_BASE_DIR
         model_base_dirs = [
             MODELS_BASE_DIR / "text",
             MODELS_BASE_DIR,
         ]
-        
+
         for base_dir in model_base_dirs:
             if not base_dir.exists():
                 continue
-                
+
             # Check if the preference matches a directory name
             for model_dir in base_dir.iterdir():
                 if not model_dir.is_dir():
                     continue
-                    
+
                 # Check if model name matches preference
                 if model_pref_lower in model_dir.name.lower():
                     # Look for model files in this directory
@@ -198,48 +209,50 @@ class PersonaChatService:
                     for model_file in model_dir.glob("*.bin"):
                         logger.debug(f"Found preferred model: {model_file}")
                         return str(model_file)
-        
+
         # Try to get from AI model manager (for Ollama models, etc.)
         try:
             from backend.services.ai_models import ai_models
-            
+
             # Check if the preference matches any available text model
             for model in ai_models.available_models.get("text", []):
                 model_name = model.get("name", "").lower()
                 model_id = model.get("model_id", "").lower()
                 ollama_model = model.get("ollama_model", "").lower()
-                
-                if (model_pref_lower in model_name or 
-                    model_pref_lower in model_id or
-                    model_pref_lower == ollama_model):
-                    
+
+                if (
+                    model_pref_lower in model_name
+                    or model_pref_lower in model_id
+                    or model_pref_lower == ollama_model
+                ):
+
                     # For Ollama models, return the ollama_model identifier
                     if model.get("inference_engine") == "ollama":
                         return f"ollama:{model.get('ollama_model', model.get('name'))}"
-                    
+
                     # For local models with a path
                     model_path = model.get("path")
                     if model_path and Path(model_path).exists():
                         return model_path
-                        
+
         except Exception as e:
             logger.debug(f"Could not check AI model manager: {e}")
-        
+
         return None
-    
+
     async def _generate_with_ai(
         self,
         persona: PersonaModel,
         user_message: str,
         conversation_history: List[MessageModel],
-        model_file: str
+        model_file: str,
     ) -> str:
         """
         Generate response using llama.cpp AI model or Ollama.
-        
+
         Creates a contextually-aware response by providing the language model
         with persona details and conversation context.
-        
+
         Args:
             persona: Persona model with personality and traits
             user_message: The user's message to respond to
@@ -249,95 +262,102 @@ class PersonaChatService:
         if not model_file:
             logger.warning("No model available, falling back to template")
             return self._generate_fallback_response(persona, user_message)
-        
+
         # Build the instruction for the language model
         instruction = self._build_chat_instruction(
             persona=persona,
             user_message=user_message,
-            conversation_history=conversation_history
+            conversation_history=conversation_history,
         )
-        
+
         # Check if this is an Ollama model
         if model_file.startswith("ollama:"):
             return await self._generate_with_ollama(
                 model_name=model_file.split(":", 1)[1],
                 instruction=instruction,
                 persona=persona,
-                user_message=user_message
+                user_message=user_message,
             )
-        
+
         try:
             # Run llama.cpp to generate the response
             cmd = [
                 self.llamacpp_binary,
-                "-m", model_file,
-                "-p", instruction,
-                "-n", "200",  # Max tokens to generate (shorter for chat)
-                "-t", "4",    # CPU threads
-                "--temp", "0.8",  # Higher temperature for more personality
-                "--top-p", "0.9",
-                "-c", "2048",  # Context size
+                "-m",
+                model_file,
+                "-p",
+                instruction,
+                "-n",
+                "200",  # Max tokens to generate (shorter for chat)
+                "-t",
+                "4",  # CPU threads
+                "--temp",
+                "0.8",  # Higher temperature for more personality
+                "--top-p",
+                "0.9",
+                "-c",
+                "2048",  # Context size
                 "--silent-prompt",  # Don't echo the prompt
-                "--repeat-penalty", "1.1",  # Reduce repetition
+                "--repeat-penalty",
+                "1.1",  # Reduce repetition
             ]
-            
+
             logger.debug(f"Running llama.cpp for chat: {' '.join(cmd[:4])}...")
-            
+
             # Run async to avoid blocking
             process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
-            
+
             stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=20.0  # 20 second timeout for chat
+                process.communicate(), timeout=20.0  # 20 second timeout for chat
             )
-            
+
             if process.returncode != 0:
-                logger.error(f"llama.cpp failed with code {process.returncode}: {stderr.decode()}")
+                logger.error(
+                    f"llama.cpp failed with code {process.returncode}: {stderr.decode()}"
+                )
                 return self._generate_fallback_response(persona, user_message)
-            
+
             # Parse the output
             output = stdout.decode().strip()
             logger.debug(f"llama.cpp output: {output[:200]}...")
-            
+
             # Extract and clean the response
             response = self._parse_chat_output(output, persona)
-            
+
             logger.info(f"Generated AI chat response ({len(response.split())} words)")
             return response
-            
+
         except asyncio.TimeoutError:
             logger.error("llama.cpp timed out, falling back to template")
             return self._generate_fallback_response(persona, user_message)
         except Exception as e:
             logger.error(f"llama.cpp execution failed: {e}")
             return self._generate_fallback_response(persona, user_message)
-    
+
     async def _generate_with_ollama(
         self,
         model_name: str,
         instruction: str,
         persona: PersonaModel,
-        user_message: str
+        user_message: str,
     ) -> str:
         """
         Generate response using Ollama API.
-        
+
         Args:
             model_name: Name of the Ollama model
             instruction: The built instruction prompt
             persona: Persona model for fallback
             user_message: Original user message for fallback
-            
+
         Returns:
             Generated response text
         """
         try:
             logger.info(f"Generating chat response with Ollama model: {model_name}")
-            
+
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f"{OLLAMA_BASE_URL}/api/generate",
@@ -350,38 +370,42 @@ class PersonaChatService:
                             "temperature": 0.8,
                             "top_p": 0.9,
                             "repeat_penalty": 1.1,
-                        }
-                    }
+                        },
+                    },
                 )
-                
+
                 if response.status_code != 200:
-                    logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+                    logger.error(
+                        f"Ollama API error: {response.status_code} - {response.text}"
+                    )
                     return self._generate_fallback_response(persona, user_message)
-                
+
                 result = response.json()
                 output = result.get("response", "").strip()
-                
+
                 logger.debug(f"Ollama output: {output[:200]}...")
-                
+
                 # Parse and clean the response
                 response_text = self._parse_chat_output(output, persona)
-                
-                logger.info(f"Generated AI chat response via Ollama ({len(response_text.split())} words)")
+
+                logger.info(
+                    f"Generated AI chat response via Ollama ({len(response_text.split())} words)"
+                )
                 return response_text
-                
+
         except Exception as e:
             logger.error(f"Ollama generation failed: {e}")
             return self._generate_fallback_response(persona, user_message)
-    
+
     def _build_chat_instruction(
         self,
         persona: PersonaModel,
         user_message: str,
-        conversation_history: List[MessageModel]
+        conversation_history: List[MessageModel],
     ) -> str:
         """
         Build the instruction prompt for llama.cpp chat generation.
-        
+
         Uses persona soul fields to create a comprehensive character voice
         that sounds like a real person, not an AI.
         """
@@ -391,7 +415,7 @@ class PersonaChatService:
             "",
             "# WHO YOU ARE",
         ]
-        
+
         # Origin & Demographics (The "Roots")
         if persona.hometown:
             instruction_parts.append(f"From: {persona.hometown}")
@@ -403,11 +427,11 @@ class PersonaChatService:
             instruction_parts.append(f"Education: {persona.education_level}")
         if persona.day_job:
             instruction_parts.append(f"Job: {persona.day_job}")
-        
+
         # Psychological Profile (The "Engine")
         instruction_parts.append("")
         instruction_parts.append("# YOUR PERSONALITY")
-        
+
         if persona.personality:
             instruction_parts.append(f"Core traits: {persona.personality}")
         if persona.mbti_type:
@@ -423,11 +447,11 @@ class PersonaChatService:
                 instruction_parts.append("Outlook: Optimistic, sees the best in things")
             else:
                 instruction_parts.append("Outlook: Realistic, balanced perspective")
-        
+
         # Voice & Speech Patterns (The "Interface")
         instruction_parts.append("")
         instruction_parts.append("# HOW YOU TALK")
-        
+
         if persona.linguistic_register:
             register_descriptions = {
                 "blue_collar": "Casual, working-class, no-nonsense talk",
@@ -437,73 +461,89 @@ class PersonaChatService:
                 "corporate": "Business speak, but make it relatable",
                 "southern": "Southern charm, y'all, colorful expressions",
                 "millennial": "Internet-savvy, sarcastic, self-aware humor",
-                "gen_z": "Chaotic, ironic, meme-speak, short attention span"
+                "gen_z": "Chaotic, ironic, meme-speak, short attention span",
             }
-            desc = register_descriptions.get(persona.linguistic_register, "Natural conversational")
+            desc = register_descriptions.get(
+                persona.linguistic_register, "Natural conversational"
+            )
             instruction_parts.append(f"Speech style: {desc}")
-        
+
         if persona.signature_phrases:
             phrases = ", ".join(persona.signature_phrases[:5])
             instruction_parts.append(f"Phrases you use: {phrases}")
-        
+
         if persona.typing_quirks:
             quirk_desc = []
             if persona.typing_quirks.get("capitalization"):
-                quirk_desc.append(f"Caps style: {persona.typing_quirks['capitalization']}")
+                quirk_desc.append(
+                    f"Caps style: {persona.typing_quirks['capitalization']}"
+                )
             if persona.typing_quirks.get("emoji_usage"):
                 quirk_desc.append(f"Emojis: {persona.typing_quirks['emoji_usage']}")
             if persona.typing_quirks.get("punctuation"):
-                quirk_desc.append(f"Punctuation: {persona.typing_quirks['punctuation']}")
+                quirk_desc.append(
+                    f"Punctuation: {persona.typing_quirks['punctuation']}"
+                )
             if quirk_desc:
                 instruction_parts.append(f"Typing style: {'; '.join(quirk_desc)}")
-        
+
         # Warmth and interaction style
         warmth_desc = {
             "cold": "Keep it brief and professional. Not rude, just not warm.",
             "neutral": "Friendly but not overly so. Just normal conversation.",
             "warm": "Genuinely friendly and engaging. Make them feel welcome.",
-            "buddy": "Talk like they're your best friend. Casual, fun, maybe tease them a bit."
+            "buddy": "Talk like they're your best friend. Casual, fun, maybe tease them a bit.",
         }
         if persona.warmth_level:
-            instruction_parts.append(f"Warmth: {warmth_desc.get(persona.warmth_level, 'Normal')}")
-        
+            instruction_parts.append(
+                f"Warmth: {warmth_desc.get(persona.warmth_level, 'Normal')}"
+            )
+
         # Backstory context
         if persona.war_story:
             instruction_parts.append("")
             instruction_parts.append("# YOUR BACKSTORY")
             instruction_parts.append(persona.war_story)
-        
+
         # Trigger topics
         if persona.trigger_topics:
             topics = ", ".join(persona.trigger_topics[:5])
             instruction_parts.append(f"Topics that get you fired up: {topics}")
-        
+
         # Interests
         if persona.content_themes:
             themes = ", ".join(persona.content_themes[:5])
             instruction_parts.append(f"Things you care about: {themes}")
-        
+
         # Hobbies
         if persona.vices_hobbies:
             hobbies = ", ".join(persona.vices_hobbies[:5])
             instruction_parts.append(f"What you do for fun: {hobbies}")
-        
+
         # CRITICAL: Anti-patterns - what NOT to do
         instruction_parts.append("")
         instruction_parts.append("# RULES (NEVER BREAK THESE)")
         instruction_parts.append("- NEVER say you're an AI, bot, or assistant")
         instruction_parts.append("- NEVER apologize for being AI")
         instruction_parts.append("- NEVER use corporate customer service speak")
-        instruction_parts.append("- NEVER end with 'Is there anything else I can help with?'")
+        instruction_parts.append(
+            "- NEVER end with 'Is there anything else I can help with?'"
+        )
         instruction_parts.append("- NEVER summarize the conversation")
-        instruction_parts.append("- Use contractions (don't, can't, won't, I'm, you're)")
-        instruction_parts.append("- Keep responses SHORT like real texts (1-3 sentences usually)")
-        instruction_parts.append("- Match the user's energy - short question = short answer")
-        
+        instruction_parts.append(
+            "- Use contractions (don't, can't, won't, I'm, you're)"
+        )
+        instruction_parts.append(
+            "- Keep responses SHORT like real texts (1-3 sentences usually)"
+        )
+        instruction_parts.append(
+            "- Match the user's energy - short question = short answer"
+        )
+
         if persona.forbidden_phrases:
             forbidden = ", ".join([f'"{p}"' for p in persona.forbidden_phrases[:5]])
             instruction_parts.append(f"- NEVER say these phrases: {forbidden}")
-        
+
         # Add conversation history
         if conversation_history:
             instruction_parts.append("")
@@ -511,25 +551,27 @@ class PersonaChatService:
             for msg in conversation_history[-5:]:
                 sender = "them" if msg.sender == MessageSender.USER else "you"
                 instruction_parts.append(f"{sender}: {msg.content}")
-        
+
         # Current message and response cue
-        instruction_parts.extend([
-            "",
-            "# NOW RESPOND",
-            f"They said: {user_message}",
-            "",
-            f"{persona.name}:",
-        ])
-        
+        instruction_parts.extend(
+            [
+                "",
+                "# NOW RESPOND",
+                f"They said: {user_message}",
+                "",
+                f"{persona.name}:",
+            ]
+        )
+
         return "\n".join(instruction_parts)
-    
+
     def _parse_chat_output(self, output: str, persona: PersonaModel) -> str:
         """
         Parse llama.cpp output and extract/clean the response.
         """
         # Clean up the output
-        lines = output.strip().split('\n')
-        
+        lines = output.strip().split("\n")
+
         # Find the actual response (skip any meta-text)
         response_lines = []
         for line in lines:
@@ -537,58 +579,66 @@ class PersonaChatService:
             if not line.strip():
                 continue
             # Skip lines that look like system messages
-            if line.startswith('#') or 'User:' in line or f'{persona.name}:' in line:
+            if line.startswith("#") or "User:" in line or f"{persona.name}:" in line:
                 continue
             # Skip obvious meta-patterns
-            if any(pattern in line.lower() for pattern in ['respond as', 'guidelines', 'your identity']):
+            if any(
+                pattern in line.lower()
+                for pattern in ["respond as", "guidelines", "your identity"]
+            ):
                 continue
             response_lines.append(line.strip())
-        
-        response = ' '.join(response_lines)
-        
+
+        response = " ".join(response_lines)
+
         # Clean up common artifacts
-        response = response.replace('[', '').replace(']', '')
-        
+        response = response.replace("[", "").replace("]", "")
+
         # CRITICAL: Truncate at conversation turn markers that appear mid-text
         # This prevents the AI from simulating additional conversation turns
         # Use the humanizer's method to avoid code duplication
-        response = self._humanizer._truncate_at_conversation_turns(response, persona.name)
-        
+        response = self._humanizer._truncate_at_conversation_turns(
+            response, persona.name
+        )
+
         # Ensure reasonable length (truncate if too long)
         words = response.split()
         if len(words) > 150:
-            response = ' '.join(words[:150]) + '...'
-        
+            response = " ".join(words[:150]) + "..."
+
         # Ensure minimum quality
         if len(words) < 3:
-            logger.warning(f"AI response too short ({len(words)} words), using fallback")
+            logger.warning(
+                f"AI response too short ({len(words)} words), using fallback"
+            )
             return self._generate_fallback_response(persona, "")
-        
+
         # Apply humanizer to clean up any AI artifacts
         response = self._humanizer.humanize_response(response, persona)
-        
+
         return response
-    
+
     def _generate_fallback_response(
-        self,
-        persona: PersonaModel,
-        user_message: str
+        self, persona: PersonaModel, user_message: str
     ) -> str:
         """
         Generate a human-like template-based response (fallback).
-        
+
         Uses persona soul fields to create authentic-sounding responses.
         """
         user_lower = user_message.lower() if user_message else ""
         warmth = persona.warmth_level or "warm"
-        
+
         # Get signature phrases for this persona (safely handle empty list)
         signature = None
         if persona.signature_phrases and len(persona.signature_phrases) > 0:
             signature = persona.signature_phrases[0]
-        
+
         # Greeting responses based on warmth level
-        if any(word in user_lower for word in ['hello', 'hi', 'hey', 'greetings', 'sup', 'yo']):
+        if any(
+            word in user_lower
+            for word in ["hello", "hi", "hey", "greetings", "sup", "yo"]
+        ):
             if warmth == "buddy":
                 greetings = [
                     "Well hey there! 👋",
@@ -618,9 +668,9 @@ class PersonaChatService:
                     "Hello",
                 ]
             response = random.choice(greetings)
-            
+
         # Question about how they're doing
-        elif 'how are you' in user_lower or "how's it going" in user_lower:
+        elif "how are you" in user_lower or "how's it going" in user_lower:
             if warmth == "buddy":
                 responses = [
                     "Living the dream! 😄 You?",
@@ -640,9 +690,9 @@ class PersonaChatService:
                     "Doing alright.",
                 ]
             response = random.choice(responses)
-            
+
         # Handle questions
-        elif '?' in user_message:
+        elif "?" in user_message:
             if warmth == "buddy":
                 responses = [
                     "Ooh good question!",
@@ -662,7 +712,7 @@ class PersonaChatService:
                     "Hmm, interesting...",
                 ]
             response = random.choice(responses)
-            
+
         # Default responses
         else:
             if warmth == "buddy":
@@ -692,23 +742,23 @@ class PersonaChatService:
                     "I hear you",
                 ]
             response = random.choice(responses)
-        
+
         # Maybe add a signature phrase
         if signature and random.random() < 0.2:
             response = f"{response} {signature}"
-        
+
         # Apply typing quirks if present
         if persona.typing_quirks:
             cap_style = persona.typing_quirks.get("capitalization", "").lower()
             if cap_style == "all lowercase" or cap_style == "lowercase":
                 response = response.lower()
-        
+
         return response
-    
+
     def _generate_error_response(self, persona: PersonaModel) -> str:
         """Generate a human-like error response."""
         warmth = persona.warmth_level or "warm"
-        
+
         if warmth == "buddy":
             errors = [
                 "lol hold on, brain glitch. Try again?",
@@ -727,9 +777,9 @@ class PersonaChatService:
                 "Hmm something went weird there. Try again?",
                 "My bad! Can you repeat that?",
             ]
-        
+
         return random.choice(errors)
-    
+
     def get_typing_indicator(self, persona: PersonaModel) -> str:
         """Get a human-friendly typing indicator for this persona."""
         return self._humanizer.get_typing_indicator_text(persona)

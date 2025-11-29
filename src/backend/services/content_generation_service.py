@@ -6,33 +6,30 @@ using integrated AI models like Stable Diffusion and language models.
 """
 
 import asyncio
+import json
 import os
 import random
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone, timedelta
-from uuid import UUID
-import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models.persona import PersonaModel
+from backend.config.logging import get_logger
+from backend.models.acd import ACDContextModel, AIComplexity, AIConfidence, AIState
 from backend.models.content import (
-    ContentModel,
     ContentCreate,
-    ContentResponse,
-    GenerationRequest,
-    ContentType,
+    ContentModel,
     ContentRating,
+    ContentResponse,
+    ContentType,
+    GenerationRequest,
     ModerationStatus,
 )
-from backend.services.template_service import TemplateService
-from backend.services.prompt_generation_service import get_prompt_service
-from backend.config.logging import get_logger
-from backend.utils.acd_integration import ACDContextManager
-from backend.models.acd import AIComplexity, AIConfidence, AIState, ACDContextModel
+from backend.models.persona import PersonaModel
 from backend.services.acd_service import ACDService
 
 # --- MODULE-LEVEL IMPORTS TO PREVENT SCOPED FAILURE ---
@@ -41,9 +38,12 @@ from backend.services.acd_service import ACDService
 # at application startup, rather than being silently caught and masked as
 # a generic content generation failure at runtime.
 from backend.services.ai_models import ai_models
+from backend.services.prompt_generation_service import get_prompt_service
+from backend.services.template_service import TemplateService
 from backend.services.video_processing_service import (
     VideoQuality,
 )
+from backend.utils.acd_integration import ACDContextManager
 
 # --------------------------------------------------------
 
@@ -60,13 +60,13 @@ class ContentModerationService:
     ) -> bool:
         """
         Check if NSFW filtering is disabled for a content type.
-        
+
         For private server mode, NSFW filtering is disabled by default.
-        
+
         Args:
             content_type: Optional content type (text, chat, voice, image, video)
             db_session: Optional database session for settings lookup
-            
+
         Returns:
             bool: True if NSFW filtering is disabled, False otherwise
         """
@@ -74,25 +74,28 @@ class ContentModerationService:
         if db_session:
             try:
                 from backend.services.settings_service import SettingsService
+
                 settings_service = SettingsService(db_session)
-                
+
                 # First check global setting
-                global_setting = await settings_service.get_setting("nsfw_filter_disabled_global")
+                global_setting = await settings_service.get_setting(
+                    "nsfw_filter_disabled_global"
+                )
                 if global_setting and global_setting.value:
                     return True
-                
+
                 # Check content-type specific setting
                 if content_type:
                     content_type_key = f"nsfw_filter_disabled_{content_type.lower()}"
                     type_setting = await settings_service.get_setting(content_type_key)
                     if type_setting and type_setting.value:
                         return True
-                        
+
             except Exception as e:
                 logger.warning(f"Error checking NSFW filter settings: {e}")
                 # Default to disabled for private server
                 return True
-        
+
         # Default: NSFW filtering is disabled for private server
         return True
 
@@ -151,7 +154,7 @@ class ContentModerationService:
 
         Uses database-driven platform policies instead of hardcoded rules.
         This allows platform rules to be updated dynamically without code changes.
-        
+
         For private server mode, NSFW filtering is disabled by default.
 
         Args:
@@ -167,10 +170,12 @@ class ContentModerationService:
             bool: True if content is allowed, False otherwise
         """
         # Check if NSFW filtering is disabled globally (private server mode)
-        if await ContentModerationService.is_nsfw_filter_disabled(db_session=db_session):
+        if await ContentModerationService.is_nsfw_filter_disabled(
+            db_session=db_session
+        ):
             # All content is allowed when NSFW filtering is disabled
             return True
-        
+
         platform_lower = target_platform.lower()
 
         # Check persona-specific restrictions first (per-site override)
@@ -308,10 +313,16 @@ class ContentGenerationService:
 
             # Use persona's default content rating if not specified
             if request.content_rating is None:
-                logger.info(f"   No content_rating in request, using persona default...")
-                logger.info(f"   Persona default_content_rating: {persona.default_content_rating}")
-                logger.info(f"   Persona allowed_content_ratings: {getattr(persona, 'allowed_content_ratings', [])}")
-                
+                logger.info(
+                    f"   No content_rating in request, using persona default..."
+                )
+                logger.info(
+                    f"   Persona default_content_rating: {persona.default_content_rating}"
+                )
+                logger.info(
+                    f"   Persona allowed_content_ratings: {getattr(persona, 'allowed_content_ratings', [])}"
+                )
+
                 # Use persona's default, or randomly select from allowed ratings if no default is set
                 persona_rating = persona.default_content_rating
                 if not persona_rating:
@@ -319,7 +330,9 @@ class ContentGenerationService:
                     allowed_ratings = getattr(persona, "allowed_content_ratings", [])
                     if allowed_ratings:
                         persona_rating = random.choice(allowed_ratings)
-                        logger.info(f"   No default set, randomly selected from allowed: {persona_rating}")
+                        logger.info(
+                            f"   No default set, randomly selected from allowed: {persona_rating}"
+                        )
                     else:
                         # Last resort: randomly pick from all available ratings
                         # This should never happen if persona is properly configured
@@ -333,7 +346,9 @@ class ContentGenerationService:
                     f"   ✓ Using content rating from persona: {request.content_rating.value}"
                 )
             else:
-                logger.info(f"   Using explicit content_rating from request: {request.content_rating.value}")
+                logger.info(
+                    f"   Using explicit content_rating from request: {request.content_rating.value}"
+                )
 
             # Generate prompt if not provided
             # Note: For IMAGE type, we skip this and let the image generation
@@ -494,7 +509,8 @@ class ContentGenerationService:
                     if content_rating is not None
                     else (
                         ContentRating(persona.default_content_rating)
-                        if hasattr(persona, "default_content_rating") and persona.default_content_rating
+                        if hasattr(persona, "default_content_rating")
+                        and persona.default_content_rating
                         else ContentRating.SFW
                     )
                 )
@@ -646,8 +662,8 @@ class ContentGenerationService:
         """
         try:
             from backend.models.feed import (
-                PersonaFeedModel,
                 FeedItemModel,
+                PersonaFeedModel,
                 RSSFeedModel,
             )
 
@@ -902,8 +918,12 @@ class ContentGenerationService:
                 # Add persona's image model preference if set
                 # This takes highest priority for model selection
                 if persona.image_model_preference:
-                    generation_params["image_model_pref"] = persona.image_model_preference
-                    logger.info(f"   Using persona's preferred image model: {persona.image_model_preference}")
+                    generation_params["image_model_pref"] = (
+                        persona.image_model_preference
+                    )
+                    logger.info(
+                        f"   Using persona's preferred image model: {persona.image_model_preference}"
+                    )
 
                 # Add NSFW model preference if applicable
                 if (
@@ -1485,22 +1505,24 @@ Generate the social media content now:"""
         Delegates to TemplateService for sophisticated template-based generation.
         Uses base_appearance_description when appearance_locked is True for consistency.
         Leverages style_preferences for sophisticated content styling and tone.
-        
+
         Note: Eagerly accesses all persona attributes in async context to prevent
         greenlet_spawn errors when passing to synchronous template service.
         """
         # Eagerly load all persona attributes we need to prevent lazy loading issues
         # in the synchronous template service
         persona_data = {
-            'appearance': persona.appearance,
-            'base_appearance_description': persona.base_appearance_description,
-            'appearance_locked': persona.appearance_locked,
-            'personality': persona.personality,
-            'content_themes': persona.content_themes if persona.content_themes else [],
-            'style_preferences': persona.style_preferences if persona.style_preferences else {},
-            'name': persona.name,
+            "appearance": persona.appearance,
+            "base_appearance_description": persona.base_appearance_description,
+            "appearance_locked": persona.appearance_locked,
+            "personality": persona.personality,
+            "content_themes": persona.content_themes if persona.content_themes else [],
+            "style_preferences": (
+                persona.style_preferences if persona.style_preferences else {}
+            ),
+            "name": persona.name,
         }
-        
+
         # Pass extracted data instead of the model to avoid lazy loading
         return self.template_service.generate_fallback_text_from_data(
             persona_data=persona_data,
@@ -1591,8 +1613,10 @@ Generate the social media content now:"""
             description = f"AI-generated {request.content_type.value} using prompt: {request.prompt[:100]}..."
         else:
             # For IMAGE type, prompt might be None as it's generated internally
-            description = f"AI-generated {request.content_type.value} for {persona.name}"
-        
+            description = (
+                f"AI-generated {request.content_type.value} for {persona.name}"
+            )
+
         content = ContentModel(
             persona_id=persona.id,
             content_type=request.content_type.value,
@@ -1621,8 +1645,8 @@ Generate the social media content now:"""
         acd_context_id = content_data.get("acd_context_id")
         if acd_context_id:
             try:
-                from backend.services.acd_service import ACDService
                 from backend.models.acd import ACDContextUpdate
+                from backend.services.acd_service import ACDService
 
                 acd_service = ACDService(self.db)
 

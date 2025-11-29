@@ -10,18 +10,18 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
-from backend.services.acd_service import ACDService
 from backend.models.acd import (
     ACDContextCreate,
-    ACDContextUpdate,
     ACDContextResponse,
+    ACDContextUpdate,
+    ACDStats,
     ACDTraceArtifactCreate,
     ACDTraceArtifactResponse,
     ACDValidationReport,
-    ACDStats,
 )
-from backend.config.logging import get_logger
+from backend.services.acd_service import ACDService
 
 logger = get_logger(__name__)
 
@@ -30,7 +30,9 @@ router = APIRouter(prefix="/api/v1/acd", tags=["acd"])
 
 @router.get("/contexts", response_model=List[ACDContextResponse])
 async def list_contexts(
-    limit: int = Query(10, ge=1, le=100, description="Maximum number of contexts to return"),
+    limit: int = Query(
+        10, ge=1, le=100, description="Maximum number of contexts to return"
+    ),
     offset: int = Query(0, ge=0, description="Number of contexts to skip"),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -317,28 +319,29 @@ async def get_validation_report(
 
 @router.post("/process-queue/", status_code=202)
 async def process_queue(
-    max_contexts: int = Query(10, ge=1, le=100, description="Maximum contexts to process"),
+    max_contexts: int = Query(
+        10, ge=1, le=100, description="Maximum contexts to process"
+    ),
     phase: Optional[str] = Query(None, description="Filter by phase"),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
     Process queued ACD contexts and trigger content generation.
-    
+
     This endpoint actually triggers content generation for queued ACD contexts,
     fixing the issue where ACD only logged to database without generating content.
-    
+
     Args:
         max_contexts: Maximum number of contexts to process (1-100)
         phase: Optional phase filter (e.g., "IMAGE_GENERATION", "TEXT_GENERATION")
-        
+
     Returns:
         Processing results with success/failure counts
     """
     try:
         service = ACDService(db)
         results = await service.process_queued_contexts(
-            max_contexts=max_contexts,
-            phase_filter=phase
+            max_contexts=max_contexts, phase_filter=phase
         )
         return {
             "status": "processing_complete",

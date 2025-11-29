@@ -14,10 +14,10 @@ utilities for video manipulation using opencv and ffmpeg.
 import asyncio
 import os
 import subprocess
-from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -223,6 +223,7 @@ class VideoProcessingService:
                 if result and result.get("image_data"):
                     # Convert image data to numpy array
                     import io
+
                     from PIL import Image
 
                     image = Image.open(io.BytesIO(result["image_data"]))

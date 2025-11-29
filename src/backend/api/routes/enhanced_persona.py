@@ -5,22 +5,22 @@ API endpoints for the advanced persona creation wizard with presets,
 feature selection, and 4-image preview generation.
 """
 
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.connection import get_db_session
-from backend.services.enhanced_persona_creator import (
-    EnhancedPersonaCreatorService,
-    EnhancedPersonaCreate,
-    PhysicalFeaturesSelection,
-    PersonalitySelection,
-    FacePreview,
-)
-from backend.models.persona import PersonaResponse
 from backend.config.logging import get_logger
+from backend.database.connection import get_db_session
+from backend.models.persona import PersonaResponse
+from backend.services.enhanced_persona_creator import (
+    EnhancedPersonaCreate,
+    EnhancedPersonaCreatorService,
+    FacePreview,
+    PersonalitySelection,
+    PhysicalFeaturesSelection,
+)
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/enhanced-persona", tags=["enhanced-persona"])

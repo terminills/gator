@@ -6,17 +6,17 @@ Business logic for managing interactive content (polls, stories, Q&A).
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.interactive_content import (
     InteractiveContentModel,
     InteractiveContentResponse,
-    InteractiveContentType,
     InteractiveContentStatus,
+    InteractiveContentType,
 )
 
 logger = logging.getLogger(__name__)

@@ -7,37 +7,37 @@ system and PPV upselling functionality.
 
 import asyncio
 import uuid
-from datetime import datetime, timezone, timedelta
-from typing import List, Optional, Dict, Any, Tuple
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, and_, or_, desc, asc, func
+from sqlalchemy import and_, asc, desc, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models.user import UserModel
-from backend.models.persona import PersonaModel
+from backend.config.logging import get_logger
 from backend.models.conversation import (
-    ConversationModel,
     ConversationCreate,
+    ConversationModel,
     ConversationResponse,
     ConversationStatus,
 )
 from backend.models.message import (
-    MessageModel,
     MessageCreate,
+    MessageModel,
     MessageResponse,
     MessageSender,
     MessageType,
 )
+from backend.models.persona import PersonaModel
 from backend.models.ppv_offer import (
-    PPVOfferModel,
     PPVOfferCreate,
+    PPVOfferModel,
     PPVOfferResponse,
     PPVOfferStatus,
     PPVOfferType,
 )
-from backend.config.logging import get_logger
+from backend.models.user import UserModel
 
 logger = get_logger(__name__)
 

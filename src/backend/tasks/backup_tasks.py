@@ -6,15 +6,15 @@ Celery tasks for automated database and content backups.
 
 import asyncio
 import os
+import shutil
 import subprocess
 from datetime import datetime, timedelta
-from typing import Dict, Any
-import shutil
 from pathlib import Path
+from typing import Any, Dict
 
 from backend.celery_app import app
-from backend.config.settings import get_settings
 from backend.config.logging import get_logger
+from backend.config.settings import get_settings
 
 logger = get_logger(__name__)
 settings = get_settings()

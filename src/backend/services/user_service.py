@@ -7,12 +7,12 @@ Core business logic for platform user management.
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, and_
+from sqlalchemy import and_, select, update
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models.user import UserModel, UserCreate, UserResponse, UserUpdate
 from backend.config.logging import get_logger
+from backend.models.user import UserCreate, UserModel, UserResponse, UserUpdate
 
 logger = get_logger(__name__)
 
@@ -134,7 +134,7 @@ class UserService:
 
             await self.db.execute(stmt)
             await self.db.commit()
-            
+
             # Expire session cache to ensure fresh data on next query
             # This is necessary because Core update() doesn't update the session identity map
             self.db.expire_all()

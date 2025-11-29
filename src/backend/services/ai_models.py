@@ -8,28 +8,28 @@ Handles integration with various AI models for content generation including:
 """
 
 import asyncio
-import os
-import io
 import base64
-import subprocess
+import io
+import json
+import os
 import platform
-import shutil
-import time
 import re
-from typing import Dict, List, Optional, Any, Union
+import shutil
+import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
-import json
+from typing import Any, Dict, List, Optional, Union
 
 import httpx
-from PIL import Image
 import torch
+from PIL import Image
 
 from backend.config.logging import get_logger
 from backend.config.settings import get_settings
 from backend.utils.model_detection import (
-    find_comfyui_installation,
     check_inference_engine_available,
+    find_comfyui_installation,
 )
 
 logger = get_logger(__name__)
@@ -42,8 +42,14 @@ PREFERRED_UNCENSORED_MODEL_PREFIX = "dolphin"
 # Keywords for identifying NSFW/anatomy-focused models
 # These models are better at generating human bodies and adult content
 NSFW_MODEL_KEYWORDS = [
-    "nsfw", "realistic", "photon", "dreamshaper", 
-    "realvis", "juggernaut", "explicit", "adult"
+    "nsfw",
+    "realistic",
+    "photon",
+    "dreamshaper",
+    "realvis",
+    "juggernaut",
+    "explicit",
+    "adult",
 ]
 
 # Default guidance scale values for different model types
@@ -89,73 +95,73 @@ def strip_ansi_codes(text: str) -> str:
 def is_flux_model(model: Dict[str, Any]) -> bool:
     """
     Check if a model is a FLUX model.
-    
+
     FLUX models have a completely different architecture from Stable Diffusion
     and cannot be loaded with StableDiffusionPipeline. They require ComfyUI
     or the FluxPipeline class from diffusers (when available).
-    
+
     Detection patterns:
     - Model name/path contains "flux" followed by version (flux.1, flux1, flux-1)
     - Model name/path contains "fluxed" (common in CivitAI FLUX-based model names)
     - HuggingFace model IDs with flux in the org/repo path
     - CivitAI models with "Flux" in base_model field
     - File names containing "flux" at start or after common separators
-    
+
     Args:
         model: Model dictionary with name, model_id, base_model, path fields
-        
+
     Returns:
         bool: True if this is a FLUX model
     """
     import re
-    
+
     model_name = model.get("name", "").lower()
     model_id = model.get("model_id", "").lower()
     base_model = model.get("base_model", "").lower()
     model_path = model.get("path", "").lower()
     display_name = model.get("display_name", "").lower()
-    
+
     # Combine all fields to check
     all_text = f"{model_name} {model_id} {base_model} {model_path} {display_name}"
-    
+
     # More specific patterns to match FLUX models:
     # These patterns avoid false positives like "influx" or "reflux"
     flux_patterns = [
-        r'\bflux[.\-_]?\d',        # flux.1, flux-1, flux_1, flux1
-        r'\bflux[.\-_]?dev\b',     # flux.dev, flux-dev, flux_dev
-        r'\bflux[.\-_]?schnell\b', # flux.schnell, flux-schnell
-        r'\bfluxed',               # fluxed, fluxedUp, fluxedUpFluxNSFW (CivitAI naming)
-        r'/flux[.\-_]',            # In HuggingFace paths like black-forest-labs/FLUX.1-dev
-        r'flux[.\-_]?nsfw',        # FLUX NSFW models like fluxNSFW, flux_nsfw
-        r'flux[.\-_]?up',          # fluxUp, flux-up patterns
+        r"\bflux[.\-_]?\d",  # flux.1, flux-1, flux_1, flux1
+        r"\bflux[.\-_]?dev\b",  # flux.dev, flux-dev, flux_dev
+        r"\bflux[.\-_]?schnell\b",  # flux.schnell, flux-schnell
+        r"\bfluxed",  # fluxed, fluxedUp, fluxedUpFluxNSFW (CivitAI naming)
+        r"/flux[.\-_]",  # In HuggingFace paths like black-forest-labs/FLUX.1-dev
+        r"flux[.\-_]?nsfw",  # FLUX NSFW models like fluxNSFW, flux_nsfw
+        r"flux[.\-_]?up",  # fluxUp, flux-up patterns
     ]
-    
+
     for pattern in flux_patterns:
         if re.search(pattern, all_text, re.IGNORECASE):
             return True
-    
+
     return False
 
 
 def disable_safety_checker(pipe: Any) -> bool:
     """
     Disable the safety checker on a diffusion pipeline for NSFW content generation.
-    
+
     This function disables the built-in NSFW content filter that would otherwise
     block or blur adult content in generated images.
-    
+
     Args:
         pipe: A diffusers pipeline instance (any DiffusionPipeline subclass)
-        
+
     Returns:
         bool: True if safety checker was disabled, False if not present
     """
     disabled = False
-    if hasattr(pipe, 'safety_checker') and pipe.safety_checker is not None:
+    if hasattr(pipe, "safety_checker") and pipe.safety_checker is not None:
         pipe.safety_checker = None
         disabled = True
         logger.info("✓ Safety checker disabled for NSFW content generation")
-    if hasattr(pipe, 'requires_safety_checker'):
+    if hasattr(pipe, "requires_safety_checker"):
         pipe.requires_safety_checker = False
     return disabled
 
@@ -163,31 +169,31 @@ def disable_safety_checker(pipe: Any) -> bool:
 def filter_scheduler_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """
     Filter out deprecated attributes from scheduler config.
-    
+
     Some scheduler configs from older models contain deprecated attributes like
     'use_beta_sigmas' and 'use_exponential_sigmas' that are no longer supported
     by DPMSolverMultistepScheduler. This function removes them to prevent warnings.
-    
+
     Args:
         config: Scheduler configuration dictionary
-        
+
     Returns:
         Filtered config dictionary without deprecated attributes
     """
     # List of deprecated attributes that should be removed
     deprecated_attrs = [
-        'use_beta_sigmas',
-        'use_exponential_sigmas',
+        "use_beta_sigmas",
+        "use_exponential_sigmas",
     ]
-    
+
     # Create a copy to avoid modifying the original
     filtered_config = dict(config)
-    
+
     for attr in deprecated_attrs:
         if attr in filtered_config:
             logger.debug(f"Removed deprecated scheduler config attribute: {attr}")
             del filtered_config[attr]
-    
+
     return filtered_config
 
 
@@ -1489,13 +1495,16 @@ class AIModelManager:
         # For image models
         if content_type == "image":
             # HIGHEST PRIORITY: Check for persona's image_model_preference
-            image_model_pref = kwargs.get("image_model_pref") or kwargs.get("image_model")
+            image_model_pref = kwargs.get("image_model_pref") or kwargs.get(
+                "image_model"
+            )
             if image_model_pref:
                 for model in available_models:
                     if (
                         image_model_pref.lower() in model["name"].lower()
                         or image_model_pref.lower() in model.get("model_id", "").lower()
-                        or image_model_pref.lower() in model.get("display_name", "").lower()
+                        or image_model_pref.lower()
+                        in model.get("display_name", "").lower()
                     ):
                         logger.info(
                             f"🎯 Model selection: {model.get('display_name', model['name'])} "
@@ -1535,13 +1544,17 @@ class AIModelManager:
                 model_id_lower = model.get("model_id", "").lower()
                 display_name_lower = model.get("display_name", "").lower()
                 for keyword in NSFW_MODEL_KEYWORDS:
-                    if keyword in model_name_lower or keyword in model_id_lower or keyword in display_name_lower:
+                    if (
+                        keyword in model_name_lower
+                        or keyword in model_id_lower
+                        or keyword in display_name_lower
+                    ):
                         logger.info(
                             f"🎯 Model selection: {model.get('display_name', model['name'])} "
                             f"(reason: NSFW/anatomy-focused model preferred by default)"
                         )
                         return model
-            
+
             # Also check for models with nsfw flag set in metadata (CivitAI models)
             for model in available_models:
                 if model.get("nsfw", False):
@@ -2242,8 +2255,8 @@ class AIModelManager:
                 logger.warning(f"   ⚠️  llama.cpp failed: {str(e)}")
                 logger.info(f"   🔄 Attempting fallback to Ollama...")
 
-                from backend.utils.model_detection import find_ollama_installation
                 from backend.utils.gpu_detection import get_gpu_info
+                from backend.utils.model_detection import find_ollama_installation
 
                 # Log GPU information for diagnostics
                 gpu_info = get_gpu_info()
@@ -2825,53 +2838,74 @@ class AIModelManager:
                 )
                 if object_info_response.status_code == 200:
                     object_info = object_info_response.json()
-                    ckpt_input = object_info.get("CheckpointLoaderSimple", {}).get("input", {}).get("required", {}).get("ckpt_name", [[]])
+                    ckpt_input = (
+                        object_info.get("CheckpointLoaderSimple", {})
+                        .get("input", {})
+                        .get("required", {})
+                        .get("ckpt_name", [[]])
+                    )
                     if ckpt_input and len(ckpt_input) > 0:
                         available_checkpoints = ckpt_input[0]
-                        logger.info(f"ComfyUI available checkpoints: {available_checkpoints}")
+                        logger.info(
+                            f"ComfyUI available checkpoints: {available_checkpoints}"
+                        )
             except Exception as e:
                 logger.warning(f"Could not query ComfyUI checkpoints: {e}")
 
             # Determine checkpoint to use
             # Priority: 1) Model's comfyui_ckpt_name if specified, 2) NSFW/anatomy models, 3) First available
             ckpt_name = None
-            
+
             # Check if model has a specific ComfyUI checkpoint name configured
             if model.get("comfyui_ckpt_name"):
                 configured_ckpt = model.get("comfyui_ckpt_name")
                 if configured_ckpt in available_checkpoints:
                     ckpt_name = configured_ckpt
                     logger.info(f"Using configured ComfyUI checkpoint: {ckpt_name}")
-            
+
             # If no specific checkpoint, prefer NSFW/realistic models (new requirement)
             if not ckpt_name and available_checkpoints:
                 # Find first checkpoint matching any NSFW keyword
                 nsfw_checkpoint = next(
-                    (ckpt for ckpt in available_checkpoints 
-                     if any(keyword in ckpt.lower() for keyword in NSFW_MODEL_KEYWORDS)),
-                    None
+                    (
+                        ckpt
+                        for ckpt in available_checkpoints
+                        if any(
+                            keyword in ckpt.lower() for keyword in NSFW_MODEL_KEYWORDS
+                        )
+                    ),
+                    None,
                 )
                 if nsfw_checkpoint:
                     ckpt_name = nsfw_checkpoint
-                    logger.info(f"Selected NSFW/anatomy-focused checkpoint: {ckpt_name}")
-            
+                    logger.info(
+                        f"Selected NSFW/anatomy-focused checkpoint: {ckpt_name}"
+                    )
+
             # Fall back to first available checkpoint
             if not ckpt_name and available_checkpoints:
                 ckpt_name = available_checkpoints[0]
                 logger.info(f"Using first available ComfyUI checkpoint: {ckpt_name}")
-            
+
             # If still no checkpoint, use model_id as fallback (may fail)
             if not ckpt_name:
-                ckpt_name = model.get("comfyui_ckpt_name", model.get("model_id", "v1-5-pruned-emaonly.safetensors"))
-                logger.warning(f"No checkpoints found in ComfyUI, using fallback: {ckpt_name}")
+                ckpt_name = model.get(
+                    "comfyui_ckpt_name",
+                    model.get("model_id", "v1-5-pruned-emaonly.safetensors"),
+                )
+                logger.warning(
+                    f"No checkpoints found in ComfyUI, using fallback: {ckpt_name}"
+                )
 
             # Determine if this is a FLUX model (needs different workflow)
-            is_flux_model = "flux" in ckpt_name.lower() or "flux" in model.get("name", "").lower()
-            
+            is_flux_model = (
+                "flux" in ckpt_name.lower() or "flux" in model.get("name", "").lower()
+            )
+
             # Adjust guidance scale based on model type (only if not user-specified)
             if is_flux_model and "guidance_scale" not in kwargs:
                 guidance_scale = DEFAULT_FLUX_GUIDANCE_SCALE
-            
+
             # Create appropriate workflow based on model type
             # CheckpointLoaderSimple outputs: MODEL (index 0), CLIP (index 1), VAE (index 2)
             if is_flux_model:
@@ -2880,7 +2914,10 @@ class AIModelManager:
                 # FLUX uses 'simple' scheduler for best results
                 workflow = {
                     "3": {  # CLIPTextEncode for positive prompt
-                        "inputs": {"text": prompt, "clip": ["11", 1]},  # Use index 1 for CLIP
+                        "inputs": {
+                            "text": prompt,
+                            "clip": ["11", 1],
+                        },  # Use index 1 for CLIP
                         "class_type": "CLIPTextEncode",
                     },
                     "4": {  # Empty latent image
@@ -2888,15 +2925,24 @@ class AIModelManager:
                         "class_type": "EmptyLatentImage",
                     },
                     "5": {  # CLIPTextEncode for negative prompt
-                        "inputs": {"text": "ugly, blurry, low quality, deformed", "clip": ["11", 1]},
+                        "inputs": {
+                            "text": "ugly, blurry, low quality, deformed",
+                            "clip": ["11", 1],
+                        },
                         "class_type": "CLIPTextEncode",
                     },
                     "8": {  # VAEDecode
-                        "inputs": {"samples": ["10", 0], "vae": ["11", 2]},  # Use index 2 for VAE
+                        "inputs": {
+                            "samples": ["10", 0],
+                            "vae": ["11", 2],
+                        },  # Use index 2 for VAE
                         "class_type": "VAEDecode",
                     },
                     "9": {  # SaveImage
-                        "inputs": {"filename_prefix": "gator_comfyui", "images": ["8", 0]},
+                        "inputs": {
+                            "filename_prefix": "gator_comfyui",
+                            "images": ["8", 0],
+                        },
                         "class_type": "SaveImage",
                     },
                     "10": {  # KSampler
@@ -2915,9 +2961,7 @@ class AIModelManager:
                         "class_type": "KSampler",
                     },
                     "11": {  # CheckpointLoaderSimple
-                        "inputs": {
-                            "ckpt_name": ckpt_name
-                        },
+                        "inputs": {"ckpt_name": ckpt_name},
                         "class_type": "CheckpointLoaderSimple",
                     },
                 }
@@ -2926,7 +2970,10 @@ class AIModelManager:
                 # CheckpointLoaderSimple outputs: MODEL (index 0), CLIP (index 1), VAE (index 2)
                 workflow = {
                     "3": {  # CLIPTextEncode for positive prompt
-                        "inputs": {"text": prompt, "clip": ["11", 1]},  # Use index 1 for CLIP
+                        "inputs": {
+                            "text": prompt,
+                            "clip": ["11", 1],
+                        },  # Use index 1 for CLIP
                         "class_type": "CLIPTextEncode",
                     },
                     "4": {  # Empty latent image
@@ -2934,15 +2981,24 @@ class AIModelManager:
                         "class_type": "EmptyLatentImage",
                     },
                     "5": {  # CLIPTextEncode for negative prompt
-                        "inputs": {"text": "ugly, blurry, low quality, deformed, bad anatomy", "clip": ["11", 1]},
+                        "inputs": {
+                            "text": "ugly, blurry, low quality, deformed, bad anatomy",
+                            "clip": ["11", 1],
+                        },
                         "class_type": "CLIPTextEncode",
                     },
                     "8": {  # VAEDecode
-                        "inputs": {"samples": ["10", 0], "vae": ["11", 2]},  # Use index 2 for VAE
+                        "inputs": {
+                            "samples": ["10", 0],
+                            "vae": ["11", 2],
+                        },  # Use index 2 for VAE
                         "class_type": "VAEDecode",
                     },
                     "9": {  # SaveImage
-                        "inputs": {"filename_prefix": "gator_comfyui", "images": ["8", 0]},
+                        "inputs": {
+                            "filename_prefix": "gator_comfyui",
+                            "images": ["8", 0],
+                        },
                         "class_type": "SaveImage",
                     },
                     "10": {  # KSampler
@@ -2961,9 +3017,7 @@ class AIModelManager:
                         "class_type": "KSampler",
                     },
                     "11": {  # CheckpointLoaderSimple
-                        "inputs": {
-                            "ckpt_name": ckpt_name
-                        },
+                        "inputs": {"ckpt_name": ckpt_name},
                         "class_type": "CheckpointLoaderSimple",
                     },
                 }
@@ -3128,21 +3182,21 @@ class AIModelManager:
 
         try:
             from diffusers import (
-                StableDiffusionPipeline,
-                StableDiffusionImg2ImgPipeline,
-                StableDiffusionXLPipeline,
-                StableDiffusionXLImg2ImgPipeline,
-                StableDiffusionControlNetPipeline,
-                StableDiffusionXLControlNetPipeline,
-                ControlNetModel,
-                DPMSolverMultistepScheduler,
-                DiffusionPipeline,
                 AutoencoderKL,
+                ControlNetModel,
+                DiffusionPipeline,
+                DPMSolverMultistepScheduler,
+                StableDiffusionControlNetPipeline,
+                StableDiffusionImg2ImgPipeline,
+                StableDiffusionPipeline,
+                StableDiffusionXLControlNetPipeline,
+                StableDiffusionXLImg2ImgPipeline,
+                StableDiffusionXLPipeline,
             )
         except ImportError as e:
             error_str = str(e)
             logger.error(f"Diffusers generation failed: {error_str}")
-            
+
             # Provide specific guidance for CUDA/ROCm issues
             if "libcudart" in error_str or "cuda" in error_str.lower():
                 logger.error(
@@ -3185,7 +3239,9 @@ class AIModelManager:
             # They cannot be loaded with StableDiffusionPipeline
             if is_flux_model(model):
                 logger.info(f"Detected FLUX model: {model_name}")
-                logger.info("FLUX models require ComfyUI for inference, routing to ComfyUI pipeline...")
+                logger.info(
+                    "FLUX models require ComfyUI for inference, routing to ComfyUI pipeline..."
+                )
                 # Check if ComfyUI is available
                 comfyui_available = await self._check_inference_engine("comfyui")
                 if comfyui_available:
@@ -3197,7 +3253,7 @@ class AIModelManager:
                         f"Please install and configure ComfyUI, or select a different model "
                         f"(e.g., SDXL or SD 1.5 models work with diffusers)."
                     )
-            
+
             # Determine if this is an SDXL model
             # Check name, model_id, and base_model field (used by CivitAI models)
             base_model = model.get("base_model", "")
@@ -3370,110 +3426,159 @@ class AIModelManager:
                         or "lora" in model_name.lower()
                         or "lora" in model_path.name.lower()
                     )
-                    
+
                     # Handle LoRA models - these need a base model to work with
                     if is_lora and is_single_file:
                         logger.info(f"Detected LoRA model: {model_path.name}")
-                        logger.info(
-                            "LoRAs must be loaded on top of a base model"
-                        )
-                        
+                        logger.info("LoRAs must be loaded on top of a base model")
+
                         # Check if PEFT is available - required for LoRA loading
                         # PEFT should be installed via pip install peft (declared in pyproject.toml)
                         peft_available = False
                         try:
                             import peft
+
                             peft_available = True
-                            logger.info(f"✓ PEFT library available (v{peft.__version__})")
+                            logger.info(
+                                f"✓ PEFT library available (v{peft.__version__})"
+                            )
                         except ImportError:
                             logger.error("PEFT library not installed.")
-                            logger.error("LoRA loading requires PEFT backend. Install with: pip install peft")
+                            logger.error(
+                                "LoRA loading requires PEFT backend. Install with: pip install peft"
+                            )
                             raise RuntimeError(
                                 "PEFT backend is required for LoRA loading. "
                                 "Install with: pip install peft"
                             )
-                        
+
                         try:
                             # Determine base model from metadata or model characteristics
                             base_model_field = model.get("base_model", "")
-                            
+
                             # Smart base model detection
-                            if "SDXL" in base_model_field or "sdxl" in base_model_field.lower() or is_sdxl:
-                                base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+                            if (
+                                "SDXL" in base_model_field
+                                or "sdxl" in base_model_field.lower()
+                                or is_sdxl
+                            ):
+                                base_model_id = (
+                                    "stabilityai/stable-diffusion-xl-base-1.0"
+                                )
                                 using_sdxl = True
                             elif "Pony" in base_model_field:
                                 # Pony models are SDXL-based
-                                base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+                                base_model_id = (
+                                    "stabilityai/stable-diffusion-xl-base-1.0"
+                                )
                                 using_sdxl = True
-                            elif "SD 1" in base_model_field or "SD1" in base_model_field or "v1" in base_model_field.lower():
+                            elif (
+                                "SD 1" in base_model_field
+                                or "SD1" in base_model_field
+                                or "v1" in base_model_field.lower()
+                            ):
                                 base_model_id = "runwayml/stable-diffusion-v1-5"
                                 using_sdxl = False
                             else:
                                 # Default to SDXL for modern LoRAs
-                                base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+                                base_model_id = (
+                                    "stabilityai/stable-diffusion-xl-base-1.0"
+                                )
                                 using_sdxl = True
-                                logger.info(f"Base model not specified, defaulting to SDXL")
-                            
+                                logger.info(
+                                    f"Base model not specified, defaulting to SDXL"
+                                )
+
                             logger.info(f"Loading base model for LoRA: {base_model_id}")
-                            
+
                             # Check if base model is already cached locally
                             base_model_cached = False
                             try:
                                 from huggingface_hub import try_to_load_from_cache
-                                cache_path = try_to_load_from_cache(base_model_id, "model_index.json")
+
+                                cache_path = try_to_load_from_cache(
+                                    base_model_id, "model_index.json"
+                                )
                                 base_model_cached = cache_path is not None
                             except Exception:
                                 pass
-                            
+
                             if not base_model_cached:
-                                logger.info(f"Base model not found in cache, downloading {base_model_id}...")
-                                logger.info("This may take several minutes for the first time...")
-                            
+                                logger.info(
+                                    f"Base model not found in cache, downloading {base_model_id}..."
+                                )
+                                logger.info(
+                                    "This may take several minutes for the first time..."
+                                )
+
                             if using_sdxl:
                                 pipe = StableDiffusionXLPipeline.from_pretrained(
                                     base_model_id,
-                                    torch_dtype=torch.float16 if "cuda" in device else torch.float32,
+                                    torch_dtype=(
+                                        torch.float16
+                                        if "cuda" in device
+                                        else torch.float32
+                                    ),
                                     use_safetensors=True,
                                 )
                             else:
                                 # SD 1.5 base model
                                 pipe = StableDiffusionPipeline.from_pretrained(
                                     base_model_id,
-                                    torch_dtype=torch.float16 if "cuda" in device else torch.float32,
+                                    torch_dtype=(
+                                        torch.float16
+                                        if "cuda" in device
+                                        else torch.float32
+                                    ),
                                     use_safetensors=True,
                                 )
-                            
+
                             logger.info(f"✓ Base model loaded: {base_model_id}")
-                            
+
                             # Load the LoRA weights on top of base model
                             logger.info(f"Loading LoRA weights from: {model_path}")
                             pipe.load_lora_weights(str(model_path))
-                            
+
                             # Disable safety checker for NSFW content generation
                             disable_safety_checker(pipe)
-                            
+
                             # Get trigger words if available for logging
                             trained_words = model.get("trained_words", [])
                             if trained_words:
-                                logger.info(f"✅ LoRA loaded with trigger words: {', '.join(trained_words[:5])}")
+                                logger.info(
+                                    f"✅ LoRA loaded with trigger words: {', '.join(trained_words[:5])}"
+                                )
                             else:
-                                logger.info(f"✅ Successfully loaded LoRA: {model_path.name}")
-                            
+                                logger.info(
+                                    f"✅ Successfully loaded LoRA: {model_path.name}"
+                                )
+
                             # Cache the loaded pipeline
                             self._loaded_pipelines[pipeline_key] = pipe
-                            
+
                         except FileNotFoundError as e:
                             logger.error(f"LoRA file not found: {model_path}")
-                            logger.error("Ensure the LoRA file exists at the specified path.")
+                            logger.error(
+                                "Ensure the LoRA file exists at the specified path."
+                            )
                             raise
                         except RuntimeError as e:
                             error_msg = str(e)
                             if "peft" in error_msg.lower():
                                 logger.error(f"PEFT backend error: {error_msg}")
-                                logger.error("LoRA loading requires PEFT backend. Install with: pip install peft")
-                            elif "safetensors" in error_msg.lower() or "weights" in error_msg.lower():
-                                logger.error(f"Failed to load LoRA weights: {error_msg}")
-                                logger.error("The LoRA file may be corrupted or incompatible.")
+                                logger.error(
+                                    "LoRA loading requires PEFT backend. Install with: pip install peft"
+                                )
+                            elif (
+                                "safetensors" in error_msg.lower()
+                                or "weights" in error_msg.lower()
+                            ):
+                                logger.error(
+                                    f"Failed to load LoRA weights: {error_msg}"
+                                )
+                                logger.error(
+                                    "The LoRA file may be corrupted or incompatible."
+                                )
                             else:
                                 logger.error(f"Runtime error loading LoRA: {error_msg}")
                             raise
@@ -3481,7 +3586,9 @@ class AIModelManager:
                             error_msg = str(e)
                             logger.error(f"Failed to load LoRA model: {error_msg}")
                             if "peft" in error_msg.lower():
-                                logger.error("Install PEFT backend with: pip install peft")
+                                logger.error(
+                                    "Install PEFT backend with: pip install peft"
+                                )
                             else:
                                 logger.error(
                                     "LoRA loading requires base model download. "
@@ -3518,16 +3625,20 @@ class AIModelManager:
                         text_encoder = None
                         text_encoder_2 = None
                         vae = None
-                        
+
                         # Preload VAE from base model for single-file checkpoints
                         # This prevents failures when checkpoints don't include VAE weights
                         try:
                             if is_sdxl:
-                                base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+                                base_model_id = (
+                                    "stabilityai/stable-diffusion-xl-base-1.0"
+                                )
                             else:
                                 base_model_id = "runwayml/stable-diffusion-v1-5"
-                            
-                            logger.info(f"Preloading VAE (AutoencoderKL) from {base_model_id}...")
+
+                            logger.info(
+                                f"Preloading VAE (AutoencoderKL) from {base_model_id}..."
+                            )
                             vae = AutoencoderKL.from_pretrained(
                                 base_model_id,
                                 subfolder="vae",
@@ -3540,8 +3651,10 @@ class AIModelManager:
                             # RuntimeError: CUDA/device issues
                             # ValueError: Invalid model configuration
                             logger.warning(f"Could not preload VAE: {vae_error}")
-                            logger.warning("Will attempt to load checkpoint without preloaded VAE")
-                        
+                            logger.warning(
+                                "Will attempt to load checkpoint without preloaded VAE"
+                            )
+
                         try:
                             if is_sdxl:
                                 if use_img2img:
@@ -3584,10 +3697,19 @@ class AIModelManager:
                             # Check if this is a missing component error (pruned checkpoint)
                             # CivitAI models often don't include text encoder
                             # Note: VAE is preloaded above, so VAE errors are unlikely but handled as fallback
-                            needs_text_encoder = "CLIPTextModel" in error_msg or "text_encoder" in error_msg.lower()
+                            needs_text_encoder = (
+                                "CLIPTextModel" in error_msg
+                                or "text_encoder" in error_msg.lower()
+                            )
                             # Only need to load VAE if preloading failed and checkpoint also doesn't have it
-                            needs_vae = ("AutoencoderKL" in error_msg or ("vae" in error_msg.lower() and "missing" in error_msg.lower())) and "vae" not in single_file_args
-                            
+                            needs_vae = (
+                                "AutoencoderKL" in error_msg
+                                or (
+                                    "vae" in error_msg.lower()
+                                    and "missing" in error_msg.lower()
+                                )
+                            ) and "vae" not in single_file_args
+
                             if needs_text_encoder or needs_vae:
                                 component_list = []
                                 if needs_text_encoder:
@@ -3599,38 +3721,59 @@ class AIModelManager:
                                 )
                                 try:
                                     # Import required components (AutoencoderKL already imported at top of function)
-                                    from transformers import CLIPTextModel, CLIPTextModelWithProjection
-                                    
+                                    from transformers import (
+                                        CLIPTextModel,
+                                        CLIPTextModelWithProjection,
+                                    )
+
                                     if is_sdxl:
                                         # SDXL base model for loading missing components
-                                        base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
-                                        
+                                        base_model_id = (
+                                            "stabilityai/stable-diffusion-xl-base-1.0"
+                                        )
+
                                         # Load text encoders if needed
                                         if needs_text_encoder:
-                                            logger.info(f"Loading SDXL text encoders from {base_model_id}")
-                                            text_encoder = CLIPTextModel.from_pretrained(
-                                                base_model_id,
-                                                subfolder="text_encoder",
-                                                torch_dtype=single_file_args["torch_dtype"],
+                                            logger.info(
+                                                f"Loading SDXL text encoders from {base_model_id}"
+                                            )
+                                            text_encoder = (
+                                                CLIPTextModel.from_pretrained(
+                                                    base_model_id,
+                                                    subfolder="text_encoder",
+                                                    torch_dtype=single_file_args[
+                                                        "torch_dtype"
+                                                    ],
+                                                )
                                             )
                                             text_encoder_2 = CLIPTextModelWithProjection.from_pretrained(
                                                 base_model_id,
                                                 subfolder="text_encoder_2",
-                                                torch_dtype=single_file_args["torch_dtype"],
+                                                torch_dtype=single_file_args[
+                                                    "torch_dtype"
+                                                ],
                                             )
-                                            single_file_args["text_encoder"] = text_encoder
-                                            single_file_args["text_encoder_2"] = text_encoder_2
-                                        
+                                            single_file_args["text_encoder"] = (
+                                                text_encoder
+                                            )
+                                            single_file_args["text_encoder_2"] = (
+                                                text_encoder_2
+                                            )
+
                                         # Load VAE if needed (fallback if preloading failed)
                                         if needs_vae:
-                                            logger.info(f"Loading SDXL VAE (AutoencoderKL) from {base_model_id}")
+                                            logger.info(
+                                                f"Loading SDXL VAE (AutoencoderKL) from {base_model_id}"
+                                            )
                                             vae = AutoencoderKL.from_pretrained(
                                                 base_model_id,
                                                 subfolder="vae",
-                                                torch_dtype=single_file_args["torch_dtype"],
+                                                torch_dtype=single_file_args[
+                                                    "torch_dtype"
+                                                ],
                                             )
                                             single_file_args["vae"] = vae
-                                        
+
                                         # Retry loading with external components
                                         if use_img2img:
                                             pipe = StableDiffusionXLImg2ImgPipeline.from_single_file(
@@ -3646,27 +3789,39 @@ class AIModelManager:
                                     else:
                                         # SD 1.5 base model for loading missing components
                                         base_model_id = "runwayml/stable-diffusion-v1-5"
-                                        
+
                                         # Load text encoder if needed
                                         if needs_text_encoder:
-                                            logger.info(f"Loading SD 1.5 text encoder from {base_model_id}")
-                                            text_encoder = CLIPTextModel.from_pretrained(
-                                                base_model_id,
-                                                subfolder="text_encoder",
-                                                torch_dtype=single_file_args["torch_dtype"],
+                                            logger.info(
+                                                f"Loading SD 1.5 text encoder from {base_model_id}"
                                             )
-                                            single_file_args["text_encoder"] = text_encoder
-                                        
+                                            text_encoder = (
+                                                CLIPTextModel.from_pretrained(
+                                                    base_model_id,
+                                                    subfolder="text_encoder",
+                                                    torch_dtype=single_file_args[
+                                                        "torch_dtype"
+                                                    ],
+                                                )
+                                            )
+                                            single_file_args["text_encoder"] = (
+                                                text_encoder
+                                            )
+
                                         # Load VAE if needed (fallback if preloading failed)
                                         if needs_vae:
-                                            logger.info(f"Loading SD 1.5 VAE (AutoencoderKL) from {base_model_id}")
+                                            logger.info(
+                                                f"Loading SD 1.5 VAE (AutoencoderKL) from {base_model_id}"
+                                            )
                                             vae = AutoencoderKL.from_pretrained(
                                                 base_model_id,
                                                 subfolder="vae",
-                                                torch_dtype=single_file_args["torch_dtype"],
+                                                torch_dtype=single_file_args[
+                                                    "torch_dtype"
+                                                ],
                                             )
                                             single_file_args["vae"] = vae
-                                        
+
                                         # Retry loading with external components
                                         if use_img2img:
                                             pipe = StableDiffusionImg2ImgPipeline.from_single_file(
@@ -3680,10 +3835,14 @@ class AIModelManager:
                                             f"✅ Successfully loaded SD model with external components: {model_path.name}"
                                         )
                                 except Exception as retry_error:
-                                    logger.error(f"Failed to load model even with external components: {retry_error}")
+                                    logger.error(
+                                        f"Failed to load model even with external components: {retry_error}"
+                                    )
                                     raise
                             else:
-                                logger.error(f"Failed to load single-file model: {error_msg}")
+                                logger.error(
+                                    f"Failed to load single-file model: {error_msg}"
+                                )
                                 raise
 
                         # Disable safety checker for NSFW content generation
@@ -4211,10 +4370,10 @@ class AIModelManager:
             # the community pipeline (SDXLLongPromptWeightingPipeline) without dependencies.
             pipeline_class_name = type(pipe).__name__
             is_lpw_pipeline = "LongPromptWeighting" in pipeline_class_name
-            
+
             # Check if this is a FLUX model (FLUX uses different architecture, T5 encoder)
             is_flux = is_flux_model(model)
-            
+
             # Estimate token count (rough approximation: 1.3 tokens per word)
             estimated_tokens = len(prompt.split()) * 1.3
 
@@ -4243,7 +4402,9 @@ class AIModelManager:
 
                     if is_sdxl:
                         # SDXL has two text encoders - requires special configuration
-                        logger.info("Configuring compel for SDXL dual-encoder architecture")
+                        logger.info(
+                            "Configuring compel for SDXL dual-encoder architecture"
+                        )
                         compel = Compel(
                             tokenizer=[pipe.tokenizer, pipe.tokenizer_2],
                             text_encoder=[pipe.text_encoder, pipe.text_encoder_2],
@@ -4276,8 +4437,10 @@ class AIModelManager:
                             # Pad conditioning tensors to same length to avoid shape mismatch
                             # Long prompts may have more tokens than short negative prompts
                             # SDXL pipeline requires prompt_embeds and negative_prompt_embeds to have matching shapes
-                            [conditioning, negative_conditioning] = compel.pad_conditioning_tensors_to_same_length(
-                                [conditioning, negative_conditioning]
+                            [conditioning, negative_conditioning] = (
+                                compel.pad_conditioning_tensors_to_same_length(
+                                    [conditioning, negative_conditioning]
+                                )
                             )
                             logger.info(
                                 f"Padded embeddings to same length: {conditioning.shape[1]} tokens"
@@ -4298,7 +4461,9 @@ class AIModelManager:
                             )
                     else:
                         # SD 1.5 and similar models have single text encoder
-                        logger.info("Configuring compel for SD 1.5 single-encoder architecture")
+                        logger.info(
+                            "Configuring compel for SD 1.5 single-encoder architecture"
+                        )
                         compel = Compel(
                             tokenizer=pipe.tokenizer,
                             text_encoder=pipe.text_encoder,
@@ -4323,8 +4488,10 @@ class AIModelManager:
                             # Pad conditioning tensors to same length to avoid shape mismatch
                             # Long prompts may have more tokens than short negative prompts
                             # SD 1.5 pipeline requires prompt_embeds and negative_prompt_embeds to have matching shapes
-                            [conditioning, negative_conditioning] = compel.pad_conditioning_tensors_to_same_length(
-                                [conditioning, negative_conditioning]
+                            [conditioning, negative_conditioning] = (
+                                compel.pad_conditioning_tensors_to_same_length(
+                                    [conditioning, negative_conditioning]
+                                )
                             )
                             logger.info(
                                 f"Padded embeddings to same length: {conditioning.shape[1]} tokens"
@@ -4354,7 +4521,9 @@ class AIModelManager:
                     )
                 except Exception as e:
                     logger.warning(f"Failed to use compel: {e}")
-                    logger.warning("Falling back to standard prompt encoding (will truncate at 77 tokens)")
+                    logger.warning(
+                        "Falling back to standard prompt encoding (will truncate at 77 tokens)"
+                    )
 
             # Generate image (run in thread pool to avoid blocking)
             # Use different parameters for ControlNet, img2img vs text2img
@@ -4453,12 +4622,14 @@ class AIModelManager:
                         prompt_embeds is not None and negative_prompt_embeds is not None
                     )
                     has_pooled_embeddings = (
-                        pooled_prompt_embeds is not None 
+                        pooled_prompt_embeds is not None
                         and negative_pooled_prompt_embeds is not None
                     )
-                    use_sdxl_embeddings = has_basic_embeddings and is_sdxl and has_pooled_embeddings
+                    use_sdxl_embeddings = (
+                        has_basic_embeddings and is_sdxl and has_pooled_embeddings
+                    )
                     use_sd15_embeddings = has_basic_embeddings and not is_sdxl
-                    
+
                     if use_sdxl_embeddings:
                         # Using compel embeddings for long prompt support with img2img (SDXL)
                         result = await loop.run_in_executor(
@@ -4521,7 +4692,9 @@ class AIModelManager:
                                 ),
                             )
                             image = safe_extract_image(result)
-                            logger.info("✓ Image generated successfully via img2img (SDXL text prompt)")
+                            logger.info(
+                                "✓ Image generated successfully via img2img (SDXL text prompt)"
+                            )
                         else:
                             # SD 1.5 img2img with standard text prompts
                             result = await loop.run_in_executor(
@@ -4537,7 +4710,9 @@ class AIModelManager:
                                 ),
                             )
                             image = safe_extract_image(result)
-                            logger.info("✓ Image generated successfully via img2img (SD 1.5)")
+                            logger.info(
+                                "✓ Image generated successfully via img2img (SD 1.5)"
+                            )
                 else:
                     # Standard text2img generation
                     # Use embeddings if available (from compel), otherwise use text prompts
@@ -4547,12 +4722,14 @@ class AIModelManager:
                         prompt_embeds is not None and negative_prompt_embeds is not None
                     )
                     has_pooled_embeddings = (
-                        pooled_prompt_embeds is not None 
+                        pooled_prompt_embeds is not None
                         and negative_pooled_prompt_embeds is not None
                     )
-                    use_sdxl_embeddings = has_basic_embeddings and is_sdxl and has_pooled_embeddings
+                    use_sdxl_embeddings = (
+                        has_basic_embeddings and is_sdxl and has_pooled_embeddings
+                    )
                     use_sd15_embeddings = has_basic_embeddings and not is_sdxl
-                    
+
                     if use_sdxl_embeddings:
                         # SDXL with compel embeddings
                         result = await loop.run_in_executor(
@@ -5282,14 +5459,16 @@ class AIModelManager:
         try:
             # Get image style from kwargs
             image_style = kwargs.get("image_style", "photorealistic")
-            
+
             # Get persona-specific negative prompt (overrides style defaults if provided)
             persona_negative_prompt = kwargs.get("persona_negative_prompt")
-            
+
             # Get model preference options for anatomy/body generation
             prefer_anatomy_model = kwargs.get("prefer_anatomy_model", False)
             nsfw_model_pref = kwargs.get("nsfw_model_pref")
-            image_model_pref = kwargs.get("image_model_pref")  # General image model preference from persona
+            image_model_pref = kwargs.get(
+                "image_model_pref"
+            )  # General image model preference from persona
 
             # Build base prompt with appearance and personality
             base_prompt = appearance_prompt
@@ -5298,9 +5477,9 @@ class AIModelManager:
 
             # Check if we're using SDXL to determine if we can use long prompts
             model = self._get_best_local_image_model(
-                prefer_anatomy_model=prefer_anatomy_model, 
+                prefer_anatomy_model=prefer_anatomy_model,
                 nsfw_model_pref=nsfw_model_pref,
-                image_model_pref=image_model_pref
+                image_model_pref=image_model_pref,
             )
             is_sdxl = "xl" in model.get("name", "").lower()
 
@@ -5309,15 +5488,19 @@ class AIModelManager:
             # For SD 1.5, truncate to fit CLIP's limit
             # If persona_negative_prompt is provided, it overrides style defaults
             full_prompt, style_negative_prompt = self._build_style_specific_prompt(
-                base_prompt, image_style, use_long_prompt=is_sdxl,
-                persona_negative_prompt=persona_negative_prompt
+                base_prompt,
+                image_style,
+                use_long_prompt=is_sdxl,
+                persona_negative_prompt=persona_negative_prompt,
             )
 
             logger.info(
                 f"Generating reference image locally with style '{image_style}': {full_prompt[:100]}..."
             )
             if prefer_anatomy_model or nsfw_model_pref:
-                logger.info(f"Using anatomy-optimized model selection (prefer_anatomy={prefer_anatomy_model}, nsfw_pref={nsfw_model_pref})")
+                logger.info(
+                    f"Using anatomy-optimized model selection (prefer_anatomy={prefer_anatomy_model}, nsfw_pref={nsfw_model_pref})"
+                )
 
             # Auto-select GPU if not specified
             device_id = kwargs.get("device_id")
@@ -5353,9 +5536,13 @@ class AIModelManager:
                 logger.info(f"Using img2img with reference: {reference_image_path}")
                 generation_kwargs["reference_image_path"] = reference_image_path
                 # Use img2img strength from kwargs (default 0.75 means 75% new generation, 25% original)
-                generation_kwargs["img2img_strength"] = kwargs.get("img2img_strength", 0.75)
+                generation_kwargs["img2img_strength"] = kwargs.get(
+                    "img2img_strength", 0.75
+                )
                 # Don't use ControlNet by default, use simpler img2img pipeline
-                generation_kwargs["use_controlnet"] = kwargs.get("use_controlnet", False)
+                generation_kwargs["use_controlnet"] = kwargs.get(
+                    "use_controlnet", False
+                )
 
             # Generate using the diffusers pipeline
             result = await self._generate_image_diffusers(
@@ -5363,7 +5550,7 @@ class AIModelManager:
                 model=self._get_best_local_image_model(
                     prefer_anatomy_model=prefer_anatomy_model,
                     nsfw_model_pref=nsfw_model_pref,
-                    image_model_pref=image_model_pref
+                    image_model_pref=image_model_pref,
                 ),
                 **generation_kwargs,
             )
@@ -5377,21 +5564,21 @@ class AIModelManager:
             raise
 
     def _get_best_local_image_model(
-        self, 
-        prefer_anatomy_model: bool = True, 
+        self,
+        prefer_anatomy_model: bool = True,
         nsfw_model_pref: Optional[str] = None,
-        image_model_pref: Optional[str] = None
+        image_model_pref: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Get the best available local image model.
-        
+
         By default, prefers NSFW/anatomy-focused models for better human body representation.
-        
+
         Args:
             prefer_anatomy_model: If True (default), prefer models better at human body/anatomy
             nsfw_model_pref: Optional specific NSFW model preference name
             image_model_pref: Optional general image model preference (from persona settings)
-            
+
         Returns:
             Dict containing model configuration
         """
@@ -5412,9 +5599,13 @@ class AIModelManager:
                     or image_model_pref.lower() in model.get("model_id", "").lower()
                     or image_model_pref.lower() in model.get("display_name", "").lower()
                 ):
-                    logger.info(f"Using persona's preferred image model: {model.get('name')}")
+                    logger.info(
+                        f"Using persona's preferred image model: {model.get('name')}"
+                    )
                     return model
-            logger.warning(f"Persona's preferred image model '{image_model_pref}' not found, using fallback selection")
+            logger.warning(
+                f"Persona's preferred image model '{image_model_pref}' not found, using fallback selection"
+            )
 
         # If specific NSFW model preference provided, try to find it
         if nsfw_model_pref:
@@ -5424,9 +5615,11 @@ class AIModelManager:
                     or nsfw_model_pref.lower() in model.get("model_id", "").lower()
                     or nsfw_model_pref.lower() in model.get("display_name", "").lower()
                 ):
-                    logger.info(f"Using preferred NSFW model for better anatomy: {model.get('name')}")
+                    logger.info(
+                        f"Using preferred NSFW model for better anatomy: {model.get('name')}"
+                    )
                     return model
-        
+
         # Default behavior: Look for NSFW/anatomy-focused models first
         # Models known to be better at human anatomy/bodies
         for model in local_models:
@@ -5434,10 +5627,16 @@ class AIModelManager:
             model_id_lower = model.get("model_id", "").lower()
             display_name_lower = model.get("display_name", "").lower()
             for keyword in NSFW_MODEL_KEYWORDS:
-                if keyword in model_name_lower or keyword in model_id_lower or keyword in display_name_lower:
-                    logger.info(f"Using NSFW/anatomy-focused model (default): {model.get('name')}")
+                if (
+                    keyword in model_name_lower
+                    or keyword in model_id_lower
+                    or keyword in display_name_lower
+                ):
+                    logger.info(
+                        f"Using NSFW/anatomy-focused model (default): {model.get('name')}"
+                    )
                     return model
-        
+
         # Check for models with nsfw flag set in metadata (CivitAI models)
         for model in local_models:
             if model.get("nsfw", False):
@@ -5513,9 +5712,9 @@ class AIModelManager:
         """
         try:
             from backend.services.video_processing_service import (
+                TransitionType,
                 VideoProcessingService,
                 VideoQuality,
-                TransitionType,
             )
 
             # Initialize video processing service
@@ -5665,8 +5864,9 @@ class AIModelManager:
         This is a Q2-Q3 2025 feature for audio-visual content.
         """
         try:
-            from backend.services.video_processing_service import VideoProcessingService
             from pathlib import Path
+
+            from backend.services.video_processing_service import VideoProcessingService
 
             video_service = VideoProcessingService()
 

@@ -13,19 +13,19 @@ limit when using SDXL with compel library support.
 
 import asyncio
 import json
-import subprocess
 import shutil
-from typing import Dict, List, Optional, Any
+import subprocess
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
-from backend.models.persona import PersonaModel
 from backend.models.content import ContentRating
+from backend.models.persona import PersonaModel
 
 logger = get_logger(__name__)
 
@@ -152,7 +152,7 @@ class PromptGenerationService:
             return None
 
         try:
-            from backend.models.feed import PersonaFeedModel, FeedItemModel
+            from backend.models.feed import FeedItemModel, PersonaFeedModel
 
             # Get RSS feeds assigned to this persona
             stmt = (
@@ -389,17 +389,21 @@ class PromptGenerationService:
 
         # Add appearance details - use base_appearance_description if appearance is locked
         if persona.appearance_locked and persona.base_appearance_description:
-            instruction_parts.append(f"Appearance (LOCKED - maintain consistency): {persona.base_appearance_description}")
-            instruction_parts.append("IMPORTANT: The appearance MUST match the locked description exactly for visual consistency")
+            instruction_parts.append(
+                f"Appearance (LOCKED - maintain consistency): {persona.base_appearance_description}"
+            )
+            instruction_parts.append(
+                "IMPORTANT: The appearance MUST match the locked description exactly for visual consistency"
+            )
         elif persona.appearance:
             instruction_parts.append(f"Appearance: {persona.appearance}")
 
         # Add personality
         if persona.personality:
             instruction_parts.append(f"Personality: {persona.personality}")
-        
+
         # Add post style for engagement context
-        if hasattr(persona, 'post_style') and persona.post_style:
+        if hasattr(persona, "post_style") and persona.post_style:
             instruction_parts.append(f"Post Style: {persona.post_style}")
 
         # Add interests/preferences from content themes
@@ -417,10 +421,17 @@ class PromptGenerationService:
 
         # Add persona's AI model preferences if available
         # These inform the prompt generator about the persona's preferred generation style
-        if hasattr(persona, 'image_model_preference') and persona.image_model_preference:
-            instruction_parts.append(f"Preferred Image Model: {persona.image_model_preference}")
-        if hasattr(persona, 'nsfw_model_preference') and persona.nsfw_model_preference:
-            instruction_parts.append(f"Preferred NSFW Model: {persona.nsfw_model_preference}")
+        if (
+            hasattr(persona, "image_model_preference")
+            and persona.image_model_preference
+        ):
+            instruction_parts.append(
+                f"Preferred Image Model: {persona.image_model_preference}"
+            )
+        if hasattr(persona, "nsfw_model_preference") and persona.nsfw_model_preference:
+            instruction_parts.append(
+                f"Preferred NSFW Model: {persona.nsfw_model_preference}"
+            )
 
         # Add context if provided
         # Interpret instruction-like text as hints rather than literal context
@@ -428,11 +439,13 @@ class PromptGenerationService:
             instruction_words = ["generate", "create", "make", "produce", "based on"]
             context_lower = context.lower()
             is_instruction = any(word in context_lower for word in instruction_words)
-            
+
             if is_instruction:
                 # If context looks like an instruction, interpret it as guidance
                 instruction_parts.append(f"User Request: {context}")
-                instruction_parts.append("Note: Interpret the above as guidance for content direction, not literal text.")
+                instruction_parts.append(
+                    "Note: Interpret the above as guidance for content direction, not literal text."
+                )
             else:
                 # Standard situational context
                 instruction_parts.append(f"Context/Situation: {context}")

@@ -6,8 +6,8 @@ Follows best practices for environment-based configuration.
 """
 
 import os
-from typing import List, Optional
 from functools import lru_cache
+from typing import List, Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -140,7 +140,8 @@ class Settings(BaseSettings):
         default=None, description="BMC/XCC password for IPMI authentication"
     )
     ipmi_interface: str = Field(
-        default="lanplus", description="IPMI interface type (lanplus recommended for remote access)"
+        default="lanplus",
+        description="IPMI interface type (lanplus recommended for remote access)",
     )
 
 

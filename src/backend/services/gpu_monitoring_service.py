@@ -7,9 +7,9 @@ for AMD ROCm GPUs. Integrates with PyTorch/ROCm to retrieve real-time GPU data.
 
 import asyncio
 import time
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone
 from collections import deque
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 from backend.config.logging import get_logger
 

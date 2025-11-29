@@ -6,20 +6,20 @@ Database and API models for audience segmentation and personalized content.
 
 import uuid
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import (
-    Column,
-    String,
-    DateTime,
-    Boolean,
-    Integer,
-    Text,
     JSON,
-    ForeignKey,
+    Boolean,
+    Column,
+    DateTime,
     Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship

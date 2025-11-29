@@ -7,20 +7,20 @@ to enable learning and improvement of prompt enhancement and model selection.
 
 import uuid
 from datetime import datetime
-from typing import Optional, Dict, Any
 from enum import Enum
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 from sqlalchemy import (
-    Column,
-    String,
-    DateTime,
-    Float,
-    Integer,
-    Text,
     JSON,
     Boolean,
+    Column,
+    DateTime,
+    Float,
     ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
@@ -110,7 +110,9 @@ class GenerationBenchmarkModel(Base):
         nullable=True,
         index=True,
     )
-    acd_phase = Column(String(100), nullable=True, index=True)  # Content generation phase
+    acd_phase = Column(
+        String(100), nullable=True, index=True
+    )  # Content generation phase
     acd_metadata = Column(JSON, nullable=True)  # Additional ACD metadata
 
     # Timestamps

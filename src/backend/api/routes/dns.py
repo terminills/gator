@@ -4,21 +4,22 @@ DNS Management API Routes
 Provides endpoints for domain and DNS management through the admin panel.
 """
 
-from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
+from backend.config.logging import get_logger
+from backend.config.settings import get_settings
+from backend.database.connection import get_db_session
 from backend.services.dns_service import (
-    DNSService,
-    DNSRecord,
-    DomainInfo,
     DNSProvider,
+    DNSRecord,
+    DNSService,
+    DomainInfo,
     RecordType,
     create_dns_service,
 )
-from backend.database.connection import get_db_session
-from backend.config.logging import get_logger
-from backend.config.settings import get_settings
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/dns", tags=["dns"])

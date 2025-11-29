@@ -5,17 +5,18 @@ Handles GPU temperature monitoring and server fan control for Lenovo SR665.
 """
 
 from typing import Optional
-from fastapi import APIRouter, HTTPException, status, Query, Body
+
+from fastapi import APIRouter, Body, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from backend.services.gpu_monitoring_service import get_gpu_monitoring_service
+from backend.config.logging import get_logger
 from backend.services.fan_control_service import (
-    get_fan_control_service,
     FanControlMode,
     FanZone,
     ServerManufacturer,
+    get_fan_control_service,
 )
-from backend.config.logging import get_logger
+from backend.services.gpu_monitoring_service import get_gpu_monitoring_service
 
 logger = get_logger(__name__)
 
@@ -28,42 +29,65 @@ router = APIRouter(
 # Request/Response models
 class FanSpeedRequest(BaseModel):
     """Request model for setting fan speed."""
-    speed_percent: int = Field(..., ge=0, le=100, description="Fan speed as percentage (0-100)")
+
+    speed_percent: int = Field(
+        ..., ge=0, le=100, description="Fan speed as percentage (0-100)"
+    )
     zone: Optional[str] = Field(None, description="Fan zone (system, cpu, peripheral)")
 
 
 class FanModeRequest(BaseModel):
     """Request model for setting fan control mode."""
+
     mode: str = Field(..., description="Fan control mode (auto, manual)")
 
 
 class TemperatureThresholdsRequest(BaseModel):
     """Request model for updating temperature thresholds."""
-    low: Optional[float] = Field(None, ge=0, le=100, description="Low temperature threshold (C)")
-    normal: Optional[float] = Field(None, ge=0, le=100, description="Normal temperature threshold (C)")
-    high: Optional[float] = Field(None, ge=0, le=100, description="High temperature threshold (C)")
-    critical: Optional[float] = Field(None, ge=0, le=100, description="Critical temperature threshold (C)")
+
+    low: Optional[float] = Field(
+        None, ge=0, le=100, description="Low temperature threshold (C)"
+    )
+    normal: Optional[float] = Field(
+        None, ge=0, le=100, description="Normal temperature threshold (C)"
+    )
+    high: Optional[float] = Field(
+        None, ge=0, le=100, description="High temperature threshold (C)"
+    )
+    critical: Optional[float] = Field(
+        None, ge=0, le=100, description="Critical temperature threshold (C)"
+    )
 
 
 class AutoAdjustRequest(BaseModel):
     """Request model for automatic fan adjustment."""
-    target_temperature: Optional[float] = Field(None, description="Target max GPU temperature (C)")
+
+    target_temperature: Optional[float] = Field(
+        None, description="Target max GPU temperature (C)"
+    )
 
 
 class ManufacturerRequest(BaseModel):
     """Request model for setting server manufacturer."""
-    manufacturer: str = Field(..., description="Server manufacturer (lenovo, dell, hp, supermicro, generic)")
+
+    manufacturer: str = Field(
+        ..., description="Server manufacturer (lenovo, dell, hp, supermicro, generic)"
+    )
 
 
 class IPMICredentialsRequest(BaseModel):
     """Request model for configuring IPMI credentials."""
+
     host: str = Field(..., description="BMC/XCC IP address or hostname")
     username: str = Field(..., description="BMC/XCC username")
     password: str = Field(..., description="BMC/XCC password")
-    interface: Optional[str] = Field("lanplus", description="IPMI interface (default: lanplus)")
+    interface: Optional[str] = Field(
+        "lanplus", description="IPMI interface (default: lanplus)"
+    )
 
 
 # GPU Monitoring Endpoints
+
 
 @router.get("/gpu/temperature", status_code=status.HTTP_200_OK)
 async def get_gpu_temperatures():
@@ -151,6 +175,7 @@ async def get_max_temperatures():
 
 # Fan Control Endpoints
 
+
 @router.get("/fans", status_code=status.HTTP_200_OK)
 async def get_fan_status():
     """
@@ -204,7 +229,7 @@ async def set_fan_mode(request: FanModeRequest):
     """
     try:
         fan_service = get_fan_control_service()
-        
+
         # Validate mode
         try:
             mode = FanControlMode(request.mode.lower())
@@ -213,15 +238,15 @@ async def set_fan_mode(request: FanModeRequest):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid mode: {request.mode}. Must be 'auto' or 'manual'",
             )
-        
+
         result = await fan_service.set_fan_mode(mode)
-        
+
         if not result.get("success"):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=result.get("error", "Failed to set fan mode"),
             )
-        
+
         return result
     except HTTPException:
         raise
@@ -246,7 +271,7 @@ async def set_fan_speed(request: FanSpeedRequest):
     """
     try:
         fan_service = get_fan_control_service()
-        
+
         # Validate zone if provided
         zone = None
         if request.zone:
@@ -257,15 +282,15 @@ async def set_fan_speed(request: FanSpeedRequest):
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid zone: {request.zone}. Must be 'system', 'cpu', or 'peripheral'",
                 )
-        
+
         result = await fan_service.set_fan_speed(request.speed_percent, zone)
-        
+
         if not result.get("success"):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=result.get("error", "Failed to set fan speed"),
             )
-        
+
         return result
     except HTTPException:
         raise
@@ -291,41 +316,45 @@ async def auto_adjust_fans(request: AutoAdjustRequest = Body(default=None)):
     try:
         gpu_service = get_gpu_monitoring_service()
         fan_service = get_fan_control_service()
-        
+
         # Get current GPU temperatures
         gpu_temps = await gpu_service.get_gpu_temperatures()
-        
+
         if not gpu_temps.get("available"):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="GPU temperature monitoring not available",
             )
-        
+
         # Find maximum GPU temperature
         max_temp = 0
         for gpu in gpu_temps.get("gpus", []):
             temp = gpu.get("temperature_c")
             if temp is not None and temp > max_temp:
                 max_temp = temp
-        
+
         if max_temp == 0:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="No valid GPU temperature readings available",
             )
-        
+
         # Use target temperature if provided, otherwise use max detected
-        target_temp = request.target_temperature if request and request.target_temperature else max_temp
-        
+        target_temp = (
+            request.target_temperature
+            if request and request.target_temperature
+            else max_temp
+        )
+
         # Adjust fans based on temperature
         result = await fan_service.adjust_fans_for_temperature(target_temp)
-        
+
         if not result.get("success"):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=result.get("error", "Failed to adjust fans"),
             )
-        
+
         return result
     except HTTPException:
         raise
@@ -350,7 +379,7 @@ async def set_temperature_thresholds(request: TemperatureThresholdsRequest):
     """
     try:
         fan_service = get_fan_control_service()
-        
+
         # Build threshold dict from non-None values
         thresholds = {}
         if request.low is not None:
@@ -361,13 +390,13 @@ async def set_temperature_thresholds(request: TemperatureThresholdsRequest):
             thresholds["high"] = request.high
         if request.critical is not None:
             thresholds["critical"] = request.critical
-        
+
         if not thresholds:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="At least one threshold value must be provided",
             )
-        
+
         result = fan_service.set_temperature_thresholds(thresholds)
         return result
     except HTTPException:
@@ -396,7 +425,7 @@ async def set_manufacturer(request: ManufacturerRequest):
     """
     try:
         fan_service = get_fan_control_service()
-        
+
         # Validate manufacturer
         try:
             manufacturer = ServerManufacturer(request.manufacturer.lower())
@@ -406,7 +435,7 @@ async def set_manufacturer(request: ManufacturerRequest):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid manufacturer: {request.manufacturer}. Must be one of: {', '.join(valid_manufacturers)}",
             )
-        
+
         result = fan_service.set_manufacturer(manufacturer)
         return result
     except HTTPException:
@@ -440,12 +469,12 @@ async def set_ipmi_credentials(request: IPMICredentialsRequest):
     """
     try:
         fan_service = get_fan_control_service()
-        
+
         result = fan_service.set_ipmi_credentials(
             host=request.host,
             username=request.username,
             password=request.password,
-            interface=request.interface or "lanplus"
+            interface=request.interface or "lanplus",
         )
         return result
     except Exception as e:
