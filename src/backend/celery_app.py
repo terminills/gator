@@ -83,7 +83,7 @@ app.conf.beat_schedule = {
     },
     "acd-hil-learning": {
         "task": "backend.tasks.acd_tasks.learn_from_hil_ratings",
-        "schedule": 3600.0,  # Run every hour
+        "schedule": crontab(minute=0),  # Run at the start of every hour
     },
     "acd-cross-domain-analysis": {
         "task": "backend.tasks.acd_tasks.analyze_cross_domain_patterns",

@@ -4,6 +4,7 @@ ACD Cross-Thinking Service
 Enables reasoning that spans multiple domains for complex multi-step tasks.
 """
 
+import uuid as uuid_module
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -127,6 +128,10 @@ class ACDCrossThinking:
     - Create execution plans for multi-domain operations
     - Learn from cross-domain successes and failures
     """
+
+    # Correlation thresholds for pattern detection
+    CORRELATION_THRESHOLD = 0.2  # Minimum difference for correlation detection
+    STRONG_CORRELATION_THRESHOLD = 0.1  # Threshold for strong/positive correlation
 
     # Common goal keywords to domain mappings
     GOAL_DOMAIN_HINTS = {
@@ -306,13 +311,15 @@ class ACDCrossThinking:
         # Simple correlation check - if rates are similar, they may be correlated
         rate_diff = abs(a_rate - b_rate)
 
-        if rate_diff < 0.2:  # Similar performance
+        if rate_diff < self.CORRELATION_THRESHOLD:  # Similar performance
             return {
                 "domain_a": domain_a.value,
                 "domain_b": domain_b.value,
                 "domain_a_success_rate": a_rate,
                 "domain_b_success_rate": b_rate,
-                "correlation_type": "positive" if rate_diff < 0.1 else "weak",
+                "correlation_type": (
+                    "positive" if rate_diff < self.STRONG_CORRELATION_THRESHOLD else "weak"
+                ),
                 "description": (
                     f"{domain_a.value} and {domain_b.value} have similar "
                     f"success rates ({a_rate:.1%} vs {b_rate:.1%})"
@@ -517,9 +524,7 @@ class ACDCrossThinking:
             OrchestrationPlan with execution details
         """
         try:
-            import uuid
-
-            task_id = str(uuid.uuid4())
+            task_id = str(uuid_module.uuid4())
 
             # Get domain suggestions for the goal
             combinations = await self.suggest_domain_combinations(task.goal)
@@ -598,8 +603,7 @@ class ACDCrossThinking:
 
         except Exception as e:
             logger.error(f"Failed to orchestrate multi-domain task: {e}")
-            import uuid
-            return OrchestrationPlan(task_id=str(uuid.uuid4()))
+            return OrchestrationPlan(task_id=str(uuid_module.uuid4()))
 
     def _get_action_for_domain(self, domain: AIDomain, goal: str) -> str:
         """Get action description for a domain."""

@@ -398,7 +398,10 @@ class ACDSelfImprovement:
                     adjustment = self.LEARNING_RATE * (1 - current_weight / self.MAX_WEIGHT)
                 else:
                     # Unsuccessful - decrease weight (floor at MIN_WEIGHT)
-                    adjustment = -self.LEARNING_RATE * (current_weight - self.MIN_WEIGHT) / self.MAX_WEIGHT
+                    # Normalize to ensure negative adjustment for failures
+                    weight_range = self.MAX_WEIGHT - self.MIN_WEIGHT
+                    normalized_position = (current_weight - self.MIN_WEIGHT) / weight_range
+                    adjustment = -self.LEARNING_RATE * normalized_position
 
                 # Cap adjustment
                 adjustment = max(-self.MAX_WEIGHT_ADJUSTMENT,

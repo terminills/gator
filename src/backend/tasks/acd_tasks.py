@@ -11,8 +11,6 @@ Celery tasks for automated ACD learning and improvement:
 import asyncio
 from datetime import datetime, timezone
 
-from celery import shared_task
-
 from backend.celery_app import app
 from backend.config.logging import get_logger
 
@@ -20,13 +18,12 @@ logger = get_logger(__name__)
 
 
 def run_async(coro):
-    """Helper to run async code in sync context."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
+    """
+    Helper to run async code in sync Celery task context.
+
+    Uses asyncio.run() for efficient event loop management.
+    """
+    return asyncio.run(coro)
 
 
 @app.task(
