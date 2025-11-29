@@ -16,7 +16,7 @@ Usage:
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -318,7 +318,7 @@ class GatorPaths:
     def find_file(
         self,
         filename: str,
-        search_dirs: Optional[list[Path]] = None,
+        search_dirs: Optional[List[Path]] = None,
     ) -> Optional[Path]:
         """
         Search for a file in multiple directories.
