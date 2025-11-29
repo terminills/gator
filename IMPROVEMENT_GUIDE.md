@@ -1104,6 +1104,9 @@ async def test_persona_crud_api():
 ### Phase 3: Architecture Refactoring (Weeks 3-4)
 
 - [ ] Split `ai_models.py` into modular structure
+  - [ ] Add TensorFlow support (standard whl's now available)
+  - [ ] Separate model loaders by framework (PyTorch, TensorFlow, ONNX)
+  - [ ] Create unified model interface
 - [x] Standardize API route prefixes
 - [x] Add database indexes for common queries
 - [x] Implement proper connection pooling
@@ -1112,15 +1115,18 @@ async def test_persona_crud_api():
 
 ### Phase 4: ACD Evolution (Weeks 5-8)
 
-- [ ] Implement `ACDCorrelationEngine`
-- [ ] Implement `ACDMemorySystem`
+- [x] Implement `ACDCorrelationEngine` (find similar contexts, extract success patterns, learn from outcomes)
+- [x] Implement `ACDMemorySystem` (hierarchical memory: working, short-term, long-term, episodic)
 - [ ] Implement `ACDSelfImprovement`
 - [ ] Implement `ACDCrossThinking`
 - [x] Add new ACD database fields (HIL Rating, Learning, Memory, Cross-domain)
-- [x] Create new ACD API endpoints (HIL Rating: /rate, /ratings, /ratings/stats, /workflow-effectiveness, /best-configs, /flag-incompatibility, /misgeneration-patterns)
+- [x] Create new ACD API endpoints (HIL Rating + Correlation Engine + Memory System)
+  - /rate, /ratings, /ratings/stats, /workflow-effectiveness, /best-configs, /flag-incompatibility, /misgeneration-patterns
+  - /correlations/similar/{id}, /correlations/patterns, /correlations/learn/{id}, /correlations/insights
+  - /memory, /memory/recall, /memory/consolidate, /memory/stats, /memory/{id}/reinforce
 - [x] Implement `HILRatingService` for human-in-the-loop feedback
 - [ ] Add ACD learning background tasks
-- [ ] Implement memory consolidation job
+- [x] Implement memory consolidation job (via /memory/consolidate endpoint)
 
 ### Phase 5: Testing Improvements (Week 9)
 
