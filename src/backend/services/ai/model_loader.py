@@ -119,6 +119,10 @@ def filter_scheduler_config(config: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Filtered config dictionary without deprecated attributes
     """
+    # These attributes were deprecated in diffusers >= 0.25.0 (late 2023)
+    # and removed in later versions. They cause warnings/errors with
+    # DPMSolverMultistepScheduler when loading older model configs.
+    # See: https://github.com/huggingface/diffusers/pull/6106
     deprecated_attrs = ["use_beta_sigmas", "use_exponential_sigmas"]
     filtered_config = dict(config)
 
