@@ -20,7 +20,7 @@ from PIL import Image
 import tempfile
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 
 async def test_image_save_pipeline():

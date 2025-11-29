@@ -19,7 +19,7 @@ def test_llamacpp_exists():
     print("🧪 TEST 1: llama.cpp Binary Exists")
     print("="*80)
     
-    repo_root = Path(__file__).parent
+    repo_root = Path(__file__).parent.parent.parent
     llamacpp_bin = repo_root / "third_party" / "llama.cpp" / "build" / "bin" / "llama-cli"
     
     if not llamacpp_bin.exists():
@@ -37,7 +37,7 @@ def test_llamacpp_runs():
     print("🧪 TEST 2: llama.cpp Runs")
     print("="*80)
     
-    repo_root = Path(__file__).parent
+    repo_root = Path(__file__).parent.parent.parent
     llamacpp_bin = repo_root / "third_party" / "llama.cpp" / "build" / "bin" / "llama-cli"
     
     try:
@@ -67,7 +67,7 @@ def test_model_availability():
     print("🧪 TEST 3: Model Availability")
     print("="*80)
     
-    repo_root = Path(__file__).parent
+    repo_root = Path(__file__).parent.parent.parent
     models_dir = repo_root / "models" / "text"
     
     if not models_dir.exists():
@@ -105,7 +105,7 @@ def test_llamacpp_generation(model_file):
         print(f"   ⏭️  SKIP: No model available for testing")
         return None
     
-    repo_root = Path(__file__).parent
+    repo_root = Path(__file__).parent.parent.parent
     llamacpp_bin = repo_root / "third_party" / "llama.cpp" / "build" / "bin" / "llama-cli"
     
     print(f"   Model: {model_file.name}")

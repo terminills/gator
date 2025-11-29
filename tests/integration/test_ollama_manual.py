@@ -17,7 +17,7 @@ import asyncio
 from pathlib import Path
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from backend.utils.model_detection import (
     find_ollama_installation,

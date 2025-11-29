@@ -16,7 +16,7 @@ from io import BytesIO
 from PIL import Image
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 
 async def test_set_base_image_endpoint():

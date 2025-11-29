@@ -16,7 +16,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 
 def test_sdxl_long_prompt_pipeline_loading():
