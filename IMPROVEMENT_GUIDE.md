@@ -1104,6 +1104,9 @@ async def test_persona_crud_api():
 ### Phase 3: Architecture Refactoring (Weeks 3-4)
 
 - [ ] Split `ai_models.py` into modular structure
+  - [ ] Add TensorFlow support (standard whl's now available)
+  - [ ] Separate model loaders by framework (PyTorch, TensorFlow, ONNX)
+  - [ ] Create unified model interface
 - [x] Standardize API route prefixes
 - [x] Add database indexes for common queries
 - [x] Implement proper connection pooling
