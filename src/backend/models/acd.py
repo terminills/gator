@@ -1026,8 +1026,9 @@ class HILRatingStats(BaseModel):
         default_factory=dict, description="Count of each rating level"
     )
     average_rating: Optional[float] = None
-    most_common_tags: List[Dict[str, int]] = Field(
-        default_factory=list, description="Most common misgeneration tags"
+    most_common_tags: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Most common misgeneration tags with tag and count",
     )
     ratings_by_model: Dict[str, Dict[str, Any]] = Field(
         default_factory=dict, description="Ratings breakdown by model"

@@ -40,6 +40,9 @@ RATING_VALUES = {
     GenerationRating.FAILED: 1,
 }
 
+# Reverse mapping for O(1) lookups
+VALUE_TO_RATING = {v: k for k, v in RATING_VALUES.items()}
+
 
 class HILRatingService:
     """
@@ -174,10 +177,11 @@ class HILRatingService:
 
         # If filtering by LoRAs, do additional filtering
         if lora_ids:
+            lora_ids_set = set(lora_ids)
             contexts = [
                 c
                 for c in contexts
-                if c.lora_ids and set(lora_ids).issubset(set(c.lora_ids))
+                if c.lora_ids and lora_ids_set.issubset(set(c.lora_ids))
             ]
 
         # Calculate statistics
@@ -197,21 +201,27 @@ class HILRatingService:
             rating_dist[rating.value] = 0
 
         all_tags: List[str] = []
-        ratings: List[int] = []
+        ratings_with_time: List[tuple] = []  # (created_at, rating)
 
         for ctx in contexts:
             if ctx.hil_rating:
-                ratings.append(ctx.hil_rating)
-                # Find corresponding rating label
-                for rating_enum, value in RATING_VALUES.items():
-                    if value == ctx.hil_rating:
-                        rating_dist[rating_enum.value] = (
-                            rating_dist.get(rating_enum.value, 0) + 1
-                        )
-                        break
+                # Use O(1) reverse lookup
+                rating_enum = VALUE_TO_RATING.get(ctx.hil_rating)
+                if rating_enum:
+                    rating_dist[rating_enum.value] = (
+                        rating_dist.get(rating_enum.value, 0) + 1
+                    )
+                # Store rating with timestamp for trend analysis
+                ratings_with_time.append((ctx.created_at, ctx.hil_rating))
 
             if ctx.hil_rating_tags:
                 all_tags.extend(ctx.hil_rating_tags)
+
+        # Sort by time for accurate trend analysis
+        ratings_with_time.sort(
+            key=lambda x: x[0] or datetime.min.replace(tzinfo=timezone.utc)
+        )
+        ratings = [r[1] for r in ratings_with_time]
 
         # Calculate average rating
         avg_rating = sum(ratings) / len(ratings) if ratings else None
@@ -504,7 +514,11 @@ class HILRatingService:
             trend = "stable"
             contexts_list = data["contexts"]
             if len(contexts_list) >= 5:
-                contexts_list.sort(key=lambda x: x.created_at or datetime.min)
+                # Use timezone-aware datetime for comparison
+                contexts_list.sort(
+                    key=lambda x: x.created_at
+                    or datetime.min.replace(tzinfo=timezone.utc)
+                )
                 mid = len(contexts_list) // 2
                 first_half_count = mid
                 second_half_count = len(contexts_list) - mid
@@ -626,13 +640,12 @@ class HILRatingService:
         for ctx in contexts:
             if ctx.hil_rating:
                 all_ratings.append(ctx.hil_rating)
-                # Map numeric to label
-                for rating_enum, value in RATING_VALUES.items():
-                    if value == ctx.hil_rating:
-                        rating_dist[rating_enum.value] = (
-                            rating_dist.get(rating_enum.value, 0) + 1
-                        )
-                        break
+                # Use O(1) reverse lookup
+                rating_enum = VALUE_TO_RATING.get(ctx.hil_rating)
+                if rating_enum:
+                    rating_dist[rating_enum.value] = (
+                        rating_dist.get(rating_enum.value, 0) + 1
+                    )
 
             if ctx.hil_rating_tags:
                 all_tags.extend(ctx.hil_rating_tags)
@@ -721,12 +734,9 @@ class HILRatingService:
 
         ratings: List[HILRatingResponse] = []
         for ctx in contexts:
-            # Map numeric back to label
-            rating_label = "UNKNOWN"
-            for rating_enum, value in RATING_VALUES.items():
-                if value == ctx.hil_rating:
-                    rating_label = rating_enum.value
-                    break
+            # Use O(1) reverse lookup
+            rating_enum = VALUE_TO_RATING.get(ctx.hil_rating)
+            rating_label = rating_enum.value if rating_enum else "UNKNOWN"
 
             ratings.append(
                 HILRatingResponse(

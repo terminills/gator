@@ -2334,18 +2334,9 @@ async def add_acd_hil_rating_columns(conn, is_sqlite: bool) -> List[str]:
         conn, "acd_contexts", "learning_weight", is_sqlite
     ):
         logger.info("Adding learning_weight column to acd_contexts table")
-        if is_sqlite:
-            await conn.execute(
-                text(
-                    "ALTER TABLE acd_contexts ADD COLUMN learning_weight REAL DEFAULT 1.0"
-                )
-            )
-        else:
-            await conn.execute(
-                text(
-                    "ALTER TABLE acd_contexts ADD COLUMN learning_weight REAL DEFAULT 1.0"
-                )
-            )
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN learning_weight REAL DEFAULT 1.0")
+        )
         added_columns.append("learning_weight")
 
     if not await check_column_exists(conn, "acd_contexts", "outcome_score", is_sqlite):
@@ -2402,36 +2393,22 @@ async def add_acd_hil_rating_columns(conn, is_sqlite: bool) -> List[str]:
         conn, "acd_contexts", "memory_importance", is_sqlite
     ):
         logger.info("Adding memory_importance column to acd_contexts table")
-        if is_sqlite:
-            await conn.execute(
-                text(
-                    "ALTER TABLE acd_contexts ADD COLUMN memory_importance REAL DEFAULT 0.5"
-                )
+        await conn.execute(
+            text(
+                "ALTER TABLE acd_contexts ADD COLUMN memory_importance REAL DEFAULT 0.5"
             )
-        else:
-            await conn.execute(
-                text(
-                    "ALTER TABLE acd_contexts ADD COLUMN memory_importance REAL DEFAULT 0.5"
-                )
-            )
+        )
         added_columns.append("memory_importance")
 
     if not await check_column_exists(
         conn, "acd_contexts", "memory_access_count", is_sqlite
     ):
         logger.info("Adding memory_access_count column to acd_contexts table")
-        if is_sqlite:
-            await conn.execute(
-                text(
-                    "ALTER TABLE acd_contexts ADD COLUMN memory_access_count INTEGER DEFAULT 0"
-                )
+        await conn.execute(
+            text(
+                "ALTER TABLE acd_contexts ADD COLUMN memory_access_count INTEGER DEFAULT 0"
             )
-        else:
-            await conn.execute(
-                text(
-                    "ALTER TABLE acd_contexts ADD COLUMN memory_access_count INTEGER DEFAULT 0"
-                )
-            )
+        )
         added_columns.append("memory_access_count")
 
     if not await check_column_exists(
