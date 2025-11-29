@@ -422,16 +422,14 @@ class PaginatedResponse(BaseModel):
     has_more: bool
 
 
-# =============================================================================
-# Dependency Instances (Pre-configured)
-# =============================================================================
-
-# These are ready-to-use dependency instances
-PersonaServiceDep = Depends(get_persona_service())
-ACDServiceDep = Depends(get_acd_service())
-SettingsServiceDep = Depends(get_settings_service())
-UserServiceDep = Depends(get_user_service())
-ScheduledPostServiceDep = Depends(get_scheduled_post_service())
-HILRatingServiceDep = Depends(get_hil_rating_service())
-ContentGenerationServiceDep = Depends(get_content_generation_service())
-RSSIngestionServiceDep = Depends(get_rss_ingestion_service())
+# Note: Use the factory functions directly in route handlers instead of
+# pre-configured dependency instances to avoid circular import issues.
+# Example usage:
+#
+#   from backend.api.dependencies import get_persona_service
+#
+#   @router.get("/personas")
+#   async def list_personas(
+#       service: PersonaService = Depends(get_persona_service()),
+#   ):
+#       pass

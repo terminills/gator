@@ -5,11 +5,20 @@ Centralized configuration management using Pydantic settings.
 Follows best practices for environment-based configuration.
 """
 
+from enum import Enum
 from functools import lru_cache
 from typing import List, Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class GPULoadBalanceStrategy(str, Enum):
+    """GPU load balancing strategies."""
+
+    MEMORY = "memory"  # Select GPU with most free memory
+    ROUND_ROBIN = "round_robin"  # Rotate through GPUs
+    LEAST_LOADED = "least_loaded"  # Select GPU with lowest utilization
 
 
 class Settings(BaseSettings):
@@ -112,9 +121,9 @@ class Settings(BaseSettings):
     enable_multi_gpu: bool = Field(
         default=True, description="Enable multi-GPU load balancing"
     )
-    gpu_load_balance_strategy: str = Field(
-        default="memory",
-        description="GPU load balancing strategy: memory, round_robin, least_loaded",
+    gpu_load_balance_strategy: GPULoadBalanceStrategy = Field(
+        default=GPULoadBalanceStrategy.MEMORY,
+        description="GPU load balancing strategy",
     )
     max_gpu_memory_gb: Optional[float] = Field(
         default=None, description="Maximum GPU memory to use (GB), None for auto"
