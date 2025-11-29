@@ -1117,16 +1117,19 @@ async def test_persona_crud_api():
 
 - [x] Implement `ACDCorrelationEngine` (find similar contexts, extract success patterns, learn from outcomes)
 - [x] Implement `ACDMemorySystem` (hierarchical memory: working, short-term, long-term, episodic)
-- [ ] Implement `ACDSelfImprovement`
-- [ ] Implement `ACDCrossThinking`
+- [x] Implement `ACDSelfImprovement` (decision evaluation, weight updates, improvement suggestions)
+- [x] Implement `ACDCrossThinking` (cross-domain pattern analysis, domain combination suggestions, orchestration planning)
 - [x] Add new ACD database fields (HIL Rating, Learning, Memory, Cross-domain)
-- [x] Create new ACD API endpoints (HIL Rating + Correlation Engine + Memory System)
+- [x] Create new ACD API endpoints (HIL Rating + Correlation Engine + Memory System + Self-Improvement + Cross-Thinking)
   - /rate, /ratings, /ratings/stats, /workflow-effectiveness, /best-configs, /flag-incompatibility, /misgeneration-patterns
   - /correlations/similar/{id}, /correlations/patterns, /correlations/learn/{id}, /correlations/insights
   - /memory, /memory/recall, /memory/consolidate, /memory/stats, /memory/{id}/reinforce
+  - /self-improvement/evaluate, /self-improvement/update-weights, /self-improvement/suggestions, /self-improvement/metrics
+  - /cross-thinking/analyze, /cross-thinking/suggest, /cross-thinking/orchestrate, /cross-thinking/recommendations/{domain}
+  - /learning/trigger-cycle
 - [x] Implement `HILRatingService` for human-in-the-loop feedback
-- [ ] Add ACD learning background tasks
-- [x] Implement memory consolidation job (via /memory/consolidate endpoint)
+- [x] Add ACD learning background tasks (Celery tasks for memory consolidation, weight updates, cross-domain analysis, HIL learning)
+- [x] Implement memory consolidation job (via /memory/consolidate endpoint and scheduled Celery task)
 
 ### Phase 5: Testing Improvements (Week 9)
 

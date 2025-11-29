@@ -1039,3 +1039,415 @@ async def forget_memory(
     except Exception as e:
         logger.error(f"Failed to forget memory: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Self-Improvement Endpoints
+# ============================================================
+
+
+@router.get("/self-improvement/evaluate", tags=["self-improvement"])
+async def evaluate_decisions(
+    time_window_hours: int = Query(24, ge=1, description="Time window in hours"),
+    domain: Optional[str] = Query(None, description="Domain filter"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Evaluate ACD decision quality.
+
+    Returns:
+    - Decision accuracy rate
+    - Areas of consistent failure
+    - Opportunities for improvement
+
+    Args:
+        time_window_hours: Time window to analyze
+        domain: Optional domain filter
+
+    Returns:
+        Decision analysis results
+    """
+    from backend.services.acd_self_improvement import ACDSelfImprovement
+    from backend.models.acd import AIDomain
+
+    try:
+        improvement_service = ACDSelfImprovement(db)
+
+        domain_enum = None
+        if domain:
+            try:
+                domain_enum = AIDomain(domain)
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid domain: {domain}"
+                )
+
+        analysis = await improvement_service.evaluate_decisions(
+            time_window_hours=time_window_hours,
+            domain=domain_enum,
+        )
+
+        return {
+            "total_decisions": analysis.total_decisions,
+            "correct_decisions": analysis.correct_decisions,
+            "accuracy_rate": analysis.accuracy_rate,
+            "by_domain": analysis.by_domain,
+            "failure_patterns": analysis.failure_patterns,
+            "improvement_opportunities": analysis.improvement_opportunities,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to evaluate decisions: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/self-improvement/update-weights", tags=["self-improvement"])
+async def update_decision_weights(
+    time_window_hours: int = Query(24, ge=1, description="Time window in hours"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Update ACD decision weights based on outcomes.
+
+    Uses reinforcement learning principles:
+    - Increase weight for successful patterns
+    - Decrease weight for failure patterns
+
+    Args:
+        time_window_hours: Time window to analyze
+
+    Returns:
+        Summary of weight adjustments made
+    """
+    from backend.services.acd_self_improvement import ACDSelfImprovement
+
+    try:
+        improvement_service = ACDSelfImprovement(db)
+
+        # First evaluate to get analysis
+        analysis = await improvement_service.evaluate_decisions(
+            time_window_hours=time_window_hours
+        )
+
+        # Then update weights
+        results = await improvement_service.update_decision_weights(analysis)
+        return results
+
+    except Exception as e:
+        logger.error(f"Failed to update decision weights: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/self-improvement/suggestions", tags=["self-improvement"])
+async def get_improvement_suggestions(
+    time_window_hours: int = Query(168, ge=1, description="Time window in hours"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Generate actionable improvement suggestions.
+
+    Includes:
+    - Failure mitigation recommendations
+    - Domain improvement suggestions
+    - Configuration adjustment recommendations
+
+    Args:
+        time_window_hours: Time window to analyze
+
+    Returns:
+        List of improvement suggestions
+    """
+    from backend.services.acd_self_improvement import ACDSelfImprovement
+
+    try:
+        improvement_service = ACDSelfImprovement(db)
+        suggestions = await improvement_service.generate_improvement_suggestions(
+            time_window_hours=time_window_hours
+        )
+
+        return {
+            "suggestions": [s.to_dict() for s in suggestions],
+            "count": len(suggestions),
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get improvement suggestions: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/self-improvement/metrics", tags=["self-improvement"])
+async def get_improvement_metrics(
+    time_window_hours: int = Query(168, ge=1, description="Time window in hours"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get metrics on self-improvement effectiveness over time.
+
+    Returns:
+    - Outcome score trends
+    - Improvement rate
+    - Number of improvements applied
+
+    Args:
+        time_window_hours: Time window to analyze
+
+    Returns:
+        Improvement metrics
+    """
+    from backend.services.acd_self_improvement import ACDSelfImprovement
+
+    try:
+        improvement_service = ACDSelfImprovement(db)
+        metrics = await improvement_service.get_improvement_metrics(
+            time_window_hours=time_window_hours
+        )
+
+        return metrics
+
+    except Exception as e:
+        logger.error(f"Failed to get improvement metrics: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Cross-Thinking Endpoints
+# ============================================================
+
+
+@router.get("/cross-thinking/analyze", tags=["cross-thinking"])
+async def analyze_cross_domain_patterns(
+    domains: str = Query(
+        ...,
+        description="Comma-separated list of domains to analyze"
+    ),
+    time_window_hours: int = Query(168, ge=1, description="Time window in hours"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Analyze patterns that span multiple domains.
+
+    Finds correlations between different types of tasks,
+    such as how image generation success relates to text prompts.
+
+    Args:
+        domains: Comma-separated list of domains to analyze
+        time_window_hours: Time window for analysis
+
+    Returns:
+        Cross-domain analysis results
+    """
+    from backend.services.acd_cross_thinking import ACDCrossThinking
+    from backend.models.acd import AIDomain
+
+    try:
+        cross_thinking = ACDCrossThinking(db)
+
+        # Parse domains
+        domain_list = []
+        for d in domains.split(","):
+            d = d.strip()
+            try:
+                domain_list.append(AIDomain(d))
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid domain: {d}"
+                )
+
+        if len(domain_list) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="At least 2 domains required for cross-domain analysis"
+            )
+
+        analysis = await cross_thinking.analyze_cross_domain_patterns(
+            domains=domain_list,
+            time_window_hours=time_window_hours,
+        )
+
+        return {
+            "domains_analyzed": analysis.domains_analyzed,
+            "cross_patterns": analysis.cross_patterns,
+            "correlations": analysis.correlations,
+            "insights": analysis.insights,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to analyze cross-domain patterns: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/cross-thinking/suggest", tags=["cross-thinking"])
+async def suggest_domain_combinations(
+    goal: str = Query(..., description="High-level goal description"),
+    max_suggestions: int = Query(3, ge=1, le=10, description="Maximum suggestions"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Suggest domain combinations for complex tasks.
+
+    Example: For "viral social media post", suggests:
+    - TEXT_GENERATION for caption
+    - IMAGE_GENERATION for visual
+    - ANALYSIS for hashtag optimization
+
+    Args:
+        goal: High-level goal description
+        max_suggestions: Maximum suggestions to return
+
+    Returns:
+        List of domain combination suggestions
+    """
+    from backend.services.acd_cross_thinking import ACDCrossThinking
+
+    try:
+        cross_thinking = ACDCrossThinking(db)
+        suggestions = await cross_thinking.suggest_domain_combinations(
+            goal=goal,
+            max_suggestions=max_suggestions,
+        )
+
+        return {
+            "goal": goal,
+            "suggestions": [s.to_dict() for s in suggestions],
+            "count": len(suggestions),
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to suggest domain combinations: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/cross-thinking/orchestrate", tags=["cross-thinking"])
+async def orchestrate_multi_domain_task(
+    goal: str = Query(..., description="Task goal"),
+    requirements: Optional[str] = Query(None, description="Comma-separated requirements"),
+    priority: str = Query("normal", description="Task priority"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Create execution plan for a multi-domain task.
+
+    Handles:
+    - Dependency ordering
+    - Parallel execution opportunities
+    - Fallback strategies
+
+    Args:
+        goal: Task goal description
+        requirements: Optional comma-separated requirements
+        priority: Task priority
+
+    Returns:
+        Orchestration plan with execution details
+    """
+    from backend.services.acd_cross_thinking import ACDCrossThinking, ComplexTask
+
+    try:
+        cross_thinking = ACDCrossThinking(db)
+
+        # Parse requirements
+        req_list = []
+        if requirements:
+            req_list = [r.strip() for r in requirements.split(",")]
+
+        task = ComplexTask(
+            goal=goal,
+            requirements=req_list,
+            priority=priority,
+        )
+
+        plan = await cross_thinking.orchestrate_multi_domain_task(task)
+
+        return plan.to_dict()
+
+    except Exception as e:
+        logger.error(f"Failed to orchestrate task: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/cross-thinking/recommendations/{domain}", tags=["cross-thinking"])
+async def get_cross_domain_recommendations(
+    domain: str,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get recommendations for complementary domain tasks.
+
+    Args:
+        domain: Current domain
+
+    Returns:
+        Recommendations for related domain tasks
+    """
+    from backend.services.acd_cross_thinking import ACDCrossThinking
+    from backend.models.acd import AIDomain
+
+    try:
+        cross_thinking = ACDCrossThinking(db)
+
+        try:
+            domain_enum = AIDomain(domain)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid domain: {domain}"
+            )
+
+        recommendations = await cross_thinking.get_cross_domain_recommendations(
+            current_domain=domain_enum
+        )
+
+        return recommendations
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get recommendations: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Learning Task Trigger Endpoints
+# ============================================================
+
+
+@router.post("/learning/trigger-cycle", tags=["learning"])
+async def trigger_learning_cycle(
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Trigger a complete ACD learning cycle.
+
+    This runs all learning tasks:
+    1. Memory consolidation
+    2. HIL learning
+    3. Decision weight updates
+    4. Cross-domain analysis
+    5. Improvement suggestions
+
+    Note: This endpoint triggers the tasks but doesn't wait for completion.
+
+    Returns:
+        Task trigger confirmation
+    """
+    try:
+        from backend.tasks.acd_tasks import run_acd_learning_cycle
+
+        # Trigger the task asynchronously
+        task = run_acd_learning_cycle.delay()
+
+        return {
+            "status": "triggered",
+            "task_id": str(task.id),
+            "message": "ACD learning cycle has been triggered",
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to trigger learning cycle: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
