@@ -1098,15 +1098,24 @@ async def test_persona_crud_api():
   - [x] E501 (line too long) - Configured as ignored in `.flake8` (Black handles line length)
 - [x] Create `.flake8` configuration file with proper Black-compatible settings
 - [ ] Add missing type hints to public APIs
-- [ ] Standardize logging across services
-- [ ] Remove dead code and unused files
+- [x] Standardize logging across services (using `backend.config.logging.get_logger`)
+- [x] Remove dead code and unused files (removed template_service.py.template, ai_models_setup_old.html)
 
 ### Phase 3: Architecture Refactoring (Weeks 3-4)
 
-- [ ] Split `ai_models.py` into modular structure
+- [x] Split `ai_models.py` into modular structure
+  - [x] Create `backend/services/ai/` module with specialized handlers
+  - [x] `base.py` - Abstract base classes and interfaces
+  - [x] `gpu_manager.py` - GPU detection and load balancing
+  - [x] `model_loader.py` - Model downloading and verification utilities
+  - [x] `model_cache.py` - LRU caching for loaded models
+  - [x] `text_models.py` - Text/LLM generation handlers
+  - [x] `image_models.py` - Image generation handlers
+  - [x] `voice_models.py` - Voice synthesis handlers
+  - [x] `video_models.py` - Video generation handlers
+  - [x] `__init__.py` - Unified AIModelManager facade
   - [ ] Add TensorFlow support (standard whl's now available)
   - [ ] Separate model loaders by framework (PyTorch, TensorFlow, ONNX)
-  - [ ] Create unified model interface
 - [x] Standardize API route prefixes
 - [x] Add database indexes for common queries
 - [x] Implement proper connection pooling
@@ -1135,8 +1144,13 @@ async def test_persona_crud_api():
 
 ### Phase 5: Testing Improvements (Week 9)
 
-- [ ] Fix test isolation issues
-- [ ] Add missing unit tests for services
+- [x] Fix test isolation issues (conftest.py uses in-memory DB with session rollback)
+- [x] Add missing unit tests for services (26 tests added for new AI module)
+  - [x] tests/unit/test_ai/test_ai_services.py - Tests for ModelCapabilities, ModelType, ModelSource
+  - [x] Tests for GPUManager (singleton, CPU fallback, system info, device selection)
+  - [x] Tests for ModelCache (initialization, put/get, remove, stats)
+  - [x] Tests for model_loader utilities (ANSI stripping, FLUX detection, size estimation)
+  - [x] Tests for AIModelManager (singleton, handlers, system info)
 - [ ] Create integration test suite
 - [ ] Add E2E API tests
 - [ ] Set up CI test runner
