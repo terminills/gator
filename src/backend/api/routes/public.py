@@ -18,7 +18,7 @@ from backend.models.content import ContentModel
 from backend.models.persona import PersonaModel
 
 router = APIRouter(
-    prefix="/public",
+    prefix="/api/v1/public",
     tags=["public"],
     responses={404: {"description": "Resource not found"}},
 )

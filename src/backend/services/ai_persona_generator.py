@@ -323,7 +323,7 @@ JSON:"""
                 logger.warning("No JSON found in Ollama output")
                 return None
 
-            json_str = output[start_idx:end_idx + 1]
+            json_str = output[start_idx : end_idx + 1]
             persona_data = json.loads(json_str)
 
             # Validate required fields

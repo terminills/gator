@@ -22,7 +22,7 @@ from backend.services.enhanced_persona_creator import (
 )
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/enhanced-persona", tags=["enhanced-persona"])
+router = APIRouter(prefix="/api/v1/enhanced-persona", tags=["enhanced-persona"])
 
 
 def get_creator_service(

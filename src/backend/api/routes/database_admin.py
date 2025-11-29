@@ -17,7 +17,7 @@ from backend.services.database_admin_service import (
 )
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/admin/database", tags=["admin", "database"])
+router = APIRouter(prefix="/api/v1/admin/database", tags=["admin", "database"])
 
 
 @router.get("/info")

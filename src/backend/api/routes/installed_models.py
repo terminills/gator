@@ -23,7 +23,7 @@ from backend.services.installed_model_service import InstalledModelService
 from backend.services.settings_service import get_db_setting
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/installed-models", tags=["installed-models"])
+router = APIRouter(prefix="/api/v1/installed-models", tags=["installed-models"])
 
 
 @router.get("/", response_model=List[InstalledModelResponse])

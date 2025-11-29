@@ -589,7 +589,7 @@ class ProactiveTopicsService:
                 if end_idx == -1:
                     end_idx = min(idx + 50, len(personality_lower))
 
-                extract = personality[idx + len(indicator):end_idx].strip()
+                extract = personality[idx + len(indicator) : end_idx].strip()
                 if extract and len(extract) < 50:
                     themes.append(extract.strip(" ,."))
 

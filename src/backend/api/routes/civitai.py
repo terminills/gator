@@ -21,7 +21,7 @@ from backend.utils.civitai_utils import (
 )
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/civitai", tags=["civitai"])
+router = APIRouter(prefix="/api/v1/civitai", tags=["civitai"])
 
 
 class CivitAISearchRequest(BaseModel):

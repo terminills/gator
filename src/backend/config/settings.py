@@ -37,6 +37,17 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="sqlite:///./gator.db", description="Database connection URL"
     )
+    database_pool_size: int = Field(
+        default=5, description="Database connection pool size (PostgreSQL only)"
+    )
+    database_max_overflow: int = Field(
+        default=10,
+        description="Max extra connections above pool_size (PostgreSQL only)",
+    )
+    database_pool_recycle: int = Field(
+        default=3600,
+        description="Seconds before recycling connections (PostgreSQL only)",
+    )
 
     # Security settings
     secret_key: str = Field(

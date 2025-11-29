@@ -60,20 +60,39 @@ class DatabaseManager:
         if database_url.startswith("sqlite:"):
             database_url = database_url.replace("sqlite:", "sqlite+aiosqlite:", 1)
 
-        # Configure engine with SQLite-specific settings for better concurrency
+        # Configure engine with database-specific settings
         connect_args = {}
+        engine_kwargs = {
+            "echo": self._settings.debug,
+            "future": True,
+            "pool_pre_ping": True,  # Verify connections before use
+        }
+
         if "sqlite" in database_url:
+            # SQLite-specific settings for better concurrency
             connect_args = {
                 "check_same_thread": False,
                 "timeout": 30,  # 30 second timeout for database locks
             }
+        elif "postgresql" in database_url or "postgres" in database_url:
+            # PostgreSQL connection pooling settings for production
+            engine_kwargs.update(
+                {
+                    "pool_size": self._settings.database_pool_size,
+                    "max_overflow": self._settings.database_max_overflow,
+                    "pool_recycle": self._settings.database_pool_recycle,
+                }
+            )
+            logger.info(
+                f"PostgreSQL connection pooling configured: "
+                f"pool_size={self._settings.database_pool_size}, "
+                f"max_overflow={self._settings.database_max_overflow}"
+            )
 
         self.engine = create_async_engine(
             database_url,
-            echo=self._settings.debug,
-            future=True,
-            pool_pre_ping=True,
             connect_args=connect_args,
+            **engine_kwargs,
         )
 
         self.session_factory = async_sessionmaker(

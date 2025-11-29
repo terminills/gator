@@ -12,7 +12,7 @@ from uuid import uuid4
 from backend.services.ml_pattern_recognition import MLPatternRecognitionService
 from backend.services.predictive_engagement_scoring import PredictiveEngagementScoringService
 from backend.services.cross_persona_learning import CrossPersonaLearningService
-from backend.services.ab_testing_service import ABTestingService, TaskPriority
+from backend.services.ab_testing_service import ABTestingService
 from backend.models.acd import (
     ACDContextModel,
     ACDContextCreate,

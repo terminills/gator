@@ -21,7 +21,7 @@ from backend.services.dns_service import (
 )
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/dns", tags=["dns"])
+router = APIRouter(prefix="/api/v1/dns", tags=["dns"])
 
 
 class CreateDNSRecordRequest(BaseModel):

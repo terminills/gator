@@ -21,7 +21,7 @@ from backend.utils.huggingface_utils import (
 )
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/huggingface", tags=["huggingface"])
+router = APIRouter(prefix="/api/v1/huggingface", tags=["huggingface"])
 
 
 class HuggingFaceSearchRequest(BaseModel):
