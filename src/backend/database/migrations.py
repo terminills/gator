@@ -1114,6 +1114,18 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
             else:
                 logger.info("Installed models table is up to date")
 
+            # Run ACD HIL Rating columns migration (Phase 4)
+            hil_columns_added = await add_acd_hil_rating_columns(conn, is_sqlite)
+
+            if hil_columns_added:
+                results["migrations_run"].append("acd_contexts_hil_rating")
+                results["columns_added"].extend(hil_columns_added)
+                logger.info(
+                    f"Added {len(hil_columns_added)} ACD HIL Rating column(s) for human feedback"
+                )
+            else:
+                logger.info("All ACD HIL Rating columns are up to date")
+
         return results
 
     except Exception as e:
@@ -2177,3 +2189,329 @@ async def create_installed_models_table(conn, is_sqlite: bool) -> List[str]:
         )
 
     return created_tables
+
+
+async def add_acd_hil_rating_columns(conn, is_sqlite: bool) -> List[str]:
+    """
+    Add HIL (Human-in-the-Loop) Rating columns to acd_contexts table for
+    human feedback on content generation quality.
+
+    Added in Phase 4 ACD Evolution: Enables humans to rate generated content,
+    tag misgeneration issues, and train the system to learn optimal configurations.
+
+    Args:
+        conn: Database connection
+        is_sqlite: Whether the database is SQLite
+
+    Returns:
+        List of columns that were added
+    """
+    added_columns = []
+
+    # Check if table exists first
+    if not await table_exists(conn, "acd_contexts", is_sqlite):
+        logger.debug("acd_contexts table does not exist, skipping HIL rating migration")
+        return added_columns
+
+    # ==================== HIL RATING FIELDS ====================
+
+    if not await check_column_exists(conn, "acd_contexts", "hil_rating", is_sqlite):
+        logger.info("Adding hil_rating column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN hil_rating INTEGER")
+        )
+        added_columns.append("hil_rating")
+        # Create index
+        try:
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_acd_contexts_hil_rating ON acd_contexts (hil_rating)"
+                )
+            )
+        except Exception as e:
+            logger.warning(f"Could not create index on hil_rating: {e}")
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "hil_rating_tags", is_sqlite
+    ):
+        logger.info("Adding hil_rating_tags column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN hil_rating_tags JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN hil_rating_tags JSONB")
+            )
+        added_columns.append("hil_rating_tags")
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "hil_rating_notes", is_sqlite
+    ):
+        logger.info("Adding hil_rating_notes column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN hil_rating_notes TEXT")
+        )
+        added_columns.append("hil_rating_notes")
+
+    if not await check_column_exists(conn, "acd_contexts", "hil_rated_by", is_sqlite):
+        logger.info("Adding hil_rated_by column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN hil_rated_by VARCHAR(100)")
+        )
+        added_columns.append("hil_rated_by")
+
+    if not await check_column_exists(conn, "acd_contexts", "hil_rated_at", is_sqlite):
+        logger.info("Adding hil_rated_at column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN hil_rated_at TIMESTAMP")
+        )
+        added_columns.append("hil_rated_at")
+
+    # ==================== WORKFLOW TRACKING ====================
+
+    if not await check_column_exists(conn, "acd_contexts", "workflow_id", is_sqlite):
+        logger.info("Adding workflow_id column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN workflow_id VARCHAR(100)")
+        )
+        added_columns.append("workflow_id")
+        # Create index
+        try:
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_acd_contexts_workflow_id ON acd_contexts (workflow_id)"
+                )
+            )
+        except Exception as e:
+            logger.warning(f"Could not create index on workflow_id: {e}")
+
+    if not await check_column_exists(conn, "acd_contexts", "model_id", is_sqlite):
+        logger.info("Adding model_id column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN model_id VARCHAR(200)")
+        )
+        added_columns.append("model_id")
+        # Create index
+        try:
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_acd_contexts_model_id ON acd_contexts (model_id)"
+                )
+            )
+        except Exception as e:
+            logger.warning(f"Could not create index on model_id: {e}")
+
+    if not await check_column_exists(conn, "acd_contexts", "lora_ids", is_sqlite):
+        logger.info("Adding lora_ids column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN lora_ids JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN lora_ids JSONB")
+            )
+        added_columns.append("lora_ids")
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "generation_params", is_sqlite
+    ):
+        logger.info("Adding generation_params column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN generation_params JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN generation_params JSONB")
+            )
+        added_columns.append("generation_params")
+
+    # ==================== LEARNING AND CORRELATION ====================
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "learning_weight", is_sqlite
+    ):
+        logger.info("Adding learning_weight column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN learning_weight REAL DEFAULT 1.0")
+        )
+        added_columns.append("learning_weight")
+
+    if not await check_column_exists(conn, "acd_contexts", "outcome_score", is_sqlite):
+        logger.info("Adding outcome_score column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN outcome_score REAL")
+        )
+        added_columns.append("outcome_score")
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "engagement_metrics", is_sqlite
+    ):
+        logger.info("Adding engagement_metrics column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN engagement_metrics JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN engagement_metrics JSONB")
+            )
+        added_columns.append("engagement_metrics")
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "content_quality_score", is_sqlite
+    ):
+        logger.info("Adding content_quality_score column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN content_quality_score REAL")
+        )
+        added_columns.append("content_quality_score")
+
+    # ==================== MEMORY FIELDS ====================
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "memory_consolidated", is_sqlite
+    ):
+        logger.info("Adding memory_consolidated column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text(
+                    "ALTER TABLE acd_contexts ADD COLUMN memory_consolidated BOOLEAN DEFAULT 0"
+                )
+            )
+        else:
+            await conn.execute(
+                text(
+                    "ALTER TABLE acd_contexts ADD COLUMN memory_consolidated BOOLEAN DEFAULT FALSE"
+                )
+            )
+        added_columns.append("memory_consolidated")
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "memory_importance", is_sqlite
+    ):
+        logger.info("Adding memory_importance column to acd_contexts table")
+        await conn.execute(
+            text(
+                "ALTER TABLE acd_contexts ADD COLUMN memory_importance REAL DEFAULT 0.5"
+            )
+        )
+        added_columns.append("memory_importance")
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "memory_access_count", is_sqlite
+    ):
+        logger.info("Adding memory_access_count column to acd_contexts table")
+        await conn.execute(
+            text(
+                "ALTER TABLE acd_contexts ADD COLUMN memory_access_count INTEGER DEFAULT 0"
+            )
+        )
+        added_columns.append("memory_access_count")
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "last_recalled_at", is_sqlite
+    ):
+        logger.info("Adding last_recalled_at column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN last_recalled_at TIMESTAMP")
+        )
+        added_columns.append("last_recalled_at")
+
+    if not await check_column_exists(conn, "acd_contexts", "memory_type", is_sqlite):
+        logger.info("Adding memory_type column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN memory_type VARCHAR(20)")
+        )
+        added_columns.append("memory_type")
+
+    # ==================== CROSS-DOMAIN CORRELATION ====================
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "related_contexts", is_sqlite
+    ):
+        logger.info("Adding related_contexts column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN related_contexts JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN related_contexts JSONB")
+            )
+        added_columns.append("related_contexts")
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "correlation_scores", is_sqlite
+    ):
+        logger.info("Adding correlation_scores column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN correlation_scores JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN correlation_scores JSONB")
+            )
+        added_columns.append("correlation_scores")
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "cross_domain_insights", is_sqlite
+    ):
+        logger.info("Adding cross_domain_insights column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN cross_domain_insights JSON")
+            )
+        else:
+            await conn.execute(
+                text("ALTER TABLE acd_contexts ADD COLUMN cross_domain_insights JSONB")
+            )
+        added_columns.append("cross_domain_insights")
+
+    # ==================== SELF-IMPROVEMENT ====================
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "decision_confidence_actual", is_sqlite
+    ):
+        logger.info("Adding decision_confidence_actual column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN decision_confidence_actual REAL")
+        )
+        added_columns.append("decision_confidence_actual")
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "improvement_applied", is_sqlite
+    ):
+        logger.info("Adding improvement_applied column to acd_contexts table")
+        if is_sqlite:
+            await conn.execute(
+                text(
+                    "ALTER TABLE acd_contexts ADD COLUMN improvement_applied BOOLEAN DEFAULT 0"
+                )
+            )
+        else:
+            await conn.execute(
+                text(
+                    "ALTER TABLE acd_contexts ADD COLUMN improvement_applied BOOLEAN DEFAULT FALSE"
+                )
+            )
+        added_columns.append("improvement_applied")
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "improvement_notes", is_sqlite
+    ):
+        logger.info("Adding improvement_notes column to acd_contexts table")
+        await conn.execute(
+            text("ALTER TABLE acd_contexts ADD COLUMN improvement_notes TEXT")
+        )
+        added_columns.append("improvement_notes")
+
+    if added_columns:
+        logger.info(
+            f"✓ Added {len(added_columns)} HIL Rating columns for human feedback learning"
+        )
+
+    return added_columns
