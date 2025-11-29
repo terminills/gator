@@ -1477,7 +1477,7 @@ and error patterns. This enables intelligent recommendations.""",
                 select(ACDContextModel)
                 .where(
                     and_(
-                        ACDContextModel.scheduled_for  is not None,
+                        ACDContextModel.scheduled_for is not None,
                         ACDContextModel.scheduled_for > now,
                         ACDContextModel.ai_state.in_(["READY", "QUEUED"]),
                     )
@@ -1668,7 +1668,7 @@ and error patterns. This enables intelligent recommendations.""",
         """
         try:
             stmt = select(ACDContextModel).where(
-                ACDContextModel.schedule_feedback_data  is not None
+                ACDContextModel.schedule_feedback_data is not None
             )
 
             if domain:
@@ -1902,7 +1902,7 @@ and error patterns. This enables intelligent recommendations.""",
             stmt = select(ACDContextModel).where(
                 and_(
                     ACDContextModel.ai_state == "PROCESSING",
-                    ACDContextModel.ai_assigned_agent_id  is not None,
+                    ACDContextModel.ai_assigned_agent_id is not None,
                 )
             )
             result = await self.db.execute(stmt)
@@ -1920,7 +1920,7 @@ and error patterns. This enables intelligent recommendations.""",
                 .where(
                     and_(
                         ACDContextModel.ai_state == "DONE",
-                        ACDContextModel.ai_assigned_agent_id  is not None,
+                        ACDContextModel.ai_assigned_agent_id is not None,
                     )
                 )
                 .order_by(desc(ACDContextModel.updated_at))

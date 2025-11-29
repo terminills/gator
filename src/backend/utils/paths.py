@@ -273,7 +273,9 @@ class GatorPaths:
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
 
-    def get_relative_path(self, absolute_path: Path, base: Optional[Path] = None) -> Path:
+    def get_relative_path(
+        self, absolute_path: Path, base: Optional[Path] = None
+    ) -> Path:
         """
         Get a relative path from an absolute path.
 

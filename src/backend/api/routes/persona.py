@@ -1629,7 +1629,7 @@ JSON:"""
                 detail="Failed to parse AI response - no valid JSON found",
             )
 
-        json_str = output[start_idx:end_idx + 1]
+        json_str = output[start_idx : end_idx + 1]
 
         try:
             soul_data = json.loads(json_str)
@@ -2036,7 +2036,7 @@ JSON:"""
                 detail="Failed to parse AI response - no valid JSON found",
             )
 
-        json_str = output[start_idx:end_idx + 1]
+        json_str = output[start_idx : end_idx + 1]
 
         try:
             persona_data = json.loads(json_str)
@@ -2946,7 +2946,7 @@ async def chat_with_persona(
             # Clean up response (remove any leading/trailing whitespace or duplicate name)
             response_text = response_text.strip()
             if response_text.startswith(f"{persona.name}:"):
-                response_text = response_text[len(f"{persona.name}:"):].strip()
+                response_text = response_text[len(f"{persona.name}:") :].strip()
 
             # CRITICAL: Apply humanizer to remove any AI artifacts from the response
             # This filters out phrases like "as an AI", "I'm here to help", etc.
@@ -3353,7 +3353,7 @@ Image prompt:"""
                     "Here's the image prompt:",
                 ]:
                     if output.lower().startswith(prefix.lower()):
-                        output = output[len(prefix):].strip()
+                        output = output[len(prefix) :].strip()
 
                 logger.info(
                     f"Generated image prompt with Ollama ({model_to_use}): {output[:100]}..."

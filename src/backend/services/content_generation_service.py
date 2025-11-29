@@ -236,9 +236,7 @@ class ContentGenerationService:
     based on persona configurations and current trends.
     """
 
-    def __init__(
-        self, db_session: AsyncSession, content_dir: Optional[str] = None
-    ):
+    def __init__(self, db_session: AsyncSession, content_dir: Optional[str] = None):
         """
         Initialize content generation service.
 
@@ -317,9 +315,7 @@ class ContentGenerationService:
 
             # Use persona's default content rating if not specified
             if request.content_rating is None:
-                logger.info(
-                    "   No content_rating in request, using persona default..."
-                )
+                logger.info("   No content_rating in request, using persona default...")
                 logger.info(
                     f"   Persona default_content_rating: {persona.default_content_rating}"
                 )

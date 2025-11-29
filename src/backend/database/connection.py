@@ -76,11 +76,13 @@ class DatabaseManager:
             }
         elif "postgresql" in database_url or "postgres" in database_url:
             # PostgreSQL connection pooling settings for production
-            engine_kwargs.update({
-                "pool_size": self._settings.database_pool_size,
-                "max_overflow": self._settings.database_max_overflow,
-                "pool_recycle": self._settings.database_pool_recycle,
-            })
+            engine_kwargs.update(
+                {
+                    "pool_size": self._settings.database_pool_size,
+                    "max_overflow": self._settings.database_max_overflow,
+                    "pool_recycle": self._settings.database_pool_recycle,
+                }
+            )
             logger.info(
                 f"PostgreSQL connection pooling configured: "
                 f"pool_size={self._settings.database_pool_size}, "
