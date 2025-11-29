@@ -242,6 +242,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.key_func = key_func or self._get_client_ip
 
         # Create rate limiters for each unique limit configuration
+        # Note: This dictionary is bounded by the number of unique rate/window
+        # combinations in the config (typically < 10), not by requests
         self._limiters: Dict[Tuple[int, int], SlidingWindowRateLimiter] = {}
 
     def _get_limiter(self, rate: int, window: int) -> SlidingWindowRateLimiter:
