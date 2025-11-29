@@ -5,7 +5,7 @@ Service layer for managing scheduled social media posts.
 Provides CRUD operations and integrates with Celery for task scheduling.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from math import ceil
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -284,7 +284,7 @@ class ScheduledPostService:
 
         # Update status
         post.status = ScheduledPostStatus.CANCELLED.value
-        post.cancelled_at = datetime.utcnow()
+        post.cancelled_at = datetime.now(timezone.utc)
 
         await self.db.commit()
         await self.db.refresh(post)
@@ -346,7 +346,7 @@ class ScheduledPostService:
             raise ValueError(f"Cannot resume post with status: {post.status}")
 
         # If scheduled time is in the past, don't resume
-        if post.scheduled_at <= datetime.utcnow():
+        if post.scheduled_at <= datetime.now(timezone.utc):
             raise ValueError("Cannot resume: scheduled time has passed")
 
         # Schedule new Celery task
@@ -385,7 +385,7 @@ class ScheduledPostService:
             raise ValueError(f"Maximum retries ({post.max_retries}) exceeded")
 
         # Schedule for immediate execution
-        post.scheduled_at = datetime.utcnow() + timedelta(seconds=30)
+        post.scheduled_at = datetime.now(timezone.utc) + timedelta(seconds=30)
         task_id = await self._schedule_celery_task(post)
 
         post.status = ScheduledPostStatus.PENDING.value
@@ -431,7 +431,7 @@ class ScheduledPostService:
             status_counts[status.value] = result.scalar()
 
         # Count upcoming in time window
-        upcoming_cutoff = datetime.utcnow() + timedelta(hours=time_window_hours)
+        upcoming_cutoff = datetime.now(timezone.utc) + timedelta(hours=time_window_hours)
         stmt = select(func.count(ScheduledPostModel.id)).where(
             and_(
                 ScheduledPostModel.status == ScheduledPostStatus.PENDING.value,
@@ -500,7 +500,7 @@ class ScheduledPostService:
         Returns:
             List of upcoming scheduled posts
         """
-        cutoff = datetime.utcnow() + timedelta(hours=hours)
+        cutoff = datetime.now(timezone.utc) + timedelta(hours=hours)
 
         conditions = [
             ScheduledPostModel.status == ScheduledPostStatus.PENDING.value,

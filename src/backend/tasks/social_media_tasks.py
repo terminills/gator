@@ -5,7 +5,7 @@ Celery tasks for scheduled content publishing and social media automation.
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
 from celery import Task
@@ -118,7 +118,7 @@ async def publish_scheduled_post(
             # Format results for task return
             result_data = {
                 "schedule_id": schedule_id,
-                "published_at": datetime.utcnow().isoformat(),
+                "published_at": datetime.now(timezone.utc).isoformat(),
                 "platforms": [r.platform for r in results],
                 "statuses": [r.status for r in results],
                 "post_ids": [r.post_id for r in results if r.post_id],
@@ -133,7 +133,7 @@ async def publish_scheduled_post(
                         .where(ScheduledPostModel.id == UUID(scheduled_post_id))
                         .values(
                             status=ScheduledPostStatus.PUBLISHED.value,
-                            published_at=datetime.utcnow(),
+                            published_at=datetime.now(timezone.utc),
                             platform_post_id=result_data["post_ids"][0] if result_data["post_ids"] else None,
                         )
                     )
@@ -207,7 +207,7 @@ async def _process_scheduled_posts_async() -> Dict[str, Any]:
             # Query for scheduled posts that are due
             # Note: In a real implementation, you'd have a scheduled_posts table
             # For now, we'll check content with schedule metadata
-            current_time = datetime.utcnow()
+            current_time = datetime.now(timezone.utc)
 
             # This is a placeholder - you'd query your scheduled_posts table
             stmt = select(ContentModel).where(
@@ -234,7 +234,7 @@ async def _process_scheduled_posts_async() -> Dict[str, Any]:
 
                     # Mark as processed in metadata
                     content.metadata["scheduled"] = False
-                    content.metadata["processed_at"] = datetime.utcnow().isoformat()
+                    content.metadata["processed_at"] = datetime.now(timezone.utc).isoformat()
 
                     processed_count += 1
 
@@ -249,7 +249,7 @@ async def _process_scheduled_posts_async() -> Dict[str, Any]:
         return {
             "processed": processed_count,
             "errors": error_count,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:
@@ -272,7 +272,7 @@ def cleanup_old_tasks() -> Dict[str, Any]:
     """
     try:
         # Clean up task results older than 7 days
-        cutoff_date = datetime.utcnow() - timedelta(days=7)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=7)
 
         # This would connect to your task result backend and clean up
         # For now, just log the cleanup attempt
@@ -281,7 +281,7 @@ def cleanup_old_tasks() -> Dict[str, Any]:
         return {
             "cleaned": 0,
             "cutoff_date": cutoff_date.isoformat(),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:
@@ -359,7 +359,7 @@ async def _batch_publish_async(
             "published": published_count,
             "failed": failed_count,
             "results": results,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:
