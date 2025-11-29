@@ -5152,6 +5152,7 @@ class AIModelManager:
         base_prompt: str,
         image_style: str = "photorealistic",
         use_long_prompt: bool = True,
+        persona_negative_prompt: Optional[str] = None,
     ) -> tuple[str, str]:
         """
         Build style-specific prompts and negative prompts for image generation.
@@ -5160,10 +5161,18 @@ class AIModelManager:
         as StableDiffusionXLLongPromptWeightingPipeline handles prompts > 77 tokens.
         For SD 1.5 models, truncates to fit CLIP's 77 token limit.
 
+        If persona_negative_prompt is provided, it completely overrides the hardcoded
+        style defaults. This allows:
+        - Anime personas to NOT have "anime" in their negative prompt
+        - Custom negative prompts per persona (e.g., "bright colors" for a goth persona)
+        - Moving configuration from code to database where it belongs
+
         Args:
             base_prompt: Base appearance/character description
             image_style: Style identifier (photorealistic, anime, cartoon, etc.)
             use_long_prompt: If True, don't truncate (for SDXL Long Prompt Pipeline)
+            persona_negative_prompt: Optional persona-specific negative prompt that
+                                     overrides style defaults when provided
 
         Returns:
             Tuple of (enhanced_prompt, negative_prompt)
@@ -5213,16 +5222,32 @@ class AIModelManager:
         # Build enhanced prompt
         enhanced_prompt = f"{config['prefix']} {base_prompt}, {config['suffix']}"
 
+        # Determine final negative prompt:
+        # If persona_negative_prompt is provided, use it (complete override)
+        # Otherwise, fall back to style-based defaults
+        if persona_negative_prompt:
+            # Persona has a specific negative prompt - USE IT
+            # This completely bypasses the hardcoded style defaults
+            # Example: An anime persona will use its own negative prompt
+            # which naturally won't include "anime"
+            final_negative = persona_negative_prompt
+            logger.debug(
+                f"Using persona-specific negative prompt (overriding style default)"
+            )
+        else:
+            # Fallback to hardcoded style default if no persona settings exist
+            final_negative = config["negative"]
+
         # For SDXL with Long Prompt Pipeline, don't truncate
         # For SD 1.5 or fallback mode, truncate to fit CLIP's 77 token limit
         if use_long_prompt:
             logger.debug(
                 f"Using full prompt for SDXL Long Prompt Pipeline (no truncation)"
             )
-            return enhanced_prompt, config["negative"]
+            return enhanced_prompt, final_negative
         else:
             truncated_prompt = self._truncate_prompt_for_clip(enhanced_prompt)
-            truncated_negative = self._truncate_prompt_for_clip(config["negative"])
+            truncated_negative = self._truncate_prompt_for_clip(final_negative)
             return truncated_prompt, truncated_negative
 
     async def _generate_reference_image_local(
@@ -5258,6 +5283,9 @@ class AIModelManager:
             # Get image style from kwargs
             image_style = kwargs.get("image_style", "photorealistic")
             
+            # Get persona-specific negative prompt (overrides style defaults if provided)
+            persona_negative_prompt = kwargs.get("persona_negative_prompt")
+            
             # Get model preference options for anatomy/body generation
             prefer_anatomy_model = kwargs.get("prefer_anatomy_model", False)
             nsfw_model_pref = kwargs.get("nsfw_model_pref")
@@ -5279,8 +5307,10 @@ class AIModelManager:
             # Build style-specific prompt and negative prompt
             # For SDXL, use full prompts (Long Prompt Pipeline handles > 77 tokens)
             # For SD 1.5, truncate to fit CLIP's limit
+            # If persona_negative_prompt is provided, it overrides style defaults
             full_prompt, style_negative_prompt = self._build_style_specific_prompt(
-                base_prompt, image_style, use_long_prompt=is_sdxl
+                base_prompt, image_style, use_long_prompt=is_sdxl,
+                persona_negative_prompt=persona_negative_prompt
             )
 
             logger.info(

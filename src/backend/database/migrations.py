@@ -788,6 +788,58 @@ async def add_content_triggers_column(conn, is_sqlite: bool) -> List[str]:
     return added_columns
 
 
+async def add_persona_negative_prompt_column(conn, is_sqlite: bool) -> List[str]:
+    """
+    Add default_negative_prompt column to personas table for decoupling
+    negative prompts from hardcoded style defaults.
+    
+    Added in PR #445: Allows each persona to have their own customized
+    negative prompt for image generation, instead of relying on style-based
+    defaults. This enables:
+    - Anime personas to NOT have "anime" in their negative prompt
+    - Custom negative prompts per persona (e.g., "bright colors" for goth)
+    - Moving configuration from code to database
+
+    Args:
+        conn: Database connection
+        is_sqlite: Whether the database is SQLite
+
+    Returns:
+        List of columns that were added
+    """
+    added_columns = []
+
+    # Check if table exists first
+    if not await table_exists(conn, "personas", is_sqlite):
+        logger.debug("Personas table does not exist, skipping negative prompt migration")
+        return added_columns
+
+    # Check and add default_negative_prompt
+    if not await check_column_exists(conn, "personas", "default_negative_prompt", is_sqlite):
+        logger.info("Adding default_negative_prompt column to personas table")
+        # Default generic negative prompt to ensure backward compatibility
+        default_neg = "ugly, blurry, low quality, distorted, deformed, bad anatomy"
+        
+        if is_sqlite:
+            await conn.execute(
+                text(f"ALTER TABLE personas ADD COLUMN default_negative_prompt TEXT DEFAULT '{default_neg}'")
+            )
+            # Update existing rows to have the default value
+            await conn.execute(
+                text(f"UPDATE personas SET default_negative_prompt = '{default_neg}' WHERE default_negative_prompt IS NULL")
+            )
+        else:
+            await conn.execute(
+                text(f"ALTER TABLE personas ADD COLUMN default_negative_prompt TEXT NOT NULL DEFAULT '{default_neg}'")
+            )
+        added_columns.append("default_negative_prompt")
+
+    if added_columns:
+        logger.info("✓ Added default_negative_prompt column for persona-specific negative prompts")
+
+    return added_columns
+
+
 async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
     """
     Run all pending migrations on the database.
@@ -908,6 +960,18 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                 )
             else:
                 logger.info("Content triggers column is up to date")
+
+            # Run negative prompt decoupling migration (PR #445)
+            negative_prompt_added = await add_persona_negative_prompt_column(conn, is_sqlite)
+
+            if negative_prompt_added:
+                results["migrations_run"].append("personas_negative_prompt")
+                results["columns_added"].extend(negative_prompt_added)
+                logger.info(
+                    f"Added default_negative_prompt column for persona-specific negative prompts"
+                )
+            else:
+                logger.info("Negative prompt column is up to date")
 
             # Run ACD scheduling columns migration (PR #433)
             acd_scheduling_added = await add_acd_scheduling_columns(conn, is_sqlite)

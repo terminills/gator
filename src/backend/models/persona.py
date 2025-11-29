@@ -282,6 +282,14 @@ class PersonaModel(Base):
         String(20), default="photorealistic", nullable=False, index=True
     )  # Image generation style (photorealistic, anime, cartoon, etc.)
 
+    # Decoupled negative prompt - allows per-persona customization
+    # This allows e.g. an Anime persona to NOT have "anime" in the negative prompt
+    default_negative_prompt = Column(
+        Text,
+        nullable=False,
+        default="ugly, blurry, low quality, distorted, deformed, bad anatomy"
+    )  # Persona-specific negative prompt for image generation
+
     # ==================== DETAILED PHYSICAL APPEARANCE ====================
     # These fields allow fine-grained control over persona appearance generation
     height = Column(
@@ -562,6 +570,14 @@ class PersonaCreate(BaseModel):
     image_style: ImageStyle = Field(
         default=ImageStyle.PHOTOREALISTIC,
         description="Image generation style (photorealistic, anime, cartoon, etc.)",
+    )
+    default_negative_prompt: str = Field(
+        default="ugly, blurry, low quality, distorted, deformed, bad anatomy",
+        max_length=2000,
+        description=(
+            "Persona-specific negative prompt for image generation. "
+            "Allows decoupling from style-based defaults, e.g. anime personas won't have 'anime' in their negative."
+        ),
     )
 
     # ==================== DETAILED PHYSICAL APPEARANCE ====================
@@ -896,6 +912,11 @@ class PersonaUpdate(BaseModel):
     image_style: Optional[ImageStyle] = Field(
         None, description="Image generation style (photorealistic, anime, cartoon, etc.)"
     )
+    default_negative_prompt: Optional[str] = Field(
+        None,
+        max_length=2000,
+        description="Persona-specific negative prompt for image generation",
+    )
 
     # ==================== DETAILED PHYSICAL APPEARANCE ====================
     height: Optional[str] = Field(None, max_length=50, description="Height")
@@ -1094,6 +1115,7 @@ class PersonaResponse(BaseModel):
     appearance_locked: bool = False
     base_image_status: str = "pending_upload"
     image_style: str = "photorealistic"
+    default_negative_prompt: str = "ugly, blurry, low quality, distorted, deformed, bad anatomy"
 
     # ==================== DETAILED PHYSICAL APPEARANCE ====================
     height: Optional[str] = None
