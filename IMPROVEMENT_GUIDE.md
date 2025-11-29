@@ -1158,7 +1158,12 @@ async def test_persona_crud_api():
 
 ### Phase 6: Feature Completion (Weeks 10-12)
 
-- [ ] Implement scheduled content publishing
+- [x] Implement scheduled content publishing
+  - [x] Created ScheduledPostModel with full status tracking
+  - [x] Created ScheduledPostService with CRUD operations
+  - [x] Created API endpoints (create, list, get, update, cancel, pause, resume, retry, delete)
+  - [x] Integrated with Celery task queue for scheduled execution
+  - [x] Added comprehensive unit tests
 - [ ] Complete social media OAuth flows
 - [ ] Add content moderation pipeline
 - [ ] Complete user authentication flow

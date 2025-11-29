@@ -39,6 +39,7 @@ from backend.api.routes import (
     plugins,
     public,
     reasoning_orchestrator,
+    scheduled_posts,
     segments,
     sentiment,
 )
@@ -266,6 +267,7 @@ def create_app() -> FastAPI:
     app.include_router(civitai.router)
     app.include_router(installed_models.router)
     app.include_router(huggingface.router)
+    app.include_router(scheduled_posts.router)
 
     # WebSocket endpoint for real-time communication
     @app.websocket("/ws/{user_id}")
