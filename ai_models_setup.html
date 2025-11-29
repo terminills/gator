@@ -820,6 +820,21 @@
             <div class="section">
                 <div class="section-header">
                     <h2 class="section-title">💾 Installed Models</h2>
+                    <button class="btn btn-sm btn-secondary" onclick="loadInstalledModelsFromDB()">🔄 Refresh</button>
+                    <button class="btn btn-sm btn-primary" onclick="scanModelsDirectory()">📂 Scan Directory</button>
+                </div>
+                <div id="installed-models-db">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading installed models...
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Legacy Installed Models Section -->
+            <div class="section" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">💾 Legacy Installed Models</h2>
                 </div>
                 <div id="installed-models">
                     <div class="loading">
@@ -925,6 +940,59 @@
                     <button class="btn btn-secondary" onclick="loadCivitAIPage(currentCivitAIPage + 1)" id="civitai-next-btn">
                         Next →
                     </button>
+                </div>
+            </div>
+            
+            <!-- HuggingFace Models Section -->
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">🤗 HuggingFace Model Browser</h2>
+                    <button class="btn btn-sm btn-secondary" onclick="refreshHuggingFaceModels()">🔄 Refresh</button>
+                </div>
+                
+                <div class="alert alert-info">
+                    <strong>🔑 HuggingFace Token (Optional):</strong> For gated models, configure your HuggingFace token in 
+                    <a href="/admin/settings" style="color: var(--primary); text-decoration: underline;">Settings</a>.
+                    Get your token from <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">huggingface.co/settings/tokens</a>.
+                </div>
+                
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+                    <input 
+                        type="text" 
+                        id="huggingface-search" 
+                        placeholder="Search HuggingFace models..." 
+                        style="flex: 1; min-width: 200px; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--dark-card); color: var(--text-primary);"
+                    />
+                    <select 
+                        id="huggingface-task-filter" 
+                        style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--dark-card); color: var(--text-primary);"
+                    >
+                        <option value="">All Tasks</option>
+                        <option value="text-to-image">Text to Image</option>
+                        <option value="image-to-image">Image to Image</option>
+                        <option value="text-generation">Text Generation</option>
+                        <option value="feature-extraction">Feature Extraction</option>
+                    </select>
+                    <select 
+                        id="huggingface-library-filter" 
+                        style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--dark-card); color: var(--text-primary);"
+                    >
+                        <option value="">All Libraries</option>
+                        <option value="diffusers">Diffusers</option>
+                        <option value="transformers">Transformers</option>
+                        <option value="safetensors">Safetensors</option>
+                        <option value="gguf">GGUF</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="searchHuggingFaceModels()">
+                        🔍 Search
+                    </button>
+                </div>
+                
+                <div id="huggingface-models">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading HuggingFace models...
+                    </div>
                 </div>
             </div>
             
@@ -1914,6 +1982,7 @@
                     alert(`✅ Model downloaded successfully!\n\nFile: ${data.file_path || 'Saved to models directory'}`);
                     // Refresh installed models
                     loadSystemInfo();
+                    loadInstalledModelsFromDB();
                 } else {
                     alert(`❌ Download failed: ${data.error || 'Unknown error'}`);
                 }
@@ -1923,12 +1992,355 @@
             }
         }
         
+        // ============================================================
+        // HuggingFace Model Management
+        // ============================================================
+        
+        async function loadHuggingFaceModels() {
+            const modelsDiv = document.getElementById('huggingface-models');
+            
+            try {
+                modelsDiv.innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading HuggingFace models...
+                    </div>
+                `;
+                
+                const query = document.getElementById('huggingface-search').value || '';
+                const task = document.getElementById('huggingface-task-filter').value || '';
+                const library = document.getElementById('huggingface-library-filter').value || '';
+                
+                const params = new URLSearchParams({ limit: '20' });
+                if (query) params.append('query', query);
+                if (task) params.append('task', task);
+                if (library) params.append('library', library);
+                
+                const response = await fetch(`/api/v1/huggingface/search?${params.toString()}`);
+                const models = await response.json();
+                
+                if (!models || models.length === 0) {
+                    modelsDiv.innerHTML = `
+                        <div class="alert alert-info">
+                            No models found. Try adjusting your search filters.
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '<div class="models-grid">';
+                
+                models.forEach(model => {
+                    const downloads = model.downloads || 0;
+                    const likes = model.likes || 0;
+                    const pipelineTag = model.pipeline_tag || model.pipelineTag || 'Unknown';
+                    const libraryName = model.library_name || model.libraryName || '';
+                    
+                    html += `
+                        <div class="model-card">
+                            <div style="margin-bottom: 12px;">
+                                <span class="model-category" style="background: var(--primary);">${pipelineTag}</span>
+                                ${libraryName ? `<span class="model-category" style="background: var(--accent); margin-left: 4px;">${libraryName}</span>` : ''}
+                            </div>
+                            
+                            <h3 class="model-name" style="margin-bottom: 8px; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${model.id || model.modelId}">
+                                ${model.id || model.modelId}
+                            </h3>
+                            
+                            <div style="display: flex; gap: 12px; margin-bottom: 12px; font-size: 0.85rem; color: var(--text-secondary);">
+                                <span title="Downloads">⬇️ ${downloads.toLocaleString()}</span>
+                                <span title="Likes">❤️ ${likes.toLocaleString()}</span>
+                            </div>
+                            
+                            ${model.private ? '<div style="margin-bottom: 8px; color: var(--warning);">🔒 Private</div>' : ''}
+                            ${model.gated ? '<div style="margin-bottom: 8px; color: var(--warning);">🚪 Gated</div>' : ''}
+                            
+                            <button 
+                                class="btn btn-primary btn-sm" 
+                                style="width: 100%;"
+                                onclick="downloadHuggingFaceModel('${model.id || model.modelId}')"
+                            >
+                                📥 Download Model
+                            </button>
+                            
+                            <button 
+                                class="btn btn-secondary btn-sm" 
+                                style="width: 100%; margin-top: 8px;"
+                                onclick="window.open('https://huggingface.co/${model.id || model.modelId}', '_blank')"
+                            >
+                                🔗 View on HuggingFace
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                modelsDiv.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Failed to load HuggingFace models:', error);
+                modelsDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        Failed to load HuggingFace models: ${error.message}
+                        <br><br>
+                        <button class="btn btn-secondary" onclick="loadHuggingFaceModels()">🔄 Retry</button>
+                    </div>
+                `;
+            }
+        }
+        
+        async function searchHuggingFaceModels() {
+            await loadHuggingFaceModels();
+        }
+        
+        async function refreshHuggingFaceModels() {
+            document.getElementById('huggingface-search').value = '';
+            document.getElementById('huggingface-task-filter').value = '';
+            document.getElementById('huggingface-library-filter').value = '';
+            await loadHuggingFaceModels();
+        }
+        
+        async function downloadHuggingFaceModel(repoId) {
+            const filename = prompt('Enter filename to download (leave empty for entire repo):', '');
+            
+            if (!confirm(`Download model from HuggingFace?\n\nRepository: ${repoId}\n${filename ? 'File: ' + filename : 'Entire repository'}\n\nThis may take some time depending on file size.`)) {
+                return;
+            }
+            
+            try {
+                const body = { repo_id: repoId };
+                if (filename) body.filename = filename;
+                
+                const response = await fetch('/api/v1/huggingface/download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(`✅ Model downloaded successfully!\n\nFile: ${data.file_path || 'Saved to models directory'}`);
+                    loadSystemInfo();
+                    loadInstalledModelsFromDB();
+                } else {
+                    alert(`❌ Download failed: ${data.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Failed to download model:', error);
+                alert(`❌ Download failed: ${error.message}`);
+            }
+        }
+        
+        // ============================================================
+        // Installed Models from Database
+        // ============================================================
+        
+        async function loadInstalledModelsFromDB() {
+            const container = document.getElementById('installed-models-db');
+            
+            try {
+                container.innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading installed models...
+                    </div>
+                `;
+                
+                const response = await fetch('/api/v1/installed-models/');
+                const models = await response.json();
+                
+                if (!models || models.length === 0) {
+                    container.innerHTML = `
+                        <div class="alert alert-info">
+                            No models registered yet. Use the "Scan Directory" button to find models, or download models from CivitAI or HuggingFace.
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = `
+                    <div style="margin-bottom: 16px; color: var(--text-secondary);">
+                        Found ${models.length} registered model(s)
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                <th style="text-align: left; padding: 12px;">Name</th>
+                                <th style="text-align: left; padding: 12px;">Type</th>
+                                <th style="text-align: left; padding: 12px;">Source</th>
+                                <th style="text-align: left; padding: 12px;">Base Model</th>
+                                <th style="text-align: left; padding: 12px;">Trigger Words</th>
+                                <th style="text-align: left; padding: 12px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                models.forEach(model => {
+                    const triggers = model.trigger_words || [];
+                    const triggerDisplay = triggers.length > 0 
+                        ? triggers.slice(0, 3).join(', ') + (triggers.length > 3 ? '...' : '')
+                        : '<span style="color: var(--text-secondary);">None</span>';
+                    
+                    html += `
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 12px;">
+                                <strong>${model.display_name || model.name}</strong>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary);">${model.file_name}</div>
+                            </td>
+                            <td style="padding: 12px;">
+                                <span class="model-category ${model.model_type.toLowerCase()}">${model.model_type}</span>
+                            </td>
+                            <td style="padding: 12px;">
+                                ${model.source === 'civitai' ? '🎨 CivitAI' : model.source === 'huggingface' ? '🤗 HuggingFace' : '💾 Local'}
+                            </td>
+                            <td style="padding: 12px;">
+                                ${model.base_model || '<span style="color: var(--text-secondary);">Unknown</span>'}
+                            </td>
+                            <td style="padding: 12px;">
+                                ${triggerDisplay}
+                            </td>
+                            <td style="padding: 12px;">
+                                <button class="btn btn-sm btn-secondary" onclick="editModelTriggers('${model.id}')" title="Edit Triggers">
+                                    ✏️
+                                </button>
+                                ${model.civitai_version_id ? '' : `
+                                    <button class="btn btn-sm btn-secondary" onclick="enrichFromCivitAI('${model.id}')" title="Enrich from CivitAI">
+                                        🎨
+                                    </button>
+                                `}
+                                ${model.huggingface_repo_id ? '' : `
+                                    <button class="btn btn-sm btn-secondary" onclick="enrichFromHuggingFace('${model.id}')" title="Enrich from HuggingFace">
+                                        🤗
+                                    </button>
+                                `}
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                container.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Failed to load installed models:', error);
+                container.innerHTML = `
+                    <div class="alert alert-warning">
+                        Failed to load installed models: ${error.message}
+                        <br><br>
+                        <button class="btn btn-secondary" onclick="loadInstalledModelsFromDB()">🔄 Retry</button>
+                    </div>
+                `;
+            }
+        }
+        
+        async function scanModelsDirectory() {
+            if (!confirm('Scan models directory for new models?\n\nThis will find all .safetensors, .ckpt, .pt, .bin files and register them in the database.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/v1/installed-models/scan-directory', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(`✅ Scan complete!\n\nScanned: ${data.scanned_count}\nRegistered: ${data.registered_count}\nSkipped: ${data.skipped_count}\nErrors: ${data.errors?.length || 0}`);
+                    loadInstalledModelsFromDB();
+                } else {
+                    alert(`❌ Scan failed: ${data.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Failed to scan directory:', error);
+                alert(`❌ Scan failed: ${error.message}`);
+            }
+        }
+        
+        async function editModelTriggers(modelId) {
+            const triggers = prompt('Enter trigger words (comma-separated):');
+            if (triggers === null) return;
+            
+            try {
+                const triggerList = triggers.split(',').map(t => t.trim()).filter(t => t);
+                
+                const response = await fetch(`/api/v1/installed-models/${modelId}/set-trigger-words`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(triggerList)
+                });
+                
+                if (response.ok) {
+                    alert('✅ Trigger words updated!');
+                    loadInstalledModelsFromDB();
+                } else {
+                    const data = await response.json();
+                    alert(`❌ Failed to update: ${data.detail || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Failed to update triggers:', error);
+                alert(`❌ Failed to update: ${error.message}`);
+            }
+        }
+        
+        async function enrichFromCivitAI(modelId) {
+            const versionId = prompt('Enter CivitAI Version ID:');
+            if (!versionId) return;
+            
+            try {
+                const response = await fetch(`/api/v1/installed-models/${modelId}/enrich-from-civitai?civitai_version_id=${versionId}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    alert('✅ Model enriched with CivitAI data!');
+                    loadInstalledModelsFromDB();
+                } else {
+                    const data = await response.json();
+                    alert(`❌ Failed to enrich: ${data.detail || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Failed to enrich from CivitAI:', error);
+                alert(`❌ Failed to enrich: ${error.message}`);
+            }
+        }
+        
+        async function enrichFromHuggingFace(modelId) {
+            const repoId = prompt('Enter HuggingFace Repository ID (e.g., "stabilityai/stable-diffusion-xl-base-1.0"):');
+            if (!repoId) return;
+            
+            try {
+                const response = await fetch(`/api/v1/installed-models/${modelId}/enrich-from-huggingface?huggingface_repo_id=${encodeURIComponent(repoId)}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    alert('✅ Model enriched with HuggingFace data!');
+                    loadInstalledModelsFromDB();
+                } else {
+                    const data = await response.json();
+                    alert(`❌ Failed to enrich: ${data.detail || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Failed to enrich from HuggingFace:', error);
+                alert(`❌ Failed to enrich: ${error.message}`);
+            }
+        }
+        
         // Load data on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadBranding();
             loadSystemInfo();
             loadInferenceEngines();
             loadCivitAIModels();
+            loadHuggingFaceModels();
+            loadInstalledModelsFromDB();
         });
     </script>
 </body>

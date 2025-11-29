@@ -3615,6 +3615,12 @@
                     <!-- Trigger Phrases Section -->
                     <div class="trigger-section">
                         <div class="trigger-section-title">🎯 Trigger Phrases</div>
+                        <div style="margin-bottom: 12px;">
+                            <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; display: block;">Add from System Triggers</label>
+                            <select class="form-input" id="system-trigger-select-${triggerId}" onchange="addSystemTriggerPhrase('${triggerId}', this.value); this.value='';">
+                                ${buildTriggerWordOptionsHtml()}
+                            </select>
+                        </div>
                         <div class="tag-input-container" id="trigger-phrases-${triggerId}">
                             ${(trigger.trigger_phrases || []).map((phrase, idx) => `
                                 <span class="tag">
@@ -3873,6 +3879,48 @@
                     contentTriggers[triggerId].loras[index][field] = value;
                 }
             }
+        }
+        
+        // Add a system trigger phrase and optionally suggest models
+        async function addSystemTriggerPhrase(triggerId, triggerWord) {
+            if (!triggerWord || !contentTriggers[triggerId]) return;
+            
+            // Add the trigger phrase
+            if (!contentTriggers[triggerId].trigger_phrases) {
+                contentTriggers[triggerId].trigger_phrases = [];
+            }
+            if (!contentTriggers[triggerId].trigger_phrases.includes(triggerWord)) {
+                contentTriggers[triggerId].trigger_phrases.push(triggerWord);
+            }
+            
+            // Fetch models that match this trigger word
+            try {
+                const data = await getModelsForTrigger(triggerWord);
+                if (data.models && data.models.length > 0) {
+                    // Suggest adding matching LoRAs
+                    const loraModels = data.models.filter(m => m.model_type === 'LORA');
+                    if (loraModels.length > 0 && confirm(`Found ${loraModels.length} LoRA(s) that use trigger "${triggerWord}".\n\nAdd them to this trigger configuration?`)) {
+                        if (!contentTriggers[triggerId].loras) {
+                            contentTriggers[triggerId].loras = [];
+                        }
+                        loraModels.forEach(lora => {
+                            // Check if already added
+                            const existing = contentTriggers[triggerId].loras.find(l => l.name === lora.name);
+                            if (!existing) {
+                                contentTriggers[triggerId].loras.push({
+                                    name: lora.name,
+                                    weight: lora.recommended_weight || 0.8,
+                                    trigger_word: triggerWord
+                                });
+                            }
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch models for trigger:', error);
+            }
+            
+            renderContentTriggers();
         }
         
         function toggleCollapsible(element) {
@@ -5025,6 +5073,48 @@
             voice: [],
             audio: []
         };
+        
+        // Store system trigger words from installed models
+        let systemTriggerWords = [];
+        
+        // Load trigger words from the installed models database
+        async function loadSystemTriggerWords() {
+            try {
+                const response = await fetch('/api/v1/installed-models/triggers');
+                if (response.ok) {
+                    systemTriggerWords = await response.json();
+                    console.log(`Loaded ${systemTriggerWords.length} system trigger words`);
+                }
+            } catch (error) {
+                console.error('Failed to load system trigger words:', error);
+            }
+        }
+        
+        // Build trigger word options for dropdowns
+        function buildTriggerWordOptionsHtml(selectedTrigger = null) {
+            let html = '<option value="">Select a trigger word...</option>';
+            
+            systemTriggerWords.forEach(tw => {
+                const isSelected = selectedTrigger && tw.trigger_word === selectedTrigger;
+                const modelCount = tw.models ? tw.models.length : 0;
+                html += `<option value="${escapeHtml(tw.trigger_word)}" ${isSelected ? 'selected' : ''}>${escapeHtml(tw.trigger_word)} (${modelCount} model${modelCount !== 1 ? 's' : ''})</option>`;
+            });
+            
+            return html;
+        }
+        
+        // Get models matching a specific trigger word
+        async function getModelsForTrigger(triggerWord) {
+            try {
+                const response = await fetch(`/api/v1/installed-models/by-trigger/${encodeURIComponent(triggerWord)}`);
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (error) {
+                console.error('Failed to get models for trigger:', error);
+            }
+            return { models: [] };
+        }
         
         // Helper function to build model options HTML for dropdowns
         function buildModelOptionsHtml(selectedModel = null) {
@@ -6736,6 +6826,7 @@
             loadPersonaData();
             loadAvailableFeeds(); // Load available feeds for assignment
             loadInstalledModels(); // Load installed AI models for preferences
+            loadSystemTriggerWords(); // Load trigger words from installed models database
             
             // If creating new persona, initialize empty assigned feeds
             if (editorMode === 'create') {

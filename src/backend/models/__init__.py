@@ -84,6 +84,18 @@ from .business_intelligence import (
     SchedulingFeedbackResponse,
 )
 
+# Installed Model models
+from .installed_model import (
+    InstalledModelModel,
+    InstalledModelCreate,
+    InstalledModelUpdate,
+    InstalledModelResponse,
+    TriggerWordResponse,
+    ModelsByTriggerResponse,
+    ModelType,
+    ModelSource,
+)
+
 __all__ = [
     "PersonaModel",
     "PersonaCreate",
@@ -169,4 +181,13 @@ __all__ = [
     "ContentScheduleCreate",
     "ContentScheduleResponse",
     "SchedulingFeedbackResponse",
+    # Installed Model models
+    "InstalledModelModel",
+    "InstalledModelCreate",
+    "InstalledModelUpdate",
+    "InstalledModelResponse",
+    "TriggerWordResponse",
+    "ModelsByTriggerResponse",
+    "ModelType",
+    "ModelSource",
 ]
