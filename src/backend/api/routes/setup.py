@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from backend.config.logging import get_logger
 from backend.services.setup_service import SetupService, get_setup_service
+from backend.utils.paths import get_paths
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/setup", tags=["setup"])
@@ -427,7 +428,6 @@ async def get_ai_models_status() -> Dict[str, Any]:
     detect and report loaded models.
     """
     try:
-        import subprocess
         import sys
         from pathlib import Path
 
@@ -445,7 +445,6 @@ async def get_ai_models_status() -> Dict[str, Any]:
                 detect_rocm_version,
                 generate_rocm_env_vars,
                 get_multi_gpu_config,
-                get_pytorch_install_info,
             )
 
             # Get ROCm version
@@ -810,7 +809,6 @@ async def analyze_system_for_models() -> Dict[str, Any]:
     which models can be installed on the current system.
     """
     try:
-        import os
         import subprocess
         import sys
         from pathlib import Path
@@ -1398,7 +1396,6 @@ async def install_inference_engine(
     """
     try:
         import subprocess
-        import sys
         from pathlib import Path
 
         project_root = Path(__file__).parents[4]
@@ -1497,7 +1494,6 @@ async def check_dependencies_health() -> Dict[str, Any]:
         Dict with health status for each dependency category
     """
     try:
-        import sys
         from pathlib import Path
 
         health_status = {
@@ -1707,10 +1703,8 @@ async def get_model_telemetry() -> Dict[str, Any]:
         Dict with usage statistics for each model
     """
     try:
-        from fastapi import Depends
-        from sqlalchemy.ext.asyncio import AsyncSession
+        pass
 
-        from backend.database.connection import get_db_session
         from backend.services.ai_models import ai_models
 
         telemetry = {

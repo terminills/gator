@@ -16,21 +16,16 @@ enabling the LLM to reason about:
 """
 
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_, case, desc, func, select
+from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
 from backend.models.acd import (
     ACDContextModel,
-    ACDContextResponse,
     ACDTraceArtifactModel,
-    AIDomain,
-    AIState,
-    AIStatus,
 )
 from backend.models.content import ContentModel
 from backend.models.conversation import ConversationModel

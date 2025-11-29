@@ -4,11 +4,11 @@ Setup Service
 Manages initial system configuration and environment file setup.
 """
 
-import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from backend.config.logging import get_logger
+from backend.utils.paths import get_paths
 
 logger = get_logger(__name__)
 
@@ -24,9 +24,9 @@ class SetupService:
             env_file_path: Path to .env file (defaults to .env in project root)
         """
         if env_file_path is None:
-            # Default to .env in project root
-            project_root = Path(__file__).parent.parent.parent.parent
-            self.env_file_path = project_root / ".env"
+            # Use centralized paths
+            paths = get_paths()
+            self.env_file_path = paths.project_root / ".env"
         else:
             self.env_file_path = Path(env_file_path)
 

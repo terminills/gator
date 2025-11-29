@@ -4,13 +4,10 @@ Generation Feedback Service
 Handles recording of AI generation benchmarks and human feedback for continuous improvement.
 """
 
-import asyncio
-import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger

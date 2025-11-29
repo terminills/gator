@@ -12,12 +12,11 @@ utilities for video manipulation using opencv and ffmpeg.
 """
 
 import asyncio
-import os
 import subprocess
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import cv2
 import numpy as np

@@ -6,8 +6,6 @@ using integrated AI models like Stable Diffusion and language models.
 """
 
 import asyncio
-import json
-import os
 import random
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -21,7 +19,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.config.logging import get_logger
 from backend.models.acd import ACDContextModel, AIComplexity, AIConfidence, AIState
 from backend.models.content import (
-    ContentCreate,
     ContentModel,
     ContentRating,
     ContentResponse,
@@ -30,7 +27,7 @@ from backend.models.content import (
     ModerationStatus,
 )
 from backend.models.persona import PersonaModel
-from backend.services.acd_service import ACDService
+from backend.utils.paths import get_paths
 
 # --- MODULE-LEVEL IMPORTS TO PREVENT SCOPED FAILURE ---
 # These imports are moved up from within the generation methods to ensure
@@ -240,18 +237,25 @@ class ContentGenerationService:
     """
 
     def __init__(
-        self, db_session: AsyncSession, content_dir: str = "generated_content"
+        self, db_session: AsyncSession, content_dir: Optional[str] = None
     ):
         """
         Initialize content generation service.
 
         Args:
             db_session: Database session for persistence
-            content_dir: Directory to store generated content files
+            content_dir: Directory to store generated content files (uses centralized path if not provided)
         """
         self.db = db_session
-        self.content_dir = Path(content_dir)
-        self.content_dir.mkdir(exist_ok=True)
+
+        # Use centralized paths if not explicitly provided
+        if content_dir is None:
+            paths = get_paths()
+            self.content_dir = paths.generated_content_dir
+        else:
+            self.content_dir = Path(content_dir)
+
+        self.content_dir.mkdir(parents=True, exist_ok=True)
 
         # Create subdirectories for different content types
         (self.content_dir / "images").mkdir(exist_ok=True)
@@ -664,7 +668,6 @@ class ContentGenerationService:
             from backend.models.feed import (
                 FeedItemModel,
                 PersonaFeedModel,
-                RSSFeedModel,
             )
 
             # Get RSS feeds assigned to this persona

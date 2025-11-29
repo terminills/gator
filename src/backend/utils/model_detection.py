@@ -9,7 +9,9 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
+
+from backend.utils.paths import get_paths
 
 
 def find_comfyui_installation(base_dir: Optional[Path] = None) -> Optional[Path]:
@@ -26,6 +28,9 @@ def find_comfyui_installation(base_dir: Optional[Path] = None) -> Optional[Path]
     Returns:
         Path to ComfyUI directory if found, None otherwise
     """
+    # Get centralized paths
+    paths = get_paths()
+
     # Check environment variable first (set by install script)
     if "COMFYUI_DIR" in os.environ:
         comfyui_path = Path(os.environ["COMFYUI_DIR"])
@@ -39,12 +44,13 @@ def find_comfyui_installation(base_dir: Optional[Path] = None) -> Optional[Path]
     if base_dir:
         possible_locations.append(base_dir / "ComfyUI")
 
-    # Check common installation locations
+    # Check common installation locations using centralized paths
     possible_locations.extend(
         [
+            paths.data_dir / "ComfyUI",  # Data directory
+            paths.project_root / "ComfyUI",  # Repository root
             Path("./ComfyUI"),  # Current directory
             Path.cwd() / "ComfyUI",  # Current working directory
-            Path(__file__).parent.parent.parent.parent / "ComfyUI",  # Repository root
             Path.home() / "ComfyUI",  # Home directory
             Path("/opt/ComfyUI"),  # System-wide installation
             Path("/usr/local/ComfyUI"),  # Alternative system location
@@ -120,6 +126,9 @@ def find_automatic1111_installation(base_dir: Optional[Path] = None) -> Optional
         if a1111_path.exists() and (a1111_path / "launch.py").exists():
             return a1111_path
 
+    # Get centralized paths
+    paths = get_paths()
+
     # Build list of possible locations
     possible_locations = []
 
@@ -133,9 +142,10 @@ def find_automatic1111_installation(base_dir: Optional[Path] = None) -> Optional
 
     possible_locations.extend(
         [
+            paths.data_dir / "stable-diffusion-webui",  # Data directory
+            paths.project_root / "stable-diffusion-webui",  # Repository root
             Path("./stable-diffusion-webui"),
             Path.cwd() / "stable-diffusion-webui",
-            Path(__file__).parent.parent.parent.parent / "stable-diffusion-webui",
             Path.home() / "stable-diffusion-webui",
             Path("./automatic1111"),
             Path.cwd() / "automatic1111",
@@ -164,7 +174,6 @@ def find_vllm_installation() -> Optional[Dict[str, Any]]:
         version = getattr(vllm, "__version__", "unknown")
 
         # Check if it's a ROCm build by looking for hip/rocm in the installation
-        import sys
 
         vllm_path = Path(vllm.__file__).parent
         is_rocm = any(
@@ -184,10 +193,14 @@ def find_vllm_installation() -> Optional[Dict[str, Any]]:
         }
     except ImportError:
         # Check if vllm source installation exists
+        # Get centralized paths
+        paths = get_paths()
+
         possible_locations = [
+            paths.data_dir / "vllm-rocm",  # Data directory
+            paths.project_root / "vllm-rocm",  # Repository root
             Path("./vllm-rocm"),
             Path.cwd() / "vllm-rocm",
-            Path(__file__).parent.parent.parent.parent / "vllm-rocm",
             Path.home() / "vllm-rocm",
             Path("./vllm"),
             Path.cwd() / "vllm",
@@ -289,10 +302,14 @@ def find_llama_cpp_installation() -> Optional[Dict[str, Any]]:
             }
 
     # Check for source installation in common locations
+    # Get centralized paths
+    paths = get_paths()
+
     possible_locations = [
+        paths.data_dir / "llama.cpp",  # Data directory
+        paths.project_root / "llama.cpp",  # Repository root
         Path("./llama.cpp"),
         Path.cwd() / "llama.cpp",
-        Path(__file__).parent.parent.parent.parent / "llama.cpp",
         Path.home() / "llama.cpp",
         Path("/usr/local/llama.cpp"),  # System-wide installation
         Path("/opt/llama.cpp"),  # Alternative system location

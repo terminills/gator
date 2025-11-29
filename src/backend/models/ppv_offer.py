@@ -14,7 +14,6 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import (
     DECIMAL,
     JSON,
-    Boolean,
     Column,
     DateTime,
 )

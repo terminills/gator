@@ -15,7 +15,6 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
 from backend.database.connection import Base
-from backend.models.content import ContentRating
 
 
 class PlatformPolicyModel(Base):

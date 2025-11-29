@@ -7,11 +7,9 @@ It uses an LLM to evaluate context and decide what to do.
 This is what was missing - the CPU, the brain, the intelligence.
 """
 
-import asyncio
 import json
-import traceback
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,11 +19,7 @@ from backend.models.acd import (
     DOMAIN_COMPATIBILITY,
     ACDContextResponse,
     ACDTraceArtifactModel,
-    AIComplexity,
-    AIConfidence,
     AIDomain,
-    AIState,
-    AISubdomain,
 )
 from backend.models.multi_agent import AgentModel, AgentStatus
 from backend.services.multi_agent_service import MultiAgentService

@@ -5,20 +5,16 @@ Manages persona friend groups and social interactions between personas.
 Handles friend group CRUD, member management, and interaction generation.
 """
 
-import asyncio
 import random
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select, text
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from backend.config.logging import get_logger
 from backend.models.content import ContentModel
 from backend.models.friend_groups import (
-    DuetRequestModel,
     FriendGroupCreate,
     FriendGroupModel,
     FriendGroupResponse,

@@ -5,11 +5,9 @@ Core business logic for persona-based direct messaging with round-robin FIFO que
 system and PPV upselling functionality.
 """
 
-import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import and_, asc, desc, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
@@ -27,7 +25,6 @@ from backend.models.message import (
     MessageModel,
     MessageResponse,
     MessageSender,
-    MessageType,
 )
 from backend.models.persona import PersonaModel
 from backend.models.ppv_offer import (
@@ -35,7 +32,6 @@ from backend.models.ppv_offer import (
     PPVOfferModel,
     PPVOfferResponse,
     PPVOfferStatus,
-    PPVOfferType,
 )
 from backend.models.user import UserModel
 

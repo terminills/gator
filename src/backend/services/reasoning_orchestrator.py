@@ -13,18 +13,16 @@ The orchestrator transforms ACD from a static system into a dynamic, self-organi
 system that improves with every decision.
 """
 
-import asyncio
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
 from backend.models.acd import (
-    ACDContextCreate,
     ACDContextModel,
     ACDContextResponse,
     ACDContextUpdate,
@@ -32,7 +30,6 @@ from backend.models.acd import (
     AIConfidence,
     AIRequest,
     AIState,
-    AIStatus,
     AIValidation,
     HandoffStatus,
     HandoffType,

@@ -11,17 +11,15 @@ Advanced persona creation wizard with:
 """
 
 import asyncio
-import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-from uuid import UUID
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
-from backend.models.persona import BaseImageStatus, PersonaCreate, PersonaModel
+from backend.models.persona import BaseImageStatus, PersonaModel
 from backend.services.ai_models import ai_models
 
 logger = get_logger(__name__)

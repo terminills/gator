@@ -7,7 +7,7 @@ Core business logic for platform user management.
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import and_, select, update
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -5,7 +5,6 @@ Centralized configuration management using Pydantic settings.
 Follows best practices for environment-based configuration.
 """
 
-import os
 from functools import lru_cache
 from typing import List, Optional
 

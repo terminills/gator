@@ -22,7 +22,6 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import UUID
 
 from backend.database.connection import Base
 from backend.plugins import PluginStatus, PluginType

@@ -8,28 +8,21 @@ Handles generation of short-form video reels including:
 - Integration with friend groups for social interactions
 """
 
-import asyncio
-import json
-import os
-import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
-from backend.models.content import ContentModel, ContentRating, ContentType
+from backend.models.content import ContentModel
 from backend.models.friend_groups import (
     DuetRequestModel,
-    InteractionType,
-    PersonaInteractionModel,
 )
 from backend.models.persona import PersonaModel
 from backend.services.video_processing_service import (
-    TransitionType,
     VideoProcessingService,
     VideoQuality,
 )

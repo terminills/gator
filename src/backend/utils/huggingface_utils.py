@@ -9,9 +9,7 @@ Documentation:
 - Python SDK: https://huggingface.co/docs/huggingface_hub/
 """
 
-import asyncio
 import os
-import re
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple

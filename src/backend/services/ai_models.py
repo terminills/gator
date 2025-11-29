@@ -8,16 +8,13 @@ Handles integration with various AI models for content generation including:
 """
 
 import asyncio
-import base64
 import io
 import json
 import os
 import platform
 import re
 import shutil
-import subprocess
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -3186,10 +3183,8 @@ class AIModelManager:
                 ControlNetModel,
                 DiffusionPipeline,
                 DPMSolverMultistepScheduler,
-                StableDiffusionControlNetPipeline,
                 StableDiffusionImg2ImgPipeline,
                 StableDiffusionPipeline,
-                StableDiffusionXLControlNetPipeline,
                 StableDiffusionXLImg2ImgPipeline,
                 StableDiffusionXLPipeline,
             )

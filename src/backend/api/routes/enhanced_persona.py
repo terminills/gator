@@ -5,8 +5,7 @@ API endpoints for the advanced persona creation wizard with presets,
 feature selection, and 4-image preview generation.
 """
 
-from typing import Any, Dict, List
-from uuid import UUID
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession

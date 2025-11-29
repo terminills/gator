@@ -5,21 +5,19 @@ Implements machine learning models for content performance prediction and patter
 Uses scikit-learn for lightweight models with minimal dependencies.
 """
 
-import json
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
-from uuid import UUID
+from typing import Any, Dict, Optional
 
 import joblib
 import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
-from backend.models.acd import ACDContextModel, AIState, AIStatus
+from backend.models.acd import ACDContextModel
 
 logger = get_logger(__name__)
 

@@ -4,18 +4,16 @@ Automated A/B Testing Service
 Manages A/B test creation, execution, analysis, and recommendations.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
 
 import numpy as np
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
-from backend.models.acd import ACDContextModel
 
 logger = get_logger(__name__)
 

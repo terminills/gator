@@ -1081,7 +1081,9 @@ async def test_persona_crud_api():
 
 - [x] Run Black formatter on all files: `black src/` (72 files reformatted)
 - [x] Run isort on all files: `isort src/` (30 files fixed)
-- [ ] Fix all flake8 warnings
+- [x] Remove unused imports with autoflake (255 F401 issues fixed)
+- [x] Create centralized path utilities (`backend/utils/paths.py`) to prevent duplicate path definitions
+- [ ] Fix remaining flake8 warnings (line length, etc.)
 - [ ] Add missing type hints to public APIs
 - [ ] Create custom exception hierarchy
 - [ ] Standardize logging across services

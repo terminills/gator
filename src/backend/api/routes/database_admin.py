@@ -5,7 +5,6 @@ Provides endpoints for database backup and schema synchronization
 through the admin panel.
 """
 
-from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status

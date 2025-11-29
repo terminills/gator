@@ -4,17 +4,15 @@ Multi-Agent Coordination Service
 Manages specialized agents, automatic routing, and distributed coordination.
 """
 
-import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
 from backend.models.multi_agent import (
-    AgentCommunicationModel,
     AgentCreate,
     AgentModel,
     AgentResponse,

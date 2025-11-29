@@ -9,11 +9,8 @@ Documentation:
 - Python SDK: https://developer.civitai.com/docs/api/python-sdk
 """
 
-import asyncio
 import hashlib
-import os
 import re
-import shutil
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple

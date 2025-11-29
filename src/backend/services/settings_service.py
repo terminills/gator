@@ -5,10 +5,9 @@ Manages system settings stored in the database.
 Provides CRUD operations for configuration values.
 """
 
-from typing import Any, Dict, List, Optional
-from uuid import UUID
+from typing import Any, List, Optional
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -5,7 +5,6 @@ Main entry point for the Gator AI Influencer Platform backend API.
 Configured following best practices from BEST_PRACTICES.md.
 """
 
-import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -54,6 +53,7 @@ from backend.api.websocket import websocket_endpoint
 from backend.config.logging import setup_logging
 from backend.config.settings import get_settings
 from backend.database.connection import get_db_session
+from backend.utils.paths import get_paths
 
 # Configure logging
 setup_logging()
@@ -173,6 +173,9 @@ def create_app() -> FastAPI:
     Returns:
         FastAPI: Configured application instance
     """
+    # Get centralized paths
+    paths = get_paths()
+
     app = FastAPI(
         title="Gator AI Influencer Platform",
         description="Gator don't play no shit - AI-powered content generation platform",
@@ -198,32 +201,40 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Mount static files (frontend directory is at repo root level)
-    project_root = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    )
-    frontend_path = os.path.join(project_root, "frontend", "public")
-    if os.path.exists(frontend_path):
-        app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+    # Mount static files using centralized paths
+    frontend_path = paths.frontend_dir
+    if frontend_path.exists():
+        app.mount("/static", StaticFiles(directory=str(frontend_path)), name="static")
 
     # Mount content directory for generated content (images, videos, etc.)
-    # Content is generated in src/generated_content by ContentGenerationService
-    content_path = os.path.join(project_root, "src", "generated_content")
-    if os.path.exists(content_path):
-        app.mount("/content", StaticFiles(directory=content_path), name="content")
+    content_path = paths.generated_content_dir
+    if content_path.exists():
+        app.mount("/content", StaticFiles(directory=str(content_path)), name="content")
         print(f"Mounted content directory: {content_path}")
     else:
-        print(f"Warning: Content directory not found: {content_path}")
+        # Create the directory if it doesn't exist
+        content_path.mkdir(parents=True, exist_ok=True)
+        app.mount("/content", StaticFiles(directory=str(content_path)), name="content")
+        print(f"Created and mounted content directory: {content_path}")
 
     # Mount base_images directory for persona base images
-    base_images_path = "/opt/gator/data/models/base_images"
-    if os.path.exists(base_images_path):
+    base_images_path = paths.base_images_dir
+    if base_images_path.exists():
         app.mount(
-            "/base_images", StaticFiles(directory=base_images_path), name="base_images"
+            "/base_images",
+            StaticFiles(directory=str(base_images_path)),
+            name="base_images",
         )
         print(f"Mounted base_images directory: {base_images_path}")
     else:
-        print(f"Warning: Base images directory not found: {base_images_path}")
+        # Create the directory if it doesn't exist
+        base_images_path.mkdir(parents=True, exist_ok=True)
+        app.mount(
+            "/base_images",
+            StaticFiles(directory=str(base_images_path)),
+            name="base_images",
+        )
+        print(f"Created and mounted base_images directory: {base_images_path}")
 
     # Include API routers
     app.include_router(public.router, prefix="/api/v1")
@@ -235,9 +246,6 @@ def create_app() -> FastAPI:
     app.include_router(users.router)
     app.include_router(direct_messaging.router)
     app.include_router(gator_agent.router, prefix="/api/v1/gator-agent")
-    app.include_router(
-        gator_agent.router, prefix="/gator-agent"
-    )  # Backward compatibility
     app.include_router(analytics.router)
     app.include_router(diagnostics.router)
     app.include_router(content.router)
@@ -284,9 +292,9 @@ def create_app() -> FastAPI:
             }
 
         # For browser requests, serve the public gallery as the landing page
-        gallery_path = os.path.join(frontend_path, "gallery.html")
-        if os.path.exists(gallery_path):
-            return FileResponse(gallery_path)
+        gallery_path = frontend_path / "gallery.html"
+        if gallery_path.exists():
+            return FileResponse(str(gallery_path))
         return {
             "message": "Gator AI Influencer Platform",
             "version": "0.1.0",
@@ -296,126 +304,118 @@ def create_app() -> FastAPI:
     @app.get("/admin", tags=["system"])
     async def admin_dashboard():
         """Serve main admin dashboard hub."""
+        admin_panel = paths.admin_panel_dir
         # Serve the new modern admin dashboard
-        dashboard_path = os.path.join(project_root, "admin_panel", "dashboard.html")
-        if os.path.exists(dashboard_path):
-            return FileResponse(dashboard_path)
+        dashboard_path = admin_panel / "dashboard.html"
+        if dashboard_path.exists():
+            return FileResponse(str(dashboard_path))
         # Fallback to simple admin panel
-        admin_panel_path = os.path.join(project_root, "admin_panel", "index.html")
-        if os.path.exists(admin_panel_path):
-            return FileResponse(admin_panel_path)
-        # Last resort: legacy admin.html
-        admin_path = os.path.join(project_root, "admin.html")
-        if os.path.exists(admin_path):
-            return FileResponse(admin_path)
+        admin_panel_path = admin_panel / "index.html"
+        if admin_panel_path.exists():
+            return FileResponse(str(admin_panel_path))
         return {"error": "Admin dashboard not found"}
 
     @app.get("/admin/personas", tags=["system"])
     async def admin_personas(request: Request):
         """Serve persona management page or persona editor based on query params."""
+        admin_panel = paths.admin_panel_dir
         # Check if action parameter is present (create or edit)
         action = request.query_params.get("action")
 
         if action in ["create", "edit"]:
             # Serve the persona editor
-            editor_path = os.path.join(
-                project_root, "admin_panel", "persona-editor.html"
-            )
-            if os.path.exists(editor_path):
-                return FileResponse(editor_path)
+            editor_path = admin_panel / "persona-editor.html"
+            if editor_path.exists():
+                return FileResponse(str(editor_path))
 
         # Default: serve the personas list page
-        personas_path = os.path.join(project_root, "admin_panel", "personas.html")
-        if os.path.exists(personas_path):
-            return FileResponse(personas_path)
+        personas_path = admin_panel / "personas.html"
+        if personas_path.exists():
+            return FileResponse(str(personas_path))
         # Fallback to main admin
-        admin_panel_path = os.path.join(project_root, "admin_panel", "index.html")
-        if os.path.exists(admin_panel_path):
-            return FileResponse(admin_panel_path)
+        admin_panel_path = admin_panel / "index.html"
+        if admin_panel_path.exists():
+            return FileResponse(str(admin_panel_path))
         return {"error": "Persona management page not found"}
 
     @app.get("/admin/content", tags=["system"])
     async def admin_content():
         """Serve content management page."""
-        content_path = os.path.join(project_root, "admin_panel", "content.html")
-        if os.path.exists(content_path):
-            return FileResponse(content_path)
+        content_page = paths.admin_panel_dir / "content.html"
+        if content_page.exists():
+            return FileResponse(str(content_page))
         return {"error": "Content management page not found"}
 
     @app.get("/admin/content/view", tags=["system"])
     async def admin_content_view():
         """Serve individual content view page."""
-        content_view_path = os.path.join(
-            project_root, "admin_panel", "content-view.html"
-        )
-        if os.path.exists(content_view_path):
-            return FileResponse(content_view_path)
+        content_view_path = paths.admin_panel_dir / "content-view.html"
+        if content_view_path.exists():
+            return FileResponse(str(content_view_path))
         return {"error": "Content view page not found"}
 
     @app.get("/admin/rss", tags=["system"])
     async def admin_rss():
         """Serve RSS feed management page."""
-        rss_path = os.path.join(project_root, "admin_panel", "rss.html")
-        if os.path.exists(rss_path):
-            return FileResponse(rss_path)
+        rss_path = paths.admin_panel_dir / "rss.html"
+        if rss_path.exists():
+            return FileResponse(str(rss_path))
         return {"error": "RSS management page not found"}
 
     @app.get("/admin/analytics", tags=["system"])
     async def admin_analytics():
         """Serve analytics dashboard page."""
-        analytics_path = os.path.join(project_root, "admin_panel", "analytics.html")
-        if os.path.exists(analytics_path):
-            return FileResponse(analytics_path)
+        analytics_path = paths.admin_panel_dir / "analytics.html"
+        if analytics_path.exists():
+            return FileResponse(str(analytics_path))
         return {"error": "Analytics page not found"}
 
     @app.get("/admin/settings", tags=["system"])
     async def admin_settings():
         """Serve system settings page."""
-        settings_path = os.path.join(project_root, "admin_panel", "settings.html")
-        if os.path.exists(settings_path):
-            return FileResponse(settings_path)
+        settings_path = paths.admin_panel_dir / "settings.html"
+        if settings_path.exists():
+            return FileResponse(str(settings_path))
         return {"error": "Settings page not found"}
 
     @app.get("/admin/diagnostics", tags=["system"])
     async def admin_diagnostics():
         """Serve AI diagnostics page."""
-        diagnostics_path = os.path.join(project_root, "admin_panel", "diagnostics.html")
-        if os.path.exists(diagnostics_path):
-            return FileResponse(diagnostics_path)
+        diagnostics_path = paths.admin_panel_dir / "diagnostics.html"
+        if diagnostics_path.exists():
+            return FileResponse(str(diagnostics_path))
         return {"error": "AI diagnostics page not found"}
 
     @app.get("/admin/system-monitoring", tags=["system"])
     async def admin_system_monitoring():
         """Serve system monitoring page for GPU temperature and fan control."""
-        monitoring_path = os.path.join(
-            project_root, "admin_panel", "system-monitoring.html"
-        )
-        if os.path.exists(monitoring_path):
-            return FileResponse(monitoring_path)
+        monitoring_path = paths.admin_panel_dir / "system-monitoring.html"
+        if monitoring_path.exists():
+            return FileResponse(str(monitoring_path))
         return {"error": "System monitoring page not found"}
 
     @app.get("/ai-models-setup", tags=["system"])
     async def ai_models_setup():
         """Serve AI models setup page."""
-        setup_path = os.path.join(project_root, "ai_models_setup.html")
-        if os.path.exists(setup_path):
-            return FileResponse(setup_path)
+        setup_path = paths.project_root / "ai_models_setup.html"
+        if setup_path.exists():
+            return FileResponse(str(setup_path))
         return {"error": "AI models setup page not found"}
 
     @app.get("/gallery", tags=["public"])
     async def public_gallery():
         """Serve public gallery page (same as root for backward compatibility)."""
-        gallery_path = os.path.join(frontend_path, "gallery.html")
-        if os.path.exists(gallery_path):
-            return FileResponse(gallery_path)
+        gallery_path = frontend_path / "gallery.html"
+        if gallery_path.exists():
+            return FileResponse(str(gallery_path))
         return {"error": "Gallery page not found"}
 
     @app.get("/gallery/persona/{persona_id}", tags=["public"])
     async def persona_detail(persona_id: str):
         """Serve persona detail page."""
-        persona_path = os.path.join(frontend_path, "persona.html")
-        if os.path.exists(persona_path):
-            return FileResponse(persona_path)
+        persona_page = frontend_path / "persona.html"
+        if persona_page.exists():
+            return FileResponse(str(persona_page))
         return {"error": "Persona page not found"}
 
     @app.get("/health", tags=["system"])
@@ -443,7 +443,7 @@ def create_app() -> FastAPI:
 
     @app.get("/gator-agent/status", tags=["gator-agent"])
     async def gator_agent_status_alias():
-        """Alias for Gator agent status endpoint (backward compatibility)."""
+        """Alias for Gator agent status endpoint."""
         from backend.services.gator_agent_service import gator_agent
 
         history = gator_agent.get_conversation_history()

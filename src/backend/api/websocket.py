@@ -9,9 +9,8 @@ Provides WebSocket endpoints for:
 """
 
 import asyncio
-import json
 from datetime import datetime
-from typing import Dict, Optional, Set
+from typing import Dict, Set
 from uuid import UUID
 
 from fastapi import Depends, WebSocket, WebSocketDisconnect
@@ -19,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
-from backend.models.persona import PersonaModel
 from backend.services.direct_messaging_service import DirectMessagingService
 
 logger = get_logger(__name__)

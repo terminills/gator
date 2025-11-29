@@ -4,8 +4,6 @@ Backup Background Tasks
 Celery tasks for automated database and content backups.
 """
 
-import asyncio
-import os
 import shutil
 import subprocess
 from datetime import datetime, timedelta
