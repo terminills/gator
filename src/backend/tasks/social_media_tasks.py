@@ -77,10 +77,25 @@ async def publish_scheduled_post(
     Returns:
         Dictionary with publishing results
     """
+    from uuid import UUID
+    from sqlalchemy import select, update
+
     try:
         logger.info(f"Processing scheduled post: {schedule_id}")
 
         async with database_manager.get_session() as session:
+            # Update scheduled post status to processing
+            from backend.models.scheduled_post import ScheduledPostModel, ScheduledPostStatus
+
+            scheduled_post_id = post_data.get("scheduled_post_id")
+            if scheduled_post_id:
+                await session.execute(
+                    update(ScheduledPostModel)
+                    .where(ScheduledPostModel.id == UUID(scheduled_post_id))
+                    .values(status=ScheduledPostStatus.PROCESSING.value)
+                )
+                await session.commit()
+
             # Create social media service instance
             social_service = SocialMediaService(session)
 
@@ -96,6 +111,10 @@ async def publish_scheduled_post(
             # Publish the content
             results = await social_service.publish_content(request)
 
+            # Check if any platform succeeded
+            any_success = any(r.status == "published" for r in results)
+            all_errors = [r.error_message for r in results if r.error_message]
+
             # Format results for task return
             result_data = {
                 "schedule_id": schedule_id,
@@ -103,14 +122,58 @@ async def publish_scheduled_post(
                 "platforms": [r.platform for r in results],
                 "statuses": [r.status for r in results],
                 "post_ids": [r.post_id for r in results if r.post_id],
-                "errors": [r.error_message for r in results if r.error_message],
+                "errors": all_errors,
             }
+
+            # Update scheduled post with results
+            if scheduled_post_id:
+                if any_success:
+                    await session.execute(
+                        update(ScheduledPostModel)
+                        .where(ScheduledPostModel.id == UUID(scheduled_post_id))
+                        .values(
+                            status=ScheduledPostStatus.PUBLISHED.value,
+                            published_at=datetime.utcnow(),
+                            platform_post_id=result_data["post_ids"][0] if result_data["post_ids"] else None,
+                        )
+                    )
+                else:
+                    # All platforms failed
+                    await session.execute(
+                        update(ScheduledPostModel)
+                        .where(ScheduledPostModel.id == UUID(scheduled_post_id))
+                        .values(
+                            status=ScheduledPostStatus.FAILED.value,
+                            error_message="; ".join(all_errors) if all_errors else "Unknown error",
+                        )
+                    )
+                await session.commit()
 
             logger.info(f"Scheduled post published successfully: {schedule_id}")
             return result_data
 
     except Exception as e:
         logger.error(f"Failed to publish scheduled post {schedule_id}: {str(e)}")
+
+        # Update status to failed if we have a scheduled_post_id
+        scheduled_post_id = post_data.get("scheduled_post_id")
+        if scheduled_post_id:
+            try:
+                from backend.models.scheduled_post import ScheduledPostModel, ScheduledPostStatus
+
+                async with database_manager.get_session() as session:
+                    await session.execute(
+                        update(ScheduledPostModel)
+                        .where(ScheduledPostModel.id == UUID(scheduled_post_id))
+                        .values(
+                            status=ScheduledPostStatus.FAILED.value,
+                            error_message=str(e),
+                        )
+                    )
+                    await session.commit()
+            except Exception as update_err:
+                logger.error(f"Failed to update scheduled post status: {update_err}")
+
         return {"schedule_id": schedule_id, "error": str(e), "published_at": None}
 
 

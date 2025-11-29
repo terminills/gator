@@ -93,6 +93,15 @@ from .installed_model import (
 from .message import MessageCreate, MessageModel, MessageResponse
 from .persona import PersonaCreate, PersonaModel, PersonaResponse, PersonaUpdate
 from .ppv_offer import PPVOfferCreate, PPVOfferModel, PPVOfferResponse
+from .scheduled_post import (
+    ScheduledPostCreate,
+    ScheduledPostListResponse,
+    ScheduledPostModel,
+    ScheduledPostResponse,
+    ScheduledPostStats,
+    ScheduledPostStatus,
+    ScheduledPostUpdate,
+)
 from .user import UserCreate, UserModel, UserResponse, UserUpdate
 
 __all__ = [
@@ -189,4 +198,12 @@ __all__ = [
     "ModelsByTriggerResponse",
     "ModelType",
     "ModelSource",
+    # Scheduled Post models
+    "ScheduledPostModel",
+    "ScheduledPostCreate",
+    "ScheduledPostUpdate",
+    "ScheduledPostResponse",
+    "ScheduledPostListResponse",
+    "ScheduledPostStats",
+    "ScheduledPostStatus",
 ]
