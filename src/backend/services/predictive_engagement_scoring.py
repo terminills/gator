@@ -170,7 +170,7 @@ class PredictiveEngagementScoringService:
 
             # Analyze current context
             context_data = context.ai_context or {}
-            metadata = context.ai_metadata or {}
+            context.ai_metadata or {}
 
             # Timing recommendations
             hour = context.created_at.hour if context.created_at else 12

@@ -322,7 +322,7 @@ async def get_orchestration_stats(
         Statistics dictionary
     """
     try:
-        orchestrator = ReasoningOrchestrator(db)
+        ReasoningOrchestrator(db)
         acd_service = ACDService(db)
 
         # Get all contexts with orchestration decisions in time window

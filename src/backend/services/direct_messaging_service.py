@@ -234,7 +234,7 @@ class DirectMessagingService:
             )
 
             if not include_deleted:
-                stmt = stmt.where(MessageModel.is_deleted == False)
+                stmt = stmt.where(MessageModel.is_deleted.is_(False))
 
             stmt = stmt.order_by(asc(MessageModel.created_at)).offset(skip).limit(limit)
 
@@ -280,7 +280,7 @@ class DirectMessagingService:
             stmt = select(ConversationModel).where(
                 and_(
                     ConversationModel.status == ConversationStatus.ACTIVE,
-                    ConversationModel.auto_responses_enabled == True,
+                    ConversationModel.auto_responses_enabled.is_(True),
                     # Either never had a persona message, or it's been long enough
                     or_(
                         ConversationModel.last_persona_message_at.is_(None),
@@ -504,7 +504,7 @@ class DirectMessagingService:
         """Verify that user and persona exist and are active."""
         # Check user exists and is active
         user_stmt = select(UserModel).where(
-            and_(UserModel.id == user_id, UserModel.is_active == True)
+            and_(UserModel.id == user_id, UserModel.is_active.is_(True))
         )
         user_result = await self.db.execute(user_stmt)
         user = user_result.scalar_one_or_none()
@@ -513,7 +513,7 @@ class DirectMessagingService:
 
         # Check persona exists and is active
         persona_stmt = select(PersonaModel).where(
-            and_(PersonaModel.id == persona_id, PersonaModel.is_active == True)
+            and_(PersonaModel.id == persona_id, PersonaModel.is_active.is_(True))
         )
         persona_result = await self.db.execute(persona_stmt)
         persona = persona_result.scalar_one_or_none()

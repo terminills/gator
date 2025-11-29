@@ -422,7 +422,7 @@ async def _process_persona_response_queue(
             except Exception as e:
                 logger.warning(f"AI generation failed, using fallback: {str(e)}")
                 # Fallback to a simple response
-                response_text = f"Thanks for your message! I appreciate you reaching out. What would you like to know more about?"
+                response_text = "Thanks for your message! I appreciate you reaching out. What would you like to know more about?"
 
             # Determine if PPV offer should be included (10% chance for example)
             import random
@@ -446,7 +446,7 @@ async def _process_persona_response_queue(
                 try:
                     ppv_offer = await dm_service.create_ppv_offer(ppv_data)
                     ppv_offer_id = ppv_offer.id
-                    response_text += f"\n\n💎 I have some exclusive content you might enjoy! Check out my offer above."
+                    response_text += "\n\n💎 I have some exclusive content you might enjoy! Check out my offer above."
                 except Exception as e:
                     logger.warning(f"Failed to create PPV offer: {str(e)}")
 

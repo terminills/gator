@@ -170,12 +170,12 @@ class ReasoningEngine:
 """
 
         if trace_artifacts:
-            prompt += f"\n## Recent Errors\n"
+            prompt += "\n## Recent Errors\n"
             for artifact in trace_artifacts[:3]:  # Last 3 errors
                 prompt += f"- {artifact.event_type}: {artifact.error_message}\n"
 
         if patterns:
-            prompt += f"\n## Learned Patterns from Similar Tasks\n"
+            prompt += "\n## Learned Patterns from Similar Tasks\n"
             prompt += f"Found {len(patterns)} successful patterns:\n"
             for i, pattern in enumerate(patterns[:5], 1):
                 prompt += f"{i}. Agent: {pattern.get('assigned_to', 'unknown')}, "
@@ -183,7 +183,7 @@ class ReasoningEngine:
                 prompt += f"Pattern: {pattern.get('pattern', 'none')}\n"
 
         if agents:
-            prompt += f"\n## Available Agents\n"
+            prompt += "\n## Available Agents\n"
             for agent in agents[:10]:  # Top 10 agents
                 prompt += f"- **{agent.agent_name}** ({agent.agent_type})\n"
                 prompt += f"  Specializations: {agent.specializations or []}\n"

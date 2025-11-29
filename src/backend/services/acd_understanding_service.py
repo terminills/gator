@@ -590,7 +590,7 @@ class ACDUnderstandingService:
             messages = msg_result.scalars().all()
 
             # Get active users
-            user_stmt = select(UserModel).where(UserModel.is_active == True)
+            user_stmt = select(UserModel).where(UserModel.is_active.is_(True))
             user_result = await self.db.execute(user_stmt)
             users = user_result.scalars().all()
 
@@ -1169,9 +1169,9 @@ class ACDUnderstandingService:
             Explanation string
         """
         explanations = {
-            "acd": """ACD (Autonomous Continuous Development) is the system's self-aware 
-metadata framework. It tracks every operation, including content generation, 
-error handling, and agent coordination. Each ACD context represents a unit of 
+            "acd": """ACD (Autonomous Continuous Development) is the system's self-aware
+metadata framework. It tracks every operation, including content generation,
+error handling, and agent coordination. Each ACD context represents a unit of
 work with its phase, state, confidence level, and outcomes.""",
             "phase": """AI Phase represents the type of operation being performed.
 Common phases include: IMAGE_GENERATION, TEXT_GENERATION, VIDEO_GENERATION,
@@ -1477,7 +1477,7 @@ and error patterns. This enables intelligent recommendations.""",
                 select(ACDContextModel)
                 .where(
                     and_(
-                        ACDContextModel.scheduled_for != None,
+                        ACDContextModel.scheduled_for  is not None,
                         ACDContextModel.scheduled_for > now,
                         ACDContextModel.ai_state.in_(["READY", "QUEUED"]),
                     )
@@ -1668,7 +1668,7 @@ and error patterns. This enables intelligent recommendations.""",
         """
         try:
             stmt = select(ACDContextModel).where(
-                ACDContextModel.schedule_feedback_data != None
+                ACDContextModel.schedule_feedback_data  is not None
             )
 
             if domain:
@@ -1902,7 +1902,7 @@ and error patterns. This enables intelligent recommendations.""",
             stmt = select(ACDContextModel).where(
                 and_(
                     ACDContextModel.ai_state == "PROCESSING",
-                    ACDContextModel.ai_assigned_agent_id != None,
+                    ACDContextModel.ai_assigned_agent_id  is not None,
                 )
             )
             result = await self.db.execute(stmt)
@@ -1920,7 +1920,7 @@ and error patterns. This enables intelligent recommendations.""",
                 .where(
                     and_(
                         ACDContextModel.ai_state == "DONE",
-                        ACDContextModel.ai_assigned_agent_id != None,
+                        ACDContextModel.ai_assigned_agent_id  is not None,
                     )
                 )
                 .order_by(desc(ACDContextModel.updated_at))

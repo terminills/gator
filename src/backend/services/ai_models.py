@@ -217,7 +217,7 @@ async def download_model_from_huggingface(
 
         logger.info(f"📥 Downloading model {model_id}...")
         logger.info(f"   Target path: {model_path}")
-        logger.info(f"   This may take several minutes depending on model size...")
+        logger.info("   This may take several minutes depending on model size...")
 
         # Create parent directory
         model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -277,7 +277,7 @@ async def download_model_from_civitai(
 
         logger.info(f"📥 Downloading CivitAI model version {model_version_id}...")
         logger.info(f"   Target path: {model_path}")
-        logger.info(f"   This may take several minutes depending on model size...")
+        logger.info("   This may take several minutes depending on model size...")
 
         # Create parent directory
         model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -750,7 +750,7 @@ class AIModelManager:
                                 f"   ⚠️  Model directory exists but no model files found: {model_name}"
                             )
                             logger.warning(
-                                f"       Directory may be incomplete from failed download"
+                                "       Directory may be incomplete from failed download"
                             )
 
                     inference_engine = config.get("inference_engine", "transformers")
@@ -1748,13 +1748,10 @@ class AIModelManager:
     async def generate_image(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """Generate image from text prompt using intelligently selected optimal model."""
         start_time = time.time()
-        benchmark_data = None
         model = None
-        had_errors = False
-        error_message = None
 
         # Log generation start
-        logger.info(f"🎨 AI IMAGE GENERATION STARTED")
+        logger.info("🎨 AI IMAGE GENERATION STARTED")
         logger.info(f"   Prompt: {prompt[:100]}{'...' if len(prompt) > 100 else ''}")
         logger.info(f"   Quality: {kwargs.get('quality', 'standard')}")
         logger.info(
@@ -1805,7 +1802,7 @@ class AIModelManager:
                     f"ComfyUI not accessible at {comfyui_url}: {type(e).__name__}: {str(e)}"
                 )
                 logger.info(
-                    f"To use ComfyUI, ensure it's running with: python main.py --listen"
+                    "To use ComfyUI, ensure it's running with: python main.py --listen"
                 )
 
             # Filter out ComfyUI models ONLY if ComfyUI is not running
@@ -1841,7 +1838,7 @@ class AIModelManager:
             )
 
             if not available_models:
-                logger.error(f"❌ No image generation models available")
+                logger.error("❌ No image generation models available")
                 raise ValueError("No image generation models available")
 
             # Use intelligent model selection
@@ -1893,8 +1890,7 @@ class AIModelManager:
             return result
 
         except Exception as e:
-            had_errors = True
-            error_message = str(e)
+            str(e)
             total_time = time.time() - start_time
             logger.error(f"❌ IMAGE GENERATION FAILED after {total_time:.2f}s")
             logger.error(f"   Error: {str(e)}")
@@ -2029,7 +2025,7 @@ class AIModelManager:
         start_time = time.time()
 
         # Log generation start
-        logger.info(f"📝 AI TEXT GENERATION STARTED")
+        logger.info("📝 AI TEXT GENERATION STARTED")
         logger.info(f"   Prompt: {prompt[:100]}{'...' if len(prompt) > 100 else ''}")
         logger.info(f"   Max tokens: {kwargs.get('max_tokens', 1000)}")
         logger.info(f"   Temperature: {kwargs.get('temperature', 0.7)}")
@@ -2083,7 +2079,7 @@ class AIModelManager:
             )
 
             if not available_models:
-                logger.error(f"❌ No text generation models available")
+                logger.error("❌ No text generation models available")
                 raise ValueError("No text generation models available")
 
             # Use intelligent model selection
@@ -2134,7 +2130,7 @@ class AIModelManager:
         start_time = time.time()
 
         # Log generation start
-        logger.info(f"🎙️ AI VOICE GENERATION STARTED")
+        logger.info("🎙️ AI VOICE GENERATION STARTED")
         logger.info(f"   Text: {text[:100]}{'...' if len(text) > 100 else ''}")
         logger.info(
             f"   Voice settings: {kwargs.get('voice', 'default')}, {kwargs.get('voice_id', 'default')}"
@@ -2170,7 +2166,7 @@ class AIModelManager:
             )
 
             if not available_models:
-                logger.error(f"❌ No voice generation models available")
+                logger.error("❌ No voice generation models available")
                 raise ValueError("No voice generation models available")
 
             model = available_models[0]
@@ -2217,7 +2213,7 @@ class AIModelManager:
         # FALLBACKS DISABLED FOR DEBUGGING
         # We want to see all failures clearly without masking them with fallbacks
         # Once everything works, we can re-enable fallback_engines
-        fallback_engines = []  # model.get("fallback_engines", [])
+        _fallback_engines = []  # model.get("fallback_engines", [])
 
         # Use only the primary engine (no fallbacks during debugging)
         logger.info(f"   Trying inference engine: {inference_engine}")
@@ -2249,8 +2245,8 @@ class AIModelManager:
                 return await self._generate_text_llamacpp(prompt, model, **kwargs)
             except Exception as e:
                 # If llama.cpp fails, try Ollama as fallback
-                logger.warning(f"   ⚠️  llama.cpp failed: {str(e)}")
-                logger.info(f"   🔄 Attempting fallback to Ollama...")
+                logger.warning("   ⚠️  llama.cpp failed: {str(e)}")
+                logger.info("   🔄 Attempting fallback to Ollama...")
 
                 from backend.utils.gpu_detection import get_gpu_info
                 from backend.utils.model_detection import find_ollama_installation
@@ -2275,7 +2271,7 @@ class AIModelManager:
                         # Re-raise the original llama.cpp error since fallback failed too
                         raise e
                 else:
-                    logger.warning(f"   ⚠️  Ollama not available for fallback")
+                    logger.warning("   ⚠️  Ollama not available for fallback")
                     # Re-raise the original error
                     raise e
         elif inference_engine == "ollama":
@@ -2364,21 +2360,21 @@ class AIModelManager:
             # Check for llama.cpp binary
             llamacpp_binary = shutil.which("llama-cli") or shutil.which("main")
             if not llamacpp_binary:
-                logger.warning(f"   ⚠️  llama.cpp not found in PATH")
+                logger.warning("   ⚠️  llama.cpp not found in PATH")
                 logger.warning(
-                    f"   Install llama.cpp and ensure 'llama-cli' or 'main' is in PATH"
+                    "   Install llama.cpp and ensure 'llama-cli' or 'main' is in PATH"
                 )
                 raise ValueError("llama.cpp not found")
 
             model_file = model.get("path")
             if not Path(model_file).exists():
-                logger.warning(f"   ⚠️  Model file not found: {model_file}")
+                logger.warning("   ⚠️  Model file not found: {model_file}")
                 raise ValueError(f"Model file not found: {model_file}")
 
             logger.info(f"   ✓ Found llama.cpp at: {llamacpp_binary}")
-            logger.info(f"   " + "=" * 76)
-            logger.info(f"   RAW LLAMA.CPP ENGINE OUTPUT (LIVE):")
-            logger.info(f"   " + "=" * 76)
+            logger.info("   " + "=" * 76)
+            logger.info("   RAW LLAMA.CPP ENGINE OUTPUT (LIVE):")
+            logger.info("   " + "=" * 76)
 
             # Build llama.cpp command
             cmd = [
@@ -2417,7 +2413,7 @@ class AIModelManager:
 
             await process.wait()
 
-            logger.info(f"   " + "=" * 76)
+            logger.info("   " + "=" * 76)
 
             # Check if llama.cpp succeeded (exit code 0 = success)
             if process.returncode != 0:
@@ -2425,7 +2421,7 @@ class AIModelManager:
                     f"   ❌ llama.cpp generation FAILED (exit code: {process.returncode})"
                 )
                 logger.error(
-                    f"   The model may have encountered an error during generation"
+                    "   The model may have encountered an error during generation"
                 )
                 # Show the raw output for debugging
                 MAX_ERROR_LINES = 10  # Number of output lines to show for debugging
@@ -2493,8 +2489,8 @@ class AIModelManager:
             # Check for Ollama binary
             ollama_binary = shutil.which("ollama")
             if not ollama_binary:
-                logger.warning(f"   ⚠️  Ollama not found in PATH")
-                logger.warning(f"   Install Ollama from https://ollama.com/download")
+                logger.warning("   ⚠️  Ollama not found in PATH")
+                logger.warning("   Install Ollama from https://ollama.com/download")
                 raise ValueError("Ollama not found")
 
             logger.info(f"   ✓ Found Ollama at: {ollama_binary}")
@@ -2507,9 +2503,9 @@ class AIModelManager:
                 raise ValueError("No Ollama model specified in configuration")
 
             logger.info(f"   📦 Using Ollama model: {ollama_model}")
-            logger.info(f"   " + "=" * 76)
-            logger.info(f"   RAW OLLAMA ENGINE OUTPUT (LIVE):")
-            logger.info(f"   " + "=" * 76)
+            logger.info("   " + "=" * 76)
+            logger.info("   RAW OLLAMA ENGINE OUTPUT (LIVE):")
+            logger.info("   " + "=" * 76)
 
             # Build Ollama command
             # Using 'ollama run' with prompt as command argument for simplicity
@@ -2550,7 +2546,7 @@ class AIModelManager:
 
             await process.wait()
 
-            logger.info(f"   " + "=" * 76)
+            logger.info("   " + "=" * 76)
 
             # Check if Ollama succeeded (exit code 0 = success)
             if process.returncode != 0:
@@ -2558,7 +2554,7 @@ class AIModelManager:
                     f"   ❌ Ollama generation FAILED (exit code: {process.returncode})"
                 )
                 logger.error(
-                    f"   The model may not be available or Ollama server may not be running"
+                    "   The model may not be available or Ollama server may not be running"
                 )
                 # Show the raw output for debugging
                 MAX_ERROR_LINES = 10
@@ -2599,7 +2595,7 @@ class AIModelManager:
         self, prompt: str, model: Dict[str, Any], **kwargs
     ) -> Dict[str, Any]:
         """Generate image using local models."""
-        model_name = model["name"]
+        model["name"]
         inference_engine = model.get("inference_engine", "diffusers")
 
         if inference_engine == "comfyui":
@@ -2638,9 +2634,9 @@ class AIModelManager:
     ) -> str:
         """Generate text using vLLM for high-performance inference."""
         logger.info(f"   🔧 Starting vLLM engine for {model['name']}...")
-        logger.info(f"   " + "=" * 76)
-        logger.info(f"   RAW vLLM ENGINE OUTPUT:")
-        logger.info(f"   " + "=" * 76)
+        logger.info("   " + "=" * 76)
+        logger.info("   RAW vLLM ENGINE OUTPUT:")
+        logger.info("   " + "=" * 76)
 
         # Check if vLLM server is running
         vllm_url = os.environ.get("VLLM_API_URL", "http://localhost:8001")
@@ -2664,7 +2660,7 @@ class AIModelManager:
                 generated_text = result["choices"][0]["text"]
 
                 # Log raw vLLM stats
-                logger.info(f"   vLLM Stats:")
+                logger.info("   vLLM Stats:")
                 logger.info(f"   - Model: {model['name']}")
                 logger.info(
                     f"   - Tokens generated: {result.get('usage', {}).get('completion_tokens', 'N/A')}"
@@ -2672,25 +2668,25 @@ class AIModelManager:
                 logger.info(
                     f"   - Total tokens: {result.get('usage', {}).get('total_tokens', 'N/A')}"
                 )
-                logger.info(f"   " + "-" * 76)
-                logger.info(f"   GENERATED TEXT:")
+                logger.info("   " + "-" * 76)
+                logger.info("   GENERATED TEXT:")
                 for line in generated_text.split("\n"):
                     logger.info(f"   | {line}")
-                logger.info(f"   " + "=" * 76)
+                logger.info("   " + "=" * 76)
 
                 return generated_text
             else:
                 error_msg = f"vLLM server returned status {response.status_code}"
-                logger.warning(f"   ⚠️  {error_msg}")
+                logger.warning("   ⚠️  {error_msg}")
                 raise ValueError(error_msg)
 
         except Exception as vllm_error:
-            logger.warning(f"   ⚠️  vLLM not available: {str(vllm_error)}")
-            logger.info(f"   ℹ️  vLLM engine not configured or not running")
+            logger.warning("   ⚠️  vLLM not available: {str(vllm_error)}")
+            logger.info("   ℹ️  vLLM engine not configured or not running")
             logger.info(
                 f"   To enable: Set VLLM_API_URL or start vLLM server at {vllm_url}"
             )
-            logger.info(f"   " + "=" * 76)
+            logger.info("   " + "=" * 76)
             # Raise error to trigger fallback to other engines
             raise ValueError(f"vLLM not available: {str(vllm_error)}")
 
@@ -2701,15 +2697,15 @@ class AIModelManager:
         try:
             logger.info(f"   🔧 Starting Transformers engine for {model['name']}...")
             logger.info(f"   Model path: {model.get('path', 'Not specified')}")
-            logger.info(f"   " + "=" * 76)
-            logger.info(f"   RAW TRANSFORMERS ENGINE OUTPUT:")
-            logger.info(f"   " + "=" * 76)
+            logger.info("   " + "=" * 76)
+            logger.info("   RAW TRANSFORMERS ENGINE OUTPUT:")
+            logger.info("   " + "=" * 76)
 
             # Check if model is actually available locally
             model_path = Path(model.get("path", ""))
             if not model_path.exists():
-                logger.warning(f"   ⚠️  Model not found at {model_path}")
-                logger.warning(f"   To use this model, download it first:")
+                logger.warning("   ⚠️  Model not found at {model_path}")
+                logger.warning("   To use this model, download it first:")
                 logger.warning(
                     f"   huggingface-cli download {model.get('model_id', 'unknown')}"
                 )
@@ -2727,13 +2723,13 @@ class AIModelManager:
                     device_map="auto" if torch.cuda.is_available() else "cpu",
                 )
 
-                logger.info(f"   ✓ Model loaded, tokenizing prompt...")
+                logger.info("   ✓ Model loaded, tokenizing prompt...")
                 inputs = tokenizer(prompt, return_tensors="pt").to(loaded_model.device)
 
                 logger.info(
                     f"   ⚙️  Generating (max_tokens={kwargs.get('max_tokens', 1000)})..."
                 )
-                logger.info(f"   " + "-" * 76)
+                logger.info("   " + "-" * 76)
 
                 outputs = loaded_model.generate(
                     **inputs,
@@ -2746,16 +2742,16 @@ class AIModelManager:
                 generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
                 # Log the raw output
-                logger.info(f"   GENERATED TEXT:")
+                logger.info("   GENERATED TEXT:")
                 for line in generated_text.split("\n"):
                     logger.info(f"   | {line}")
-                logger.info(f"   " + "=" * 76)
+                logger.info("   " + "=" * 76)
 
                 return generated_text
 
             except ImportError:
-                logger.warning(f"   ⚠️  Transformers library not available")
-                logger.warning(f"   Install with: pip install transformers torch")
+                logger.warning("   ⚠️  Transformers library not available")
+                logger.warning("   Install with: pip install transformers torch")
                 raise ValueError("Transformers library not installed")
 
         except Exception as e:
@@ -3354,12 +3350,12 @@ class AIModelManager:
                         if is_sdxl:
                             pipeline_type = "StableDiffusionXLImg2ImgPipeline"
                             logger.info(
-                                f"Using SDXL img2img pipeline for visual consistency"
+                                "Using SDXL img2img pipeline for visual consistency"
                             )
                         else:
                             pipeline_type = "StableDiffusionImg2ImgPipeline"
                             logger.info(
-                                f"Using SD img2img pipeline for visual consistency"
+                                "Using SD img2img pipeline for visual consistency"
                             )
                             # Only add safety_checker params for SD 1.5 models (not SDXL)
                             load_args["safety_checker"] = (
@@ -3386,13 +3382,13 @@ class AIModelManager:
                             )
                             load_args["custom_pipeline"] = "lpw_stable_diffusion_xl"
                             logger.info(
-                                f"Using SDXL Long Prompt Weighting pipeline (lpw_stable_diffusion_xl)"
+                                "Using SDXL Long Prompt Weighting pipeline (lpw_stable_diffusion_xl)"
                             )
                             logger.info(
-                                f"✓ Supports prompts > 77 tokens without truncation via prompt chunking"
+                                "✓ Supports prompts > 77 tokens without truncation via prompt chunking"
                             )
                             logger.info(
-                                f"✓ Recommended method for long prompts (replaces compel library)"
+                                "✓ Recommended method for long prompts (replaces compel library)"
                             )
                         else:
                             # For SD 1.5, use standard pipeline
@@ -3429,11 +3425,9 @@ class AIModelManager:
 
                         # Check if PEFT is available - required for LoRA loading
                         # PEFT should be installed via pip install peft (declared in pyproject.toml)
-                        peft_available = False
                         try:
                             import peft
 
-                            peft_available = True
                             logger.info(
                                 f"✓ PEFT library available (v{peft.__version__})"
                             )
@@ -3481,7 +3475,7 @@ class AIModelManager:
                                 )
                                 using_sdxl = True
                                 logger.info(
-                                    f"Base model not specified, defaulting to SDXL"
+                                    "Base model not specified, defaulting to SDXL"
                                 )
 
                             logger.info(f"Loading base model for LoRA: {base_model_id}")
@@ -3551,7 +3545,7 @@ class AIModelManager:
                             # Cache the loaded pipeline
                             self._loaded_pipelines[pipeline_key] = pipe
 
-                        except FileNotFoundError as e:
+                        except FileNotFoundError:
                             logger.error(f"LoRA file not found: {model_path}")
                             logger.error(
                                 "Ensure the LoRA file exists at the specified path."
@@ -4070,8 +4064,8 @@ class AIModelManager:
                             # xformers is installed but specific operator not available
                             # for the given input shapes - this is a runtime limitation
                             logger.info(
-                                f"xformers installed but memory_efficient_attention unavailable "
-                                f"for current inputs, using default attention"
+                                "xformers installed but memory_efficient_attention unavailable "
+                                "for current inputs, using default attention"
                             )
                         else:
                             # xformers not installed or other error
@@ -4117,13 +4111,13 @@ class AIModelManager:
             else:
                 # SD 1.5/2.x requires single text encoder
                 if pipe.text_encoder is None:
-                    error_msg = f"SD pipeline has None text_encoder"
+                    error_msg = "SD pipeline has None text_encoder"
                     logger.error(error_msg)
                     # Remove broken pipeline from cache
                     del self._loaded_pipelines[pipeline_key]
                     raise ValueError(error_msg)
                 if pipe.tokenizer is None:
-                    error_msg = f"SD pipeline has None tokenizer"
+                    error_msg = "SD pipeline has None tokenizer"
                     logger.error(error_msg)
                     # Remove broken pipeline from cache
                     del self._loaded_pipelines[pipeline_key]
@@ -4214,10 +4208,10 @@ class AIModelManager:
                         control_image = Image.fromarray(edges_rgb)
 
                         logger.info(
-                            f"   ✓ ControlNet conditioning image prepared (Canny edges)"
+                            "   ✓ ControlNet conditioning image prepared (Canny edges)"
                         )
                         logger.info(
-                            f"   This will maintain pose/structure while allowing prompt control"
+                            "   This will maintain pose/structure while allowing prompt control"
                         )
 
                 except Exception as e:
@@ -4264,7 +4258,7 @@ class AIModelManager:
             logger.info(f"Model: {model_name} (SDXL={is_sdxl})")
             logger.info(f"Pipeline class: {type(pipe).__name__}")
             logger.info(f"Device: {device}")
-            logger.info(f"Pipeline components:")
+            logger.info("Pipeline components:")
             logger.info(f"  - vae: {type(pipe.vae).__name__ if pipe.vae else 'None'}")
             logger.info(
                 f"  - text_encoder: {type(pipe.text_encoder).__name__ if pipe.text_encoder else 'None'}"
@@ -4286,7 +4280,7 @@ class AIModelManager:
             logger.info(
                 f"  - scheduler: {type(pipe.scheduler).__name__ if pipe.scheduler else 'None'}"
             )
-            logger.info(f"Generation parameters:")
+            logger.info("Generation parameters:")
             logger.info(f"  - prompt: {prompt}")
             logger.info(f"  - negative_prompt: {negative_prompt}")
             logger.info(f"  - num_inference_steps: {num_inference_steps}")
@@ -4527,7 +4521,7 @@ class AIModelManager:
 
                 if using_controlnet and control_image:
                     # ControlNet generation with structural conditioning
-                    logger.info(f"Generating with ControlNet conditioning")
+                    logger.info("Generating with ControlNet conditioning")
 
                     # ControlNet conditioning strength (how much to follow the structure)
                     controlnet_conditioning_scale = kwargs.get(
@@ -4989,10 +4983,10 @@ class AIModelManager:
 
             # Log the actual AI output
             logger.info(f"   📄 AI OUTPUT (OpenAI {model}):")
-            logger.info(f"   " + "-" * 76)
+            logger.info("   " + "-" * 76)
             for line in generated_text.split("\n"):
                 logger.info(f"   {line}")
-            logger.info(f"   " + "-" * 76)
+            logger.info("   " + "-" * 76)
             logger.info(
                 f"   Tokens used: {result.get('usage', {}).get('total_tokens', 'unknown')}"
             )
@@ -5404,7 +5398,7 @@ class AIModelManager:
             # which naturally won't include "anime"
             final_negative = persona_negative_prompt
             logger.debug(
-                f"Using persona-specific negative prompt (overriding style default)"
+                "Using persona-specific negative prompt (overriding style default)"
             )
         else:
             # Fallback to hardcoded style default if no persona settings exist
@@ -5414,7 +5408,7 @@ class AIModelManager:
         # For SD 1.5 or fallback mode, truncate to fit CLIP's 77 token limit
         if use_long_prompt:
             logger.debug(
-                f"Using full prompt for SDXL Long Prompt Pipeline (no truncation)"
+                "Using full prompt for SDXL Long Prompt Pipeline (no truncation)"
             )
             return enhanced_prompt, final_negative
         else:

@@ -383,9 +383,9 @@ class SocialMediaService:
         tone = personality_traits[0] if personality_traits else "professional"
 
         if content.content_type == "image":
-            caption = f"Sharing some inspiration today! 🌟"
+            caption = "Sharing some inspiration today! 🌟"
         elif content.content_type == "video":
-            caption = f"Excited to share this with you all! 🎬"
+            caption = "Excited to share this with you all! 🎬"
         else:
             caption = content.description or "Thought you might find this interesting!"
 

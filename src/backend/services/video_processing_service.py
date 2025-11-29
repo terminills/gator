@@ -242,7 +242,7 @@ class VideoProcessingService:
                     return frame
                 else:
                     logger.warning(
-                        f"AI generation returned empty result, using placeholder"
+                        "AI generation returned empty result, using placeholder"
                     )
 
             except Exception as e:

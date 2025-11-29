@@ -362,7 +362,7 @@ class PatternAnalyzer:
                 GenerationBenchmarkModel.created_at >= cutoff
             )
             feedback_result = await self.db.execute(feedback_stmt)
-            benchmarks = feedback_result.scalars().all()
+            feedback_result.scalars().all()
 
             # Calculate metrics
             total_posts = len(social_posts)

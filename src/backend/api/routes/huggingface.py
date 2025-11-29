@@ -319,7 +319,7 @@ async def get_available_tasks():
 @router.get("/libraries", response_model=List[str])
 async def get_available_libraries():
     """Get list of available library types for filtering."""
-    return [l.value for l in HuggingFaceLibrary]
+    return [lib.value for lib in HuggingFaceLibrary]
 
 
 @router.get("/recommended-repos", response_model=List[str])

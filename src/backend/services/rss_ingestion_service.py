@@ -112,9 +112,9 @@ class RSSIngestionService:
     async def list_feeds(self, active_only: bool = True) -> List[RSSFeedResponse]:
         """List all RSS feeds."""
         try:
-            query = select(RSSFeedModel).where(RSSFeedModel.is_deleted == False)
+            query = select(RSSFeedModel).where(RSSFeedModel.is_deleted.is_(False))
             if active_only:
-                query = query.where(RSSFeedModel.is_active == True)
+                query = query.where(RSSFeedModel.is_active.is_(True))
 
             query = query.order_by(RSSFeedModel.created_at.desc())
             result = await self.db.execute(query)
@@ -252,7 +252,7 @@ class RSSIngestionService:
             stmt = (
                 select(FeedItemModel)
                 .where(FeedItemModel.created_at >= cutoff_time)
-                .where(FeedItemModel.processed == True)
+                .where(FeedItemModel.processed.is_(True))
                 .order_by(FeedItemModel.relevance_score.desc())
             )
 
@@ -339,7 +339,7 @@ class RSSIngestionService:
                 select(FeedItemModel)
                 .where(FeedItemModel.feed_id.in_(feed_ids))
                 .where(FeedItemModel.created_at >= cutoff_time)
-                .where(FeedItemModel.processed == True)
+                .where(FeedItemModel.processed.is_(True))
                 .order_by(FeedItemModel.relevance_score.desc())
                 .limit(limit * 2)
             )  # Get more to filter through
@@ -556,7 +556,7 @@ class RSSIngestionService:
                 pass
 
                 # Use a simple prompt for sentiment analysis
-                prompt = f"Analyze the sentiment of this news headline and summary. Respond with only a number between -1 (very negative) and 1 (very positive):\n\n{text[:500]}"
+                _prompt = f"Analyze the sentiment of this news headline and summary. Respond with only a number between -1 (very negative) and 1 (very positive):\n\n{text[:500]}"
 
                 # This would use the AI model for sentiment analysis
                 # For now, fall back to keyword analysis
@@ -1075,7 +1075,7 @@ class RSSIngestionService:
                 select(PersonaFeedModel, RSSFeedModel)
                 .join(RSSFeedModel, PersonaFeedModel.feed_id == RSSFeedModel.id)
                 .where(PersonaFeedModel.persona_id == persona_id)
-                .where(PersonaFeedModel.is_active == True)
+                .where(PersonaFeedModel.is_active.is_(True))
                 .order_by(PersonaFeedModel.priority.desc())
             )
 
@@ -1142,7 +1142,7 @@ class RSSIngestionService:
             # Query feeds where the topic appears in categories
             stmt = (
                 select(RSSFeedModel)
-                .where(RSSFeedModel.is_active == True)
+                .where(RSSFeedModel.is_active.is_(True))
                 .order_by(RSSFeedModel.created_at.desc())
             )
 

@@ -23,15 +23,12 @@ class PluginError(Exception):
     """Base exception for plugin-related errors."""
 
 
-
 class PluginLoadError(PluginError):
     """Exception raised when plugin fails to load."""
 
 
-
 class PluginExecutionError(PluginError):
     """Exception raised when plugin execution fails."""
-
 
 
 class PluginManager:

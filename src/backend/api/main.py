@@ -131,7 +131,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         }
 
         print("=" * 80)
-        print(f"✅ AI models initialized:")
+        print("✅ AI models initialized:")
         print(f"  - Text models loaded: {available_counts['text']}")
         print(f"  - Image models loaded: {available_counts['image']}")
         print(f"  - Voice models loaded: {available_counts['voice']}")

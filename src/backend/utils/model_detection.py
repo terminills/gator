@@ -413,7 +413,7 @@ def find_ollama_installation() -> Optional[Dict[str, Any]]:
                 subprocess.CalledProcessError,
                 OSError,
                 FileNotFoundError,
-            ) as e:
+            ) as _e:
                 # Ollama is installed but server might not be running
                 return {
                     "installed": True,

@@ -214,8 +214,8 @@ class ContentModerationService:
         return content_rating == ContentRating.SFW
 
 
-class GenerationRequest(BaseModel):
-    """Request for content generation."""
+class ServiceGenerationRequest(BaseModel):
+    """Request for content generation - service-specific version with required persona_id."""
 
     persona_id: UUID
     content_type: ContentType  # 'image', 'video', 'audio', 'voice', 'text'
@@ -286,7 +286,7 @@ class ContentGenerationService:
             ValueError: If persona not found or generation fails
         """
         logger.info("=" * 80)
-        logger.info(f"🚀 CONTENT GENERATION REQUEST RECEIVED")
+        logger.info("🚀 CONTENT GENERATION REQUEST RECEIVED")
         logger.info(f"   Content type: {request.content_type.value}")
         logger.info(f"   Quality: {request.quality}")
         logger.info(
@@ -318,7 +318,7 @@ class ContentGenerationService:
             # Use persona's default content rating if not specified
             if request.content_rating is None:
                 logger.info(
-                    f"   No content_rating in request, using persona default..."
+                    "   No content_rating in request, using persona default..."
                 )
                 logger.info(
                     f"   Persona default_content_rating: {persona.default_content_rating}"
@@ -421,7 +421,7 @@ class ContentGenerationService:
             await self._increment_persona_count(persona.id)
 
             logger.info("=" * 80)
-            logger.info(f"✅ CONTENT GENERATION COMPLETE")
+            logger.info("✅ CONTENT GENERATION COMPLETE")
             logger.info(f"   Content ID: {content_record.id}")
             logger.info(f"   Type: {request.content_type.value}")
             logger.info(f"   Persona: {persona.name}")
@@ -431,7 +431,7 @@ class ContentGenerationService:
 
         except Exception as e:
             logger.error("=" * 80)
-            logger.error(f"❌ CONTENT GENERATION FAILED")
+            logger.error("❌ CONTENT GENERATION FAILED")
             logger.error(f"   Error: {str(e)}")
             logger.error(f"   Persona ID: {request.persona_id}")
             logger.error(f"   Content type: {request.content_type}")
@@ -469,7 +469,7 @@ class ContentGenerationService:
         # Get all active personas
         stmt = (
             select(PersonaModel)
-            .where(PersonaModel.is_active == True)
+            .where(PersonaModel.is_active.is_(True))
             .order_by(PersonaModel.created_at.asc())
         )
         result = await self.db.execute(stmt)
@@ -594,7 +594,7 @@ class ContentGenerationService:
             stmt = (
                 select(ContentModel)
                 .where(ContentModel.persona_id == persona_id)
-                .where(ContentModel.is_deleted == False)
+                .where(ContentModel.is_deleted.is_(False))
                 .order_by(ContentModel.created_at.desc())
                 .limit(limit)
             )
@@ -617,7 +617,7 @@ class ContentGenerationService:
         try:
             stmt = (
                 select(ContentModel)
-                .where(ContentModel.is_deleted == False)
+                .where(ContentModel.is_deleted.is_(False))
                 .order_by(ContentModel.created_at.desc())
                 .limit(limit)
                 .offset(offset)
@@ -635,7 +635,7 @@ class ContentGenerationService:
     async def _get_persona(self, persona_id: UUID) -> Optional[PersonaModel]:
         """Retrieve persona from database."""
         stmt = select(PersonaModel).where(
-            PersonaModel.id == persona_id, PersonaModel.is_active == True
+            PersonaModel.id == persona_id, PersonaModel.is_active.is_(True)
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
@@ -644,7 +644,7 @@ class ContentGenerationService:
         """Retrieve first available active persona from database."""
         stmt = (
             select(PersonaModel)
-            .where(PersonaModel.is_active == True)
+            .where(PersonaModel.is_active.is_(True))
             .order_by(PersonaModel.created_at.asc())
             .limit(1)
         )
@@ -674,7 +674,7 @@ class ContentGenerationService:
             stmt = (
                 select(PersonaFeedModel)
                 .where(PersonaFeedModel.persona_id == persona.id)
-                .where(PersonaFeedModel.is_active == True)
+                .where(PersonaFeedModel.is_active.is_(True))
                 .limit(5)
             )
             result = await self.db.execute(stmt)
@@ -952,7 +952,7 @@ class ContentGenerationService:
                     )
                     if rss_used:
                         logger.info(
-                            f"✓ Base image will be used with RSS-inspired reaction prompt"
+                            "✓ Base image will be used with RSS-inspired reaction prompt"
                         )
 
                     await acd.set_metadata(
@@ -1091,7 +1091,7 @@ class ContentGenerationService:
 
             # Get video generation parameters from persona settings
             quality = request.quality or persona.generation_quality or "standard"
-            video_quality = VideoQuality(quality)
+            VideoQuality(quality)
 
             # Use persona's default video resolution
             resolution = persona.default_video_resolution or "1920x1080"
@@ -1369,7 +1369,7 @@ class ContentGenerationService:
 
                 # Enhanced prompt with persona context
                 enhanced_prompt = f"""You are {persona.name}, an AI influencer with the following characteristics:
-                
+
 Appearance: {appearance_desc}
 Personality: {persona.personality}
 Content Themes: {', '.join(persona.content_themes[:3]) if persona.content_themes else 'general topics'}
@@ -1447,7 +1447,7 @@ Generate the social media content now:"""
                     "⚠️  AI text generation unavailable, using fallback method"
                 )
                 logger.warning(f"   Reason: {str(e)}")
-                logger.warning(f"   Fallback: Template-based generation")
+                logger.warning("   Fallback: Template-based generation")
                 logger.info("   🔄 Generating content using template fallback...")
 
                 await asyncio.sleep(0.05)  # Simulate processing time

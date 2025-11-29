@@ -201,7 +201,7 @@ async def create_dns_record(
 
         return {
             "success": True,
-            "message": f"DNS record created successfully",
+            "message": "DNS record created successfully",
             "record": {
                 "name": record.name,
                 "type": record.type,
