@@ -1077,14 +1077,25 @@ async def test_persona_crud_api():
 - [x] Add README.md files for new directories
 - [x] Update `.gitignore` to exclude `coverage.xml`
 
-### Phase 2: Code Quality (Week 2) - IN PROGRESS
+### Phase 2: Code Quality (Week 2) - SUBSTANTIAL PROGRESS
 
 - [x] Run Black formatter on all files: `black src/` (72 files reformatted)
 - [x] Run isort on all files: `isort src/` (30 files fixed)
 - [x] Remove unused imports with autoflake (255 F401 issues fixed)
 - [x] Create centralized path utilities (`backend/utils/paths.py`) to prevent duplicate path definitions
 - [x] Create custom exception hierarchy (`backend/exceptions.py`) for consistent error handling
-- [ ] Fix remaining flake8 warnings (line length, etc.)
+- [x] Fix flake8 warnings:
+  - [x] F541 (f-string missing placeholders) - 102 issues fixed
+  - [x] E712 (comparison to True/False) - 37 issues fixed (using `.is_(True/False)` for SQLAlchemy)
+  - [x] E711 (comparison to None) - 4 issues fixed (using `is not None`)
+  - [x] E722 (bare except) - 2 issues fixed (using `except Exception:`)
+  - [x] E741 (ambiguous variable name) - 2 issues fixed
+  - [x] E303 (too many blank lines) - 4 issues fixed
+  - [x] F811 (redefinition) - 1 issue fixed (renamed duplicate class)
+  - [x] E203 (whitespace before ':') - 9 issues fixed (slice notation)
+  - [x] W291/W293 (trailing whitespace) - 26 issues fixed
+  - [x] F841 (unused variables) - Fixed via underscore prefix convention
+  - [ ] E501 (line too long) - ~3800 issues remaining (lower priority, style preference)
 - [ ] Add missing type hints to public APIs
 - [ ] Standardize logging across services
 - [ ] Remove dead code and unused files

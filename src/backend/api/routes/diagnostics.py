@@ -485,7 +485,7 @@ async def get_acd_contexts(
         contexts = result.scalars().all()
 
         # Convert to response format
-        acd_service = ACDService(db)
+        _acd_service = ACDService(db)  # Available for future validation
         response_contexts = []
         for context in contexts:
             from backend.models.acd import ACDContextResponse

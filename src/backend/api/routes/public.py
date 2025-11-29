@@ -52,7 +52,7 @@ async def list_public_personas(
     """
     try:
         # Build query for active personas
-        query = select(PersonaModel).where(PersonaModel.is_active == True)
+        query = select(PersonaModel).where(PersonaModel.is_active.is_(True))
 
         # Apply category filter if provided
         if category:
@@ -189,7 +189,7 @@ async def get_public_persona(
 
         # Query database for persona
         query = select(PersonaModel).where(
-            PersonaModel.id == persona_uuid, PersonaModel.is_active == True
+            PersonaModel.id == persona_uuid, PersonaModel.is_active.is_(True)
         )
         result = await db.execute(query)
         persona = result.scalar_one_or_none()
@@ -197,10 +197,9 @@ async def get_public_persona(
         if not persona:
             raise HTTPException(status_code=404, detail="Persona not found")
 
-        # Get style from style_preferences
-        style = "realistic"
+        # Get style from style_preferences (for potential future use)
         if isinstance(persona.style_preferences, dict):
-            style = persona.style_preferences.get("visual_style", "realistic")
+            _style = persona.style_preferences.get("visual_style", "realistic")
 
         # Transform to public format
         return {
@@ -306,7 +305,7 @@ async def list_categories(db: AsyncSession = Depends(get_db_session)):
     """
     try:
         # Get all active personas
-        query = select(PersonaModel).where(PersonaModel.is_active == True)
+        query = select(PersonaModel).where(PersonaModel.is_active.is_(True))
         result = await db.execute(query)
         personas = result.scalars().all()
 

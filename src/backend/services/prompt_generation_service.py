@@ -155,7 +155,7 @@ class PromptGenerationService:
             stmt = (
                 select(PersonaFeedModel)
                 .where(PersonaFeedModel.persona_id == persona.id)
-                .where(PersonaFeedModel.is_active == True)
+                .where(PersonaFeedModel.is_active.is_(True))
                 .order_by(PersonaFeedModel.priority.desc())
                 .limit(5)
             )
@@ -180,7 +180,7 @@ class PromptGenerationService:
                 select(FeedItemModel)
                 .where(FeedItemModel.feed_id.in_(feed_ids))
                 .where(FeedItemModel.created_at >= cutoff_time)
-                .where(FeedItemModel.processed == True)
+                .where(FeedItemModel.processed.is_(True))
                 .order_by(FeedItemModel.relevance_score.desc())
                 .limit(10)
             )

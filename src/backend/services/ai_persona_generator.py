@@ -249,7 +249,7 @@ Create a detailed, coherent persona profile for "{name}".{type_guidance}
 
 The persona must feel like a REAL PERSON who would text like a human, not an AI assistant. They should have:
 - Strong opinions and a distinct personality
-- Quirks and flaws that make them relatable  
+- Quirks and flaws that make them relatable
 - A unique voice and way of speaking
 - Things they love and things that annoy them
 
@@ -268,18 +268,18 @@ Respond with ONLY a valid JSON object (no markdown, no explanation, just JSON):
   "age": 24,
   "appearance": "detailed physical description - age, ethnicity, build, hair, eyes, style",
   "personality": "2-3 sentences describing their character traits and vibe",
-  
+
   "hometown": "specific city/region they're from",
   "current_location": "where they live now and why",
   "generation_age": "generation label with context (e.g., 'Gen Z - 24, grew up on the internet')",
   "education_level": "their education background",
-  
+
   "mbti_type": "MBTI type with description (e.g., 'ESTP - The Entrepreneur')",
   "enneagram_type": "Enneagram type (e.g., 'Type 7 - The Enthusiast')",
   "political_alignment": "their political/social worldview",
   "risk_tolerance": "their attitude toward risk (e.g., 'Move fast and break things')",
   "optimism_cynicism_scale": 7,
-  
+
   "linguistic_register": "blue_collar|academic|tech_bro|street|corporate|southern|millennial|gen_z",
   "typing_quirks": {{
     "capitalization": "how they capitalize (all lowercase, normal, RANDOM CAPS)",
@@ -288,15 +288,15 @@ Respond with ONLY a valid JSON object (no markdown, no explanation, just JSON):
   }},
   "signature_phrases": ["phrase1", "phrase2", "phrase3", "phrase4", "phrase5"],
   "trigger_topics": ["topic that excites/angers them 1", "topic 2", "topic 3"],
-  
+
   "day_job": "what they do for money",
   "war_story": "one defining life event that shaped them",
   "vices_hobbies": ["hobby1", "hobby2", "hobby3"],
-  
+
   "forbidden_phrases": ["phrase they would NEVER say 1", "phrase 2", "phrase 3", "phrase 4", "phrase 5"],
   "warmth_level": "cold|neutral|warm|buddy",
   "patience_level": "short_fuse|normal|patient|infinite",
-  
+
   "content_themes": ["theme1", "theme2", "theme3", "theme4"],
   "image_style": "photorealistic",
   "post_style": "casual|professional|artistic"
@@ -323,7 +323,7 @@ JSON:"""
                 logger.warning("No JSON found in Ollama output")
                 return None
 
-            json_str = output[start_idx : end_idx + 1]
+            json_str = output[start_idx:end_idx + 1]
             persona_data = json.loads(json_str)
 
             # Validate required fields

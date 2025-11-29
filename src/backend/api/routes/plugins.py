@@ -56,14 +56,14 @@ async def list_marketplace_plugins(
     """
     try:
         # Build query
-        query = select(PluginModel).where(PluginModel.deprecated == False)
+        query = select(PluginModel).where(PluginModel.deprecated.is_(False))
 
         # Apply filters
         if plugin_type:
             query = query.where(PluginModel.plugin_type == plugin_type)
 
         if featured:
-            query = query.where(PluginModel.featured == True)
+            query = query.where(PluginModel.featured.is_(True))
 
         if search:
             search_pattern = f"%{search}%"

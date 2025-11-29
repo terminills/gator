@@ -358,7 +358,7 @@ class SocialEngagementService:
         try:
             # Get all known personas
             stmt = select(PersonaModel).where(
-                PersonaModel.id != post.persona_id, PersonaModel.is_active == True
+                PersonaModel.id != post.persona_id, PersonaModel.is_active.is_(True)
             )
             result = await self.db.execute(stmt)
             known_personas = result.scalars().all()

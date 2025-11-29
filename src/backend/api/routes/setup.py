@@ -11,7 +11,6 @@ from pydantic import BaseModel, Field
 
 from backend.config.logging import get_logger
 from backend.services.setup_service import SetupService, get_setup_service
-from backend.utils.paths import get_paths
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/setup", tags=["setup"])
@@ -968,7 +967,7 @@ async def browse_civitai_models(
                         "favorites": item.get("stats", {}).get("favoriteCount", 0),
                     },
                     "base_model": latest_version.get("baseModel", "Unknown"),
-                    "download_url": f"/api/v1/civitai/download",
+                    "download_url": "/api/v1/civitai/download",
                     "nsfw": item.get("nsfw", False),
                 }
             )

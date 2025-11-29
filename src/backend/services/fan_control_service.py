@@ -573,7 +573,7 @@ class FanControlService:
             # Get manufacturer-specific IPMI commands
             commands = self._get_ipmi_commands()
             speed_cmd_prefix = commands["set_speed_prefix"]
-            zone_id = self._get_zone_id(zone)
+            _zone_id = self._get_zone_id(zone)  # Available for zone-specific commands
 
             # Build the full command with speed value
             speed_cmd = list(speed_cmd_prefix) + [hex(raw_speed)]
@@ -773,7 +773,7 @@ class FanControlService:
             target_speed = self._calculate_fan_speed(max_gpu_temp)
 
             # Get current status
-            current_status = await self.get_fan_status()
+            _current_status = await self.get_fan_status()  # Available for logging
 
             action_taken = None
 

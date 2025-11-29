@@ -345,7 +345,7 @@ class ReelGenerationService:
                 if duet_request:
                     duet_request.status = "failed"
                     await self.db.commit()
-            except:
+            except Exception:
                 pass
 
             logger.error(f"Failed to process duet request {request_id}: {str(e)}")
@@ -391,7 +391,7 @@ class ReelGenerationService:
             Dict with reaction video path and metadata
         """
         # Generate reaction prompt
-        reaction_prompt = (
+        _reaction_prompt = (
             f"{persona.name} reacts to content with {persona.personality} personality"
         )
 

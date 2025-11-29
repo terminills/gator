@@ -173,7 +173,7 @@ class UserService:
             stmt = select(UserModel)
 
             if active_only:
-                stmt = stmt.where(UserModel.is_active == True)
+                stmt = stmt.where(UserModel.is_active.is_(True))
 
             stmt = stmt.offset(skip).limit(limit).order_by(UserModel.created_at.desc())
 

@@ -47,7 +47,7 @@ class SettingsService:
         """
         try:
             stmt = select(SystemSettingModel).where(
-                SystemSettingModel.key == key, SystemSettingModel.is_active == True
+                SystemSettingModel.key == key, SystemSettingModel.is_active.is_(True)
             )
             result = await self.db.execute(stmt)
             setting = result.scalar_one_or_none()
@@ -89,7 +89,7 @@ class SettingsService:
                 select(SystemSettingModel)
                 .where(
                     SystemSettingModel.category == category.value,
-                    SystemSettingModel.is_active == True,
+                    SystemSettingModel.is_active.is_(True),
                 )
                 .order_by(SystemSettingModel.key)
             )
@@ -129,7 +129,7 @@ class SettingsService:
         try:
             stmt = (
                 select(SystemSettingModel)
-                .where(SystemSettingModel.is_active == True)
+                .where(SystemSettingModel.is_active.is_(True))
                 .order_by(SystemSettingModel.category, SystemSettingModel.key)
             )
 

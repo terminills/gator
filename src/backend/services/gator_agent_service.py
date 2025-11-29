@@ -991,9 +991,9 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
                 if match:
                     # Extract any additional context from the message
                     # Get everything after the matched pattern as the query/prompt
-                    remaining = message_lower[match.end() :].strip()
+                    remaining = message_lower[match.end():].strip()
                     # Also check for content before the match
-                    before = message_lower[: match.start()].strip()
+                    before = message_lower[:match.start()].strip()
 
                     return {
                         "type": action_type,
@@ -1048,7 +1048,7 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
         clean_prompt = original_message
         for prefix in self.IMAGE_PROMPT_PREFIXES:
             if clean_prompt.lower().startswith(prefix):
-                clean_prompt = clean_prompt[len(prefix) :].strip()
+                clean_prompt = clean_prompt[len(prefix):].strip()
                 break
 
         if not clean_prompt:
@@ -1314,10 +1314,10 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
 
             # Log API key status for diagnostics
             if api_key:
-                output.append(f"  🔑 API Key: Configured")
+                output.append("  🔑 API Key: Configured")
             else:
                 output.append(
-                    f"  ⚠️  API Key: NOT CONFIGURED - This may cause download failures!"
+                    "  ⚠️  API Key: NOT CONFIGURED - This may cause download failures!"
                 )
 
             # Get model details
@@ -1356,7 +1356,7 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
             if early_access:
                 output.append(f"  ⚠️  Early Access until: {early_access}")
                 output.append(
-                    f"  Note: Early access models require a valid API key and may require special permissions"
+                    "  Note: Early access models require a valid API key and may require special permissions"
                 )
 
             # Download the model
@@ -2115,7 +2115,7 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
                     clean_prompt = original_message
                     for prefix in self.IMAGE_PROMPT_PREFIXES:
                         if clean_prompt.lower().startswith(prefix):
-                            clean_prompt = clean_prompt[len(prefix) :].strip()
+                            clean_prompt = clean_prompt[len(prefix):].strip()
                             break
 
                     if not clean_prompt:
@@ -2322,7 +2322,7 @@ PERSONAS IN THE SYSTEM ({len(personas_info)} total):
                 system_prompt += f"\n\nCurrent context: {context}"
 
             # Use local text generation model
-            full_prompt = f"{system_prompt}\n\nUser: {message}\nGator:"
+            _full_prompt = f"{system_prompt}\n\nUser: {message}\nGator:"
 
             # Check if we have any text models available
             if not self.ai_models.available_models.get("text"):

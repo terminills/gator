@@ -105,7 +105,7 @@ async def get_creator_dashboard(
         cutoff_date = datetime.utcnow() - timedelta(days=days)
 
         # Get persona count
-        persona_stmt = select(PersonaModel).where(PersonaModel.is_active == True)
+        persona_stmt = select(PersonaModel).where(PersonaModel.is_active.is_(True))
         persona_result = await db.execute(persona_stmt)
         personas = persona_result.scalars().all()
         total_personas = len(personas)

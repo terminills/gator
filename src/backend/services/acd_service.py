@@ -757,7 +757,7 @@ class ACDService:
                 "results": results,
             }
 
-            logger.info(f"\n✅ Batch processing complete:")
+            logger.info("\n✅ Batch processing complete:")
             logger.info(f"   Total processed: {summary['processed']}")
             logger.info(f"   Successful: {summary['successful']}")
             logger.info(f"   Failed: {summary['failed']}")

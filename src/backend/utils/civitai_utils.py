@@ -233,7 +233,7 @@ class CivitAIClient:
             )
 
             # Log detailed authentication and model information
-            logger.info(f"🔍 CivitAI Download Request Details:")
+            logger.info("🔍 CivitAI Download Request Details:")
             logger.info(f"   Model: {model_name}")
             logger.info(f"   Version ID: {model_version_id}")
             logger.info(f"   NSFW: {is_nsfw}")
@@ -245,7 +245,7 @@ class CivitAIClient:
             )
             if requires_auth and not self.api_key:
                 logger.warning(
-                    f"   ⚠️  This model may require authentication (early access or restricted)"
+                    "   ⚠️  This model may require authentication (early access or restricted)"
                 )
 
             # Find the appropriate file to download
@@ -274,10 +274,10 @@ class CivitAIClient:
                 if file_type:
                     download_url += f"?type={file_type}"
                 logger.info(
-                    f"   Download URL: Constructed manually (no downloadUrl in file info)"
+                    "   Download URL: Constructed manually (no downloadUrl in file info)"
                 )
             else:
-                logger.info(f"   Download URL: Using provided downloadUrl from API")
+                logger.info("   Download URL: Using provided downloadUrl from API")
 
             # Add API key to download URL if available
             # Per CivitAI docs: token can be passed as query param OR Authorization header
@@ -286,13 +286,13 @@ class CivitAIClient:
                 separator = "&" if "?" in download_url else "?"
                 download_url += f"{separator}token={self.api_key}"
                 logger.info(
-                    f"   Authentication: Token added to URL + Authorization header"
+                    "   Authentication: Token added to URL + Authorization header"
                 )
             else:
                 logger.warning(
-                    f"   ⚠️  Authentication: NO API KEY - Downloads may fail for restricted models!"
+                    "   ⚠️  Authentication: NO API KEY - Downloads may fail for restricted models!"
                 )
-                logger.warning(f"   ⚠️  To fix: Add your CivitAI API key in Settings")
+                logger.warning("   ⚠️  To fix: Add your CivitAI API key in Settings")
 
             # Log the download URL (redact token for security)
             # Pattern handles tokens at end of URL (no trailing &) and tokens with special characters

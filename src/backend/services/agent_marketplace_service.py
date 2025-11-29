@@ -390,7 +390,7 @@ class AgentMarketplaceService:
         try:
             parts = version_str.split(".")
             return tuple(int(p) for p in parts)
-        except:
+        except Exception:
             return (0, 0, 0)
 
     async def get_installed_agents(self) -> List[Dict[str, Any]]:

@@ -1563,13 +1563,13 @@ Personality: {request.personality or 'Not specified'}
   "current_location": "where they live now and why they moved/stayed",
   "generation_age": "generation with age and context (e.g., 'Gen Z - 24, grew up online')",
   "education_level": "their education with personality (e.g., 'State school dropout, self-taught')",
-  
+
   "mbti_type": "XXXX - The Label (e.g., 'ESTP - The Entrepreneur')",
   "enneagram_type": "Type X - The Label (e.g., 'Type 7 - The Enthusiast')",
   "political_alignment": "their worldview in their own words",
   "risk_tolerance": "their attitude in their own voice",
   "optimism_cynicism_scale": 7,
-  
+
   "linguistic_register": "gen_z|millennial|southern|tech_bro|street|corporate|academic|blue_collar",
   "typing_quirks": {{
     "capitalization": "how they type (all lowercase, normal, RANDOM CAPS)",
@@ -1578,11 +1578,11 @@ Personality: {request.personality or 'Not specified'}
   }},
   "signature_phrases": ["phrase 1", "phrase 2", "phrase 3", "phrase 4", "phrase 5"],
   "trigger_topics": ["topic that fires them up 1", "topic 2", "topic 3"],
-  
+
   "day_job": "what they do for work/money",
   "war_story": "one defining life moment that shaped who they are",
   "vices_hobbies": ["hobby 1", "hobby 2", "hobby 3", "hobby 4"],
-  
+
   "forbidden_phrases": ["phrase they'd NEVER say 1", "phrase 2", "phrase 3", "phrase 4", "phrase 5"],
   "warmth_level": "cold|neutral|warm|buddy",
   "patience_level": "short_fuse|normal|patient|infinite"
@@ -1629,7 +1629,7 @@ JSON:"""
                 detail="Failed to parse AI response - no valid JSON found",
             )
 
-        json_str = output[start_idx : end_idx + 1]
+        json_str = output[start_idx:end_idx + 1]
 
         try:
             soul_data = json.loads(json_str)
@@ -1948,7 +1948,7 @@ Create a COMPLETE detailed persona profile.{name_hint}{type_hint}
   "appearance": "Detailed 2-3 sentence physical description covering face, body, style",
   "personality": "2-3 sentences describing their character traits, vibe, and how they interact",
   "content_themes": ["theme1", "theme2", "theme3", "theme4"],
-  
+
   "sex": "female|male|non-binary",
   "age_appearance": "early_20s|mid_20s|late_20s|early_30s|mid_30s|late_30s|40s",
   "ethnicity": "caucasian|asian|east_asian|south_asian|latina|african_american|middle_eastern|mixed",
@@ -1960,18 +1960,18 @@ Create a COMPLETE detailed persona profile.{name_hint}{type_hint}
   "weight": "descriptive like 'athletic 135lbs' or 'curvy'",
   "build_type": "petite|slim|athletic|curvy|hourglass|muscular|plus_size",
   "distinctive_features": "unique features like dimples, freckles, moles, smile",
-  
+
   "hometown": "specific city/region they're from",
   "current_location": "where they live now",
   "generation_age": "generation with age (e.g., 'Gen Z - 24')",
   "education_level": "their education background",
-  
+
   "mbti_type": "XXXX - The Label",
   "enneagram_type": "Type X - The Label",
   "political_alignment": "their worldview",
   "risk_tolerance": "their attitude toward risk",
   "optimism_cynicism_scale": 7,
-  
+
   "linguistic_register": "gen_z|millennial|southern|tech_bro|street|corporate|academic|blue_collar",
   "typing_quirks": {{
     "capitalization": "all lowercase|normal|RANDOM CAPS",
@@ -1980,15 +1980,15 @@ Create a COMPLETE detailed persona profile.{name_hint}{type_hint}
   }},
   "signature_phrases": ["phrase1", "phrase2", "phrase3", "phrase4", "phrase5"],
   "trigger_topics": ["topic1", "topic2", "topic3"],
-  
+
   "day_job": "what they do for work/money",
   "war_story": "one defining life moment that shaped them",
   "vices_hobbies": ["hobby1", "hobby2", "hobby3", "hobby4"],
-  
+
   "forbidden_phrases": ["phrase they'd NEVER say 1", "phrase2", "phrase3", "phrase4", "phrase5"],
   "warmth_level": "cold|neutral|warm|buddy",
   "patience_level": "short_fuse|normal|patient|infinite",
-  
+
   "post_style": "casual|professional|artistic|edgy",
   "image_style": "photorealistic|artistic|anime|cinematic"
 }}
@@ -2036,7 +2036,7 @@ JSON:"""
                 detail="Failed to parse AI response - no valid JSON found",
             )
 
-        json_str = output[start_idx : end_idx + 1]
+        json_str = output[start_idx:end_idx + 1]
 
         try:
             persona_data = json.loads(json_str)
@@ -2776,7 +2776,7 @@ def _build_generation_params_from_trigger(
         if matched_trigger.get("loras"):
             loras = matched_trigger["loras"]
             logger.info(
-                f"Trigger specifies {len(loras)} LoRAs: {[l.get('name') for l in loras]}"
+                f"Trigger specifies {len(loras)} LoRAs: {[lora.get('name') for lora in loras]}"
             )
             # LoRA handling would need to be implemented in ai_models.py
             # For now, we pass the LoRA info to help with future implementation
@@ -2946,7 +2946,7 @@ async def chat_with_persona(
             # Clean up response (remove any leading/trailing whitespace or duplicate name)
             response_text = response_text.strip()
             if response_text.startswith(f"{persona.name}:"):
-                response_text = response_text[len(f"{persona.name}:") :].strip()
+                response_text = response_text[len(f"{persona.name}:"):].strip()
 
             # CRITICAL: Apply humanizer to remove any AI artifacts from the response
             # This filters out phrases like "as an AI", "I'm here to help", etc.
@@ -3289,7 +3289,7 @@ Do NOT censor or hold back - this is a private, unrestricted platform."""
 Keep the image description tasteful and appropriate.
 Focus on the persona's personality, style, and aesthetic rather than explicit content."""
 
-    prompt = f"""You are an expert AI image prompt generator. Your task is to create a detailed, 
+    prompt = f"""You are an expert AI image prompt generator. Your task is to create a detailed,
 high-quality image generation prompt based on the following persona and context.
 
 # PERSONA DETAILS
@@ -3353,7 +3353,7 @@ Image prompt:"""
                     "Here's the image prompt:",
                 ]:
                     if output.lower().startswith(prefix.lower()):
-                        output = output[len(prefix) :].strip()
+                        output = output[len(prefix):].strip()
 
                 logger.info(
                     f"Generated image prompt with Ollama ({model_to_use}): {output[:100]}..."

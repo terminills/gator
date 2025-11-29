@@ -35,7 +35,7 @@ class PlatformPolicyService:
         if self._cache_loaded:
             return
 
-        stmt = select(PlatformPolicyModel).where(PlatformPolicyModel.is_active == True)
+        stmt = select(PlatformPolicyModel).where(PlatformPolicyModel.is_active.is_(True))
         result = await self.db.execute(stmt)
         policies = result.scalars().all()
 
@@ -62,7 +62,7 @@ class PlatformPolicyService:
         """List all platform policies."""
         stmt = select(PlatformPolicyModel)
         if active_only:
-            stmt = stmt.where(PlatformPolicyModel.is_active == True)
+            stmt = stmt.where(PlatformPolicyModel.is_active.is_(True))
 
         result = await self.db.execute(stmt)
         policies = result.scalars().all()

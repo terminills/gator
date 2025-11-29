@@ -427,7 +427,7 @@ async def track_generation_with_acd(
     """
     async with ACDContextManager(
         db_session, phase, note, complexity, content_id
-    ) as acd:
+    ) as _acd:
         result = await generation_func(**kwargs)
         return result
 

@@ -157,7 +157,7 @@ class FriendGroupsService:
             stmt = select(FriendGroupModel)
 
             if active_only:
-                stmt = stmt.where(FriendGroupModel.is_active == True)
+                stmt = stmt.where(FriendGroupModel.is_active.is_(True))
 
             if persona_id:
                 # Join with members table to filter by persona
@@ -592,13 +592,13 @@ class FriendGroupsService:
         """Generate a comment from persona based on their personality."""
         # Simple comment generation based on personality
         comments = [
-            f"Love this! 💕",
-            f"This is amazing! 🔥",
-            f"So good! 👏",
-            f"Can't wait for more!",
-            f"This speaks to me 💯",
-            f"Absolutely fantastic!",
-            f"You're killing it! 💪",
+            "Love this! 💕",
+            "This is amazing! 🔥",
+            "So good! 👏",
+            "Can't wait for more!",
+            "This speaks to me 💯",
+            "Absolutely fantastic!",
+            "You're killing it! 💪",
         ]
 
         return random.choice(comments)

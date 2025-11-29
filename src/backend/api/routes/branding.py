@@ -43,7 +43,7 @@ async def get_branding(db: AsyncSession = Depends(get_db_session)):
     """
     try:
         # Get active branding from database
-        query = select(BrandingModel).where(BrandingModel.is_active == True).limit(1)
+        query = select(BrandingModel).where(BrandingModel.is_active.is_(True)).limit(1)
         result = await db.execute(query)
         branding = result.scalar_one_or_none()
 
@@ -116,7 +116,7 @@ async def update_branding(
     """
     try:
         # Get active branding
-        query = select(BrandingModel).where(BrandingModel.is_active == True).limit(1)
+        query = select(BrandingModel).where(BrandingModel.is_active.is_(True)).limit(1)
         result = await db.execute(query)
         branding = result.scalar_one_or_none()
 
@@ -175,7 +175,7 @@ async def create_branding(
     """
     try:
         # Deactivate any existing branding
-        await db.execute(select(BrandingModel).where(BrandingModel.is_active == True))
+        await db.execute(select(BrandingModel).where(BrandingModel.is_active.is_(True)))
 
         # Create new branding
         branding = BrandingModel(**branding_data.model_dump(), is_active=True)

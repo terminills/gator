@@ -144,7 +144,6 @@ def validate_feed_urls():
     try:
         pass
 
-
         logger.info("Starting RSS feed URL validation")
 
         # This would need to be async, but keeping it simple for now

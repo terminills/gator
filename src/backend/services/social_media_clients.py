@@ -185,7 +185,6 @@ class InstagramClient(PlatformClientBase):
 
             # This would normally upload to Instagram's media endpoint
             # For now, simulate successful upload
-            creation_id = "demo_video_creation_id"
 
             # Step 2: Publish the video (API integration in progress)
             post_id = f"video_demo_{datetime.utcnow().timestamp()}"

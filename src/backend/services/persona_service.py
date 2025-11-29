@@ -191,7 +191,7 @@ class PersonaService:
             stmt = select(PersonaModel)
 
             if active_only:
-                stmt = stmt.where(PersonaModel.is_active == True)
+                stmt = stmt.where(PersonaModel.is_active.is_(True))
 
             stmt = (
                 stmt.offset(skip).limit(limit).order_by(PersonaModel.created_at.desc())

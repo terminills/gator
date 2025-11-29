@@ -37,8 +37,8 @@ async def check_column_exists(
         result = await conn.execute(
             text(
                 """
-                SELECT column_name 
-                FROM information_schema.columns 
+                SELECT column_name
+                FROM information_schema.columns
                 WHERE table_name = :table_name
             """
             ),
@@ -73,8 +73,8 @@ async def table_exists(conn, table_name: str, is_sqlite: bool) -> bool:
         result = await conn.execute(
             text(
                 """
-                SELECT table_name 
-                FROM information_schema.tables 
+                SELECT table_name
+                FROM information_schema.tables
                 WHERE table_name = :table_name
             """
             ),
@@ -1051,7 +1051,7 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                 results["migrations_run"].append("personas_content_triggers")
                 results["columns_added"].extend(content_triggers_added)
                 logger.info(
-                    f"Added content_triggers column for trigger-based model orchestration"
+                    "Added content_triggers column for trigger-based model orchestration"
                 )
             else:
                 logger.info("Content triggers column is up to date")
@@ -1065,7 +1065,7 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                 results["migrations_run"].append("personas_negative_prompt")
                 results["columns_added"].extend(negative_prompt_added)
                 logger.info(
-                    f"Added default_negative_prompt column for persona-specific negative prompts"
+                    "Added default_negative_prompt column for persona-specific negative prompts"
                 )
             else:
                 logger.info("Negative prompt column is up to date")
@@ -1109,7 +1109,7 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                     [f"table:{t}" for t in installed_models_created]
                 )
                 logger.info(
-                    f"Created installed_models table for AI model metadata and triggers"
+                    "Created installed_models table for AI model metadata and triggers"
                 )
             else:
                 logger.info("Installed models table is up to date")
@@ -2173,7 +2173,7 @@ async def create_installed_models_table(conn, is_sqlite: bool) -> List[str]:
 
     if created_tables:
         logger.info(
-            f"✓ Created installed_models table for AI model metadata and triggers"
+            "✓ Created installed_models table for AI model metadata and triggers"
         )
 
     return created_tables
