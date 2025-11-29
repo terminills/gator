@@ -203,6 +203,15 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Rate limiting middleware (disabled in debug mode by default)
+    from backend.api.rate_limiting import RateLimitMiddleware, DEFAULT_RATE_LIMIT_CONFIG
+
+    app.add_middleware(
+        RateLimitMiddleware,
+        config=DEFAULT_RATE_LIMIT_CONFIG,
+        enabled=not settings.debug,  # Disabled in debug mode
+    )
+
     # Mount static files using centralized paths
     frontend_path = paths.frontend_dir
     if frontend_path.exists():
