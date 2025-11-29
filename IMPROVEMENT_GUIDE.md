@@ -1064,6 +1064,19 @@ async def test_persona_crud_api():
 - [x] Create CHANGELOG.md
 - [x] Create CONTRIBUTING.md
 
+### Phase 1.5: Root Directory Organization ✅ COMPLETED
+
+- [x] Create `demos/` folder and move demo scripts from root (14 files)
+- [x] Create `examples/` folder and move example scripts from root (2 files)
+- [x] Move test files from root to `tests/integration/` (25 files)
+- [x] Create `scripts/validation/` and move validation scripts (11 files)
+- [x] Create `scripts/migrations/` and move migration scripts (12 files)
+- [x] Move HTML files to `frontend/public/` (4 files)
+- [x] Move documentation images to `docs/images/` (3 files)
+- [x] Move test shell scripts to `scripts/` (3 files)
+- [x] Add README.md files for new directories
+- [x] Update `.gitignore` to exclude `coverage.xml`
+
 ### Phase 2: Code Quality (Week 2) - IN PROGRESS
 
 - [x] Run Black formatter on all files: `black src/` (72 files reformatted)
