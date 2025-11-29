@@ -12,8 +12,11 @@ It checks that:
 import sys
 from pathlib import Path
 
+# Get repository root (scripts/validation -> repo root is 2 levels up)
+REPO_ROOT = Path(__file__).parent.parent.parent
+
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 def test_import_structure():
     """Test that imports are at module level and fail early if missing."""

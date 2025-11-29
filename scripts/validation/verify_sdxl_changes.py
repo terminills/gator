@@ -7,6 +7,9 @@ This script only checks the code statically without running it.
 import re
 from pathlib import Path
 
+# Get repository root (scripts/validation -> repo root is 2 levels up)
+REPO_ROOT = Path(__file__).parent.parent.parent
+
 
 def verify_sdxl_implementation():
     """Verify the SDXL Long Prompt Pipeline implementation in ai_models.py"""
@@ -15,7 +18,7 @@ def verify_sdxl_implementation():
     print("VERIFICATION: SDXL Long Prompt Pipeline Implementation")
     print("=" * 70)
     
-    ai_models_path = Path("src/backend/services/ai_models.py")
+    ai_models_path = REPO_ROOT / "src" / "backend" / "services" / "ai_models.py"
     
     if not ai_models_path.exists():
         print("❌ ERROR: ai_models.py not found!")
