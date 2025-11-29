@@ -5,9 +5,10 @@ Automatic schema migration system that ensures the database schema
 matches the current models. Handles missing columns safely.
 """
 
+from typing import Any, Dict, List
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
-from typing import List, Dict, Any
 
 from backend.config.logging import get_logger
 
@@ -62,8 +63,10 @@ async def table_exists(conn, table_name: str, is_sqlite: bool) -> bool:
     """
     if is_sqlite:
         result = await conn.execute(
-            text("SELECT name FROM sqlite_master WHERE type='table' AND name = :table_name"),
-            {"table_name": table_name}
+            text(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name = :table_name"
+            ),
+            {"table_name": table_name},
         )
         tables = [row[0] for row in result.fetchall()]
     else:
@@ -195,7 +198,9 @@ async def add_personas_appearance_columns(conn, is_sqlite: bool) -> List[str]:
         else:
             # PostgreSQL supports native JSON type
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN base_images JSON NOT NULL DEFAULT '{}'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN base_images JSON NOT NULL DEFAULT '{}'"
+                )
             )
         added_columns.append("base_images")
 
@@ -264,7 +269,7 @@ async def add_acd_domain_columns(conn, is_sqlite: bool) -> List[str]:
 async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
     """
     Add persona soul fields for human-like response generation.
-    
+
     These fields capture the "soul" of a persona:
     1. Origin & Demographics (The "Roots")
     2. Psychological Profile (The "Engine")
@@ -287,7 +292,7 @@ async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
         return added_columns
 
     # ==================== ORIGIN & DEMOGRAPHICS ====================
-    
+
     if not await check_column_exists(conn, "personas", "hometown", is_sqlite):
         logger.info("Adding hometown column to personas table")
         await conn.execute(
@@ -317,7 +322,7 @@ async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
         added_columns.append("education_level")
 
     # ==================== PSYCHOLOGICAL PROFILE ====================
-    
+
     if not await check_column_exists(conn, "personas", "mbti_type", is_sqlite):
         logger.info("Adding mbti_type column to personas table")
         await conn.execute(
@@ -332,7 +337,9 @@ async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
         )
         added_columns.append("enneagram_type")
 
-    if not await check_column_exists(conn, "personas", "political_alignment", is_sqlite):
+    if not await check_column_exists(
+        conn, "personas", "political_alignment", is_sqlite
+    ):
         logger.info("Adding political_alignment column to personas table")
         await conn.execute(
             text("ALTER TABLE personas ADD COLUMN political_alignment VARCHAR(100)")
@@ -346,7 +353,9 @@ async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
         )
         added_columns.append("risk_tolerance")
 
-    if not await check_column_exists(conn, "personas", "optimism_cynicism_scale", is_sqlite):
+    if not await check_column_exists(
+        conn, "personas", "optimism_cynicism_scale", is_sqlite
+    ):
         logger.info("Adding optimism_cynicism_scale column to personas table")
         await conn.execute(
             text("ALTER TABLE personas ADD COLUMN optimism_cynicism_scale INTEGER")
@@ -354,19 +363,27 @@ async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
         added_columns.append("optimism_cynicism_scale")
 
     # ==================== VOICE & SPEECH PATTERNS ====================
-    
-    if not await check_column_exists(conn, "personas", "linguistic_register", is_sqlite):
+
+    if not await check_column_exists(
+        conn, "personas", "linguistic_register", is_sqlite
+    ):
         logger.info("Adding linguistic_register column to personas table")
         if is_sqlite:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN linguistic_register VARCHAR(50) DEFAULT 'blue_collar'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN linguistic_register VARCHAR(50) DEFAULT 'blue_collar'"
+                )
             )
             await conn.execute(
-                text("UPDATE personas SET linguistic_register = 'blue_collar' WHERE linguistic_register IS NULL")
+                text(
+                    "UPDATE personas SET linguistic_register = 'blue_collar' WHERE linguistic_register IS NULL"
+                )
             )
         else:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN linguistic_register VARCHAR(50) NOT NULL DEFAULT 'blue_collar'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN linguistic_register VARCHAR(50) NOT NULL DEFAULT 'blue_collar'"
+                )
             )
         added_columns.append("linguistic_register")
 
@@ -377,11 +394,15 @@ async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
                 text("ALTER TABLE personas ADD COLUMN typing_quirks JSON DEFAULT '{}'")
             )
             await conn.execute(
-                text("UPDATE personas SET typing_quirks = '{}' WHERE typing_quirks IS NULL")
+                text(
+                    "UPDATE personas SET typing_quirks = '{}' WHERE typing_quirks IS NULL"
+                )
             )
         else:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN typing_quirks JSON NOT NULL DEFAULT '{}'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN typing_quirks JSON NOT NULL DEFAULT '{}'"
+                )
             )
         added_columns.append("typing_quirks")
 
@@ -389,14 +410,20 @@ async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
         logger.info("Adding signature_phrases column to personas table")
         if is_sqlite:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN signature_phrases JSON DEFAULT '[]'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN signature_phrases JSON DEFAULT '[]'"
+                )
             )
             await conn.execute(
-                text("UPDATE personas SET signature_phrases = '[]' WHERE signature_phrases IS NULL")
+                text(
+                    "UPDATE personas SET signature_phrases = '[]' WHERE signature_phrases IS NULL"
+                )
             )
         else:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN signature_phrases JSON NOT NULL DEFAULT '[]'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN signature_phrases JSON NOT NULL DEFAULT '[]'"
+                )
             )
         added_columns.append("signature_phrases")
 
@@ -407,28 +434,28 @@ async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
                 text("ALTER TABLE personas ADD COLUMN trigger_topics JSON DEFAULT '[]'")
             )
             await conn.execute(
-                text("UPDATE personas SET trigger_topics = '[]' WHERE trigger_topics IS NULL")
+                text(
+                    "UPDATE personas SET trigger_topics = '[]' WHERE trigger_topics IS NULL"
+                )
             )
         else:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN trigger_topics JSON NOT NULL DEFAULT '[]'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN trigger_topics JSON NOT NULL DEFAULT '[]'"
+                )
             )
         added_columns.append("trigger_topics")
 
     # ==================== BACKSTORY & LORE ====================
-    
+
     if not await check_column_exists(conn, "personas", "day_job", is_sqlite):
         logger.info("Adding day_job column to personas table")
-        await conn.execute(
-            text("ALTER TABLE personas ADD COLUMN day_job VARCHAR(200)")
-        )
+        await conn.execute(text("ALTER TABLE personas ADD COLUMN day_job VARCHAR(200)"))
         added_columns.append("day_job")
 
     if not await check_column_exists(conn, "personas", "war_story", is_sqlite):
         logger.info("Adding war_story column to personas table")
-        await conn.execute(
-            text("ALTER TABLE personas ADD COLUMN war_story TEXT")
-        )
+        await conn.execute(text("ALTER TABLE personas ADD COLUMN war_story TEXT"))
         added_columns.append("war_story")
 
     if not await check_column_exists(conn, "personas", "vices_hobbies", is_sqlite):
@@ -438,28 +465,38 @@ async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
                 text("ALTER TABLE personas ADD COLUMN vices_hobbies JSON DEFAULT '[]'")
             )
             await conn.execute(
-                text("UPDATE personas SET vices_hobbies = '[]' WHERE vices_hobbies IS NULL")
+                text(
+                    "UPDATE personas SET vices_hobbies = '[]' WHERE vices_hobbies IS NULL"
+                )
             )
         else:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN vices_hobbies JSON NOT NULL DEFAULT '[]'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN vices_hobbies JSON NOT NULL DEFAULT '[]'"
+                )
             )
         added_columns.append("vices_hobbies")
 
     # ==================== ANTI-PATTERN ====================
-    
+
     if not await check_column_exists(conn, "personas", "forbidden_phrases", is_sqlite):
         logger.info("Adding forbidden_phrases column to personas table")
         if is_sqlite:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN forbidden_phrases JSON DEFAULT '[]'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN forbidden_phrases JSON DEFAULT '[]'"
+                )
             )
             await conn.execute(
-                text("UPDATE personas SET forbidden_phrases = '[]' WHERE forbidden_phrases IS NULL")
+                text(
+                    "UPDATE personas SET forbidden_phrases = '[]' WHERE forbidden_phrases IS NULL"
+                )
             )
         else:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN forbidden_phrases JSON NOT NULL DEFAULT '[]'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN forbidden_phrases JSON NOT NULL DEFAULT '[]'"
+                )
             )
         added_columns.append("forbidden_phrases")
 
@@ -467,14 +504,20 @@ async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
         logger.info("Adding warmth_level column to personas table")
         if is_sqlite:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN warmth_level VARCHAR(20) DEFAULT 'warm'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN warmth_level VARCHAR(20) DEFAULT 'warm'"
+                )
             )
             await conn.execute(
-                text("UPDATE personas SET warmth_level = 'warm' WHERE warmth_level IS NULL")
+                text(
+                    "UPDATE personas SET warmth_level = 'warm' WHERE warmth_level IS NULL"
+                )
             )
         else:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN warmth_level VARCHAR(20) NOT NULL DEFAULT 'warm'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN warmth_level VARCHAR(20) NOT NULL DEFAULT 'warm'"
+                )
             )
         added_columns.append("warmth_level")
 
@@ -482,19 +525,27 @@ async def add_persona_soul_columns(conn, is_sqlite: bool) -> List[str]:
         logger.info("Adding patience_level column to personas table")
         if is_sqlite:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN patience_level VARCHAR(20) DEFAULT 'normal'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN patience_level VARCHAR(20) DEFAULT 'normal'"
+                )
             )
             await conn.execute(
-                text("UPDATE personas SET patience_level = 'normal' WHERE patience_level IS NULL")
+                text(
+                    "UPDATE personas SET patience_level = 'normal' WHERE patience_level IS NULL"
+                )
             )
         else:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN patience_level VARCHAR(20) NOT NULL DEFAULT 'normal'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN patience_level VARCHAR(20) NOT NULL DEFAULT 'normal'"
+                )
             )
         added_columns.append("patience_level")
 
     if added_columns:
-        logger.info(f"✓ Added {len(added_columns)} persona soul columns for human-like responses")
+        logger.info(
+            f"✓ Added {len(added_columns)} persona soul columns for human-like responses"
+        )
 
     return added_columns
 
@@ -503,7 +554,7 @@ async def add_persona_physical_appearance_columns(conn, is_sqlite: bool) -> List
     """
     Add detailed physical appearance fields to personas table for fine-grained
     control over persona appearance generation.
-    
+
     Added in PR #402: 18 new fields for physical characteristics like height,
     weight, hair color, eye color, body type, etc.
 
@@ -518,23 +569,21 @@ async def add_persona_physical_appearance_columns(conn, is_sqlite: bool) -> List
 
     # Check if table exists first
     if not await table_exists(conn, "personas", is_sqlite):
-        logger.debug("Personas table does not exist, skipping physical appearance migration")
+        logger.debug(
+            "Personas table does not exist, skipping physical appearance migration"
+        )
         return added_columns
 
     # ==================== BASIC PHYSICAL ATTRIBUTES ====================
-    
+
     if not await check_column_exists(conn, "personas", "height", is_sqlite):
         logger.info("Adding height column to personas table")
-        await conn.execute(
-            text("ALTER TABLE personas ADD COLUMN height VARCHAR(50)")
-        )
+        await conn.execute(text("ALTER TABLE personas ADD COLUMN height VARCHAR(50)"))
         added_columns.append("height")
 
     if not await check_column_exists(conn, "personas", "weight", is_sqlite):
         logger.info("Adding weight column to personas table")
-        await conn.execute(
-            text("ALTER TABLE personas ADD COLUMN weight VARCHAR(50)")
-        )
+        await conn.execute(text("ALTER TABLE personas ADD COLUMN weight VARCHAR(50)"))
         added_columns.append("weight")
 
     if not await check_column_exists(conn, "personas", "hair_color", is_sqlite):
@@ -566,7 +615,7 @@ async def add_persona_physical_appearance_columns(conn, is_sqlite: bool) -> List
         added_columns.append("skin_tone")
 
     # ==================== BODY MEASUREMENTS ====================
-    
+
     if not await check_column_exists(conn, "personas", "measurements", is_sqlite):
         logger.info("Adding measurements column to personas table")
         await conn.execute(
@@ -576,9 +625,7 @@ async def add_persona_physical_appearance_columns(conn, is_sqlite: bool) -> List
 
     if not await check_column_exists(conn, "personas", "cup_size", is_sqlite):
         logger.info("Adding cup_size column to personas table")
-        await conn.execute(
-            text("ALTER TABLE personas ADD COLUMN cup_size VARCHAR(20)")
-        )
+        await conn.execute(text("ALTER TABLE personas ADD COLUMN cup_size VARCHAR(20)"))
         added_columns.append("cup_size")
 
     if not await check_column_exists(conn, "personas", "muscle_tone", is_sqlite):
@@ -596,12 +643,10 @@ async def add_persona_physical_appearance_columns(conn, is_sqlite: bool) -> List
         added_columns.append("build_type")
 
     # ==================== IDENTITY & SEXUALITY ====================
-    
+
     if not await check_column_exists(conn, "personas", "sex", is_sqlite):
         logger.info("Adding sex column to personas table")
-        await conn.execute(
-            text("ALTER TABLE personas ADD COLUMN sex VARCHAR(20)")
-        )
+        await conn.execute(text("ALTER TABLE personas ADD COLUMN sex VARCHAR(20)"))
         added_columns.append("sex")
 
     if not await check_column_exists(conn, "personas", "sexual_orientation", is_sqlite):
@@ -622,7 +667,9 @@ async def add_persona_physical_appearance_columns(conn, is_sqlite: bool) -> List
             )
         else:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN turn_ons JSON NOT NULL DEFAULT '[]'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN turn_ons JSON NOT NULL DEFAULT '[]'"
+                )
             )
         added_columns.append("turn_ons")
 
@@ -637,13 +684,17 @@ async def add_persona_physical_appearance_columns(conn, is_sqlite: bool) -> List
             )
         else:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN turn_offs JSON NOT NULL DEFAULT '[]'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN turn_offs JSON NOT NULL DEFAULT '[]'"
+                )
             )
         added_columns.append("turn_offs")
 
     # ==================== DISTINCTIVE FEATURES ====================
-    
-    if not await check_column_exists(conn, "personas", "distinctive_features", is_sqlite):
+
+    if not await check_column_exists(
+        conn, "personas", "distinctive_features", is_sqlite
+    ):
         logger.info("Adding distinctive_features column to personas table")
         await conn.execute(
             text("ALTER TABLE personas ADD COLUMN distinctive_features TEXT")
@@ -668,19 +719,27 @@ async def add_persona_physical_appearance_columns(conn, is_sqlite: bool) -> List
         logger.info("Adding body_modifications column to personas table")
         if is_sqlite:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN body_modifications JSON DEFAULT '[]'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN body_modifications JSON DEFAULT '[]'"
+                )
             )
             await conn.execute(
-                text("UPDATE personas SET body_modifications = '[]' WHERE body_modifications IS NULL")
+                text(
+                    "UPDATE personas SET body_modifications = '[]' WHERE body_modifications IS NULL"
+                )
             )
         else:
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN body_modifications JSON NOT NULL DEFAULT '[]'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN body_modifications JSON NOT NULL DEFAULT '[]'"
+                )
             )
         added_columns.append("body_modifications")
 
     if added_columns:
-        logger.info(f"✓ Added {len(added_columns)} physical appearance columns for detailed persona control")
+        logger.info(
+            f"✓ Added {len(added_columns)} physical appearance columns for detailed persona control"
+        )
 
     return added_columns
 
@@ -689,7 +748,7 @@ async def add_persona_ai_model_preference_columns(conn, is_sqlite: bool) -> List
     """
     Add AI model preference fields to personas table for per-persona
     model selection across different content generation types.
-    
+
     Added in PR #402: 4 new fields for text, image, video, and voice model preferences.
 
     Args:
@@ -703,33 +762,43 @@ async def add_persona_ai_model_preference_columns(conn, is_sqlite: bool) -> List
 
     # Check if table exists first
     if not await table_exists(conn, "personas", is_sqlite):
-        logger.debug("Personas table does not exist, skipping AI model preference migration")
+        logger.debug(
+            "Personas table does not exist, skipping AI model preference migration"
+        )
         return added_columns
 
     # ==================== AI MODEL PREFERENCES ====================
-    
-    if not await check_column_exists(conn, "personas", "text_model_preference", is_sqlite):
+
+    if not await check_column_exists(
+        conn, "personas", "text_model_preference", is_sqlite
+    ):
         logger.info("Adding text_model_preference column to personas table")
         await conn.execute(
             text("ALTER TABLE personas ADD COLUMN text_model_preference VARCHAR(200)")
         )
         added_columns.append("text_model_preference")
 
-    if not await check_column_exists(conn, "personas", "image_model_preference", is_sqlite):
+    if not await check_column_exists(
+        conn, "personas", "image_model_preference", is_sqlite
+    ):
         logger.info("Adding image_model_preference column to personas table")
         await conn.execute(
             text("ALTER TABLE personas ADD COLUMN image_model_preference VARCHAR(200)")
         )
         added_columns.append("image_model_preference")
 
-    if not await check_column_exists(conn, "personas", "video_model_preference", is_sqlite):
+    if not await check_column_exists(
+        conn, "personas", "video_model_preference", is_sqlite
+    ):
         logger.info("Adding video_model_preference column to personas table")
         await conn.execute(
             text("ALTER TABLE personas ADD COLUMN video_model_preference VARCHAR(200)")
         )
         added_columns.append("video_model_preference")
 
-    if not await check_column_exists(conn, "personas", "voice_model_preference", is_sqlite):
+    if not await check_column_exists(
+        conn, "personas", "voice_model_preference", is_sqlite
+    ):
         logger.info("Adding voice_model_preference column to personas table")
         await conn.execute(
             text("ALTER TABLE personas ADD COLUMN voice_model_preference VARCHAR(200)")
@@ -737,7 +806,9 @@ async def add_persona_ai_model_preference_columns(conn, is_sqlite: bool) -> List
         added_columns.append("voice_model_preference")
 
     if added_columns:
-        logger.info(f"✓ Added {len(added_columns)} AI model preference columns for per-persona model selection")
+        logger.info(
+            f"✓ Added {len(added_columns)} AI model preference columns for per-persona model selection"
+        )
 
     return added_columns
 
@@ -746,9 +817,9 @@ async def add_content_triggers_column(conn, is_sqlite: bool) -> List[str]:
     """
     Add content_triggers JSON column to personas table for trigger-based
     model orchestration with LoRA stacking and dynamic prompts.
-    
-    Added in PR #428: Enables configurable trigger words that route to 
-    specific models/LoRAs with per-trigger positive/negative prompts 
+
+    Added in PR #428: Enables configurable trigger words that route to
+    specific models/LoRAs with per-trigger positive/negative prompts
     and weight preferences.
 
     Args:
@@ -762,7 +833,9 @@ async def add_content_triggers_column(conn, is_sqlite: bool) -> List[str]:
 
     # Check if table exists first
     if not await table_exists(conn, "personas", is_sqlite):
-        logger.debug("Personas table does not exist, skipping content_triggers migration")
+        logger.debug(
+            "Personas table does not exist, skipping content_triggers migration"
+        )
         return added_columns
 
     # Check and add content_triggers
@@ -772,18 +845,24 @@ async def add_content_triggers_column(conn, is_sqlite: bool) -> List[str]:
             # SQLite uses TEXT for JSON storage
             # DEFAULT value is automatically applied to existing rows
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN content_triggers TEXT DEFAULT '{}'")
+                text(
+                    "ALTER TABLE personas ADD COLUMN content_triggers TEXT DEFAULT '{}'"
+                )
             )
         else:
             # PostgreSQL supports native JSONB type
             # DEFAULT value is automatically applied to existing rows
             await conn.execute(
-                text("ALTER TABLE personas ADD COLUMN content_triggers JSONB DEFAULT '{}'::jsonb")
+                text(
+                    "ALTER TABLE personas ADD COLUMN content_triggers JSONB DEFAULT '{}'::jsonb"
+                )
             )
         added_columns.append("content_triggers")
 
     if added_columns:
-        logger.info("✓ Added content_triggers column for trigger-based model orchestration")
+        logger.info(
+            "✓ Added content_triggers column for trigger-based model orchestration"
+        )
 
     return added_columns
 
@@ -792,7 +871,7 @@ async def add_persona_negative_prompt_column(conn, is_sqlite: bool) -> List[str]
     """
     Add default_negative_prompt column to personas table for decoupling
     negative prompts from hardcoded style defaults.
-    
+
     Added in PR #445: Allows each persona to have their own customized
     negative prompt for image generation, instead of relying on style-based
     defaults. This enables:
@@ -811,31 +890,43 @@ async def add_persona_negative_prompt_column(conn, is_sqlite: bool) -> List[str]
 
     # Check if table exists first
     if not await table_exists(conn, "personas", is_sqlite):
-        logger.debug("Personas table does not exist, skipping negative prompt migration")
+        logger.debug(
+            "Personas table does not exist, skipping negative prompt migration"
+        )
         return added_columns
 
     # Check and add default_negative_prompt
-    if not await check_column_exists(conn, "personas", "default_negative_prompt", is_sqlite):
+    if not await check_column_exists(
+        conn, "personas", "default_negative_prompt", is_sqlite
+    ):
         logger.info("Adding default_negative_prompt column to personas table")
         # Default generic negative prompt to ensure backward compatibility
         default_neg = "ugly, blurry, low quality, distorted, deformed, bad anatomy"
-        
+
         if is_sqlite:
             await conn.execute(
-                text(f"ALTER TABLE personas ADD COLUMN default_negative_prompt TEXT DEFAULT '{default_neg}'")
+                text(
+                    f"ALTER TABLE personas ADD COLUMN default_negative_prompt TEXT DEFAULT '{default_neg}'"
+                )
             )
             # Update existing rows to have the default value
             await conn.execute(
-                text(f"UPDATE personas SET default_negative_prompt = '{default_neg}' WHERE default_negative_prompt IS NULL")
+                text(
+                    f"UPDATE personas SET default_negative_prompt = '{default_neg}' WHERE default_negative_prompt IS NULL"
+                )
             )
         else:
             await conn.execute(
-                text(f"ALTER TABLE personas ADD COLUMN default_negative_prompt TEXT NOT NULL DEFAULT '{default_neg}'")
+                text(
+                    f"ALTER TABLE personas ADD COLUMN default_negative_prompt TEXT NOT NULL DEFAULT '{default_neg}'"
+                )
             )
         added_columns.append("default_negative_prompt")
 
     if added_columns:
-        logger.info("✓ Added default_negative_prompt column for persona-specific negative prompts")
+        logger.info(
+            "✓ Added default_negative_prompt column for persona-specific negative prompts"
+        )
 
     return added_columns
 
@@ -843,7 +934,7 @@ async def add_persona_negative_prompt_column(conn, is_sqlite: bool) -> List[str]
 async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
     """
     Run all pending migrations on the database.
-    
+
     Automatic migrations can be controlled via the AUTO_MIGRATE environment variable.
     Set AUTO_MIGRATE=false in production to disable automatic migrations.
 
@@ -854,11 +945,11 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
         Dict with migration results
     """
     import os
-    
+
     # Check if auto-migration is enabled
     auto_migrate = os.getenv("AUTO_MIGRATE", "true").lower() in ("true", "1", "yes")
     env = os.getenv("GATOR_ENV", "development").lower()
-    
+
     if not auto_migrate:
         logger.info("Automatic migrations disabled (AUTO_MIGRATE=false)")
         return {
@@ -866,15 +957,15 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
             "columns_added": [],
             "success": True,
             "skipped": True,
-            "reason": "AUTO_MIGRATE disabled"
+            "reason": "AUTO_MIGRATE disabled",
         }
-    
+
     if env == "production":
         logger.warning(
             "Running automatic migrations in production. "
             "Set AUTO_MIGRATE=false to disable this in production."
         )
-    
+
     db_url = str(engine.url)
     is_sqlite = "sqlite" in db_url
 
@@ -926,7 +1017,9 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                 logger.info("All acd_contexts table columns are up to date")
 
             # Run physical appearance fields migration (PR #402)
-            physical_columns_added = await add_persona_physical_appearance_columns(conn, is_sqlite)
+            physical_columns_added = await add_persona_physical_appearance_columns(
+                conn, is_sqlite
+            )
 
             if physical_columns_added:
                 results["migrations_run"].append("personas_physical_appearance")
@@ -938,7 +1031,9 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                 logger.info("All physical appearance columns are up to date")
 
             # Run AI model preference fields migration (PR #402)
-            ai_model_columns_added = await add_persona_ai_model_preference_columns(conn, is_sqlite)
+            ai_model_columns_added = await add_persona_ai_model_preference_columns(
+                conn, is_sqlite
+            )
 
             if ai_model_columns_added:
                 results["migrations_run"].append("personas_ai_model_preferences")
@@ -962,7 +1057,9 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                 logger.info("Content triggers column is up to date")
 
             # Run negative prompt decoupling migration (PR #445)
-            negative_prompt_added = await add_persona_negative_prompt_column(conn, is_sqlite)
+            negative_prompt_added = await add_persona_negative_prompt_column(
+                conn, is_sqlite
+            )
 
             if negative_prompt_added:
                 results["migrations_run"].append("personas_negative_prompt")
@@ -986,11 +1083,15 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                 logger.info("All ACD scheduling columns are up to date")
 
             # Create business intelligence tables (PR #433)
-            bi_tables_created = await create_business_intelligence_tables(conn, is_sqlite)
+            bi_tables_created = await create_business_intelligence_tables(
+                conn, is_sqlite
+            )
 
             if bi_tables_created:
                 results["migrations_run"].append("business_intelligence_tables")
-                results["columns_added"].extend([f"table:{t}" for t in bi_tables_created])
+                results["columns_added"].extend(
+                    [f"table:{t}" for t in bi_tables_created]
+                )
                 logger.info(
                     f"Created {len(bi_tables_created)} business intelligence table(s): {', '.join(bi_tables_created)}"
                 )
@@ -998,11 +1099,15 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
                 logger.info("All business intelligence tables are up to date")
 
             # Create installed_models table for AI model metadata
-            installed_models_created = await create_installed_models_table(conn, is_sqlite)
+            installed_models_created = await create_installed_models_table(
+                conn, is_sqlite
+            )
 
             if installed_models_created:
                 results["migrations_run"].append("installed_models_table")
-                results["columns_added"].extend([f"table:{t}" for t in installed_models_created])
+                results["columns_added"].extend(
+                    [f"table:{t}" for t in installed_models_created]
+                )
                 logger.info(
                     f"Created installed_models table for AI model metadata and triggers"
                 )
@@ -1022,7 +1127,7 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
     """
     Add scheduling-related columns to acd_contexts table for LLM-driven
     scheduler integration.
-    
+
     Added in PR #433: Enables LLM to reason about scheduling, timing optimization,
     dependencies, orchestration groups, and resource planning.
 
@@ -1041,7 +1146,7 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
         return added_columns
 
     # ==================== SCHEDULE CONFIGURATION ====================
-    
+
     if not await check_column_exists(conn, "acd_contexts", "schedule_type", is_sqlite):
         logger.info("Adding schedule_type column to acd_contexts table")
         await conn.execute(
@@ -1051,7 +1156,9 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
         # Create index
         try:
             await conn.execute(
-                text("CREATE INDEX IF NOT EXISTS ix_acd_contexts_schedule_type ON acd_contexts (schedule_type)")
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_acd_contexts_schedule_type ON acd_contexts (schedule_type)"
+                )
             )
         except Exception as e:
             logger.warning(f"Could not create index on schedule_type: {e}")
@@ -1065,26 +1172,34 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
         # Create index
         try:
             await conn.execute(
-                text("CREATE INDEX IF NOT EXISTS ix_acd_contexts_scheduled_for ON acd_contexts (scheduled_for)")
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_acd_contexts_scheduled_for ON acd_contexts (scheduled_for)"
+                )
             )
         except Exception as e:
             logger.warning(f"Could not create index on scheduled_for: {e}")
 
-    if not await check_column_exists(conn, "acd_contexts", "schedule_window_start", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "schedule_window_start", is_sqlite
+    ):
         logger.info("Adding schedule_window_start column to acd_contexts table")
         await conn.execute(
             text("ALTER TABLE acd_contexts ADD COLUMN schedule_window_start TIMESTAMP")
         )
         added_columns.append("schedule_window_start")
 
-    if not await check_column_exists(conn, "acd_contexts", "schedule_window_end", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "schedule_window_end", is_sqlite
+    ):
         logger.info("Adding schedule_window_end column to acd_contexts table")
         await conn.execute(
             text("ALTER TABLE acd_contexts ADD COLUMN schedule_window_end TIMESTAMP")
         )
         added_columns.append("schedule_window_end")
 
-    if not await check_column_exists(conn, "acd_contexts", "recurring_pattern", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "recurring_pattern", is_sqlite
+    ):
         logger.info("Adding recurring_pattern column to acd_contexts table")
         if is_sqlite:
             await conn.execute(
@@ -1097,29 +1212,41 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
         added_columns.append("recurring_pattern")
 
     # ==================== LLM SCHEDULING DECISION CONTEXT ====================
-    
-    if not await check_column_exists(conn, "acd_contexts", "schedule_decision_source", is_sqlite):
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "schedule_decision_source", is_sqlite
+    ):
         logger.info("Adding schedule_decision_source column to acd_contexts table")
         await conn.execute(
-            text("ALTER TABLE acd_contexts ADD COLUMN schedule_decision_source VARCHAR(30)")
+            text(
+                "ALTER TABLE acd_contexts ADD COLUMN schedule_decision_source VARCHAR(30)"
+            )
         )
         added_columns.append("schedule_decision_source")
 
-    if not await check_column_exists(conn, "acd_contexts", "schedule_optimization_goal", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "schedule_optimization_goal", is_sqlite
+    ):
         logger.info("Adding schedule_optimization_goal column to acd_contexts table")
         await conn.execute(
-            text("ALTER TABLE acd_contexts ADD COLUMN schedule_optimization_goal VARCHAR(30)")
+            text(
+                "ALTER TABLE acd_contexts ADD COLUMN schedule_optimization_goal VARCHAR(30)"
+            )
         )
         added_columns.append("schedule_optimization_goal")
 
-    if not await check_column_exists(conn, "acd_contexts", "schedule_reasoning", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "schedule_reasoning", is_sqlite
+    ):
         logger.info("Adding schedule_reasoning column to acd_contexts table")
         await conn.execute(
             text("ALTER TABLE acd_contexts ADD COLUMN schedule_reasoning TEXT")
         )
         added_columns.append("schedule_reasoning")
 
-    if not await check_column_exists(conn, "acd_contexts", "schedule_constraints", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "schedule_constraints", is_sqlite
+    ):
         logger.info("Adding schedule_constraints column to acd_contexts table")
         if is_sqlite:
             await conn.execute(
@@ -1131,7 +1258,9 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
             )
         added_columns.append("schedule_constraints")
 
-    if not await check_column_exists(conn, "acd_contexts", "schedule_preferences", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "schedule_preferences", is_sqlite
+    ):
         logger.info("Adding schedule_preferences column to acd_contexts table")
         if is_sqlite:
             await conn.execute(
@@ -1144,8 +1273,10 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
         added_columns.append("schedule_preferences")
 
     # ==================== HISTORICAL CONTEXT FOR LLM LEARNING ====================
-    
-    if not await check_column_exists(conn, "acd_contexts", "historical_performance", is_sqlite):
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "historical_performance", is_sqlite
+    ):
         logger.info("Adding historical_performance column to acd_contexts table")
         if is_sqlite:
             await conn.execute(
@@ -1157,7 +1288,9 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
             )
         added_columns.append("historical_performance")
 
-    if not await check_column_exists(conn, "acd_contexts", "optimal_timing_learned", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "optimal_timing_learned", is_sqlite
+    ):
         logger.info("Adding optimal_timing_learned column to acd_contexts table")
         if is_sqlite:
             await conn.execute(
@@ -1169,28 +1302,40 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
             )
         added_columns.append("optimal_timing_learned")
 
-    if not await check_column_exists(conn, "acd_contexts", "audience_activity_pattern", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "audience_activity_pattern", is_sqlite
+    ):
         logger.info("Adding audience_activity_pattern column to acd_contexts table")
         if is_sqlite:
             await conn.execute(
-                text("ALTER TABLE acd_contexts ADD COLUMN audience_activity_pattern JSON")
+                text(
+                    "ALTER TABLE acd_contexts ADD COLUMN audience_activity_pattern JSON"
+                )
             )
         else:
             await conn.execute(
-                text("ALTER TABLE acd_contexts ADD COLUMN audience_activity_pattern JSONB")
+                text(
+                    "ALTER TABLE acd_contexts ADD COLUMN audience_activity_pattern JSONB"
+                )
             )
         added_columns.append("audience_activity_pattern")
 
     # ==================== FEEDBACK LOOP FOR SCHEDULER LEARNING ====================
-    
-    if not await check_column_exists(conn, "acd_contexts", "schedule_feedback_type", is_sqlite):
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "schedule_feedback_type", is_sqlite
+    ):
         logger.info("Adding schedule_feedback_type column to acd_contexts table")
         await conn.execute(
-            text("ALTER TABLE acd_contexts ADD COLUMN schedule_feedback_type VARCHAR(30)")
+            text(
+                "ALTER TABLE acd_contexts ADD COLUMN schedule_feedback_type VARCHAR(30)"
+            )
         )
         added_columns.append("schedule_feedback_type")
 
-    if not await check_column_exists(conn, "acd_contexts", "schedule_feedback_data", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "schedule_feedback_data", is_sqlite
+    ):
         logger.info("Adding schedule_feedback_data column to acd_contexts table")
         if is_sqlite:
             await conn.execute(
@@ -1202,16 +1347,22 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
             )
         added_columns.append("schedule_feedback_data")
 
-    if not await check_column_exists(conn, "acd_contexts", "schedule_effectiveness_score", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "schedule_effectiveness_score", is_sqlite
+    ):
         logger.info("Adding schedule_effectiveness_score column to acd_contexts table")
         await conn.execute(
-            text("ALTER TABLE acd_contexts ADD COLUMN schedule_effectiveness_score REAL")
+            text(
+                "ALTER TABLE acd_contexts ADD COLUMN schedule_effectiveness_score REAL"
+            )
         )
         added_columns.append("schedule_effectiveness_score")
 
     # ==================== DEPENDENCIES AND ORCHESTRATION ====================
-    
-    if not await check_column_exists(conn, "acd_contexts", "depends_on_contexts", is_sqlite):
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "depends_on_contexts", is_sqlite
+    ):
         logger.info("Adding depends_on_contexts column to acd_contexts table")
         if is_sqlite:
             await conn.execute(
@@ -1223,7 +1374,9 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
             )
         added_columns.append("depends_on_contexts")
 
-    if not await check_column_exists(conn, "acd_contexts", "blocks_contexts", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "blocks_contexts", is_sqlite
+    ):
         logger.info("Adding blocks_contexts column to acd_contexts table")
         if is_sqlite:
             await conn.execute(
@@ -1235,7 +1388,9 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
             )
         added_columns.append("blocks_contexts")
 
-    if not await check_column_exists(conn, "acd_contexts", "orchestration_group", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "orchestration_group", is_sqlite
+    ):
         logger.info("Adding orchestration_group column to acd_contexts table")
         await conn.execute(
             text("ALTER TABLE acd_contexts ADD COLUMN orchestration_group VARCHAR(100)")
@@ -1244,12 +1399,16 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
         # Create index
         try:
             await conn.execute(
-                text("CREATE INDEX IF NOT EXISTS ix_acd_contexts_orchestration_group ON acd_contexts (orchestration_group)")
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_acd_contexts_orchestration_group ON acd_contexts (orchestration_group)"
+                )
             )
         except Exception as e:
             logger.warning(f"Could not create index on orchestration_group: {e}")
 
-    if not await check_column_exists(conn, "acd_contexts", "execution_order", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "execution_order", is_sqlite
+    ):
         logger.info("Adding execution_order column to acd_contexts table")
         await conn.execute(
             text("ALTER TABLE acd_contexts ADD COLUMN execution_order INTEGER")
@@ -1257,8 +1416,10 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
         added_columns.append("execution_order")
 
     # ==================== RESOURCE PLANNING ====================
-    
-    if not await check_column_exists(conn, "acd_contexts", "estimated_resources", is_sqlite):
+
+    if not await check_column_exists(
+        conn, "acd_contexts", "estimated_resources", is_sqlite
+    ):
         logger.info("Adding estimated_resources column to acd_contexts table")
         if is_sqlite:
             await conn.execute(
@@ -1270,7 +1431,9 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
             )
         added_columns.append("estimated_resources")
 
-    if not await check_column_exists(conn, "acd_contexts", "actual_resources", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "actual_resources", is_sqlite
+    ):
         logger.info("Adding actual_resources column to acd_contexts table")
         if is_sqlite:
             await conn.execute(
@@ -1282,7 +1445,9 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
             )
         added_columns.append("actual_resources")
 
-    if not await check_column_exists(conn, "acd_contexts", "resource_efficiency", is_sqlite):
+    if not await check_column_exists(
+        conn, "acd_contexts", "resource_efficiency", is_sqlite
+    ):
         logger.info("Adding resource_efficiency column to acd_contexts table")
         await conn.execute(
             text("ALTER TABLE acd_contexts ADD COLUMN resource_efficiency REAL")
@@ -1290,7 +1455,9 @@ async def add_acd_scheduling_columns(conn, is_sqlite: bool) -> List[str]:
         added_columns.append("resource_efficiency")
 
     if added_columns:
-        logger.info(f"✓ Added {len(added_columns)} ACD scheduling columns for LLM-driven scheduler")
+        logger.info(
+            f"✓ Added {len(added_columns)} ACD scheduling columns for LLM-driven scheduler"
+        )
 
     return added_columns
 
@@ -1299,7 +1466,7 @@ async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str
     """
     Create business intelligence tables for traffic, retention, revenue tracking,
     and content scheduling.
-    
+
     Added in PR #433: Enables LLM reasoning about business metrics including
     traffic funnels, user churn, revenue trends, and scheduling feedback loops.
 
@@ -1313,11 +1480,13 @@ async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str
     created_tables = []
 
     # ==================== TRAFFIC METRICS TABLE ====================
-    
+
     if not await table_exists(conn, "traffic_metrics", is_sqlite):
         logger.info("Creating traffic_metrics table for conversion funnel analysis")
         if is_sqlite:
-            await conn.execute(text("""
+            await conn.execute(
+                text(
+                    """
                 CREATE TABLE traffic_metrics (
                     id TEXT PRIMARY KEY,
                     user_id TEXT,
@@ -1350,9 +1519,13 @@ async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                     FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
                 )
-            """))
+            """
+                )
+            )
         else:
-            await conn.execute(text("""
+            await conn.execute(
+                text(
+                    """
                 CREATE TABLE traffic_metrics (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -1383,24 +1556,48 @@ async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str
                     session_end TIMESTAMP WITH TIME ZONE,
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 )
-            """))
+            """
+                )
+            )
         created_tables.append("traffic_metrics")
         # Create indexes
         try:
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_traffic_metrics_session_id ON traffic_metrics (session_id)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_traffic_metrics_user_id ON traffic_metrics (user_id)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_traffic_metrics_persona_id ON traffic_metrics (persona_id)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_traffic_metrics_source_platform ON traffic_metrics (source_platform)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_traffic_metrics_created_at ON traffic_metrics (created_at)"))
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_traffic_metrics_session_id ON traffic_metrics (session_id)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_traffic_metrics_user_id ON traffic_metrics (user_id)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_traffic_metrics_persona_id ON traffic_metrics (persona_id)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_traffic_metrics_source_platform ON traffic_metrics (source_platform)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_traffic_metrics_created_at ON traffic_metrics (created_at)"
+                )
+            )
         except Exception as e:
             logger.warning(f"Could not create indexes on traffic_metrics: {e}")
 
     # ==================== USER RETENTION TABLE ====================
-    
+
     if not await table_exists(conn, "user_retention", is_sqlite):
         logger.info("Creating user_retention table for churn prediction")
         if is_sqlite:
-            await conn.execute(text("""
+            await conn.execute(
+                text(
+                    """
                 CREATE TABLE user_retention (
                     id TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL UNIQUE,
@@ -1435,9 +1632,13 @@ async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
-            """))
+            """
+                )
+            )
         else:
-            await conn.execute(text("""
+            await conn.execute(
+                text(
+                    """
                 CREATE TABLE user_retention (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
@@ -1471,23 +1672,43 @@ async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 )
-            """))
+            """
+                )
+            )
         created_tables.append("user_retention")
         # Create indexes
         try:
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_retention_user_id ON user_retention (user_id)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_retention_last_interaction ON user_retention (last_interaction)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_retention_churn_predicted ON user_retention (churn_predicted)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_retention_days_since_last_active ON user_retention (days_since_last_active)"))
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_user_retention_user_id ON user_retention (user_id)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_user_retention_last_interaction ON user_retention (last_interaction)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_user_retention_churn_predicted ON user_retention (churn_predicted)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_user_retention_days_since_last_active ON user_retention (days_since_last_active)"
+                )
+            )
         except Exception as e:
             logger.warning(f"Could not create indexes on user_retention: {e}")
 
     # ==================== REVENUE INSIGHTS TABLE ====================
-    
+
     if not await table_exists(conn, "revenue_insights", is_sqlite):
         logger.info("Creating revenue_insights table for revenue trend analysis")
         if is_sqlite:
-            await conn.execute(text("""
+            await conn.execute(
+                text(
+                    """
                 CREATE TABLE revenue_insights (
                     id TEXT PRIMARY KEY,
                     persona_id TEXT,
@@ -1518,9 +1739,13 @@ async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
                 )
-            """))
+            """
+                )
+            )
         else:
-            await conn.execute(text("""
+            await conn.execute(
+                text(
+                    """
                 CREATE TABLE revenue_insights (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     persona_id UUID REFERENCES personas(id) ON DELETE CASCADE,
@@ -1550,22 +1775,38 @@ async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str
                     predicted_next_period_revenue DECIMAL(10, 2),
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 )
-            """))
+            """
+                )
+            )
         created_tables.append("revenue_insights")
         # Create indexes
         try:
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_revenue_insights_persona_id ON revenue_insights (persona_id)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_revenue_insights_period_type ON revenue_insights (period_type)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_revenue_insights_period_start ON revenue_insights (period_start)"))
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_revenue_insights_persona_id ON revenue_insights (persona_id)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_revenue_insights_period_type ON revenue_insights (period_type)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_revenue_insights_period_start ON revenue_insights (period_start)"
+                )
+            )
         except Exception as e:
             logger.warning(f"Could not create indexes on revenue_insights: {e}")
 
     # ==================== CONTENT SCHEDULES TABLE ====================
-    
+
     if not await table_exists(conn, "content_schedules", is_sqlite):
         logger.info("Creating content_schedules table for LLM-driven scheduling")
         if is_sqlite:
-            await conn.execute(text("""
+            await conn.execute(
+                text(
+                    """
                 CREATE TABLE content_schedules (
                     id TEXT PRIMARY KEY,
                     persona_id TEXT NOT NULL,
@@ -1599,9 +1840,13 @@ async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str
                     FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE,
                     FOREIGN KEY (acd_context_id) REFERENCES acd_contexts(id) ON DELETE SET NULL
                 )
-            """))
+            """
+                )
+            )
         else:
-            await conn.execute(text("""
+            await conn.execute(
+                text(
+                    """
                 CREATE TABLE content_schedules (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     persona_id UUID NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
@@ -1633,24 +1878,48 @@ async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 )
-            """))
+            """
+                )
+            )
         created_tables.append("content_schedules")
         # Create indexes
         try:
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_content_schedules_persona_id ON content_schedules (persona_id)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_content_schedules_scheduled_at ON content_schedules (scheduled_at)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_content_schedules_status ON content_schedules (status)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_content_schedules_schedule_type ON content_schedules (schedule_type)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_content_schedules_platform ON content_schedules (platform)"))
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_content_schedules_persona_id ON content_schedules (persona_id)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_content_schedules_scheduled_at ON content_schedules (scheduled_at)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_content_schedules_status ON content_schedules (status)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_content_schedules_schedule_type ON content_schedules (schedule_type)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_content_schedules_platform ON content_schedules (platform)"
+                )
+            )
         except Exception as e:
             logger.warning(f"Could not create indexes on content_schedules: {e}")
 
     # ==================== SCHEDULING FEEDBACK TABLE ====================
-    
+
     if not await table_exists(conn, "scheduling_feedback", is_sqlite):
         logger.info("Creating scheduling_feedback table for learning loop")
         if is_sqlite:
-            await conn.execute(text("""
+            await conn.execute(
+                text(
+                    """
                 CREATE TABLE scheduling_feedback (
                     id TEXT PRIMARY KEY,
                     schedule_id TEXT NOT NULL,
@@ -1682,9 +1951,13 @@ async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str
                     FOREIGN KEY (schedule_id) REFERENCES content_schedules(id) ON DELETE CASCADE,
                     FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
                 )
-            """))
+            """
+                )
+            )
         else:
-            await conn.execute(text("""
+            await conn.execute(
+                text(
+                    """
                 CREATE TABLE scheduling_feedback (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     schedule_id UUID NOT NULL REFERENCES content_schedules(id) ON DELETE CASCADE,
@@ -1714,17 +1987,29 @@ async def create_business_intelligence_tables(conn, is_sqlite: bool) -> List[str
                     decision_source_score REAL,
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 )
-            """))
+            """
+                )
+            )
         created_tables.append("scheduling_feedback")
         # Create indexes
         try:
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_scheduling_feedback_schedule_id ON scheduling_feedback (schedule_id)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_scheduling_feedback_persona_id ON scheduling_feedback (persona_id)"))
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_scheduling_feedback_schedule_id ON scheduling_feedback (schedule_id)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_scheduling_feedback_persona_id ON scheduling_feedback (persona_id)"
+                )
+            )
         except Exception as e:
             logger.warning(f"Could not create indexes on scheduling_feedback: {e}")
 
     if created_tables:
-        logger.info(f"✓ Created {len(created_tables)} business intelligence tables for LLM reasoning")
+        logger.info(
+            f"✓ Created {len(created_tables)} business intelligence tables for LLM reasoning"
+        )
 
     return created_tables
 
@@ -1733,7 +2018,7 @@ async def create_installed_models_table(conn, is_sqlite: bool) -> List[str]:
     """
     Create installed_models table for tracking AI model metadata including
     CivitAI details, trigger words, and usage statistics.
-    
+
     This enables:
     - Storing detailed metadata from CivitAI API
     - Managing trigger words for models
@@ -1750,9 +2035,13 @@ async def create_installed_models_table(conn, is_sqlite: bool) -> List[str]:
     created_tables = []
 
     if not await table_exists(conn, "installed_models", is_sqlite):
-        logger.info("Creating installed_models table for AI model metadata and trigger words")
+        logger.info(
+            "Creating installed_models table for AI model metadata and trigger words"
+        )
         if is_sqlite:
-            await conn.execute(text("""
+            await conn.execute(
+                text(
+                    """
                 CREATE TABLE installed_models (
                     id TEXT PRIMARY KEY,
                     name VARCHAR(255) NOT NULL,
@@ -1789,9 +2078,13 @@ async def create_installed_models_table(conn, is_sqlite: bool) -> List[str]:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """))
+            """
+                )
+            )
         else:
-            await conn.execute(text("""
+            await conn.execute(
+                text(
+                    """
                 CREATE TABLE installed_models (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     name VARCHAR(255) NOT NULL,
@@ -1828,23 +2121,59 @@ async def create_installed_models_table(conn, is_sqlite: bool) -> List[str]:
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 )
-            """))
+            """
+                )
+            )
         created_tables.append("installed_models")
-        
+
         # Create indexes for common queries
         try:
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_name ON installed_models (name)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_model_type ON installed_models (model_type)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_source ON installed_models (source)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_base_model ON installed_models (base_model)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_is_active ON installed_models (is_active)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_civitai_model_id ON installed_models (civitai_model_id)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_civitai_version_id ON installed_models (civitai_version_id)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_installed_models_huggingface_repo_id ON installed_models (huggingface_repo_id)"))
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_installed_models_name ON installed_models (name)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_installed_models_model_type ON installed_models (model_type)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_installed_models_source ON installed_models (source)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_installed_models_base_model ON installed_models (base_model)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_installed_models_is_active ON installed_models (is_active)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_installed_models_civitai_model_id ON installed_models (civitai_model_id)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_installed_models_civitai_version_id ON installed_models (civitai_version_id)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_installed_models_huggingface_repo_id ON installed_models (huggingface_repo_id)"
+                )
+            )
         except Exception as e:
             logger.warning(f"Could not create indexes on installed_models: {e}")
 
     if created_tables:
-        logger.info(f"✓ Created installed_models table for AI model metadata and triggers")
+        logger.info(
+            f"✓ Created installed_models table for AI model metadata and triggers"
+        )
 
     return created_tables

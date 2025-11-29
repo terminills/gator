@@ -5,25 +5,26 @@ REST API endpoints for plugin discovery, installation, and management.
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, and_
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import and_, desc, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
 from backend.models.plugin import (
-    PluginModel,
     PluginInstallation,
-    PluginReview,
-    PluginSchema,
     PluginInstallationSchema,
-    PluginReviewSchema,
     PluginInstallRequest,
-    PluginUpdateRequest,
+    PluginModel,
+    PluginReview,
     PluginReviewRequest,
+    PluginReviewSchema,
+    PluginSchema,
+    PluginUpdateRequest,
 )
-from backend.plugins import PluginType, PluginStatus
+from backend.plugins import PluginStatus, PluginType
 from backend.plugins.manager import plugin_manager
-from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
 

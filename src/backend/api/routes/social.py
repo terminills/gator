@@ -4,22 +4,22 @@ Social Media Integration API Routes
 Handles social media account management, content publishing, and engagement tracking.
 """
 
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
 from backend.services.social_media_service import (
-    SocialMediaService,
-    SocialAccount,
+    PlatformType,
     PostRequest,
     PostResponse,
-    PlatformType,
+    SocialAccount,
+    SocialMediaService,
 )
-from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -5,6 +5,7 @@ API endpoints for the Gator help agent functionality.
 """
 
 from typing import Dict, List, Optional
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -21,7 +22,8 @@ class ChatMessage(BaseModel):
         None, description="Optional context about current page/state"
     )
     verbose: bool = Field(
-        False, description="Enable verbose command-line style output with execution details"
+        False,
+        description="Enable verbose command-line style output with execution details",
     )
 
 
@@ -46,16 +48,16 @@ async def chat_with_gator(message_data: ChatMessage):
 
     Gator is the tough, no-nonsense help agent who will guide you through
     the platform with his characteristic attitude and expertise.
-    
+
     Set verbose=True for command-line style output with detailed execution logs.
     """
     try:
         from datetime import datetime
 
         response = await gator_agent.process_message(
-            message=message_data.message, 
+            message=message_data.message,
             context=message_data.context,
-            verbose=message_data.verbose
+            verbose=message_data.verbose,
         )
 
         return ChatResponse(response=response, timestamp=datetime.now().isoformat())

@@ -4,16 +4,16 @@ Sentiment Analysis API Routes
 Provides endpoints for social media sentiment analysis and insights.
 """
 
-from typing import List, Optional, Dict, Any
 from datetime import timedelta
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.services.sentiment_analysis_service import SentimentAnalysisService
-from backend.database.connection import get_db_session
 from backend.config.logging import get_logger
+from backend.database.connection import get_db_session
+from backend.services.sentiment_analysis_service import SentimentAnalysisService
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/sentiment", tags=["sentiment"])

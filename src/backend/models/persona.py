@@ -6,11 +6,11 @@ Database and API models for AI persona management.
 
 import uuid
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import Column, String, DateTime, Boolean, Integer, Text, JSON
+from sqlalchemy import JSON, Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -104,11 +104,11 @@ class LoRAConfig(BaseModel):
         default=0.8,
         ge=0.0,
         le=2.0,
-        description="LoRA weight (0.0-2.0, typical range 0.5-1.0)"
+        description="LoRA weight (0.0-2.0, typical range 0.5-1.0)",
     )
     trigger_word: Optional[str] = Field(
         default=None,
-        description="Optional trigger word to inject into prompt when using this LoRA"
+        description="Optional trigger word to inject into prompt when using this LoRA",
     )
 
 
@@ -116,87 +116,62 @@ class WeightOverrides(BaseModel):
     """Model weight and parameter overrides for a trigger."""
 
     guidance_scale: Optional[float] = Field(
-        default=None,
-        ge=1.0,
-        le=30.0,
-        description="CFG scale override (typically 5-15)"
+        default=None, ge=1.0, le=30.0, description="CFG scale override (typically 5-15)"
     )
     num_inference_steps: Optional[int] = Field(
-        default=None,
-        ge=1,
-        le=150,
-        description="Number of inference steps override"
+        default=None, ge=1, le=150, description="Number of inference steps override"
     )
     strength: Optional[float] = Field(
-        default=None,
-        ge=0.0,
-        le=1.0,
-        description="Image-to-image strength override"
+        default=None, ge=0.0, le=1.0, description="Image-to-image strength override"
     )
     clip_skip: Optional[int] = Field(
-        default=None,
-        ge=0,
-        le=4,
-        description="CLIP skip layers"
+        default=None, ge=0, le=4, description="CLIP skip layers"
     )
     sampler: Optional[str] = Field(
-        default=None,
-        description="Sampler override (euler, dpm++, etc.)"
+        default=None, description="Sampler override (euler, dpm++, etc.)"
     )
-    scheduler: Optional[str] = Field(
-        default=None,
-        description="Scheduler override"
-    )
+    scheduler: Optional[str] = Field(default=None, description="Scheduler override")
 
 
 class TriggerConfig(BaseModel):
     """Configuration for a single content trigger."""
 
     trigger_phrases: List[str] = Field(
-        default=[],
-        description="List of phrases that activate this trigger"
+        default=[], description="List of phrases that activate this trigger"
     )
     model: Optional[str] = Field(
         default=None,
-        description="Primary model to use when triggered (null = use persona default)"
+        description="Primary model to use when triggered (null = use persona default)",
     )
     loras: List[LoRAConfig] = Field(
-        default=[],
-        description="LoRAs to stack with their weights"
+        default=[], description="LoRAs to stack with their weights"
     )
     positive_prompt: str = Field(
-        default="",
-        description="Additional positive prompt elements to inject"
+        default="", description="Additional positive prompt elements to inject"
     )
     negative_prompt: str = Field(
-        default="",
-        description="Additional negative prompt elements to inject"
+        default="", description="Additional negative prompt elements to inject"
     )
     category: TriggerCategory = Field(
         default=TriggerCategory.CUSTOM,
-        description="Category for trigger classification"
+        description="Category for trigger classification",
     )
     view_type: Optional[str] = Field(
         default=None,
-        description="View type for this trigger (front_headshot, side_profile, full_frontal, etc.)"
+        description="View type for this trigger (front_headshot, side_profile, full_frontal, etc.)",
     )
     weight_overrides: Optional[WeightOverrides] = Field(
-        default=None,
-        description="Model parameter overrides"
+        default=None, description="Model parameter overrides"
     )
     priority: int = Field(
         default=50,
         ge=0,
         le=100,
-        description="Priority for trigger matching (higher = checked first)"
+        description="Priority for trigger matching (higher = checked first)",
     )
-    enabled: bool = Field(
-        default=True,
-        description="Whether this trigger is active"
-    )
+    enabled: bool = Field(default=True, description="Whether this trigger is active")
     description: Optional[str] = Field(
-        default=None,
-        description="Human-readable description of this trigger"
+        default=None, description="Human-readable description of this trigger"
     )
 
 
@@ -204,24 +179,22 @@ class ContentTriggersConfig(BaseModel):
     """Complete content triggers configuration for a persona."""
 
     triggers: Dict[str, TriggerConfig] = Field(
-        default={},
-        description="Map of trigger_id -> TriggerConfig"
+        default={}, description="Map of trigger_id -> TriggerConfig"
     )
     default_positive_prompt: str = Field(
-        default="",
-        description="Default positive prompt to always include"
+        default="", description="Default positive prompt to always include"
     )
     default_negative_prompt: str = Field(
         default="ugly, deformed, bad anatomy, blurry, low quality",
-        description="Default negative prompt to always include"
+        description="Default negative prompt to always include",
     )
     enable_auto_lora_selection: bool = Field(
         default=True,
-        description="Enable automatic LoRA selection based on detected attributes"
+        description="Enable automatic LoRA selection based on detected attributes",
     )
     enable_multi_model_routing: bool = Field(
         default=True,
-        description="Enable routing to different models based on view/pose requirements"
+        description="Enable routing to different models based on view/pose requirements",
     )
 
 
@@ -287,7 +260,7 @@ class PersonaModel(Base):
     default_negative_prompt = Column(
         Text,
         nullable=False,
-        default="ugly, blurry, low quality, distorted, deformed, bad anatomy"
+        default="ugly, blurry, low quality, distorted, deformed, bad anatomy",
     )  # Persona-specific negative prompt for image generation
 
     # ==================== DETAILED PHYSICAL APPEARANCE ====================
@@ -313,9 +286,7 @@ class PersonaModel(Base):
     measurements = Column(
         String(100), nullable=True
     )  # e.g., "34-24-36", "hourglass figure"
-    cup_size = Column(
-        String(20), nullable=True
-    )  # e.g., "A", "B", "C", "D", "DD"
+    cup_size = Column(String(20), nullable=True)  # e.g., "A", "B", "C", "D", "DD"
     muscle_tone = Column(
         String(50), nullable=True
     )  # e.g., "toned", "athletic", "soft", "muscular", "lean"
@@ -489,9 +460,7 @@ class PersonaModel(Base):
     #     "priority": 80
     #   }
     # }
-    content_triggers = Column(
-        JSON, nullable=False, default=lambda: {}
-    )
+    content_triggers = Column(JSON, nullable=False, default=lambda: {})
 
     # Timestamps
     created_at = Column(
@@ -910,7 +879,8 @@ class PersonaUpdate(BaseModel):
         None, description="Status of the base image in the approval workflow"
     )
     image_style: Optional[ImageStyle] = Field(
-        None, description="Image generation style (photorealistic, anime, cartoon, etc.)"
+        None,
+        description="Image generation style (photorealistic, anime, cartoon, etc.)",
     )
     default_negative_prompt: Optional[str] = Field(
         None,
@@ -925,18 +895,28 @@ class PersonaUpdate(BaseModel):
     hair_style: Optional[str] = Field(None, max_length=100, description="Hair style")
     eye_color: Optional[str] = Field(None, max_length=50, description="Eye color")
     skin_tone: Optional[str] = Field(None, max_length=50, description="Skin tone")
-    measurements: Optional[str] = Field(None, max_length=100, description="Body measurements")
+    measurements: Optional[str] = Field(
+        None, max_length=100, description="Body measurements"
+    )
     cup_size: Optional[str] = Field(None, max_length=20, description="Cup size")
     muscle_tone: Optional[str] = Field(None, max_length=50, description="Muscle tone")
     build_type: Optional[str] = Field(None, max_length=50, description="Build type")
     sex: Optional[str] = Field(None, max_length=20, description="Sex")
-    sexual_orientation: Optional[str] = Field(None, max_length=50, description="Sexual orientation")
+    sexual_orientation: Optional[str] = Field(
+        None, max_length=50, description="Sexual orientation"
+    )
     turn_ons: Optional[List[str]] = Field(None, description="Turn-ons for NSFW content")
     turn_offs: Optional[List[str]] = Field(None, description="Turn-offs/boundaries")
-    distinctive_features: Optional[str] = Field(None, max_length=2000, description="Distinctive features")
-    age_appearance: Optional[str] = Field(None, max_length=50, description="Apparent age")
+    distinctive_features: Optional[str] = Field(
+        None, max_length=2000, description="Distinctive features"
+    )
+    age_appearance: Optional[str] = Field(
+        None, max_length=50, description="Apparent age"
+    )
     ethnicity: Optional[str] = Field(None, max_length=100, description="Ethnicity")
-    body_modifications: Optional[List[str]] = Field(None, description="Body modifications")
+    body_modifications: Optional[List[str]] = Field(
+        None, description="Body modifications"
+    )
 
     default_image_resolution: Optional[str] = Field(
         None, description="Default resolution for image generation"
@@ -954,10 +934,18 @@ class PersonaUpdate(BaseModel):
     )
 
     # ==================== AI MODEL PREFERENCES PER GENERATION TYPE ====================
-    text_model_preference: Optional[str] = Field(None, max_length=200, description="Preferred text/chat model")
-    image_model_preference: Optional[str] = Field(None, max_length=200, description="Preferred image generation model")
-    video_model_preference: Optional[str] = Field(None, max_length=200, description="Preferred video generation model")
-    voice_model_preference: Optional[str] = Field(None, max_length=200, description="Preferred voice/TTS model")
+    text_model_preference: Optional[str] = Field(
+        None, max_length=200, description="Preferred text/chat model"
+    )
+    image_model_preference: Optional[str] = Field(
+        None, max_length=200, description="Preferred image generation model"
+    )
+    video_model_preference: Optional[str] = Field(
+        None, max_length=200, description="Preferred video generation model"
+    )
+    voice_model_preference: Optional[str] = Field(
+        None, max_length=200, description="Preferred voice/TTS model"
+    )
 
     # ==================== PERSONA SOUL FIELDS ====================
     # Origin & Demographics (The "Roots")
@@ -1115,7 +1103,9 @@ class PersonaResponse(BaseModel):
     appearance_locked: bool = False
     base_image_status: str = "pending_upload"
     image_style: str = "photorealistic"
-    default_negative_prompt: str = "ugly, blurry, low quality, distorted, deformed, bad anatomy"
+    default_negative_prompt: str = (
+        "ugly, blurry, low quality, distorted, deformed, bad anatomy"
+    )
 
     # ==================== DETAILED PHYSICAL APPEARANCE ====================
     height: Optional[str] = None

@@ -4,36 +4,40 @@ RSS Feed Management API Routes
 Handles RSS feed configuration, ingestion monitoring, and trend analysis.
 """
 
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
-from backend.services.rss_ingestion_service import RSSIngestionService
-from backend.services.proactive_topics_service import get_proactive_topics_service
 from backend.models.feed import (
-    RSSFeedCreate,
-    RSSFeedResponse,
     FeedItemResponse,
+    FeedsByTopicResponse,
     PersonaFeedAssignment,
     PersonaFeedResponse,
-    FeedsByTopicResponse,
+    RSSFeedCreate,
+    RSSFeedResponse,
 )
-from backend.config.logging import get_logger
+from backend.services.proactive_topics_service import get_proactive_topics_service
+from backend.services.rss_ingestion_service import RSSIngestionService
 
 
 # Pydantic models for proactive topics endpoints
 class ProactiveTopicResponse(BaseModel):
     """Response model for a proactive topic."""
-    
+
     title: str = Field(..., description="Topic title or headline")
     summary: str = Field(default="", description="Topic summary or description")
     source: str = Field(..., description="Source type: 'rss' or 'interests'")
-    source_url: str = Field(default=None, description="URL of the source article if from RSS")
-    published_date: str = Field(default=None, description="Publication date if available")
+    source_url: str = Field(
+        default=None, description="URL of the source article if from RSS"
+    )
+    published_date: str = Field(
+        default=None, description="Publication date if available"
+    )
     relevance_score: int = Field(default=50, description="Relevance score 0-100")
     sentiment_score: float = Field(default=0.0, description="Sentiment score -1 to 1")
     categories: List[str] = Field(default_factory=list, description="Topic categories")
@@ -42,20 +46,27 @@ class ProactiveTopicResponse(BaseModel):
 
 class GenerateOpinionRequest(BaseModel):
     """Request model for generating a persona opinion."""
-    
-    topic: str = Field(..., min_length=1, max_length=500, description="Topic title or headline")
-    topic_summary: str = Field(default=None, max_length=2000, description="Optional topic context")
+
+    topic: str = Field(
+        ..., min_length=1, max_length=500, description="Topic title or headline"
+    )
+    topic_summary: str = Field(
+        default=None, max_length=2000, description="Optional topic context"
+    )
     use_ai: bool = Field(default=True, description="Whether to use AI generation")
 
 
 class GenerateOpinionResponse(BaseModel):
     """Response model for a generated persona opinion."""
-    
+
     success: bool = Field(..., description="Whether opinion generation succeeded")
     opinion: str = Field(default=None, description="Generated opinion text")
     topic: str = Field(..., description="The topic discussed")
     topic_summary: str = Field(default=None, description="Topic context provided")
-    sentiment: Any = Field(default="neutral", description="Sentiment analysis result (category or detailed dict)")
+    sentiment: Any = Field(
+        default="neutral",
+        description="Sentiment analysis result (category or detailed dict)",
+    )
     persona_name: str = Field(default=None, description="Name of the persona")
     generated_at: str = Field(default=None, description="Generation timestamp")
     error: str = Field(default=None, description="Error message if failed")
@@ -63,16 +74,20 @@ class GenerateOpinionResponse(BaseModel):
 
 class ProactivePostResponse(BaseModel):
     """Response model for a complete proactive post."""
-    
+
     success: bool = Field(..., description="Whether post generation succeeded")
     topic: Dict[str, Any] = Field(default=None, description="Selected topic details")
     opinion: str = Field(default=None, description="Generated opinion text")
-    sentiment: Any = Field(default="neutral", description="Sentiment analysis result (category or detailed dict)")
+    sentiment: Any = Field(
+        default="neutral",
+        description="Sentiment analysis result (category or detailed dict)",
+    )
     hashtags: List[str] = Field(default_factory=list, description="Generated hashtags")
     persona_name: str = Field(default=None, description="Name of the persona")
     source: str = Field(default=None, description="Topic source type")
     generated_at: str = Field(default=None, description="Generation timestamp")
     error: str = Field(default=None, description="Error message if failed")
+
 
 logger = get_logger(__name__)
 
@@ -610,28 +625,30 @@ async def delete_rss_feed(
 async def get_proactive_topics(
     persona_id: UUID,
     limit: int = Query(default=5, ge=1, le=20, description="Maximum topics to return"),
-    hours_window: int = Query(default=48, ge=1, le=168, description="Time window for RSS items in hours"),
+    hours_window: int = Query(
+        default=48, ge=1, le=168, description="Time window for RSS items in hours"
+    ),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
     Get proactive topics for a persona to discuss.
-    
+
     This endpoint fetches topics from:
     1. RSS feeds assigned to the persona (primary source)
     2. Generated topics based on persona's content_themes (fallback if no feeds)
-    
+
     Use this to get topics the persona can proactively share opinions on,
     instead of waiting for users to initiate conversations.
-    
+
     Args:
         persona_id: UUID of the persona
         limit: Maximum topics to return (1-20)
         hours_window: Time window for RSS items (1-168 hours)
         db: Database session
-        
+
     Returns:
         List[ProactiveTopicResponse]: Topics with metadata for discussion
-        
+
     Raises:
         404: Persona not found
         500: Failed to retrieve topics
@@ -643,10 +660,12 @@ async def get_proactive_topics(
             limit=limit,
             hours_window=hours_window,
         )
-        
-        logger.info(f"Retrieved {len(topics)} proactive topics for persona {persona_id}")
+
+        logger.info(
+            f"Retrieved {len(topics)} proactive topics for persona {persona_id}"
+        )
         return topics
-        
+
     except Exception as e:
         logger.error(f"Failed to get proactive topics for persona {persona_id}: {e}")
         raise HTTPException(
@@ -667,23 +686,23 @@ async def generate_persona_opinion(
 ):
     """
     Generate a persona's opinion on a given topic.
-    
+
     Uses the persona's personality, worldview, and voice to generate
     an authentic, character-consistent opinion on the provided topic.
-    
+
     This enables personas to share proactive content based on:
     - RSS feed articles
     - Trending topics
     - Their interests/content themes
-    
+
     Args:
         persona_id: UUID of the persona
         request: Topic details and generation options
         db: Database session
-        
+
     Returns:
         GenerateOpinionResponse: Generated opinion with sentiment analysis
-        
+
     Raises:
         404: Persona not found
         500: Opinion generation failed
@@ -696,14 +715,18 @@ async def generate_persona_opinion(
             topic_summary=request.topic_summary,
             use_ai=request.use_ai,
         )
-        
+
         if result.get("success"):
-            logger.info(f"Generated opinion for persona {persona_id} on topic: {request.topic[:50]}...")
+            logger.info(
+                f"Generated opinion for persona {persona_id} on topic: {request.topic[:50]}..."
+            )
         else:
-            logger.warning(f"Opinion generation failed for persona {persona_id}: {result.get('error')}")
-        
+            logger.warning(
+                f"Opinion generation failed for persona {persona_id}: {result.get('error')}"
+            )
+
         return GenerateOpinionResponse(**result)
-        
+
     except Exception as e:
         logger.error(f"Failed to generate opinion for persona {persona_id}: {e}")
         raise HTTPException(
@@ -719,28 +742,30 @@ async def generate_persona_opinion(
 )
 async def get_proactive_post(
     persona_id: UUID,
-    use_ai: bool = Query(default=True, description="Whether to use AI for opinion generation"),
+    use_ai: bool = Query(
+        default=True, description="Whether to use AI for opinion generation"
+    ),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
     Generate a complete proactive post for a persona.
-    
+
     This is a convenience endpoint that combines:
     1. Topic selection (from RSS or interests)
     2. Opinion generation
     3. Hashtag generation
-    
+
     Returns content ready for social media posting, enabling personas
     to be proactive instead of only responding to user conversations.
-    
+
     Args:
         persona_id: UUID of the persona
         use_ai: Whether to use AI for generation
         db: Database session
-        
+
     Returns:
         ProactivePostResponse: Complete post content with topic, opinion, hashtags
-        
+
     Raises:
         404: Persona not found
         500: Post generation failed
@@ -751,14 +776,16 @@ async def get_proactive_post(
             persona_id=persona_id,
             use_ai=use_ai,
         )
-        
+
         if result.get("success"):
             logger.info(f"Generated proactive post for persona {persona_id}")
         else:
-            logger.warning(f"Proactive post generation failed for persona {persona_id}: {result.get('error')}")
-        
+            logger.warning(
+                f"Proactive post generation failed for persona {persona_id}: {result.get('error')}"
+            )
+
         return ProactivePostResponse(**result)
-        
+
     except Exception as e:
         logger.error(f"Failed to generate proactive post for persona {persona_id}: {e}")
         raise HTTPException(

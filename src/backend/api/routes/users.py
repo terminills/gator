@@ -6,13 +6,13 @@ Handles user registration, profile management, and preferences.
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
 from backend.models.user import UserCreate, UserResponse, UserUpdate
 from backend.services.user_service import UserService
-from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
 

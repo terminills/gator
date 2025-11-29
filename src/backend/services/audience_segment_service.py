@@ -6,18 +6,18 @@ Business logic for managing audience segments and personalized content.
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.audience_segment import (
     AudienceSegmentModel,
+    PersonalizationStrategy,
     PersonalizedContentModel,
     SegmentMemberModel,
     SegmentStatus,
-    PersonalizationStrategy,
 )
 
 logger = logging.getLogger(__name__)

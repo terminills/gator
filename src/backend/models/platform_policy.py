@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
-from sqlalchemy import Column, String, DateTime, Boolean, JSON, Text
+from sqlalchemy import JSON, Boolean, Column, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
@@ -21,45 +21,41 @@ from backend.models.content import ContentRating
 class PlatformPolicyModel(Base):
     """
     SQLAlchemy model for platform content policies.
-    
+
     Stores content rating rules for each social media platform.
     Allows dynamic updates without code changes when platform rules change.
     """
-    
+
     __tablename__ = "platform_policies"
-    
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    
+
     # Platform identification
     platform_name = Column(String(100), nullable=False, unique=True, index=True)
     platform_display_name = Column(String(255), nullable=False)
     platform_url = Column(String(500), nullable=True)
-    
+
     # Content policy configuration
     allowed_content_ratings = Column(
-        JSON, 
-        nullable=False, 
-        default=list
+        JSON, nullable=False, default=list
     )  # List of allowed ContentRating values: ["sfw", "moderate", "nsfw"]
-    
+
     requires_content_warning = Column(
-        JSON,
-        nullable=False,
-        default=list
+        JSON, nullable=False, default=list
     )  # Ratings that require content warnings: ["moderate", "nsfw"]
-    
+
     requires_age_verification = Column(Boolean, default=False, nullable=False)
     min_age_requirement = Column(String(10), nullable=True)  # e.g., "18+", "13+", "21+"
-    
+
     # Additional metadata
     policy_description = Column(Text, nullable=True)
     policy_url = Column(String(500), nullable=True)  # Link to official platform policy
     last_verified = Column(DateTime(timezone=True), nullable=True)
-    
+
     # Status flags
     is_active = Column(Boolean, default=True, index=True)
     is_verified = Column(Boolean, default=False)  # Has policy been verified recently
-    
+
     # Timestamps
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
@@ -74,47 +70,41 @@ class PlatformPolicyModel(Base):
 
 class PlatformPolicyCreate(BaseModel):
     """API model for creating platform policy."""
-    
+
     platform_name: str = Field(
         min_length=1,
         max_length=100,
-        description="Platform identifier (lowercase, no spaces)"
+        description="Platform identifier (lowercase, no spaces)",
     )
     platform_display_name: str = Field(
-        min_length=1,
-        max_length=255,
-        description="Platform display name"
+        min_length=1, max_length=255, description="Platform display name"
     )
-    platform_url: Optional[str] = Field(default=None, description="Platform website URL")
+    platform_url: Optional[str] = Field(
+        default=None, description="Platform website URL"
+    )
     allowed_content_ratings: List[str] = Field(
-        default=["sfw"],
-        description="List of allowed content ratings"
+        default=["sfw"], description="List of allowed content ratings"
     )
     requires_content_warning: List[str] = Field(
-        default=[],
-        description="Ratings that require content warnings"
+        default=[], description="Ratings that require content warnings"
     )
     requires_age_verification: bool = Field(
-        default=False,
-        description="Whether platform requires age verification"
+        default=False, description="Whether platform requires age verification"
     )
     min_age_requirement: Optional[str] = Field(
-        default=None,
-        description="Minimum age requirement (e.g., '18+', '13+')"
+        default=None, description="Minimum age requirement (e.g., '18+', '13+')"
     )
     policy_description: Optional[str] = Field(
-        default=None,
-        description="Description of platform's content policy"
+        default=None, description="Description of platform's content policy"
     )
     policy_url: Optional[str] = Field(
-        default=None,
-        description="URL to official platform policy"
+        default=None, description="URL to official platform policy"
     )
 
 
 class PlatformPolicyUpdate(BaseModel):
     """API model for updating platform policy."""
-    
+
     platform_display_name: Optional[str] = Field(default=None)
     platform_url: Optional[str] = Field(default=None)
     allowed_content_ratings: Optional[List[str]] = Field(default=None)
@@ -129,7 +119,7 @@ class PlatformPolicyUpdate(BaseModel):
 
 class PlatformPolicyResponse(BaseModel):
     """API model for platform policy responses."""
-    
+
     id: uuid.UUID
     platform_name: str
     platform_display_name: str
@@ -145,7 +135,7 @@ class PlatformPolicyResponse(BaseModel):
     is_verified: bool
     created_at: datetime
     updated_at: datetime
-    
+
     model_config = {"from_attributes": True}
 
 

@@ -4,19 +4,20 @@ Settings API Routes
 Provides endpoints for managing system settings stored in the database.
 """
 
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.connection import get_db_session
-from backend.services.settings_service import SettingsService
-from backend.models.settings import (
-    SettingCreate,
-    SettingUpdate,
-    SettingResponse,
-    SettingCategory,
-)
 from backend.config.logging import get_logger
+from backend.database.connection import get_db_session
+from backend.models.settings import (
+    SettingCategory,
+    SettingCreate,
+    SettingResponse,
+    SettingUpdate,
+)
+from backend.services.settings_service import SettingsService
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -70,8 +71,7 @@ async def get_setting(
     setting = await service.get_setting(key)
     if not setting:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Setting '{key}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Setting '{key}' not found"
         )
     return setting
 
@@ -99,7 +99,7 @@ async def create_setting(
     if not result:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Setting '{setting_data.key}' already exists"
+            detail=f"Setting '{setting_data.key}' already exists",
         )
     return result
 
@@ -128,8 +128,7 @@ async def update_setting(
     result = await service.update_setting(key, setting_data)
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Setting '{key}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Setting '{key}' not found"
         )
     return result
 
@@ -152,8 +151,7 @@ async def delete_setting(
     result = await service.delete_setting(key)
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Setting '{key}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Setting '{key}' not found"
         )
 
 
@@ -188,7 +186,11 @@ async def bulk_update_settings(
                 category = SettingCategory.CLOUD
             elif key.startswith("godaddy_") or "dns" in key.lower():
                 category = SettingCategory.DNS
-            elif "facebook" in key.lower() or "instagram" in key.lower() or "twitter" in key.lower():
+            elif (
+                "facebook" in key.lower()
+                or "instagram" in key.lower()
+                or "twitter" in key.lower()
+            ):
                 category = SettingCategory.SOCIAL_MEDIA
             elif key.startswith("nsfw_") or key in ["civitai_allow_nsfw"]:
                 category = SettingCategory.CONTENT
@@ -199,7 +201,10 @@ async def bulk_update_settings(
                 key=key,
                 category=category,
                 value=value,
-                is_sensitive="api_key" in key.lower() or "secret" in key.lower() or "token" in key.lower() or "password" in key.lower(),
+                is_sensitive="api_key" in key.lower()
+                or "secret" in key.lower()
+                or "token" in key.lower()
+                or "password" in key.lower(),
             )
 
             result = await service.upsert_setting(setting_data)

@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import uvicorn
-from fastapi import FastAPI, Request, Response, Depends, WebSocket
+from fastapi import Depends, FastAPI, Request, Response, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -18,41 +18,42 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.connection import get_db_session
-
-from backend.config.settings import get_settings
-from backend.config.logging import setup_logging
 from backend.api.routes import (
-    public,
-    dns,
-    persona,
-    users,
-    direct_messaging,
-    gator_agent,
-    analytics,
-    content,
-    setup,
-    creator,
-    feeds,
-    social,
-    database_admin,
-    sentiment,
-    interactive,
-    segments,
-    plugins,
-    friend_groups,
-    enhanced_persona,
-    branding,
     acd,
-    diagnostics,
-    settings as settings_routes,
-    system_monitoring,
-    reasoning_orchestrator,
+    analytics,
+    branding,
     civitai,
-    installed_models,
+    content,
+    creator,
+    database_admin,
+    diagnostics,
+    direct_messaging,
+    dns,
+    enhanced_persona,
+    feeds,
+    friend_groups,
+    gator_agent,
     huggingface,
+    installed_models,
+    interactive,
+    persona,
+    plugins,
+    public,
+    reasoning_orchestrator,
+    segments,
+    sentiment,
+)
+from backend.api.routes import settings as settings_routes
+from backend.api.routes import (
+    setup,
+    social,
+    system_monitoring,
+    users,
 )
 from backend.api.websocket import websocket_endpoint
+from backend.config.logging import setup_logging
+from backend.config.settings import get_settings
+from backend.database.connection import get_db_session
 
 # Configure logging
 setup_logging()
@@ -213,11 +214,13 @@ def create_app() -> FastAPI:
         print(f"Mounted content directory: {content_path}")
     else:
         print(f"Warning: Content directory not found: {content_path}")
-    
+
     # Mount base_images directory for persona base images
     base_images_path = "/opt/gator/data/models/base_images"
     if os.path.exists(base_images_path):
-        app.mount("/base_images", StaticFiles(directory=base_images_path), name="base_images")
+        app.mount(
+            "/base_images", StaticFiles(directory=base_images_path), name="base_images"
+        )
         print(f"Mounted base_images directory: {base_images_path}")
     else:
         print(f"Warning: Base images directory not found: {base_images_path}")
@@ -232,7 +235,9 @@ def create_app() -> FastAPI:
     app.include_router(users.router)
     app.include_router(direct_messaging.router)
     app.include_router(gator_agent.router, prefix="/api/v1/gator-agent")
-    app.include_router(gator_agent.router, prefix="/gator-agent")  # Backward compatibility
+    app.include_router(
+        gator_agent.router, prefix="/gator-agent"
+    )  # Backward compatibility
     app.include_router(analytics.router)
     app.include_router(diagnostics.router)
     app.include_router(content.router)
@@ -382,7 +387,9 @@ def create_app() -> FastAPI:
     @app.get("/admin/system-monitoring", tags=["system"])
     async def admin_system_monitoring():
         """Serve system monitoring page for GPU temperature and fan control."""
-        monitoring_path = os.path.join(project_root, "admin_panel", "system-monitoring.html")
+        monitoring_path = os.path.join(
+            project_root, "admin_panel", "system-monitoring.html"
+        )
         if os.path.exists(monitoring_path):
             return FileResponse(monitoring_path)
         return {"error": "System monitoring page not found"}

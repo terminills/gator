@@ -7,28 +7,28 @@ It uses an LLM to evaluate context and decide what to do.
 This is what was missing - the CPU, the brain, the intelligence.
 """
 
-import json
 import asyncio
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, timezone
+import json
 import traceback
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.config.logging import get_logger
 from backend.models.acd import (
+    DOMAIN_COMPATIBILITY,
     ACDContextResponse,
     ACDTraceArtifactModel,
     AIComplexity,
     AIConfidence,
-    AIState,
     AIDomain,
+    AIState,
     AISubdomain,
-    DOMAIN_COMPATIBILITY,
 )
-from backend.services.multi_agent_service import MultiAgentService
 from backend.models.multi_agent import AgentModel, AgentStatus
-from backend.config.logging import get_logger
+from backend.services.multi_agent_service import MultiAgentService
 
 logger = get_logger(__name__)
 
@@ -36,31 +36,32 @@ logger = get_logger(__name__)
 class ReasoningEngine:
     """
     The actual reasoning brain that makes orchestration decisions.
-    
+
     This is NOT a scheduler. This is NOT a task queue.
     This IS a meta-model that reasons over context and decides actions.
     """
-    
+
     def __init__(self, db_session: AsyncSession):
         """
         Initialize reasoning engine.
-        
+
         Args:
             db_session: Database session
         """
         self.db = db_session
         self.multi_agent_service = MultiAgentService(db_session)
-        
+
         # Model configuration
         self.reasoning_model = None
         self.model_available = False
         self._initialize_reasoning_model()
-    
+
     def _initialize_reasoning_model(self):
         """Initialize the reasoning model (LLM)."""
         try:
             # Try to import AI models manager
             from backend.services.ai_models import ai_models
+
             self.reasoning_model = ai_models
             self.model_available = True
             logger.info("🧠 Reasoning engine initialized with AI models")
@@ -68,7 +69,7 @@ class ReasoningEngine:
             logger.warning(f"⚠️ AI models not available for reasoning: {e}")
             logger.warning("Reasoning engine will use rule-based fallback")
             self.model_available = False
-    
+
     async def reason_about_context(
         self,
         context: ACDContextResponse,
@@ -78,15 +79,15 @@ class ReasoningEngine:
     ) -> Dict[str, Any]:
         """
         THE BRAIN - Reason about an ACD context and decide what to do.
-        
+
         This is where actual LLM-based reasoning happens.
-        
+
         Args:
             context: ACD context to reason about
             current_agent: Current agent handling the task
             situation: Situation assessment
             patterns: Learned patterns
-            
+
         Returns:
             Decision dictionary with:
             - decision_type: What action to take
@@ -97,27 +98,31 @@ class ReasoningEngine:
             - learned_patterns: Patterns to apply
             - risk_assessment: Risk evaluation
         """
-        logger.info(f"🧠 Reasoning about context {context.id} (phase={context.ai_phase})")
-        
+        logger.info(
+            f"🧠 Reasoning about context {context.id} (phase={context.ai_phase})"
+        )
+
         # Step 1: Build reasoning prompt
         prompt = await self._build_reasoning_prompt(
             context, current_agent, situation, patterns
         )
-        
+
         # Step 2: Call reasoning model
         if self.model_available:
             decision = await self._call_reasoning_model(prompt, context)
         else:
             # Fallback to rule-based reasoning
-            decision = await self._fallback_reasoning(context, situation, patterns, current_agent)
-        
+            decision = await self._fallback_reasoning(
+                context, situation, patterns, current_agent
+            )
+
         logger.info(
             f"🧠 Reasoning complete: {decision['decision_type']} "
             f"(confidence={decision['confidence']})"
         )
-        
+
         return decision
-    
+
     async def _build_reasoning_prompt(
         self,
         context: ACDContextResponse,
@@ -127,15 +132,15 @@ class ReasoningEngine:
     ) -> str:
         """
         Build a comprehensive prompt for the reasoning model.
-        
+
         This prompt contains everything the model needs to make a decision.
         """
         # Get available agents
         agents = await self._get_available_agents()
-        
+
         # Get trace artifacts (errors)
         trace_artifacts = await self._get_trace_artifacts(context.id)
-        
+
         # Build prompt
         prompt = f"""You are an intelligent orchestration system for AI content generation. Your role is to analyze the current task context and decide the best course of action.
 
@@ -160,7 +165,7 @@ class ReasoningEngine:
 ## Situation Assessment
 
 """
-        
+
         if situation:
             prompt += f"""
 **Has Errors**: {situation.get('has_errors', False)}
@@ -169,12 +174,12 @@ class ReasoningEngine:
 **Is Blocked**: {situation.get('is_blocked', False)}
 **Time Spent**: {situation.get('time_spent_seconds', 0)} seconds
 """
-        
+
         if trace_artifacts:
             prompt += f"\n## Recent Errors\n"
             for artifact in trace_artifacts[:3]:  # Last 3 errors
                 prompt += f"- {artifact.event_type}: {artifact.error_message}\n"
-        
+
         if patterns:
             prompt += f"\n## Learned Patterns from Similar Tasks\n"
             prompt += f"Found {len(patterns)} successful patterns:\n"
@@ -182,7 +187,7 @@ class ReasoningEngine:
                 prompt += f"{i}. Agent: {pattern.get('assigned_to', 'unknown')}, "
                 prompt += f"Strategy: {pattern.get('strategy', 'none')}, "
                 prompt += f"Pattern: {pattern.get('pattern', 'none')}\n"
-        
+
         if agents:
             prompt += f"\n## Available Agents\n"
             for agent in agents[:10]:  # Top 10 agents
@@ -190,7 +195,7 @@ class ReasoningEngine:
                 prompt += f"  Specializations: {agent.specializations or []}\n"
                 prompt += f"  Success Rate: {agent.success_rate * 100:.1f}%\n"
                 prompt += f"  Load: {agent.current_load}/{agent.max_concurrent_tasks}\n"
-        
+
         prompt += """
 
 ## Your Decision
@@ -241,9 +246,9 @@ Provide your decision in JSON format:
 
 Provide ONLY the JSON response, no other text.
 """
-        
+
         return prompt
-    
+
     async def _call_reasoning_model(
         self,
         prompt: str,
@@ -251,17 +256,17 @@ Provide ONLY the JSON response, no other text.
     ) -> Dict[str, Any]:
         """
         Call the reasoning model (LLM) to make a decision.
-        
+
         This is THE BRAIN - where actual AI reasoning happens.
         """
         try:
             logger.info("🧠 Calling reasoning model for decision...")
-            
+
             # Check if we have text generation available
             if not self.reasoning_model:
                 logger.warning("No reasoning model available, using fallback")
                 return await self._fallback_reasoning(context, None, None, None)
-            
+
             # Try to use available text models
             try:
                 # Generate reasoning using text model
@@ -271,54 +276,56 @@ Provide ONLY the JSON response, no other text.
                     temperature=0.3,  # Lower temperature for more deterministic reasoning
                     system_message="You are an intelligent orchestration system that makes decisions about task routing and agent coordination.",
                 )
-                
-                logger.info(f"🧠 Reasoning model response received ({len(response)} chars)")
-                
+
+                logger.info(
+                    f"🧠 Reasoning model response received ({len(response)} chars)"
+                )
+
                 # Parse JSON from response
                 decision = self._parse_reasoning_response(response)
-                
+
                 # Validate and enhance decision
                 decision = self._validate_decision(decision, context)
-                
+
                 return decision
-                
+
             except Exception as e:
                 logger.error(f"Error calling reasoning model: {e}")
                 logger.info("Falling back to rule-based reasoning")
                 return await self._fallback_reasoning(context, None, None, None)
-        
+
         except Exception as e:
             logger.error(f"Error in reasoning model call: {e}")
             return await self._fallback_reasoning(context, None, None, None)
-    
+
     def _parse_reasoning_response(self, response: str) -> Dict[str, Any]:
         """
         Parse the reasoning model's JSON response.
-        
+
         Args:
             response: Raw text response from model
-            
+
         Returns:
             Parsed decision dictionary
         """
         try:
             # Try to find JSON in the response
-            start_idx = response.find('{')
-            end_idx = response.rfind('}') + 1
-            
+            start_idx = response.find("{")
+            end_idx = response.rfind("}") + 1
+
             if start_idx != -1 and end_idx > start_idx:
                 json_str = response[start_idx:end_idx]
                 decision = json.loads(json_str)
-                
+
                 logger.info("✅ Successfully parsed reasoning model JSON")
                 return decision
             else:
                 raise ValueError("No JSON found in response")
-        
+
         except Exception as e:
             logger.error(f"Failed to parse reasoning response: {e}")
             logger.error(f"Response was: {response[:500]}")
-            
+
             # Return a safe default
             return {
                 "decision_type": "REQUEST_REVIEW",
@@ -329,7 +336,7 @@ Provide ONLY the JSON response, no other text.
                 "learned_patterns": [],
                 "risk_assessment": "Unable to assess - parsing failed",
             }
-    
+
     def _validate_decision(
         self,
         decision: Dict[str, Any],
@@ -337,11 +344,11 @@ Provide ONLY the JSON response, no other text.
     ) -> Dict[str, Any]:
         """
         Validate and enhance the reasoning model's decision.
-        
+
         Args:
             decision: Raw decision from model
             context: ACD context
-            
+
         Returns:
             Validated and enhanced decision
         """
@@ -355,16 +362,18 @@ Provide ONLY the JSON response, no other text.
             "RETRY_WITH_LEARNING",
             "DEFER_TO_HUMAN",
         ]
-        
+
         if decision.get("decision_type") not in valid_types:
-            logger.warning(f"Invalid decision type: {decision.get('decision_type')}, defaulting to REQUEST_REVIEW")
+            logger.warning(
+                f"Invalid decision type: {decision.get('decision_type')}, defaulting to REQUEST_REVIEW"
+            )
             decision["decision_type"] = "REQUEST_REVIEW"
-        
+
         # Validate confidence
         valid_confidence = ["VERY_HIGH", "HIGH", "MEDIUM", "LOW", "VERY_LOW"]
         if decision.get("confidence") not in valid_confidence:
             decision["confidence"] = "MEDIUM"
-        
+
         # Ensure required fields exist
         decision.setdefault("reasoning", "No reasoning provided")
         decision.setdefault("target_agent", None)
@@ -372,12 +381,12 @@ Provide ONLY the JSON response, no other text.
         decision.setdefault("learned_patterns", [])
         decision.setdefault("risk_assessment", "Not assessed")
         decision.setdefault("metadata_updates", {})
-        
+
         # Add timestamp
         decision["timestamp"] = datetime.now(timezone.utc).isoformat()
-        
+
         return decision
-    
+
     async def _fallback_reasoning(
         self,
         context: ACDContextResponse,
@@ -387,17 +396,17 @@ Provide ONLY the JSON response, no other text.
     ) -> Dict[str, Any]:
         """
         Fallback rule-based reasoning when LLM is not available.
-        
+
         This is the safety net - simpler but still functional.
         """
         logger.info("🔧 Using rule-based fallback reasoning")
-        
+
         # Extract info
         complexity = context.ai_complexity or "MEDIUM"
         confidence = context.ai_confidence or "UNCERTAIN"
         state = context.ai_state
         has_errors = bool(context.runtime_err or context.compiler_err)
-        
+
         # Calculate scores
         complexity_scores = {"LOW": 0.2, "MEDIUM": 0.5, "HIGH": 0.8, "CRITICAL": 1.0}
         confidence_scores = {
@@ -407,15 +416,15 @@ Provide ONLY the JSON response, no other text.
             "UNCERTAIN": 0.3,
             "EXPERIMENTAL": 0.4,
         }
-        
+
         complexity_score = complexity_scores.get(complexity, 0.5)
         confidence_score = confidence_scores.get(confidence, 0.5)
-        
+
         # Add error penalty
         if has_errors:
             complexity_score = min(complexity_score + 0.2, 1.0)
             confidence_score = max(confidence_score - 0.2, 0.0)
-        
+
         # Decision logic
         if complexity_score >= 0.8 and confidence_score < 0.5:
             return {
@@ -427,29 +436,36 @@ Provide ONLY the JSON response, no other text.
                 "learned_patterns": [],
                 "risk_assessment": "Medium - escalation needed to prevent failure",
             }
-        
+
         elif state == "FAILED" and patterns:
             return {
                 "decision_type": "RETRY_WITH_LEARNING",
                 "reasoning": f"Task failed but {len(patterns)} successful patterns available for retry",
                 "target_agent": current_agent,
                 "confidence": "MEDIUM",
-                "action_plan": {"retry": True, "apply_patterns": True, "strategies": [p.get("strategy") for p in patterns[:3]]},
+                "action_plan": {
+                    "retry": True,
+                    "apply_patterns": True,
+                    "strategies": [p.get("strategy") for p in patterns[:3]],
+                },
                 "learned_patterns": [p.get("strategy", "") for p in patterns[:3]],
                 "risk_assessment": "Low - patterns suggest retry will succeed",
             }
-        
+
         elif confidence_score < 0.5:
             return {
                 "decision_type": "REQUEST_REVIEW",
                 "reasoning": f"Low confidence ({confidence_score:.2f}) requires validation before proceeding",
                 "target_agent": None,
                 "confidence": "MEDIUM",
-                "action_plan": {"request_type": "REQUEST_REVIEW", "reviewer_type": "quality_assurance"},
+                "action_plan": {
+                    "request_type": "REQUEST_REVIEW",
+                    "reviewer_type": "quality_assurance",
+                },
                 "learned_patterns": [],
                 "risk_assessment": "Medium - validation needed to ensure quality",
             }
-        
+
         elif patterns and confidence_score < 0.7:
             # Find best agent from patterns
             agent_counts = {}
@@ -457,32 +473,40 @@ Provide ONLY the JSON response, no other text.
                 agent = pattern.get("assigned_to")
                 if agent and agent != current_agent:
                     agent_counts[agent] = agent_counts.get(agent, 0) + 1
-            
+
             if agent_counts:
                 best_agent = max(agent_counts, key=agent_counts.get)
                 pattern_confidence = agent_counts[best_agent] / len(patterns)
-                
+
                 return {
                     "decision_type": "HANDOFF_SPECIALIZATION",
                     "reasoning": f"Patterns indicate agent '{best_agent}' has {pattern_confidence:.0%} success rate for similar tasks",
                     "target_agent": best_agent,
                     "confidence": "HIGH" if pattern_confidence > 0.6 else "MEDIUM",
-                    "action_plan": {"handoff_type": "SPECIALIZATION", "pattern_confidence": pattern_confidence},
+                    "action_plan": {
+                        "handoff_type": "SPECIALIZATION",
+                        "pattern_confidence": pattern_confidence,
+                    },
                     "learned_patterns": [p.get("strategy", "") for p in patterns[:3]],
                     "risk_assessment": f"Low - {pattern_confidence:.0%} success rate with this agent",
                 }
-        
+
         # Default: execute locally
         return {
             "decision_type": "EXECUTE_LOCALLY",
             "reasoning": f"Confidence ({confidence_score:.2f}) and complexity ({complexity_score:.2f}) acceptable for local execution",
             "target_agent": current_agent,
             "confidence": "HIGH" if confidence_score >= 0.7 else "MEDIUM",
-            "action_plan": {"execute_agent": current_agent or "default", "apply_patterns": bool(patterns)},
-            "learned_patterns": [p.get("strategy", "") for p in patterns[:3]] if patterns else [],
+            "action_plan": {
+                "execute_agent": current_agent or "default",
+                "apply_patterns": bool(patterns),
+            },
+            "learned_patterns": (
+                [p.get("strategy", "") for p in patterns[:3]] if patterns else []
+            ),
             "risk_assessment": "Low - task within capability",
         }
-    
+
     async def _get_available_agents(self) -> List[Any]:
         """Get list of available agents for routing decisions."""
         try:
@@ -493,7 +517,7 @@ Provide ONLY the JSON response, no other text.
         except Exception as e:
             logger.error(f"Error fetching agents: {e}")
             return []
-    
+
     async def _get_trace_artifacts(self, context_id) -> List[Any]:
         """Get trace artifacts (errors) for a context."""
         try:
@@ -509,7 +533,7 @@ Provide ONLY the JSON response, no other text.
         except Exception as e:
             logger.error(f"Error fetching trace artifacts: {e}")
             return []
-    
+
     async def decompose_task(
         self,
         context: ACDContextResponse,
@@ -517,24 +541,24 @@ Provide ONLY the JSON response, no other text.
     ) -> List[Dict[str, Any]]:
         """
         Decompose a complex task into sub-tasks.
-        
+
         Uses the reasoning model to intelligently break down complex tasks
         into manageable sub-tasks.
-        
+
         Args:
             context: ACD context
             decision: Orchestration decision
-            
+
         Returns:
             List of sub-task specifications
         """
         logger.info(f"🔧 Decomposing task {context.id} (phase={context.ai_phase})")
-        
+
         # Only decompose if model is available
         if not self.model_available:
             logger.info("Model not available, skipping decomposition")
             return []
-        
+
         try:
             # Build decomposition prompt
             prompt = f"""You are a task decomposition expert. Break down this complex task into manageable sub-tasks.
@@ -592,7 +616,7 @@ Provide ONLY a JSON array of sub-tasks:
 
 Provide ONLY the JSON array, no other text.
 """
-            
+
             # Call reasoning model for decomposition
             response = await self.reasoning_model.generate_text(
                 prompt=prompt,
@@ -600,25 +624,25 @@ Provide ONLY the JSON array, no other text.
                 temperature=0.4,
                 system_message="You are a task decomposition expert.",
             )
-            
+
             # Parse JSON response
-            start_idx = response.find('[')
-            end_idx = response.rfind(']') + 1
-            
+            start_idx = response.find("[")
+            end_idx = response.rfind("]") + 1
+
             if start_idx != -1 and end_idx > start_idx:
                 json_str = response[start_idx:end_idx]
                 subtasks = json.loads(json_str)
-                
+
                 logger.info(f"✅ Decomposed into {len(subtasks)} sub-tasks")
                 return subtasks
             else:
                 logger.warning("No JSON array found in decomposition response")
                 return []
-        
+
         except Exception as e:
             logger.error(f"Task decomposition failed: {e}")
             return []
-    
+
     def check_domain_compatibility(
         self,
         source_domain: Optional[str],
@@ -626,45 +650,45 @@ Provide ONLY the JSON array, no other text.
     ) -> float:
         """
         Check if two domains are compatible for correlation/handoff.
-        
+
         This prevents noisy correlations by respecting domain boundaries
         (cortical regions).
-        
+
         Args:
             source_domain: Source task domain
             target_domain: Target task domain
-            
+
         Returns:
             Compatibility weight (0.0 = incompatible, 1.0 = same domain)
         """
         if not source_domain or not target_domain:
             return 0.4  # Unknown domains get neutral score
-        
+
         try:
             source = AIDomain(source_domain)
             target = AIDomain(target_domain)
-            
+
             # Same domain = highest compatibility
             if source == target:
                 return 1.0
-            
+
             # Check compatibility matrix
             compatible_domains = DOMAIN_COMPATIBILITY.get(source, [])
-            
+
             if target in compatible_domains:
                 return 0.6  # Compatible but different domains
-            
+
             # Meta-reasoning is compatible with everything
             if source == AIDomain.METAREASONING or target == AIDomain.METAREASONING:
                 return 0.5
-            
+
             # Otherwise incompatible
             return 0.1
-        
+
         except Exception as e:
             logger.error(f"Error checking domain compatibility: {e}")
             return 0.4  # Default neutral
-    
+
     async def evaluate_capability_match(
         self,
         agent_name: str,
@@ -673,14 +697,14 @@ Provide ONLY the JSON array, no other text.
     ) -> float:
         """
         Evaluate how well an agent's capabilities match task requirements.
-        
+
         Now includes domain compatibility checking for better routing.
-        
+
         Args:
             agent_name: Name of agent to evaluate
             task_requirements: Required capabilities
             task_domain: Task domain for domain-aware matching
-            
+
         Returns:
             Match score (0.0-1.0)
         """
@@ -689,27 +713,35 @@ Provide ONLY the JSON array, no other text.
             stmt = select(AgentModel).where(AgentModel.agent_name == agent_name)
             result = await self.db.execute(stmt)
             agent = result.scalar_one_or_none()
-            
+
             if not agent:
                 return 0.0
-            
+
             # Simple capability matching
             agent_caps = set(agent.capabilities or [])
             required_caps = set(task_requirements.get("capabilities", []))
-            
+
             if not required_caps:
                 capability_score = 0.5  # No requirements, neutral match
             else:
                 overlap = len(agent_caps & required_caps)
                 capability_score = overlap / len(required_caps)
-            
+
             # Boost for success rate
             match_score = (capability_score + agent.success_rate) / 2
-            
+
             # Apply domain compatibility weighting
-            if task_domain and hasattr(agent, 'specializations') and agent.specializations:
+            if (
+                task_domain
+                and hasattr(agent, "specializations")
+                and agent.specializations
+            ):
                 # Check if agent's domain matches task domain
-                agent_domains = [s.get('domain') for s in agent.specializations if isinstance(s, dict) and 'domain' in s]
+                agent_domains = [
+                    s.get("domain")
+                    for s in agent.specializations
+                    if isinstance(s, dict) and "domain" in s
+                ]
                 if agent_domains:
                     domain_weights = [
                         self.check_domain_compatibility(task_domain, agent_domain)
@@ -718,9 +750,9 @@ Provide ONLY the JSON array, no other text.
                     max_domain_weight = max(domain_weights) if domain_weights else 0.5
                     # Blend capability match with domain compatibility
                     match_score = (match_score * 0.6) + (max_domain_weight * 0.4)
-            
+
             return min(match_score, 1.0)
-        
+
         except Exception as e:
             logger.error(f"Error evaluating capability match: {e}")
             return 0.5  # Default neutral

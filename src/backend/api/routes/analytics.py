@@ -4,19 +4,19 @@ Analytics API Routes
 Handles performance metrics and analytics data.
 """
 
-from typing import List, Dict, Any
-from datetime import datetime, timedelta, timezone
-import time
 import os
+import time
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
-from backend.database.connection import get_db_session
-from backend.models.persona import PersonaModel
-from backend.models.content import ContentModel
 from backend.config.logging import get_logger
+from backend.database.connection import get_db_session
+from backend.models.content import ContentModel
+from backend.models.persona import PersonaModel
 
 logger = get_logger(__name__)
 
@@ -124,20 +124,21 @@ async def get_system_health(db: AsyncSession = Depends(get_db_session)):
     # Check GPU monitoring status
     try:
         from backend.services.gpu_monitoring_service import get_gpu_monitoring_service
+
         gpu_service = get_gpu_monitoring_service()
         gpu_temps = await gpu_service.get_gpu_temperatures()
-        
+
         if gpu_temps.get("available"):
             health_status["gpu_monitoring"] = "healthy"
             health_status["gpu_count"] = gpu_temps.get("gpu_count", 0)
-            
+
             # Add temperature warnings if any GPU is hot
             max_temp = 0
             for gpu in gpu_temps.get("gpus", []):
                 temp = gpu.get("temperature_c")
                 if temp is not None and temp > max_temp:
                     max_temp = temp
-            
+
             if max_temp >= 85:
                 health_status["gpu_warning"] = f"Critical GPU temperature: {max_temp}°C"
             elif max_temp >= 75:

@@ -7,10 +7,10 @@ with primary support for GoDaddy DNS API integration.
 
 import asyncio
 import json
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Union
-from enum import Enum
 import logging
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Dict, List, Optional, Union
 
 import httpx
 from pydantic import BaseModel, Field
@@ -483,8 +483,8 @@ class DNSService:
         Returns:
             True if DNS has propagated correctly
         """
-        import socket
         import asyncio
+        import socket
 
         start_time = asyncio.get_event_loop().time()
 

@@ -8,13 +8,12 @@ Contains Celery tasks for asynchronous operations including:
 - Analytics processing
 """
 
+from backend.tasks.backup_tasks import cleanup_old_backups, create_automated_backup
 from backend.tasks.social_media_tasks import (
-    publish_scheduled_post,
-    process_scheduled_posts,
     cleanup_old_tasks,
+    process_scheduled_posts,
+    publish_scheduled_post,
 )
-
-from backend.tasks.backup_tasks import create_automated_backup, cleanup_old_backups
 
 __all__ = [
     "publish_scheduled_post",

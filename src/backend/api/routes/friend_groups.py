@@ -5,25 +5,25 @@ API endpoints for managing persona friend groups, interactions,
 and collaborative content like duets and reels.
 """
 
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
 from backend.models.friend_groups import (
-    FriendGroupCreate,
-    FriendGroupUpdate,
-    FriendGroupResponse,
-    PersonaInteractionCreate,
-    PersonaInteractionResponse,
     DuetRequestCreate,
     DuetRequestResponse,
+    FriendGroupCreate,
+    FriendGroupResponse,
+    FriendGroupUpdate,
+    PersonaInteractionCreate,
+    PersonaInteractionResponse,
 )
 from backend.services.friend_groups_service import FriendGroupsService
 from backend.services.reel_generation_service import ReelGenerationService
-from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/friend-groups", tags=["friend-groups"])

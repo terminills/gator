@@ -4,12 +4,13 @@ Setup API Routes
 Provides endpoints for initial system configuration through the admin panel.
 """
 
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from backend.services.setup_service import SetupService, get_setup_service
 from backend.config.logging import get_logger
+from backend.services.setup_service import SetupService, get_setup_service
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/setup", tags=["setup"])
@@ -421,13 +422,13 @@ async def get_ai_models_status() -> Dict[str, Any]:
 
     Returns information about installed models, available models,
     system hardware capabilities, and required dependency versions.
-    
+
     This endpoint now integrates with the AIModelManager to properly
     detect and report loaded models.
     """
     try:
-        import sys
         import subprocess
+        import sys
         from pathlib import Path
 
         # Get system info
@@ -440,31 +441,31 @@ async def get_ai_models_status() -> Dict[str, Any]:
         try:
             sys.path.insert(0, str(Path(__file__).parents[3]))
             from backend.utils.rocm_utils import (
-                detect_rocm_version,
                 check_pytorch_installation,
-                get_pytorch_install_info,
-                get_multi_gpu_config,
+                detect_rocm_version,
                 generate_rocm_env_vars,
+                get_multi_gpu_config,
+                get_pytorch_install_info,
             )
-            
+
             # Get ROCm version
             rocm_version = detect_rocm_version()
             if rocm_version:
                 system_info["rocm_detected"] = True
                 system_info["rocm_version_detected"] = str(rocm_version)
                 system_info["rocm_6_5_plus"] = rocm_version.is_6_5_or_later
-            
+
             # Get PyTorch installation info
             pytorch_info = check_pytorch_installation()
             system_info["gpu_available"] = pytorch_info["gpu_available"]
             system_info["torch_version"] = pytorch_info["version"]
             system_info["torch_installed"] = pytorch_info["installed"]
             system_info["gpu_count"] = pytorch_info["gpu_count"]
-            
+
             if pytorch_info["installed"] and pytorch_info["is_rocm_build"]:
                 system_info["is_rocm_build"] = True
                 system_info["rocm_version"] = pytorch_info["rocm_build_version"]
-            
+
             # Get detailed GPU architecture
             gpu_arch = pytorch_info.get("gpu_architecture", {})
             if gpu_arch.get("devices"):
@@ -472,20 +473,22 @@ async def get_ai_models_status() -> Dict[str, Any]:
                 system_info["gpu_architectures"] = gpu_arch.get("architectures", [])
                 system_info["total_gpu_memory_gb"] = gpu_arch.get("total_memory_gb", 0)
                 system_info["multi_gpu"] = gpu_arch.get("multi_gpu", False)
-                
+
                 # Keep backward compatibility
                 if gpu_arch["devices"]:
                     system_info["gpu_name"] = gpu_arch["devices"][0]["name"]
-            
+
             # Get multi-GPU configuration if applicable
             if system_info.get("gpu_count", 0) > 1:
                 multi_gpu_config = get_multi_gpu_config(system_info["gpu_count"])
                 system_info["multi_gpu_config"] = multi_gpu_config
-            
+
             # Get recommended environment variables
-            env_vars = generate_rocm_env_vars(rocm_version, system_info.get("gpu_count"))
+            env_vars = generate_rocm_env_vars(
+                rocm_version, system_info.get("gpu_count")
+            )
             system_info["recommended_env_vars"] = env_vars
-            
+
         except ImportError:
             # Fallback to legacy GPU detection
             logger.warning("ROCm utilities not available, using legacy detection")
@@ -495,10 +498,10 @@ async def get_ai_models_status() -> Dict[str, Any]:
                 system_info["gpu_available"] = torch.cuda.is_available()
                 system_info["torch_version"] = torch.__version__
                 system_info["torch_installed"] = True
-                
+
                 if torch.cuda.is_available():
                     system_info["gpu_count"] = torch.cuda.device_count()
-                    
+
                     # Get detailed information for all GPUs
                     gpu_devices = []
                     for i in range(torch.cuda.device_count()):
@@ -507,30 +510,36 @@ async def get_ai_models_status() -> Dict[str, Any]:
                             gpu_info = {
                                 "device_id": i,
                                 "name": torch.cuda.get_device_name(i),
-                                "total_memory_gb": round(props.total_memory / (1024 ** 3), 2),
+                                "total_memory_gb": round(
+                                    props.total_memory / (1024**3), 2
+                                ),
                                 "compute_capability": f"{props.major}.{props.minor}",
                                 "multi_processor_count": props.multi_processor_count,
                             }
                             gpu_devices.append(gpu_info)
                         except Exception as e:
                             logger.warning(f"Could not get properties for GPU {i}: {e}")
-                            gpu_devices.append({
-                                "device_id": i,
-                                "name": "Unknown GPU",
-                                "total_memory_gb": 0,
-                                "error": str(e)
-                            })
-                    
+                            gpu_devices.append(
+                                {
+                                    "device_id": i,
+                                    "name": "Unknown GPU",
+                                    "total_memory_gb": 0,
+                                    "error": str(e),
+                                }
+                            )
+
                     system_info["gpu_devices"] = gpu_devices
-                    system_info["gpu_name"] = torch.cuda.get_device_name(0) if gpu_devices else "Unknown"
-                    
+                    system_info["gpu_name"] = (
+                        torch.cuda.get_device_name(0) if gpu_devices else "Unknown"
+                    )
+
                     # Detect ROCm build version
-                    if hasattr(torch.version, 'hip'):
-                        rocm_version = getattr(torch.version, 'hip', None)
+                    if hasattr(torch.version, "hip"):
+                        rocm_version = getattr(torch.version, "hip", None)
                         if rocm_version:
                             system_info["rocm_version"] = rocm_version
                             system_info["is_rocm_build"] = True
-                        
+
             except ImportError:
                 system_info["gpu_available"] = False
                 system_info["torch_installed"] = False
@@ -568,7 +577,7 @@ async def get_ai_models_status() -> Dict[str, Any]:
                 torch_ver_parts = torch_version.split("+")[0].split(".")
                 torch_major = int(torch_ver_parts[0])
                 torch_minor = int(torch_ver_parts[1]) if len(torch_ver_parts) > 1 else 0
-                
+
                 # PyTorch 2.0+ generally requires numpy>=1.21.0
                 # PyTorch 2.9+ is compatible with numpy 1.26.x and 2.x
                 # PyTorch 2.4-2.8 works with numpy 1.24-1.26
@@ -582,8 +591,10 @@ async def get_ai_models_status() -> Dict[str, Any]:
                 elif torch_major == 1:
                     numpy_requirement = ">=1.21.0,<1.27"  # PyTorch 1.x
             except (ValueError, IndexError) as e:
-                logger.warning(f"Could not parse PyTorch version '{torch_version}' for numpy requirement: {e}")
-        
+                logger.warning(
+                    f"Could not parse PyTorch version '{torch_version}' for numpy requirement: {e}"
+                )
+
         required_versions = {
             "torch": "2.3.1+rocm5.7 (for AMD GPUs with MI-25)",
             "torchvision": "0.18.1+rocm5.7",
@@ -627,20 +638,20 @@ async def get_ai_models_status() -> Dict[str, Any]:
         installed_models = []
         loaded_models_count = 0
         total_models_count = 0
-        
+
         try:
             from backend.services.ai_models import ai_models
-            
+
             # Get all available models from AIModelManager
             for category in ["text", "image", "voice", "video", "audio"]:
                 category_models = ai_models.available_models.get(category, [])
                 total_models_count += len(category_models)
-                
+
                 for model in category_models:
                     is_loaded = model.get("loaded", False)
                     if is_loaded:
                         loaded_models_count += 1
-                    
+
                     # Add to installed models list with detailed info
                     model_info = {
                         "name": model.get("name"),
@@ -658,19 +669,23 @@ async def get_ai_models_status() -> Dict[str, Any]:
                         "inference_engine": model.get("inference_engine", ""),
                         "device": model.get("device", "cpu"),
                     }
-                    
+
                     # Add CivitAI-specific fields if present
                     if model.get("source") == "civitai":
                         model_info["base_model"] = model.get("base_model", "")
                         model_info["trained_words"] = model.get("trained_words", [])
                         model_info["nsfw"] = model.get("nsfw", False)
                         model_info["civitai_model_id"] = model.get("civitai_model_id")
-                        model_info["civitai_version_id"] = model.get("civitai_version_id")
-                    
+                        model_info["civitai_version_id"] = model.get(
+                            "civitai_version_id"
+                        )
+
                     installed_models.append(model_info)
-            
-            logger.info(f"Retrieved {loaded_models_count}/{total_models_count} loaded models from AIModelManager")
-            
+
+            logger.info(
+                f"Retrieved {loaded_models_count}/{total_models_count} loaded models from AIModelManager"
+            )
+
         except Exception as e:
             logger.warning(f"Could not get models from AIModelManager: {e}")
             # Fallback to filesystem detection
@@ -686,20 +701,28 @@ async def get_ai_models_status() -> Dict[str, Any]:
                             if model_path.is_dir():
                                 # Get model size
                                 try:
-                                    total_size = sum(f.stat().st_size for f in model_path.rglob('*') if f.is_file())
-                                    size_gb = round(total_size / (1024 ** 3), 2)
+                                    total_size = sum(
+                                        f.stat().st_size
+                                        for f in model_path.rglob("*")
+                                        if f.is_file()
+                                    )
+                                    size_gb = round(total_size / (1024**3), 2)
                                 except Exception:
                                     size_gb = 0
-                                
+
                                 # Check if model has required files
                                 has_config = (model_path / "config.json").exists()
-                                has_model_files = any(model_path.glob("*.safetensors")) or any(model_path.glob("*.bin")) or any(model_path.glob("*.pt"))
+                                has_model_files = (
+                                    any(model_path.glob("*.safetensors"))
+                                    or any(model_path.glob("*.bin"))
+                                    or any(model_path.glob("*.pt"))
+                                )
                                 is_valid = has_config or has_model_files
-                                
+
                                 total_models_count += 1
                                 if is_valid:
                                     loaded_models_count += 1
-                                
+
                                 installed_models.append(
                                     {
                                         "name": model_path.name,
@@ -751,7 +774,7 @@ async def get_ai_models_status() -> Dict[str, Any]:
         # Path calculation: __file__ -> routes/ -> api/ -> backend/ -> src/ -> project_root
         project_root = Path(__file__).parents[4]
         setup_script = project_root / "setup_ai_models.py"
-        
+
         # Check models directory for backward compatibility
         models_dir = Path("./models")
 
@@ -760,7 +783,9 @@ async def get_ai_models_status() -> Dict[str, Any]:
             "installed_versions": installed_versions,
             "required_versions": required_versions,
             "compatibility_note": "PyTorch 2.3.1 is the latest version compatible with AMD MI-25 GPUs (ROCm 5.7)",
-            "models_directory": str(models_dir.absolute()) if models_dir.exists() else None,
+            "models_directory": (
+                str(models_dir.absolute()) if models_dir.exists() else None
+            ),
             "installed_models": installed_models,
             "loaded_models_count": loaded_models_count,
             "total_models_count": total_models_count,
@@ -785,9 +810,9 @@ async def analyze_system_for_models() -> Dict[str, Any]:
     which models can be installed on the current system.
     """
     try:
+        import os
         import subprocess
         import sys
-        import os
         from pathlib import Path
 
         # Get project root (setup script is in project root, not src)
@@ -877,18 +902,18 @@ async def browse_civitai_models(
 ) -> Dict[str, Any]:
     """
     Browse popular models from CivitAI for easy installation.
-    
+
     Returns a curated list of models suitable for the AI models setup page.
     """
     try:
-        from backend.utils.civitai_utils import CivitAIClient, CivitAIModelType
         from backend.services.settings_service import get_db_setting
-        
+        from backend.utils.civitai_utils import CivitAIClient, CivitAIModelType
+
         # Get CivitAI API key from database settings
         api_key = await get_db_setting("civitai_api_key")
-        
+
         client = CivitAIClient(api_key=api_key)
-        
+
         # Convert model type string to enum if provided
         type_filter = None
         if model_type:
@@ -896,7 +921,7 @@ async def browse_civitai_models(
                 type_filter = [CivitAIModelType(model_type)]
             except ValueError:
                 logger.warning(f"Invalid CivitAI model type: {model_type}")
-        
+
         # Get models from CivitAI
         result = await client.list_models(
             limit=limit,
@@ -906,7 +931,7 @@ async def browse_civitai_models(
             period="Month",
             nsfw=False,  # Always false for setup page
         )
-        
+
         # Transform models into setup-friendly format
         models = []
         for item in result.get("items", []):
@@ -914,43 +939,49 @@ async def browse_civitai_models(
             versions = item.get("modelVersions", [])
             if not versions:
                 continue
-            
+
             latest_version = versions[0]
             files = latest_version.get("files", [])
             if not files:
                 continue
-            
+
             primary_file = files[0]
             size_kb = primary_file.get("sizeKB", 0)
             KB_TO_GB = 1024 * 1024  # KB to GB conversion factor
             size_gb = round(size_kb / KB_TO_GB, 2)
-            
-            models.append({
-                "id": item.get("id"),
-                "name": item.get("name"),
-                "type": item.get("type"),
-                "description": (item.get("description", "")[:150] + "...") if item.get("description") else "No description",
-                "version_id": latest_version.get("id"),
-                "version_name": latest_version.get("name"),
-                "size_gb": size_gb,
-                "creator": item.get("creator", {}).get("username", "Unknown"),
-                "stats": {
-                    "downloads": item.get("stats", {}).get("downloadCount", 0),
-                    "rating": item.get("stats", {}).get("rating", 0),
-                    "favorites": item.get("stats", {}).get("favoriteCount", 0),
-                },
-                "base_model": latest_version.get("baseModel", "Unknown"),
-                "download_url": f"/api/v1/civitai/download",
-                "nsfw": item.get("nsfw", False),
-            })
-        
+
+            models.append(
+                {
+                    "id": item.get("id"),
+                    "name": item.get("name"),
+                    "type": item.get("type"),
+                    "description": (
+                        (item.get("description", "")[:150] + "...")
+                        if item.get("description")
+                        else "No description"
+                    ),
+                    "version_id": latest_version.get("id"),
+                    "version_name": latest_version.get("name"),
+                    "size_gb": size_gb,
+                    "creator": item.get("creator", {}).get("username", "Unknown"),
+                    "stats": {
+                        "downloads": item.get("stats", {}).get("downloadCount", 0),
+                        "rating": item.get("stats", {}).get("rating", 0),
+                        "favorites": item.get("stats", {}).get("favoriteCount", 0),
+                    },
+                    "base_model": latest_version.get("baseModel", "Unknown"),
+                    "download_url": f"/api/v1/civitai/download",
+                    "nsfw": item.get("nsfw", False),
+                }
+            )
+
         return {
             "success": True,
             "models": models,
             "source": "civitai",
             "total": len(models),
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to browse CivitAI models: {str(e)}")
         return {
@@ -1050,8 +1081,8 @@ async def enable_model(request: ModelEnableRequest) -> Dict[str, Any]:
     Updates the model configuration to mark it as enabled or disabled for use.
     """
     try:
-        from pathlib import Path
         import json
+        from pathlib import Path
 
         models_dir = Path("./models")
         config_path = models_dir / "model_config.json"
@@ -1097,7 +1128,9 @@ class ModelUninstallRequest(BaseModel):
     """Request to uninstall an AI model."""
 
     model_name: str = Field(..., description="Model name")
-    model_category: str = Field("text", description="Model category (text, image, voice)")
+    model_category: str = Field(
+        "text", description="Model category (text, image, voice)"
+    )
 
 
 @router.post("/ai-models/uninstall")
@@ -1117,7 +1150,7 @@ async def uninstall_model(request: ModelUninstallRequest) -> Dict[str, Any]:
         if not model_path.exists():
             raise HTTPException(
                 status_code=404,
-                detail=f"Model {request.model_name} not found in {request.model_category}"
+                detail=f"Model {request.model_name} not found in {request.model_category}",
             )
 
         # Remove model directory
@@ -1128,13 +1161,17 @@ async def uninstall_model(request: ModelUninstallRequest) -> Dict[str, Any]:
         config_path = models_dir / "model_config.json"
         if config_path.exists():
             import json
+
             with open(config_path, "r") as f:
                 config = json.load(f)
-            
+
             # Remove from enabled models if present
-            if "enabled_models" in config and request.model_name in config["enabled_models"]:
+            if (
+                "enabled_models" in config
+                and request.model_name in config["enabled_models"]
+            ):
                 del config["enabled_models"][request.model_name]
-            
+
             with open(config_path, "w") as f:
                 json.dump(config, f, indent=2)
 
@@ -1166,10 +1203,10 @@ async def fix_dependencies() -> Dict[str, Any]:
     numpy, and other dependencies.
     """
     try:
+        import re
         import subprocess
         import sys
         from pathlib import Path
-        import re
 
         logger.info(
             "Starting dependency fix installation (excluding torch/torchvision)"
@@ -1287,41 +1324,40 @@ async def fix_dependencies() -> Dict[str, Any]:
 async def get_inference_engines_status() -> Dict[str, Any]:
     """
     Get status of all inference engines (vLLM, llama.cpp, ComfyUI, Automatic1111, etc.).
-    
+
     Returns information about which inference engines are installed and their versions.
     This helps users verify that engines installed via setup scripts are properly detected.
     """
     try:
         import sys
         from pathlib import Path
-        
+
         # Add backend utilities to path
         backend_path = Path(__file__).parent.parent.parent
         if str(backend_path) not in sys.path:
             sys.path.insert(0, str(backend_path))
-        
+
         from utils.model_detection import get_inference_engines_status
-        
+
         # Get project root for base_dir
         project_root = Path(__file__).parents[4]
-        
+
         engines_status = get_inference_engines_status(base_dir=project_root)
-        
+
         # Group engines by category
         by_category = {}
         for engine_id, engine_info in engines_status.items():
             category = engine_info.get("category", "other")
             if category not in by_category:
                 by_category[category] = []
-            by_category[category].append({
-                "id": engine_id,
-                **engine_info
-            })
-        
+            by_category[category].append({"id": engine_id, **engine_info})
+
         # Count installed vs not installed
-        installed_count = sum(1 for e in engines_status.values() if e.get("status") == "installed")
+        installed_count = sum(
+            1 for e in engines_status.values() if e.get("status") == "installed"
+        )
         total_count = len(engines_status)
-        
+
         return {
             "success": True,
             "engines": engines_status,
@@ -1329,10 +1365,10 @@ async def get_inference_engines_status() -> Dict[str, Any]:
             "summary": {
                 "installed": installed_count,
                 "not_installed": total_count - installed_count,
-                "total": total_count
-            }
+                "total": total_count,
+            },
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to get inference engines status: {e}")
         raise HTTPException(
@@ -1343,16 +1379,20 @@ async def get_inference_engines_status() -> Dict[str, Any]:
 
 class InferenceEngineInstallRequest(BaseModel):
     """Request to install an inference engine."""
-    
+
     engine_name: str = Field(..., description="Engine name (vllm, comfyui, llama-cpp)")
-    install_path: Optional[str] = Field(None, description="Optional custom installation path")
+    install_path: Optional[str] = Field(
+        None, description="Optional custom installation path"
+    )
 
 
 @router.post("/inference-engines/install")
-async def install_inference_engine(request: InferenceEngineInstallRequest) -> Dict[str, Any]:
+async def install_inference_engine(
+    request: InferenceEngineInstallRequest,
+) -> Dict[str, Any]:
     """
     Install an inference engine using the appropriate installation script.
-    
+
     Triggers installation of vLLM, ComfyUI, or other inference engines using
     the scripts in the scripts/ directory.
     """
@@ -1360,10 +1400,10 @@ async def install_inference_engine(request: InferenceEngineInstallRequest) -> Di
         import subprocess
         import sys
         from pathlib import Path
-        
+
         project_root = Path(__file__).parents[4]
         scripts_dir = project_root / "scripts"
-        
+
         # Map engine names to installation scripts
         script_map = {
             "vllm": "install_vllm_rocm.sh",
@@ -1371,31 +1411,31 @@ async def install_inference_engine(request: InferenceEngineInstallRequest) -> Di
             "comfyui": "install_comfyui_rocm.sh",
             "comfyui-rocm": "install_comfyui_rocm.sh",
         }
-        
+
         engine_name = request.engine_name.lower()
-        
+
         if engine_name not in script_map:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported engine: {engine_name}. Supported engines: {', '.join(script_map.keys())}"
+                detail=f"Unsupported engine: {engine_name}. Supported engines: {', '.join(script_map.keys())}",
             )
-        
+
         script_name = script_map[engine_name]
         script_path = scripts_dir / script_name
-        
+
         if not script_path.exists():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Installation script not found: {script_path}"
+                detail=f"Installation script not found: {script_path}",
             )
-        
+
         logger.info(f"Starting installation of {engine_name}...")
-        
+
         # Build command
         cmd = ["bash", str(script_path)]
         if request.install_path:
             cmd.append(request.install_path)
-        
+
         # Run installation script
         # This can take a long time (10-30 minutes for compilation)
         result = subprocess.run(
@@ -1403,9 +1443,9 @@ async def install_inference_engine(request: InferenceEngineInstallRequest) -> Di
             capture_output=True,
             text=True,
             timeout=1800,  # 30 minutes timeout
-            cwd=str(project_root)
+            cwd=str(project_root),
         )
-        
+
         response = {
             "success": result.returncode == 0,
             "message": (
@@ -1419,18 +1459,20 @@ async def install_inference_engine(request: InferenceEngineInstallRequest) -> Di
             "stderr": result.stderr,
             "return_code": result.returncode,
         }
-        
+
         if result.returncode == 0:
             logger.info(f"Inference engine {engine_name} installed successfully")
         else:
-            logger.warning(f"Inference engine {engine_name} installation failed with code {result.returncode}")
-        
+            logger.warning(
+                f"Inference engine {engine_name} installation failed with code {result.returncode}"
+            )
+
         return response
-        
+
     except subprocess.TimeoutExpired:
         raise HTTPException(
             status_code=status.HTTP_408_REQUEST_TIMEOUT,
-            detail=f"Installation of {request.engine_name} timed out (>30 minutes). Check logs for status."
+            detail=f"Installation of {request.engine_name} timed out (>30 minutes). Check logs for status.",
         )
     except HTTPException:
         raise
@@ -1446,18 +1488,18 @@ async def install_inference_engine(request: InferenceEngineInstallRequest) -> Di
 async def check_dependencies_health() -> Dict[str, Any]:
     """
     Comprehensive health check for all AI model dependencies.
-    
+
     Validates that all required dependencies are installed and functional.
     This helps identify missing or incompatible packages before attempting
     content generation.
-    
+
     Returns:
         Dict with health status for each dependency category
     """
     try:
         import sys
         from pathlib import Path
-        
+
         health_status = {
             "overall_status": "healthy",
             "dependencies": {},
@@ -1466,7 +1508,7 @@ async def check_dependencies_health() -> Dict[str, Any]:
             "issues": [],
             "warnings": [],
         }
-        
+
         # Check Python packages
         required_packages = {
             "core": [
@@ -1477,7 +1519,7 @@ async def check_dependencies_health() -> Dict[str, Any]:
             ],
             "ml": [
                 "torch",
-                "torchvision", 
+                "torchvision",
                 "diffusers",
                 "transformers",
                 "accelerate",
@@ -1489,7 +1531,7 @@ async def check_dependencies_health() -> Dict[str, Any]:
                 "opencv-python",
             ],
         }
-        
+
         for category, packages in required_packages.items():
             for package in packages:
                 try:
@@ -1515,13 +1557,13 @@ async def check_dependencies_health() -> Dict[str, Any]:
                         health_status["warnings"].append(
                             f"Optional package '{package}' is not installed"
                         )
-        
+
         # Check inference engines
         from backend.utils.model_detection import get_inference_engines_status
-        
+
         project_root = Path(__file__).parents[4]
         engines_status = get_inference_engines_status(base_dir=project_root)
-        
+
         for engine_id, engine_info in engines_status.items():
             health_status["inference_engines"][engine_id] = {
                 "name": engine_info.get("name"),
@@ -1529,53 +1571,57 @@ async def check_dependencies_health() -> Dict[str, Any]:
                 "category": engine_info.get("category"),
             }
             if engine_info.get("version"):
-                health_status["inference_engines"][engine_id]["version"] = engine_info["version"]
+                health_status["inference_engines"][engine_id]["version"] = engine_info[
+                    "version"
+                ]
             if engine_info.get("path"):
-                health_status["inference_engines"][engine_id]["path"] = engine_info["path"]
-        
+                health_status["inference_engines"][engine_id]["path"] = engine_info[
+                    "path"
+                ]
+
         # Check AI models availability
         try:
             from backend.services.ai_models import ai_models
-            
+
             if ai_models.models_loaded:
                 for category in ["text", "image", "voice", "video"]:
                     category_models = ai_models.available_models.get(category, [])
-                    loaded_count = len([m for m in category_models if m.get("loaded", False)])
+                    loaded_count = len(
+                        [m for m in category_models if m.get("loaded", False)]
+                    )
                     total_count = len(category_models)
-                    
+
                     health_status["ai_models"][category] = {
                         "loaded": loaded_count,
                         "total": total_count,
                         "status": "ready" if loaded_count > 0 else "no_models",
                     }
-                    
+
                     if total_count > 0 and loaded_count == 0:
                         health_status["warnings"].append(
                             f"No {category} models are loaded despite being available"
                         )
             else:
                 health_status["ai_models"]["status"] = "not_initialized"
-                health_status["warnings"].append(
-                    "AI models manager not initialized"
-                )
-                
+                health_status["warnings"].append("AI models manager not initialized")
+
         except Exception as e:
             health_status["ai_models"]["status"] = "error"
             health_status["ai_models"]["error"] = str(e)
             health_status["issues"].append(f"AI models check failed: {str(e)}")
             health_status["overall_status"] = "degraded"
-        
+
         # Set overall status based on issues
         if health_status["issues"]:
             if health_status["overall_status"] == "healthy":
                 health_status["overall_status"] = "degraded"
-        
+
         logger.info(
             f"Dependencies health check completed: {health_status['overall_status']}"
         )
-        
+
         return health_status
-        
+
     except Exception as e:
         logger.error(f"Failed to check dependencies health: {e}")
         raise HTTPException(
@@ -1588,20 +1634,21 @@ async def check_dependencies_health() -> Dict[str, Any]:
 async def warm_up_models() -> Dict[str, Any]:
     """
     Warm up AI models for faster first request.
-    
+
     Loads and initializes AI models if not already loaded, reducing
     latency on the first content generation request. This is useful
     after application startup or when models have been unloaded.
-    
+
     Returns:
         Dict with warm-up results and timing information
     """
     try:
         import time
+
         from backend.services.ai_models import ai_models
-        
+
         start_time = time.time()
-        
+
         # Check if already loaded
         if ai_models.models_loaded:
             return {
@@ -1610,27 +1657,27 @@ async def warm_up_models() -> Dict[str, Any]:
                 "models_loaded": True,
                 "elapsed_time_seconds": 0,
             }
-        
+
         # Initialize models
         logger.info("Starting AI models warm-up...")
         await ai_models.initialize_models()
-        
+
         elapsed_time = time.time() - start_time
-        
+
         # Count loaded models
         loaded_counts = {}
         for category in ["text", "image", "voice", "video"]:
             category_models = ai_models.available_models.get(category, [])
             loaded_count = len([m for m in category_models if m.get("loaded", False)])
             loaded_counts[category] = loaded_count
-        
+
         total_loaded = sum(loaded_counts.values())
-        
+
         logger.info(
             f"AI models warm-up completed in {elapsed_time:.2f}s. "
             f"Loaded {total_loaded} models."
         )
-        
+
         return {
             "status": "success",
             "message": f"AI models warmed up successfully in {elapsed_time:.2f}s",
@@ -1639,7 +1686,7 @@ async def warm_up_models() -> Dict[str, Any]:
             "loaded_counts": loaded_counts,
             "total_loaded": total_loaded,
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to warm up AI models: {e}")
         raise HTTPException(
@@ -1652,19 +1699,20 @@ async def warm_up_models() -> Dict[str, Any]:
 async def get_model_telemetry() -> Dict[str, Any]:
     """
     Get telemetry data for AI model usage.
-    
+
     Tracks which models are actually being used in production,
     helping identify unused models and optimization opportunities.
-    
+
     Returns:
         Dict with usage statistics for each model
     """
     try:
-        from backend.services.ai_models import ai_models
-        from sqlalchemy.ext.asyncio import AsyncSession
-        from backend.database.connection import get_db_session
         from fastapi import Depends
-        
+        from sqlalchemy.ext.asyncio import AsyncSession
+
+        from backend.database.connection import get_db_session
+        from backend.services.ai_models import ai_models
+
         telemetry = {
             "models": {},
             "summary": {
@@ -1675,15 +1723,15 @@ async def get_model_telemetry() -> Dict[str, Any]:
             },
             "recommendations": [],
         }
-        
+
         # Get model availability from AIModelManager
         for category in ["text", "image", "voice", "video"]:
             category_models = ai_models.available_models.get(category, [])
-            
+
             for model in category_models:
                 model_name = model.get("name")
                 is_loaded = model.get("loaded", False)
-                
+
                 telemetry["models"][model_name] = {
                     "category": category,
                     "provider": model.get("provider", "unknown"),
@@ -1695,39 +1743,41 @@ async def get_model_telemetry() -> Dict[str, Any]:
                     "usage_count": 0,  # Placeholder
                     "last_used": None,  # Placeholder
                 }
-                
+
                 telemetry["summary"]["total_models"] += 1
                 if is_loaded:
                     telemetry["summary"]["loaded_models"] += 1
-        
+
         # Generate recommendations based on telemetry
         for model_name, model_data in telemetry["models"].items():
             if model_data["loaded"] and model_data["usage_count"] == 0:
-                telemetry["recommendations"].append({
-                    "model": model_name,
-                    "recommendation": "Consider unloading this model to free up resources",
-                    "reason": "Model is loaded but has not been used",
-                })
+                telemetry["recommendations"].append(
+                    {
+                        "model": model_name,
+                        "recommendation": "Consider unloading this model to free up resources",
+                        "reason": "Model is loaded but has not been used",
+                    }
+                )
             elif not model_data["loaded"] and model_data["usage_count"] > 0:
-                telemetry["recommendations"].append({
-                    "model": model_name,
-                    "recommendation": "Consider loading this model for better performance",
-                    "reason": "Model is being used but requires loading on each request",
-                })
-        
-        telemetry["summary"]["used_models"] = len([
-            m for m in telemetry["models"].values() 
-            if m["usage_count"] > 0
-        ])
-        telemetry["summary"]["unused_models"] = (
-            telemetry["summary"]["total_models"] - 
-            telemetry["summary"]["used_models"]
+                telemetry["recommendations"].append(
+                    {
+                        "model": model_name,
+                        "recommendation": "Consider loading this model for better performance",
+                        "reason": "Model is being used but requires loading on each request",
+                    }
+                )
+
+        telemetry["summary"]["used_models"] = len(
+            [m for m in telemetry["models"].values() if m["usage_count"] > 0]
         )
-        
+        telemetry["summary"]["unused_models"] = (
+            telemetry["summary"]["total_models"] - telemetry["summary"]["used_models"]
+        )
+
         logger.info("Model telemetry retrieved successfully")
-        
+
         return telemetry
-        
+
     except Exception as e:
         logger.error(f"Failed to get model telemetry: {e}")
         raise HTTPException(
@@ -1740,33 +1790,34 @@ async def get_model_telemetry() -> Dict[str, Any]:
 async def check_diffusers_health() -> Dict[str, Any]:
     """
     Check diffusers library health and detect CUDA/ROCm compatibility issues.
-    
+
     This endpoint performs a comprehensive health check of the diffusers library,
     detecting common issues like xFormers CUDA incompatibility on ROCm systems.
-    
+
     Common issues detected:
     - xFormers built for CUDA but system uses ROCm
     - Missing CUDA runtime libraries (libcudart.so.12)
     - Incompatible PyTorch versions
-    
+
     Returns:
         Dict with health status, issues found, and repair recommendations
     """
     try:
         from backend.utils.model_detection import check_diffusers_health
-        
+
         health = check_diffusers_health()
-        
+
         # Add system context
         health["system_context"] = {}
-        
+
         # Check if using ROCm
         try:
             import torch
-            if hasattr(torch.version, 'hip') and torch.version.hip:
+
+            if hasattr(torch.version, "hip") and torch.version.hip:
                 health["system_context"]["gpu_backend"] = "rocm"
                 health["system_context"]["rocm_version"] = torch.version.hip
-                
+
                 # If xFormers is installed on ROCm, it's likely causing issues
                 if health.get("xformers_installed") and not health.get("healthy"):
                     health["likely_cause"] = (
@@ -1777,18 +1828,15 @@ async def check_diffusers_health() -> Dict[str, Any]:
                 health["system_context"]["gpu_backend"] = "cuda"
             else:
                 health["system_context"]["gpu_backend"] = "cpu"
-                
+
             health["system_context"]["torch_version"] = torch.__version__
         except ImportError:
             health["system_context"]["torch_installed"] = False
-        
+
         logger.info(f"Diffusers health check: healthy={health.get('healthy', False)}")
-        
-        return {
-            "success": True,
-            **health
-        }
-        
+
+        return {"success": True, **health}
+
     except Exception as e:
         logger.error(f"Failed to check diffusers health: {e}")
         raise HTTPException(
@@ -1801,27 +1849,30 @@ async def check_diffusers_health() -> Dict[str, Any]:
 async def repair_diffusers_issues() -> Dict[str, Any]:
     """
     Attempt to automatically repair diffusers/xFormers compatibility issues.
-    
+
     This endpoint detects issues like xFormers CUDA incompatibility on ROCm systems
     and attempts to fix them by uninstalling incompatible packages.
-    
+
     Common repairs:
     - Uninstall xFormers if it's causing CUDA library errors on ROCm
     - Reinstall diffusers if corrupted
-    
+
     NOTE: This may take several minutes as it runs pip commands.
-    
+
     Returns:
         Dict with repair results and actions taken
     """
     try:
-        from backend.utils.model_detection import auto_repair_diffusers_issues, check_diffusers_health
-        
+        from backend.utils.model_detection import (
+            auto_repair_diffusers_issues,
+            check_diffusers_health,
+        )
+
         logger.info("Starting diffusers auto-repair...")
-        
+
         # Get health status before repair
         health_before = check_diffusers_health()
-        
+
         if health_before.get("healthy"):
             return {
                 "success": True,
@@ -1829,19 +1880,20 @@ async def repair_diffusers_issues() -> Dict[str, Any]:
                 "health_before": health_before,
                 "actions_taken": [],
             }
-        
+
         # Attempt repairs
         repair_results = auto_repair_diffusers_issues()
-        
+
         logger.info(
             f"Diffusers repair completed: success={repair_results.get('success', False)}, "
             f"actions={len(repair_results.get('actions_taken', []))}"
         )
-        
+
         return {
             "success": repair_results.get("success", False),
             "message": (
-                "Repair completed successfully" if repair_results.get("success")
+                "Repair completed successfully"
+                if repair_results.get("success")
                 else "Repair attempted but some issues may remain"
             ),
             "health_before": health_before,
@@ -1850,7 +1902,7 @@ async def repair_diffusers_issues() -> Dict[str, Any]:
             "errors": repair_results.get("errors", []),
             "restart_recommended": repair_results.get("success", False),
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to repair diffusers: {e}")
         raise HTTPException(
@@ -1863,61 +1915,67 @@ async def repair_diffusers_issues() -> Dict[str, Any]:
 async def get_xformers_status() -> Dict[str, Any]:
     """
     Get xFormers installation status and compatibility information.
-    
+
     xFormers provides memory-efficient attention implementations but is built
     specifically for CUDA (NVIDIA GPUs). On ROCm (AMD GPUs), it can cause import
     failures and should be uninstalled.
-    
+
     Returns:
         Dict with xFormers status, compatibility, and recommendations
     """
     try:
         from backend.utils.model_detection import _check_xformers_compatibility
-        
+
         status = _check_xformers_compatibility()
-        
+
         # Add recommendations based on status
         recommendations = []
-        
+
         if status.get("installed"):
             # Check if system uses ROCm
             try:
                 import torch
-                is_rocm = hasattr(torch.version, 'hip') and torch.version.hip
-                
+
+                is_rocm = hasattr(torch.version, "hip") and torch.version.hip
+
                 if is_rocm:
-                    recommendations.append({
-                        "severity": "warning",
-                        "message": "xFormers is installed but this system uses ROCm (AMD GPUs)",
-                        "action": "Consider uninstalling xFormers: pip uninstall xformers",
-                        "reason": "xFormers is designed for CUDA and may cause import failures on ROCm systems",
-                    })
+                    recommendations.append(
+                        {
+                            "severity": "warning",
+                            "message": "xFormers is installed but this system uses ROCm (AMD GPUs)",
+                            "action": "Consider uninstalling xFormers: pip uninstall xformers",
+                            "reason": "xFormers is designed for CUDA and may cause import failures on ROCm systems",
+                        }
+                    )
                     status["rocm_warning"] = True
-                    
+
                 if status.get("incompatible") or status.get("cuda_mismatch"):
-                    recommendations.append({
-                        "severity": "error",
-                        "message": "xFormers is incompatible with your system",
-                        "action": "Uninstall xFormers: pip uninstall xformers -y",
-                        "reason": status.get("error", "CUDA/ROCm compatibility issue"),
-                    })
+                    recommendations.append(
+                        {
+                            "severity": "error",
+                            "message": "xFormers is incompatible with your system",
+                            "action": "Uninstall xFormers: pip uninstall xformers -y",
+                            "reason": status.get(
+                                "error", "CUDA/ROCm compatibility issue"
+                            ),
+                        }
+                    )
             except ImportError:
                 pass
         else:
-            recommendations.append({
-                "severity": "info",
-                "message": "xFormers is not installed",
-                "action": None,
-                "reason": "This is fine for ROCm systems. For CUDA systems with compatible PyTorch, you can install it for better performance.",
-            })
-        
+            recommendations.append(
+                {
+                    "severity": "info",
+                    "message": "xFormers is not installed",
+                    "action": None,
+                    "reason": "This is fine for ROCm systems. For CUDA systems with compatible PyTorch, you can install it for better performance.",
+                }
+            )
+
         status["recommendations"] = recommendations
-        
-        return {
-            "success": True,
-            **status
-        }
-        
+
+        return {"success": True, **status}
+
     except Exception as e:
         logger.error(f"Failed to get xFormers status: {e}")
         raise HTTPException(
@@ -1930,19 +1988,19 @@ async def get_xformers_status() -> Dict[str, Any]:
 async def uninstall_xformers() -> Dict[str, Any]:
     """
     Uninstall xFormers to fix CUDA compatibility issues on ROCm systems.
-    
+
     This is a targeted repair action that removes xFormers, which is commonly
     the cause of diffusers import failures on AMD GPU systems.
-    
+
     Returns:
         Dict with uninstallation result
     """
     try:
         import subprocess
         import sys
-        
+
         logger.info("Uninstalling xFormers...")
-        
+
         # First, check if xFormers is installed using pip show
         check_result = subprocess.run(
             [sys.executable, "-m", "pip", "show", "xformers"],
@@ -1950,7 +2008,7 @@ async def uninstall_xformers() -> Dict[str, Any]:
             text=True,
             timeout=30,
         )
-        
+
         if check_result.returncode != 0:
             # xFormers is not installed
             logger.info("xFormers is not installed, nothing to uninstall")
@@ -1959,7 +2017,7 @@ async def uninstall_xformers() -> Dict[str, Any]:
                 "message": "xFormers was not installed",
                 "already_uninstalled": True,
             }
-        
+
         # xFormers is installed, proceed with uninstall
         result = subprocess.run(
             [sys.executable, "-m", "pip", "uninstall", "xformers", "-y"],
@@ -1967,7 +2025,7 @@ async def uninstall_xformers() -> Dict[str, Any]:
             text=True,
             timeout=60,
         )
-        
+
         # Check return code for success
         if result.returncode == 0:
             logger.info("xFormers uninstalled successfully")
@@ -1979,7 +2037,9 @@ async def uninstall_xformers() -> Dict[str, Any]:
                 "next_step": "Restart the application to apply changes",
             }
         else:
-            logger.warning(f"xFormers uninstall failed with code {result.returncode}: {result.stderr}")
+            logger.warning(
+                f"xFormers uninstall failed with code {result.returncode}: {result.stderr}"
+            )
             return {
                 "success": False,
                 "message": "Failed to uninstall xFormers",
@@ -1987,7 +2047,7 @@ async def uninstall_xformers() -> Dict[str, Any]:
                 "stderr": result.stderr,
                 "return_code": result.returncode,
             }
-            
+
     except subprocess.TimeoutExpired:
         raise HTTPException(
             status_code=status.HTTP_408_REQUEST_TIMEOUT,

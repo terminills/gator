@@ -4,28 +4,28 @@ Multi-Agent Ecosystem API Routes
 Endpoints for Phase 4: Multi-Agent system features.
 """
 
-from typing import Optional, List
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
-from backend.services.multi_agent_service import MultiAgentService
-from backend.services.agent_marketplace_service import AgentMarketplaceService
 from backend.models.multi_agent import (
     AgentCreate,
-    AgentUpdate,
+    AgentMarketplaceEntry,
     AgentResponse,
-    AgentTaskCreate,
-    AgentTaskResponse,
     AgentRoutingRequest,
     AgentRoutingResponse,
-    AgentType,
     AgentStatus,
-    AgentMarketplaceEntry,
+    AgentTaskCreate,
+    AgentTaskResponse,
+    AgentType,
+    AgentUpdate,
 )
-from backend.config.logging import get_logger
+from backend.services.agent_marketplace_service import AgentMarketplaceService
+from backend.services.multi_agent_service import MultiAgentService
 
 logger = get_logger(__name__)
 
@@ -40,7 +40,7 @@ async def register_agent(
 ):
     """
     Register a new agent in the system.
-    
+
     Args:
         agent_data: Agent configuration
     """
@@ -62,17 +62,17 @@ async def get_agent(
 ):
     """
     Get agent by ID.
-    
+
     Args:
         agent_id: Agent identifier
     """
     try:
         service = MultiAgentService(db)
         agent = await service.get_agent(agent_id)
-        
+
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
-        
+
         return agent
     except HTTPException:
         raise
@@ -89,7 +89,7 @@ async def update_agent(
 ):
     """
     Update agent configuration or status.
-    
+
     Args:
         agent_id: Agent identifier
         update_data: Fields to update
@@ -97,10 +97,10 @@ async def update_agent(
     try:
         service = MultiAgentService(db)
         agent = await service.update_agent(agent_id, update_data)
-        
+
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
-        
+
         return agent
     except HTTPException:
         raise
@@ -118,7 +118,7 @@ async def list_agents(
 ):
     """
     List all agents with optional filters.
-    
+
     Args:
         agent_type: Filter by agent type
         status: Filter by status
@@ -142,7 +142,7 @@ async def create_task(
 ):
     """
     Create a new task.
-    
+
     Args:
         task_data: Task configuration
         auto_assign: Automatically assign to best agent
@@ -164,7 +164,7 @@ async def assign_task(
 ):
     """
     Assign task to specific agent.
-    
+
     Args:
         task_id: Task identifier
         agent_id: Agent identifier
@@ -172,13 +172,12 @@ async def assign_task(
     try:
         service = MultiAgentService(db)
         success = await service.assign_task(task_id, agent_id)
-        
+
         if not success:
             raise HTTPException(
-                status_code=400,
-                detail="Task assignment failed - check agent capacity"
+                status_code=400, detail="Task assignment failed - check agent capacity"
             )
-        
+
         return {"success": True, "message": "Task assigned"}
     except HTTPException:
         raise
@@ -196,7 +195,7 @@ async def complete_task(
 ):
     """
     Mark task as completed or failed.
-    
+
     Args:
         task_id: Task identifier
         output_data: Task results
@@ -205,10 +204,10 @@ async def complete_task(
     try:
         service = MultiAgentService(db)
         result = await service.complete_task(task_id, output_data, success)
-        
+
         if not result:
             raise HTTPException(status_code=404, detail="Task not found")
-        
+
         return {"success": True, "message": "Task completed"}
     except HTTPException:
         raise
@@ -225,7 +224,7 @@ async def route_task(
 ):
     """
     Find best agent for a task using automatic routing.
-    
+
     Args:
         routing_request: Task routing requirements
     """
@@ -266,7 +265,7 @@ async def search_marketplace(
 ):
     """
     Search agent marketplace.
-    
+
     Args:
         query: Text search query
         agent_type: Filter by agent type
@@ -285,7 +284,7 @@ async def search_marketplace(
             min_rating=min_rating,
             free_only=free_only,
             sort_by=sort_by,
-            limit=limit
+            limit=limit,
         )
         return results
     except Exception as e:
@@ -300,17 +299,17 @@ async def get_marketplace_agent(
 ):
     """
     Get detailed information about a marketplace agent.
-    
+
     Args:
         agent_id: Agent identifier
     """
     try:
         service = AgentMarketplaceService(db)
         agent = await service.get_agent_details(agent_id)
-        
+
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
-        
+
         return agent
     except HTTPException:
         raise
@@ -327,7 +326,7 @@ async def install_agent(
 ):
     """
     Install an agent from the marketplace.
-    
+
     Args:
         agent_id: Marketplace agent ID
         custom_name: Optional custom name for installed instance
@@ -335,10 +334,10 @@ async def install_agent(
     try:
         service = AgentMarketplaceService(db)
         result = await service.install_agent(agent_id, custom_name)
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("error"))
-        
+
         return result
     except HTTPException:
         raise
@@ -354,17 +353,17 @@ async def uninstall_agent(
 ):
     """
     Uninstall an agent.
-    
+
     Args:
         agent_id: Installed agent ID
     """
     try:
         service = AgentMarketplaceService(db)
         result = await service.uninstall_agent(agent_id)
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("error"))
-        
+
         return result
     except HTTPException:
         raise
@@ -380,7 +379,7 @@ async def check_agent_updates(
 ):
     """
     Check if updates are available for an installed agent.
-    
+
     Args:
         agent_id: Installed agent ID
     """
@@ -428,17 +427,17 @@ async def publish_agent(
 ):
     """
     Publish a new agent to the marketplace.
-    
+
     Args:
         agent_entry: Marketplace entry for the agent
     """
     try:
         service = AgentMarketplaceService(db)
         result = await service.publish_agent(agent_entry)
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("error"))
-        
+
         return result
     except HTTPException:
         raise

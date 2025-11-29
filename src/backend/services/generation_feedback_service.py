@@ -6,24 +6,24 @@ Handles recording of AI generation benchmarks and human feedback for continuous 
 
 import asyncio
 import time
-from typing import Dict, List, Optional, Any
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 from uuid import UUID
-from datetime import datetime, timezone, timedelta
 
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
-from backend.models.generation_feedback import (
-    GenerationBenchmarkModel,
-    GenerationBenchmarkCreate,
-    GenerationBenchmarkResponse,
-    FeedbackSubmission,
-    FeedbackRating,
-    BenchmarkStats,
-)
 from backend.config.logging import get_logger
+from backend.models.acd import ACDContextUpdate, AIConfidence, AIValidation
+from backend.models.generation_feedback import (
+    BenchmarkStats,
+    FeedbackRating,
+    FeedbackSubmission,
+    GenerationBenchmarkCreate,
+    GenerationBenchmarkModel,
+    GenerationBenchmarkResponse,
+)
 from backend.services.acd_service import ACDService
-from backend.models.acd import ACDContextUpdate, AIValidation, AIConfidence
 
 logger = get_logger(__name__)
 
@@ -137,14 +137,14 @@ class GenerationFeedbackService:
     ):
         """
         Update ACD context with human feedback to close the learning loop.
-        
+
         Args:
             benchmark: The benchmark record with feedback
             feedback: The submitted feedback data
         """
         try:
             acd_service = ACDService(self.db)
-            
+
             # Map feedback rating to validation status
             validation_map = {
                 FeedbackRating.EXCELLENT: AIValidation.APPROVED,
@@ -153,7 +153,7 @@ class GenerationFeedbackService:
                 FeedbackRating.POOR: AIValidation.REJECTED,
                 FeedbackRating.UNACCEPTABLE: AIValidation.REJECTED,
             }
-            
+
             # Map rating to confidence
             confidence_map = {
                 FeedbackRating.EXCELLENT: AIConfidence.VALIDATED,
@@ -162,34 +162,36 @@ class GenerationFeedbackService:
                 FeedbackRating.POOR: AIConfidence.UNCERTAIN,
                 FeedbackRating.UNACCEPTABLE: AIConfidence.UNCERTAIN,
             }
-            
+
             validation = validation_map.get(feedback.rating, AIValidation.PENDING)
             confidence = confidence_map.get(feedback.rating, AIConfidence.CONFIDENT)
-            
+
             # Prepare update data
             update_data = ACDContextUpdate(
                 ai_validation=validation,
                 ai_confidence=confidence,
-                human_override=feedback.feedback_text if feedback.feedback_text else None,
+                human_override=(
+                    feedback.feedback_text if feedback.feedback_text else None
+                ),
                 ai_issues=feedback.issues if feedback.issues else None,
             )
-            
+
             # If highly rated, extract pattern for learning
             if feedback.rating in [FeedbackRating.EXCELLENT, FeedbackRating.GOOD]:
                 # Extract pattern from successful generation
                 pattern = f"{benchmark.content_type}_{benchmark.model_selected}"
                 strategy = f"Model: {benchmark.model_selected}, Quality: {benchmark.quality_requested}, Rating: {feedback.rating.value}"
-                
+
                 update_data.ai_pattern = pattern
                 update_data.ai_strategy = strategy
-            
+
             await acd_service.update_context(benchmark.acd_context_id, update_data)
-            
+
             logger.info(
                 f"Updated ACD context {benchmark.acd_context_id} with feedback: "
                 f"validation={validation.value}, confidence={confidence.value}"
             )
-            
+
         except Exception as e:
             # Don't fail feedback submission if ACD update fails
             logger.error(f"Failed to update ACD context with feedback: {str(e)}")

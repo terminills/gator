@@ -8,9 +8,10 @@ and PPV upselling functionality.
 import uuid
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.config.logging import get_logger
 from backend.database.connection import get_db_session
 from backend.models.conversation import (
     ConversationCreate,
@@ -20,7 +21,6 @@ from backend.models.conversation import (
 from backend.models.message import MessageCreate, MessageResponse
 from backend.models.ppv_offer import PPVOfferCreate, PPVOfferResponse
 from backend.services.direct_messaging_service import DirectMessagingService
-from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -389,8 +389,8 @@ async def _process_persona_response_queue(
                     break
 
             # Generate response using persona chat service (uses llama.cpp with personality)
-            from backend.services.persona_chat_service import get_persona_chat_service
             from backend.models.message import MessageModel
+            from backend.services.persona_chat_service import get_persona_chat_service
 
             chat_service = get_persona_chat_service()
 
@@ -398,11 +398,15 @@ async def _process_persona_response_queue(
             message_models = []
             for msg_response in messages:
                 # Create a mock MessageModel with the necessary attributes
-                msg_model = type('MessageModel', (), {
-                    'sender': msg_response.sender,
-                    'content': msg_response.content,
-                    'created_at': msg_response.created_at
-                })()
+                msg_model = type(
+                    "MessageModel",
+                    (),
+                    {
+                        "sender": msg_response.sender,
+                        "content": msg_response.content,
+                        "created_at": msg_response.created_at,
+                    },
+                )()
                 message_models.append(msg_model)
 
             try:
@@ -411,9 +415,11 @@ async def _process_persona_response_queue(
                     persona=persona,
                     user_message=last_user_message,
                     conversation_history=message_models,
-                    use_ai=True  # Enable llama.cpp AI generation
+                    use_ai=True,  # Enable llama.cpp AI generation
                 )
-                logger.info(f"Generated persona response using llama.cpp for {persona.name}")
+                logger.info(
+                    f"Generated persona response using llama.cpp for {persona.name}"
+                )
             except Exception as e:
                 logger.warning(f"AI generation failed, using fallback: {str(e)}")
                 # Fallback to a simple response
@@ -427,8 +433,9 @@ async def _process_persona_response_queue(
             ppv_offer_id = None
             if include_ppv:
                 # Create a PPV offer if applicable
-                from backend.models.ppv_offer import PPVOfferCreate, PPVOfferType
                 from decimal import Decimal
+
+                from backend.models.ppv_offer import PPVOfferCreate, PPVOfferType
 
                 ppv_data = PPVOfferCreate(
                     message_id=None,  # Will be set after message creation

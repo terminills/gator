@@ -6,22 +6,24 @@ Database and API models for Pay-Per-View offers sent during conversations.
 
 import uuid
 from datetime import datetime
-from typing import Optional, Dict, Any
 from decimal import Decimal
 from enum import Enum
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import (
-    Column,
-    String,
-    DateTime,
-    Boolean,
-    ForeignKey,
-    Text,
-    JSON,
     DECIMAL,
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+)
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import (
+    ForeignKey,
     Integer,
-    Enum as SQLEnum,
+    String,
+    Text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func

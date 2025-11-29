@@ -7,20 +7,20 @@ Enables autonomous content generation with contextual intelligence.
 
 import uuid
 from datetime import datetime
-from typing import Optional, Dict, Any, List
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 from sqlalchemy import (
-    Column,
-    String,
-    DateTime,
-    Integer,
-    Text,
     JSON,
     Boolean,
-    ForeignKey,
+    Column,
+    DateTime,
     Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
@@ -149,9 +149,10 @@ class SkillLevel(str, Enum):
 # Scheduling Enums - For LLM-driven scheduler integration
 # ============================================================
 
+
 class ScheduleType(str, Enum):
     """Type of scheduled task for LLM orchestration."""
-    
+
     IMMEDIATE = "IMMEDIATE"  # Execute as soon as possible
     SCHEDULED = "SCHEDULED"  # Execute at specific time
     RECURRING = "RECURRING"  # Repeat on schedule
@@ -162,7 +163,7 @@ class ScheduleType(str, Enum):
 
 class ScheduleOptimizationGoal(str, Enum):
     """Goal for LLM scheduling optimization."""
-    
+
     MAX_ENGAGEMENT = "MAX_ENGAGEMENT"  # Optimize for user engagement
     MAX_REACH = "MAX_REACH"  # Optimize for maximum audience reach
     MIN_COST = "MIN_COST"  # Minimize resource usage
@@ -173,7 +174,7 @@ class ScheduleOptimizationGoal(str, Enum):
 
 class ScheduleDecisionSource(str, Enum):
     """Source of scheduling decision."""
-    
+
     MANUAL = "MANUAL"  # Human-specified
     RULE_BASED = "RULE_BASED"  # Simple rule engine
     LLM_RECOMMENDED = "LLM_RECOMMENDED"  # LLM suggested, human approved
@@ -184,7 +185,7 @@ class ScheduleDecisionSource(str, Enum):
 
 class ScheduleFeedbackType(str, Enum):
     """Type of feedback for schedule learning."""
-    
+
     ENGAGEMENT_RESULT = "ENGAGEMENT_RESULT"  # How well content performed
     TIMING_RESULT = "TIMING_RESULT"  # Was timing optimal
     RESOURCE_USAGE = "RESOURCE_USAGE"  # Resource efficiency
@@ -196,14 +197,14 @@ class ScheduleFeedbackType(str, Enum):
 class AIDomain(str, Enum):
     """
     Top-level domain classification for ACD contexts.
-    
+
     Represents cognitive "cortical regions" - separates different types of work
     to enable clean cross-domain orchestration and prevent noisy correlations.
     """
-    
+
     # Meta-level reasoning and orchestration
     METAREASONING = "METAREASONING"
-    
+
     # Content generation and transformation
     CODE_GENERATION = "CODE_GENERATION"
     TEXT_GENERATION = "TEXT_GENERATION"
@@ -214,19 +215,19 @@ class AIDomain(str, Enum):
     DATA_TRANSFORMATION = "DATA_TRANSFORMATION"
     MODEL_GENERATION = "MODEL_GENERATION"
     MODEL_REFINEMENT = "MODEL_REFINEMENT"
-    
+
     # Analysis and understanding
     COMPRESSION = "COMPRESSION"
     SUMMARIZATION = "SUMMARIZATION"
     PLANNING = "PLANNING"
     ANALYSIS = "ANALYSIS"
-    
+
     # Multimodal semantics
     MULTIMODAL_SEMANTICS = "MULTIMODAL_SEMANTICS"
-    
+
     # System operations
     SYSTEM_OPERATIONS = "SYSTEM_OPERATIONS"
-    
+
     # Human interface
     HUMAN_INTERFACE = "HUMAN_INTERFACE"
 
@@ -234,10 +235,10 @@ class AIDomain(str, Enum):
 class AISubdomain(str, Enum):
     """
     Sub-domain classification for fine-grained categorization.
-    
+
     Provides detailed specialization within each domain for precise agent matching.
     """
-    
+
     # METAREASONING subdomains
     ORCHESTRATION = "ORCHESTRATION"
     REASONING_ENGINE = "REASONING_ENGINE"
@@ -246,7 +247,7 @@ class AISubdomain(str, Enum):
     COMPLEXITY_HANDLING = "COMPLEXITY_HANDLING"
     ERROR_RESOLUTION = "ERROR_RESOLUTION"
     RESCHEDULING = "RESCHEDULING"
-    
+
     # CODE_GENERATION subdomains
     PYTHON = "PYTHON"
     JAVASCRIPT = "JAVASCRIPT"
@@ -256,7 +257,7 @@ class AISubdomain(str, Enum):
     FRONTEND = "FRONTEND"
     API = "API"
     TESTING = "TESTING"
-    
+
     # TEXT_GENERATION subdomains
     CREATIVE_WRITING = "CREATIVE_WRITING"
     TECHNICAL_WRITING = "TECHNICAL_WRITING"
@@ -264,7 +265,7 @@ class AISubdomain(str, Enum):
     MARKETING = "MARKETING"
     DOCUMENTATION = "DOCUMENTATION"
     DIALOGUE = "DIALOGUE"
-    
+
     # IMAGE_GENERATION subdomains
     PORTRAITS = "PORTRAITS"
     LANDSCAPES = "LANDSCAPES"
@@ -274,7 +275,7 @@ class AISubdomain(str, Enum):
     LOGO_DESIGN = "LOGO_DESIGN"
     IMAGE_EDITING = "IMAGE_EDITING"
     UPSCALING = "UPSCALING"
-    
+
     # VIDEO_GENERATION subdomains
     SHORT_FORM = "SHORT_FORM"
     LONG_FORM = "LONG_FORM"
@@ -282,13 +283,13 @@ class AISubdomain(str, Enum):
     VIDEO_EDITING = "VIDEO_EDITING"
     EFFECTS = "EFFECTS"
     TRANSITIONS = "TRANSITIONS"
-    
+
     # AUDIO_GENERATION subdomains
     VOICE = "VOICE"
     MUSIC = "MUSIC"
     SOUND_EFFECTS = "SOUND_EFFECTS"
     AUDIO_MIXING = "AUDIO_MIXING"
-    
+
     # MULTIMODAL_SEMANTICS subdomains
     EMBEDDINGS = "EMBEDDINGS"
     ALIGNMENT = "ALIGNMENT"
@@ -296,7 +297,7 @@ class AISubdomain(str, Enum):
     SCENE_PARSING = "SCENE_PARSING"
     OCR = "OCR"
     CROSS_MODAL_INFERENCE = "CROSS_MODAL_INFERENCE"
-    
+
     # SYSTEM_OPERATIONS subdomains
     FILE_OPERATIONS = "FILE_OPERATIONS"
     SCHEDULING = "SCHEDULING"
@@ -307,7 +308,7 @@ class AISubdomain(str, Enum):
     MIDDLEWARE = "MIDDLEWARE"
     DATABASE = "DATABASE"
     MIGRATION = "MIGRATION"
-    
+
     # HUMAN_INTERFACE subdomains
     UI_GENERATION = "UI_GENERATION"
     UX_DESIGN = "UX_DESIGN"
@@ -316,12 +317,12 @@ class AISubdomain(str, Enum):
     DOCUMENTATION_UI = "DOCUMENTATION_UI"
     TUTORIAL = "TUTORIAL"
     EXPLANATION = "EXPLANATION"
-    
+
     # PLANNING subdomains
     STRATEGIC = "STRATEGIC"
     TACTICAL = "TACTICAL"
     OPERATIONAL = "OPERATIONAL"
-    
+
     # ANALYSIS subdomains
     DATA_ANALYSIS = "DATA_ANALYSIS"
     PERFORMANCE = "PERFORMANCE"
@@ -436,7 +437,7 @@ class ACDContextModel(Base):
     ai_complexity = Column(String(20), nullable=True)
     ai_note = Column(Text, nullable=True)
     ai_dependencies = Column(JSON, nullable=True)
-    
+
     # Domain classification - cortical region classification
     ai_domain = Column(String(50), nullable=True, index=True)
     ai_subdomain = Column(String(50), nullable=True, index=True)
@@ -521,39 +522,63 @@ class ACDContextModel(Base):
     # ============================================================
     # Scheduling Fields - For LLM-driven scheduler integration
     # ============================================================
-    
+
     # Schedule configuration
     schedule_type = Column(String(30), nullable=True, index=True)  # ScheduleType enum
     scheduled_for = Column(DateTime(timezone=True), nullable=True, index=True)
     schedule_window_start = Column(DateTime(timezone=True), nullable=True)
     schedule_window_end = Column(DateTime(timezone=True), nullable=True)
     recurring_pattern = Column(JSON, nullable=True)  # Cron-like pattern or custom
-    
+
     # LLM scheduling decision context
-    schedule_decision_source = Column(String(30), nullable=True)  # ScheduleDecisionSource enum
-    schedule_optimization_goal = Column(String(30), nullable=True)  # ScheduleOptimizationGoal enum
-    schedule_reasoning = Column(Text, nullable=True)  # LLM's reasoning for schedule decision
-    schedule_constraints = Column(JSON, nullable=True)  # Constraints LLM should consider
+    schedule_decision_source = Column(
+        String(30), nullable=True
+    )  # ScheduleDecisionSource enum
+    schedule_optimization_goal = Column(
+        String(30), nullable=True
+    )  # ScheduleOptimizationGoal enum
+    schedule_reasoning = Column(
+        Text, nullable=True
+    )  # LLM's reasoning for schedule decision
+    schedule_constraints = Column(
+        JSON, nullable=True
+    )  # Constraints LLM should consider
     schedule_preferences = Column(JSON, nullable=True)  # User preferences for timing
-    
+
     # Historical context for LLM learning
-    historical_performance = Column(JSON, nullable=True)  # Past results for similar operations
-    optimal_timing_learned = Column(JSON, nullable=True)  # Learned optimal timing patterns
-    audience_activity_pattern = Column(JSON, nullable=True)  # When audience is most active
-    
+    historical_performance = Column(
+        JSON, nullable=True
+    )  # Past results for similar operations
+    optimal_timing_learned = Column(
+        JSON, nullable=True
+    )  # Learned optimal timing patterns
+    audience_activity_pattern = Column(
+        JSON, nullable=True
+    )  # When audience is most active
+
     # Feedback loop for scheduler learning
-    schedule_feedback_type = Column(String(30), nullable=True)  # ScheduleFeedbackType enum
-    schedule_feedback_data = Column(JSON, nullable=True)  # Actual results vs predictions
+    schedule_feedback_type = Column(
+        String(30), nullable=True
+    )  # ScheduleFeedbackType enum
+    schedule_feedback_data = Column(
+        JSON, nullable=True
+    )  # Actual results vs predictions
     schedule_effectiveness_score = Column(Float, nullable=True)  # 0-100 effectiveness
-    
+
     # Dependencies and orchestration
-    depends_on_contexts = Column(JSON, nullable=True)  # List of context IDs this depends on
+    depends_on_contexts = Column(
+        JSON, nullable=True
+    )  # List of context IDs this depends on
     blocks_contexts = Column(JSON, nullable=True)  # List of context IDs blocked by this
-    orchestration_group = Column(String(100), nullable=True, index=True)  # Group for batch scheduling
+    orchestration_group = Column(
+        String(100), nullable=True, index=True
+    )  # Group for batch scheduling
     execution_order = Column(Integer, nullable=True)  # Order within orchestration group
-    
+
     # Resource planning
-    estimated_resources = Column(JSON, nullable=True)  # CPU, GPU, memory, time estimates
+    estimated_resources = Column(
+        JSON, nullable=True
+    )  # CPU, GPU, memory, time estimates
     actual_resources = Column(JSON, nullable=True)  # Actual resource usage
     resource_efficiency = Column(Float, nullable=True)  # Actual/Estimated ratio
 

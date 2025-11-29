@@ -7,20 +7,20 @@ Enables learning from real-time social media interactions.
 
 import uuid
 from datetime import datetime
-from typing import Optional, Dict, Any, List
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 from sqlalchemy import (
-    Column,
-    String,
-    DateTime,
-    Integer,
-    Float,
-    Text,
     JSON,
     Boolean,
+    Column,
+    DateTime,
+    Float,
     ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
@@ -110,17 +110,23 @@ class SocialMediaPostModel(Base):
     video_views = Column(Integer, default=0, nullable=False)
     video_completion_rate = Column(Float, nullable=True)
     click_through_rate = Column(Float, nullable=True)
-    
+
     # User interaction filtering
-    filtered_metrics = Column(JSON, nullable=True)  # Metrics after filtering out bots/other personas
+    filtered_metrics = Column(
+        JSON, nullable=True
+    )  # Metrics after filtering out bots/other personas
     bot_interaction_count = Column(Integer, default=0, nullable=False)
-    persona_interaction_count = Column(Integer, default=0, nullable=False)  # Other AI personas
+    persona_interaction_count = Column(
+        Integer, default=0, nullable=False
+    )  # Other AI personas
     genuine_user_count = Column(Integer, default=0, nullable=False)
 
     # Detailed engagement data
     top_comments = Column(JSON, nullable=True)  # Top comments with sentiment
     engagement_timeline = Column(JSON, nullable=True)  # Hour-by-hour engagement
-    demographic_insights = Column(JSON, nullable=True)  # Age, gender, location breakdown
+    demographic_insights = Column(
+        JSON, nullable=True
+    )  # Age, gender, location breakdown
 
     # Performance tracking
     compared_to_average = Column(Float, nullable=True)  # Performance vs persona average
@@ -185,12 +191,12 @@ class EngagementMetrics(BaseModel):
     video_views: int = 0
     video_completion_rate: Optional[float] = None
     click_through_rate: Optional[float] = None
-    
+
     # Filtered metrics
     bot_interaction_count: int = 0
     persona_interaction_count: int = 0
     genuine_user_count: int = 0
-    
+
     # Additional data
     top_comments: Optional[List[Dict[str, Any]]] = None
     engagement_timeline: Optional[Dict[str, Any]] = None
@@ -213,7 +219,7 @@ class SocialMediaPostResponse(BaseModel):
     scheduled_at: Optional[datetime]
     published_at: Optional[datetime]
     last_metrics_update: Optional[datetime]
-    
+
     # Metrics
     likes_count: int
     comments_count: int
@@ -223,16 +229,16 @@ class SocialMediaPostResponse(BaseModel):
     reach: int
     engagement_rate: Optional[float]
     video_views: int
-    
+
     # Filtered metrics
     bot_interaction_count: int
     persona_interaction_count: int
     genuine_user_count: int
-    
+
     # Performance
     compared_to_average: Optional[float]
     performance_percentile: Optional[int]
-    
+
     created_at: datetime
     updated_at: datetime
 

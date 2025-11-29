@@ -5,8 +5,9 @@ Manages initial system configuration and environment file setup.
 """
 
 import os
-from typing import Dict, Optional, Any
 from pathlib import Path
+from typing import Any, Dict, Optional
+
 from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
@@ -110,7 +111,9 @@ class SetupService:
                             existing_keys.add(key)
                 else:
                     # Create minimal template if .env.template doesn't exist
-                    logger.warning("No .env.template found, creating minimal configuration")
+                    logger.warning(
+                        "No .env.template found, creating minimal configuration"
+                    )
                     existing_lines = [
                         "# Gator AI Platform Configuration\n",
                         "\n",

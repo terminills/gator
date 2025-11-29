@@ -5,25 +5,27 @@ SQLAlchemy models for plugin registry and marketplace.
 """
 
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+from pydantic import BaseModel, Field
 from sqlalchemy import (
+    JSON,
+    Boolean,
     Column,
+    DateTime,
+)
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import (
+    Float,
+    Integer,
     String,
     Text,
-    Integer,
-    Float,
-    Boolean,
-    JSON,
-    DateTime,
-    Enum as SQLEnum,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from pydantic import BaseModel, Field
 
 from backend.database.connection import Base
-from backend.plugins import PluginType, PluginStatus
+from backend.plugins import PluginStatus, PluginType
 
 
 class PluginModel(Base):

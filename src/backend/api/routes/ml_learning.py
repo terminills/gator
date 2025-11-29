@@ -10,18 +10,20 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.connection import get_db_session
-from backend.services.ml_pattern_recognition import MLPatternRecognitionService
-from backend.services.predictive_engagement_scoring import PredictiveEngagementScoringService
-from backend.services.cross_persona_learning import CrossPersonaLearningService
-from backend.services.ab_testing_service import (
-    ABTestingService,
-    ABTestConfig,
-    ABTestResult,
-    AgentTaskCreate as ABTestCreate,
-)
-from backend.services.acd_service import ACDService
 from backend.config.logging import get_logger
+from backend.database.connection import get_db_session
+from backend.services.ab_testing_service import (
+    ABTestConfig,
+    ABTestingService,
+    ABTestResult,
+)
+from backend.services.ab_testing_service import AgentTaskCreate as ABTestCreate
+from backend.services.acd_service import ACDService
+from backend.services.cross_persona_learning import CrossPersonaLearningService
+from backend.services.ml_pattern_recognition import MLPatternRecognitionService
+from backend.services.predictive_engagement_scoring import (
+    PredictiveEngagementScoringService,
+)
 
 logger = get_logger(__name__)
 
@@ -37,7 +39,7 @@ async def train_engagement_model(
 ):
     """
     Train engagement prediction model from historical data.
-    
+
     Args:
         min_samples: Minimum training samples
         lookback_days: Days of historical data
@@ -60,7 +62,7 @@ async def train_success_classifier(
 ):
     """
     Train success classification model.
-    
+
     Args:
         success_threshold: Engagement rate threshold for success
         min_samples: Minimum training samples
@@ -85,13 +87,10 @@ async def get_feature_importance(
     try:
         service = MLPatternRecognitionService(db)
         analysis = await service.analyze_feature_importance()
-        
+
         if not analysis:
-            raise HTTPException(
-                status_code=404,
-                detail="No trained models found"
-            )
-        
+            raise HTTPException(status_code=404, detail="No trained models found")
+
         return analysis
     except HTTPException:
         raise
@@ -108,31 +107,33 @@ async def score_content(
 ):
     """
     Get engagement score for content.
-    
+
     Args:
         context_id: ACD context identifier
     """
     try:
         acd_service = ACDService(db)
         context = await acd_service.get_context(context_id)
-        
+
         if not context:
             raise HTTPException(status_code=404, detail="Context not found")
-        
+
         # Convert to model
         from backend.models.acd import ACDContextModel
+
         stmt = "SELECT * FROM acd_contexts WHERE id = :context_id"
         from sqlalchemy import select
+
         stmt = select(ACDContextModel).where(ACDContextModel.id == context_id)
         result = await db.execute(stmt)
         context_model = result.scalar_one_or_none()
-        
+
         if not context_model:
             raise HTTPException(status_code=404, detail="Context not found")
-        
+
         scoring_service = PredictiveEngagementScoringService(db)
         score = await scoring_service.score_content(context_model)
-        
+
         return score
     except HTTPException:
         raise
@@ -149,27 +150,28 @@ async def optimize_content(
 ):
     """
     Get optimization recommendations for content.
-    
+
     Args:
         context_id: ACD context identifier
         target_score: Target engagement score
     """
     try:
-        from backend.models.acd import ACDContextModel
         from sqlalchemy import select
-        
+
+        from backend.models.acd import ACDContextModel
+
         stmt = select(ACDContextModel).where(ACDContextModel.id == context_id)
         result = await db.execute(stmt)
         context_model = result.scalar_one_or_none()
-        
+
         if not context_model:
             raise HTTPException(status_code=404, detail="Context not found")
-        
+
         scoring_service = PredictiveEngagementScoringService(db)
         recommendations = await scoring_service.optimize_content(
             context_model, target_score
         )
-        
+
         return recommendations
     except HTTPException:
         raise
@@ -187,7 +189,7 @@ async def predict_optimal_timing(
 ):
     """
     Predict optimal posting times.
-    
+
     Args:
         persona_id: Optional persona filter
         platform: Social platform
@@ -198,7 +200,7 @@ async def predict_optimal_timing(
         prediction = await scoring_service.predict_optimal_posting_time(
             persona_id, platform, lookback_days
         )
-        
+
         return prediction
     except Exception as e:
         logger.error(f"Timing prediction failed: {e}")
@@ -215,7 +217,7 @@ async def aggregate_cross_persona_patterns(
 ):
     """
     Get aggregated patterns across personas with privacy preservation.
-    
+
     Args:
         platform: Social platform
         min_personas: Minimum personas required
@@ -226,7 +228,7 @@ async def aggregate_cross_persona_patterns(
         patterns = await service.aggregate_engagement_patterns(
             platform, min_personas, lookback_days
         )
-        
+
         return patterns
     except Exception as e:
         logger.error(f"Cross-persona aggregation failed: {e}")
@@ -242,7 +244,7 @@ async def benchmark_persona_performance(
 ):
     """
     Benchmark persona performance against aggregated data.
-    
+
     Args:
         persona_id: Persona identifier
         platform: Social platform
@@ -253,7 +255,7 @@ async def benchmark_persona_performance(
         benchmark = await service.get_benchmarked_performance(
             persona_id, platform, metric
         )
-        
+
         return benchmark
     except Exception as e:
         logger.error(f"Benchmarking failed: {e}")
@@ -268,7 +270,7 @@ async def get_privacy_report(
     try:
         service = CrossPersonaLearningService(db)
         report = await service.get_privacy_report()
-        
+
         return report
     except Exception as e:
         logger.error(f"Privacy report generation failed: {e}")
@@ -288,7 +290,7 @@ async def create_ab_test(
 ):
     """
     Create a new A/B test.
-    
+
     Args:
         test_name: Name of the test
         variants: List of variant configurations
@@ -305,9 +307,9 @@ async def create_ab_test(
             success_metric=success_metric,
             description=description,
             minimum_sample_size=minimum_sample_size,
-            minimum_runtime_hours=minimum_runtime_hours
+            minimum_runtime_hours=minimum_runtime_hours,
         )
-        
+
         return config
     except Exception as e:
         logger.error(f"A/B test creation failed: {e}")
@@ -323,10 +325,10 @@ async def start_ab_test(
     try:
         service = ABTestingService(db)
         success = await service.start_test(test_id)
-        
+
         if not success:
             raise HTTPException(status_code=404, detail="Test not found")
-        
+
         return {"success": True, "message": "Test started"}
     except HTTPException:
         raise
@@ -344,10 +346,10 @@ async def get_ab_test_status(
     try:
         service = ABTestingService(db)
         status = await service.get_test_status(test_id)
-        
+
         if "error" in status:
             raise HTTPException(status_code=404, detail=status["error"])
-        
+
         return status
     except HTTPException:
         raise
@@ -364,7 +366,7 @@ async def analyze_ab_test(
 ):
     """
     Analyze A/B test results.
-    
+
     Args:
         test_id: Test identifier
         auto_select_winner: Automatically select winning variant
@@ -372,7 +374,7 @@ async def analyze_ab_test(
     try:
         service = ABTestingService(db)
         result = await service.analyze_test(test_id, auto_select_winner)
-        
+
         return result
     except Exception as e:
         logger.error(f"Test analysis failed: {e}")
@@ -387,7 +389,7 @@ async def list_ab_tests(
     try:
         service = ABTestingService(db)
         tests = await service.get_all_tests()
-        
+
         return tests
     except Exception as e:
         logger.error(f"List tests failed: {e}")

@@ -5,24 +5,24 @@ API endpoints for managing audience segments and personalized content.
 """
 
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.connection import get_db_session
-from backend.services.audience_segment_service import AudienceSegmentService
 from backend.models.audience_segment import (
     AudienceSegmentCreate,
-    AudienceSegmentUpdate,
     AudienceSegmentSchema,
+    AudienceSegmentUpdate,
+    PersonalizationRecommendation,
+    PersonalizationStrategy,
     PersonalizedContentCreate,
     PersonalizedContentSchema,
     SegmentAnalytics,
-    PersonalizationRecommendation,
     SegmentStatus,
-    PersonalizationStrategy,
 )
+from backend.services.audience_segment_service import AudienceSegmentService
 
 logger = logging.getLogger(__name__)
 

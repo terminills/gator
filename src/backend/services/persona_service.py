@@ -7,23 +7,23 @@ moderation, and lifecycle management.
 
 import os
 import shutil
-from typing import List, Optional, Union
 from datetime import datetime, timezone
-from uuid import UUID
 from pathlib import Path
+from typing import List, Optional, Union
+from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.config.logging import get_logger
 from backend.models.persona import (
-    PersonaModel,
+    BaseImageStatus,
     PersonaCreate,
+    PersonaModel,
     PersonaResponse,
     PersonaUpdate,
-    BaseImageStatus,
 )
-from backend.config.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -243,7 +243,9 @@ class PersonaService:
             if updates.style_preferences is not None:
                 update_data["style_preferences"] = updates.style_preferences
             if updates.default_content_rating is not None:
-                update_data["default_content_rating"] = updates.default_content_rating.value
+                update_data["default_content_rating"] = (
+                    updates.default_content_rating.value
+                )
             if updates.allowed_content_ratings is not None:
                 update_data["allowed_content_ratings"] = [
                     rating.value for rating in updates.allowed_content_ratings
@@ -265,9 +267,13 @@ class PersonaService:
             if updates.image_style is not None:
                 update_data["image_style"] = updates.image_style.value
             if updates.default_image_resolution is not None:
-                update_data["default_image_resolution"] = updates.default_image_resolution
+                update_data["default_image_resolution"] = (
+                    updates.default_image_resolution
+                )
             if updates.default_video_resolution is not None:
-                update_data["default_video_resolution"] = updates.default_video_resolution
+                update_data["default_video_resolution"] = (
+                    updates.default_video_resolution
+                )
             if updates.post_style is not None:
                 update_data["post_style"] = updates.post_style
             if updates.video_types is not None:
@@ -355,10 +361,14 @@ class PersonaService:
             # Voice & Speech Patterns
             if updates.linguistic_register is not None:
                 # Handle both enum and string values
-                if hasattr(updates.linguistic_register, 'value'):
-                    update_data["linguistic_register"] = updates.linguistic_register.value
+                if hasattr(updates.linguistic_register, "value"):
+                    update_data["linguistic_register"] = (
+                        updates.linguistic_register.value
+                    )
                 else:
-                    update_data["linguistic_register"] = str(updates.linguistic_register)
+                    update_data["linguistic_register"] = str(
+                        updates.linguistic_register
+                    )
             if updates.typing_quirks is not None:
                 update_data["typing_quirks"] = updates.typing_quirks
             if updates.signature_phrases is not None:
@@ -379,13 +389,13 @@ class PersonaService:
                 update_data["forbidden_phrases"] = updates.forbidden_phrases
             if updates.warmth_level is not None:
                 # Handle both enum and string values
-                if hasattr(updates.warmth_level, 'value'):
+                if hasattr(updates.warmth_level, "value"):
                     update_data["warmth_level"] = updates.warmth_level.value
                 else:
                     update_data["warmth_level"] = str(updates.warmth_level)
             if updates.patience_level is not None:
                 # Handle both enum and string values
-                if hasattr(updates.patience_level, 'value'):
+                if hasattr(updates.patience_level, "value"):
                     update_data["patience_level"] = updates.patience_level.value
                 else:
                     update_data["patience_level"] = str(updates.patience_level)
@@ -419,7 +429,7 @@ class PersonaService:
 
             await self.db.execute(stmt)
             await self.db.commit()
-            
+
             # Expire session cache to ensure fresh data on next query
             # This is necessary because Core update() doesn't update the session identity map
             self.db.expire_all()
@@ -569,7 +579,9 @@ class PersonaService:
                 filename = f"persona_{persona_id}_{timestamp}.png"
 
             # Log the size before writing
-            logger.info(f"Writing {len(image_data)} bytes to disk for persona {persona_id}")
+            logger.info(
+                f"Writing {len(image_data)} bytes to disk for persona {persona_id}"
+            )
 
             # Save image to disk
             file_path = base_images_dir / filename
@@ -583,14 +595,14 @@ class PersonaService:
                 f"Saved base image for persona {persona_id}: {file_path} "
                 f"(wrote {bytes_written} bytes, file size: {actual_file_size} bytes)"
             )
-            
+
             # Check for size mismatch
             if actual_file_size != len(image_data):
                 logger.error(
                     f"⚠️  SIZE MISMATCH: Expected {len(image_data)} bytes, "
                     f"but file is {actual_file_size} bytes!"
                 )
-            
+
             return str(file_path)
 
         except Exception as e:
@@ -650,7 +662,7 @@ class PersonaService:
 
             await self.db.execute(stmt)
             await self.db.commit()
-            
+
             # Expire session cache to ensure fresh data on next query
             # This is necessary because Core update() doesn't update the session identity map
             self.db.expire_all()

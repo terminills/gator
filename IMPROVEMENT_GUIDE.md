@@ -1064,10 +1064,10 @@ async def test_persona_crud_api():
 - [x] Create CHANGELOG.md
 - [x] Create CONTRIBUTING.md
 
-### Phase 2: Code Quality (Week 2)
+### Phase 2: Code Quality (Week 2) - IN PROGRESS
 
-- [ ] Run Black formatter on all files: `black src/`
-- [ ] Run isort on all files: `isort src/`
+- [x] Run Black formatter on all files: `black src/` (72 files reformatted)
+- [x] Run isort on all files: `isort src/` (30 files fixed)
 - [ ] Fix all flake8 warnings
 - [ ] Add missing type hints to public APIs
 - [ ] Create custom exception hierarchy
