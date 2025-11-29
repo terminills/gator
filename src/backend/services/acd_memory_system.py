@@ -47,6 +47,10 @@ class ACDMemorySystem:
     EPISODIC_MIN_IMPORTANCE = 0.7
     CONSOLIDATION_THRESHOLD = 5  # Access count before considering consolidation
 
+    # Recall configuration
+    RECALL_CANDIDATE_MULTIPLIER = 3  # Fetch 3x results to allow for filtering
+    RECENCY_DECAY_HOURS = 168  # 1 week decay for recency scoring
+
     def __init__(self, db_session: AsyncSession):
         """
         Initialize the memory system.
@@ -178,10 +182,11 @@ class ACDMemorySystem:
                 stmt = stmt.where(and_(*conditions))
 
             # Order by importance and recency
+            # Fetch extra candidates (RECALL_CANDIDATE_MULTIPLIER) to allow for filtering by relevance
             stmt = stmt.order_by(
                 ACDContextModel.memory_importance.desc(),
                 ACDContextModel.created_at.desc(),
-            ).limit(recall_request.max_results * 3)  # Get more for filtering
+            ).limit(recall_request.max_results * self.RECALL_CANDIDATE_MULTIPLIER)
 
             result = await self.db.execute(stmt)
             candidates = result.scalars().all()
@@ -322,10 +327,10 @@ class ACDMemorySystem:
         importance = ctx.memory_importance or 0.5
         score += importance_weight * importance
 
-        # Recency component (decay over time)
+        # Recency component (decay over configurable time period)
         if ctx.created_at:
             age_hours = (now - ctx.created_at).total_seconds() / 3600
-            recency = max(0, 1 - (age_hours / (24 * 7)))  # Decay over 1 week
+            recency = max(0, 1 - (age_hours / self.RECENCY_DECAY_HOURS))
             score += recency_weight * recency
 
         # Access frequency component (frequently accessed = more relevant)
