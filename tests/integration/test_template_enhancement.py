@@ -10,8 +10,11 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
+# Get repository root (tests/integration -> repo root is 2 levels up)
+REPO_ROOT = Path(__file__).parent.parent.parent
+
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from backend.models.persona import PersonaModel
 from backend.models.content import GenerationRequest, ContentType, ContentRating

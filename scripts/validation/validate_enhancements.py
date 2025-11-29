@@ -11,8 +11,11 @@ Demonstrates:
 import sys
 from pathlib import Path
 
+# Get repository root (scripts/validation -> repo root is 2 levels up)
+REPO_ROOT = Path(__file__).parent.parent.parent
+
 # Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from backend.models.persona import PersonaModel, BaseImageStatus
 from backend.services.template_service import TemplateService

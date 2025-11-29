@@ -14,7 +14,7 @@ from pathlib import Path
 from uuid import uuid4
 
 # Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from backend.database.connection import database_manager
 from backend.services.persona_service import PersonaService

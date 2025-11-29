@@ -9,6 +9,9 @@ import sys
 import subprocess
 from pathlib import Path
 
+# Get repository root (scripts/validation -> repo root is 2 levels up)
+REPO_ROOT = Path(__file__).parent.parent.parent
+
 
 def run_command(cmd, description):
     """Run a command and report results."""
@@ -22,7 +25,7 @@ def run_command(cmd, description):
         shell=True,
         capture_output=True,
         text=True,
-        cwd=Path(__file__).parent
+        cwd=REPO_ROOT
     )
     
     print(result.stdout)
@@ -56,7 +59,7 @@ def main():
         
         # Verify demo works
         (
-            "python demo.py",
+            "python demos/demo.py",
             "Demo script execution"
         ),
     ]

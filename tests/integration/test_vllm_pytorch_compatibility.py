@@ -13,10 +13,13 @@ import subprocess
 import re
 from pathlib import Path
 
+# Get repository root (tests/integration -> repo root is 2 levels up)
+REPO_ROOT = Path(__file__).parent.parent.parent
+
 
 def test_script_syntax():
     """Verify the script has valid bash syntax."""
-    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    script_path = REPO_ROOT / "scripts" / "install_vllm_rocm.sh"
     result = subprocess.run(
         ["bash", "-n", str(script_path)],
         capture_output=True,
@@ -28,7 +31,7 @@ def test_script_syntax():
 
 def test_rocm_7_detection():
     """Verify ROCm 7.0+ detection logic is correct."""
-    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    script_path = REPO_ROOT / "scripts" / "install_vllm_rocm.sh"
     content = script_path.read_text()
     
     # Check for ROCm 7.0+ detection
@@ -39,7 +42,7 @@ def test_rocm_7_detection():
 
 def test_pytorch_nightly_url():
     """Verify PyTorch nightly URL format is correct."""
-    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    script_path = REPO_ROOT / "scripts" / "install_vllm_rocm.sh"
     content = script_path.read_text()
     
     # Check for correct nightly URL format
@@ -50,7 +53,7 @@ def test_pytorch_nightly_url():
 
 def test_no_build_isolation_flag():
     """Verify --no-build-isolation flag is used for vLLM installation."""
-    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    script_path = REPO_ROOT / "scripts" / "install_vllm_rocm.sh"
     content = script_path.read_text()
     
     # Check for --no-build-isolation flag in pip install
@@ -60,7 +63,7 @@ def test_no_build_isolation_flag():
 
 def test_torchvision_verification():
     """Verify torchvision/torchaudio compatibility check exists."""
-    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    script_path = REPO_ROOT / "scripts" / "install_vllm_rocm.sh"
     content = script_path.read_text()
     
     # Check for torchvision/torchaudio verification
@@ -72,7 +75,7 @@ def test_torchvision_verification():
 
 def test_get_pytorch_index_url_function():
     """Verify get_pytorch_index_url function exists and is called."""
-    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    script_path = REPO_ROOT / "scripts" / "install_vllm_rocm.sh"
     content = script_path.read_text()
     
     # Check for function definition
@@ -95,7 +98,7 @@ def test_get_pytorch_index_url_function():
 
 def test_vllm_build_deps_function():
     """Verify install_vllm_build_deps function exists."""
-    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    script_path = REPO_ROOT / "scripts" / "install_vllm_rocm.sh"
     content = script_path.read_text()
     
     # Check for function definition
@@ -109,7 +112,7 @@ def test_vllm_build_deps_function():
 
 def test_pytorch_version_logging():
     """Verify PyTorch version is logged during build."""
-    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    script_path = REPO_ROOT / "scripts" / "install_vllm_rocm.sh"
     content = script_path.read_text()
     
     # Check for PyTorch version logging
@@ -120,7 +123,7 @@ def test_pytorch_version_logging():
 
 def test_documentation_updated():
     """Verify documentation mentions PyTorch 2.10 support."""
-    readme_path = Path(__file__).parent / "scripts" / "README.md"
+    readme_path = REPO_ROOT / "scripts" / "README.md"
     content = readme_path.read_text()
     
     # Check for PyTorch 2.10 mentions
@@ -132,7 +135,7 @@ def test_documentation_updated():
 
 def test_vllm_comfyui_doc_updated():
     """Verify VLLM_COMFYUI_INSTALLATION.md is updated."""
-    doc_path = Path(__file__).parent / "VLLM_COMFYUI_INSTALLATION.md"
+    doc_path = REPO_ROOT / "docs" / "guides" / "vllm-comfyui.md"
     if not doc_path.exists():
         print("⚠ VLLM_COMFYUI_INSTALLATION.md not found, skipping")
         return
@@ -146,7 +149,7 @@ def test_vllm_comfyui_doc_updated():
 
 def test_amd_repo_function():
     """Verify AMD ROCm repository installation function exists."""
-    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    script_path = REPO_ROOT / "scripts" / "install_vllm_rocm.sh"
     content = script_path.read_text()
     
     # Check for function definition
@@ -163,7 +166,7 @@ def test_amd_repo_function():
 
 def test_repair_mode():
     """Verify repair mode functionality exists."""
-    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    script_path = REPO_ROOT / "scripts" / "install_vllm_rocm.sh"
     content = script_path.read_text()
     
     # Check for repair function
@@ -178,7 +181,7 @@ def test_repair_mode():
 
 def test_amd_repo_flag():
     """Verify --amd-repo flag exists."""
-    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    script_path = REPO_ROOT / "scripts" / "install_vllm_rocm.sh"
     content = script_path.read_text()
     
     # Check for --amd-repo flag handling
@@ -190,7 +193,7 @@ def test_amd_repo_flag():
 
 def test_help_flag():
     """Verify --help flag provides usage information."""
-    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    script_path = REPO_ROOT / "scripts" / "install_vllm_rocm.sh"
     content = script_path.read_text()
     
     # Check for help flag and usage text
@@ -203,7 +206,7 @@ def test_help_flag():
 
 def test_fallback_to_amd_repo():
     """Verify automatic fallback to AMD repo on nightly failure."""
-    script_path = Path(__file__).parent / "scripts" / "install_vllm_rocm.sh"
+    script_path = REPO_ROOT / "scripts" / "install_vllm_rocm.sh"
     content = script_path.read_text()
     
     # Check for fallback logic
@@ -215,7 +218,7 @@ def test_fallback_to_amd_repo():
 
 def test_documentation_repair_instructions():
     """Verify documentation includes repair instructions."""
-    readme_path = Path(__file__).parent / "scripts" / "README.md"
+    readme_path = REPO_ROOT / "scripts" / "README.md"
     content = readme_path.read_text()
     
     # Check for repair instructions

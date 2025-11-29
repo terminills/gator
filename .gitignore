@@ -106,6 +106,7 @@ docker-data/
 
 # Testing
 .coverage
+coverage.xml
 .pytest_cache/
 .tox/
 htmlcov/

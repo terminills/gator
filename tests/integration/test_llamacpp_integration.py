@@ -14,7 +14,7 @@ def test_llamacpp_binary_exists():
     """Test that llama-cli binary was built successfully."""
     print("🔍 Test 1: Check if llama-cli binary exists...")
     
-    repo_root = Path(__file__).parent
+    repo_root = Path(__file__).parent.parent.parent
     llamacpp_binary = repo_root / "third_party" / "llama.cpp" / "build" / "bin" / "llama-cli"
     
     if not llamacpp_binary.exists():
@@ -30,7 +30,7 @@ def test_llamacpp_version():
     """Test that llama-cli runs and shows version."""
     print("\n🔍 Test 2: Check if llama-cli runs...")
     
-    repo_root = Path(__file__).parent
+    repo_root = Path(__file__).parent.parent.parent
     llamacpp_binary = repo_root / "third_party" / "llama.cpp" / "build" / "bin" / "llama-cli"
     
     try:
@@ -62,7 +62,7 @@ def test_ai_models_service_detects_llamacpp():
     """Test that AI models service can detect llama.cpp."""
     print("\n🔍 Test 3: Check if AI models service detects llama.cpp...")
     
-    repo_root = Path(__file__).parent
+    repo_root = Path(__file__).parent.parent.parent
     llamacpp_binary = repo_root / "third_party" / "llama.cpp" / "build" / "bin" / "llama-cli"
     
     # Add llamacpp_binary directory to PATH
@@ -86,7 +86,7 @@ def test_model_directory_structure():
     """Test that model directory structure is set up correctly."""
     print("\n🔍 Test 4: Check model directory structure...")
     
-    repo_root = Path(__file__).parent
+    repo_root = Path(__file__).parent.parent.parent
     models_dir = repo_root / "models"
     text_models = models_dir / "text"
     

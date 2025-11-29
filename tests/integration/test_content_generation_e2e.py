@@ -14,7 +14,7 @@ from pathlib import Path
 import os
 
 # Add llama-cli to PATH
-repo_root = Path(__file__).parent
+repo_root = Path(__file__).parent.parent.parent
 llamacpp_bin = repo_root / "third_party" / "llama.cpp" / "build" / "bin"
 os.environ["PATH"] = f"{llamacpp_bin}:{os.environ.get('PATH', '')}"
 
@@ -175,7 +175,7 @@ async def main():
     print()
     
     # Set up Python path
-    sys.path.insert(0, str(Path(__file__).parent / "src"))
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
     
     results = []
     
