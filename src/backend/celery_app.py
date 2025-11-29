@@ -29,6 +29,7 @@ app = Celery(
         "backend.tasks.social_media_tasks",
         "backend.tasks.backup_tasks",
         "backend.tasks.rss_feed_tasks",
+        "backend.tasks.acd_tasks",
     ],
 )
 
@@ -70,6 +71,27 @@ app.conf.beat_schedule = {
     "daily-database-backup": {
         "task": "backend.tasks.backup_tasks.create_automated_backup",
         "schedule": crontab(hour=2, minute=30),  # Run daily at 2:30 AM
+    },
+    # ACD Learning Tasks
+    "acd-memory-consolidation": {
+        "task": "backend.tasks.acd_tasks.consolidate_memories",
+        "schedule": crontab(hour=4, minute=0),  # Run daily at 4 AM
+    },
+    "acd-decision-weight-update": {
+        "task": "backend.tasks.acd_tasks.update_decision_weights",
+        "schedule": crontab(hour=5, minute=0),  # Run daily at 5 AM
+    },
+    "acd-hil-learning": {
+        "task": "backend.tasks.acd_tasks.learn_from_hil_ratings",
+        "schedule": crontab(minute=0),  # Run at the start of every hour
+    },
+    "acd-cross-domain-analysis": {
+        "task": "backend.tasks.acd_tasks.analyze_cross_domain_patterns",
+        "schedule": crontab(hour=6, minute=0),  # Run daily at 6 AM
+    },
+    "acd-improvement-suggestions": {
+        "task": "backend.tasks.acd_tasks.generate_improvement_suggestions",
+        "schedule": crontab(hour=7, minute=0, day_of_week="1"),  # Run weekly on Monday
     },
 }
 
