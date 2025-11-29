@@ -29,6 +29,8 @@ class UserModel(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     username = Column(String(50), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
+    # password_hash is nullable to support OAuth users who authenticate via external providers
+    password_hash = Column(String(255), nullable=True)
     display_name = Column(String(100), nullable=True)
     profile_picture_url = Column(String(500), nullable=True)
     bio = Column(Text, nullable=True)
@@ -41,6 +43,9 @@ class UserModel(Base):
     # Messaging preferences
     receive_dm_notifications = Column(Boolean, default=True)
     allow_ppv_offers = Column(Boolean, default=True)
+
+    # Refresh token tracking (for token invalidation - stores current valid JTI)
+    refresh_token_jti = Column(String(36), nullable=True)
 
     # Timestamps
     created_at = Column(

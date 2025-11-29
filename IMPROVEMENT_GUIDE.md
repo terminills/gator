@@ -1166,10 +1166,22 @@ async def test_persona_crud_api():
   - [x] Added comprehensive unit tests
 - [ ] Complete social media OAuth flows
 - [ ] Add content moderation pipeline
-- [ ] Complete user authentication flow
+- [x] Complete user authentication flow
+  - [x] Created AuthService with password hashing (bcrypt) and JWT management
+  - [x] Created auth routes (register, login, refresh, logout, change password, verify)
+  - [x] Added password_hash and refresh_token_jti to UserModel
+  - [x] Added database migration for auth columns
+  - [x] Created get_current_user dependency for protected routes
+  - [x] Added 19 unit tests for auth functionality
 - [ ] Implement WebSocket real-time updates
 - [ ] Add Redis caching layer
-- [ ] Implement API rate limiting
+- [x] Implement API rate limiting
+  - [x] Created SlidingWindowRateLimiter with configurable limits
+  - [x] Created RateLimitMiddleware for FastAPI
+  - [x] Added endpoint-specific rate limits (auth, content, public)
+  - [x] Added rate limit headers (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset)
+  - [x] Disabled in debug mode by default
+  - [x] Added 16 unit tests for rate limiting
 
 ### Phase 7: Production Readiness (Weeks 13-14)
 

@@ -1129,6 +1129,18 @@ async def run_migrations(engine: AsyncEngine) -> Dict[str, Any]:
             else:
                 logger.info("All ACD HIL Rating columns are up to date")
 
+            # Run User Auth columns migration (Phase 6)
+            auth_columns = await add_user_auth_columns(conn, is_sqlite)
+
+            if auth_columns:
+                migrations_run.append("users_auth_columns")
+                columns_added.extend(auth_columns)
+                logger.info(
+                    f"Added {len(auth_columns)} User Auth column(s) for JWT authentication"
+                )
+            else:
+                logger.info("All User Auth columns are up to date")
+
         return results
 
     except Exception as e:
@@ -2523,6 +2535,50 @@ async def add_acd_hil_rating_columns(
     if added_columns:
         logger.info(
             f"✓ Added {len(added_columns)} HIL Rating columns for human feedback learning"
+        )
+
+    return added_columns
+
+
+async def add_user_auth_columns(conn: AsyncConnection, is_sqlite: bool) -> List[str]:
+    """
+    Add authentication columns to users table for JWT-based auth flow.
+
+    Args:
+        conn: Database connection
+        is_sqlite: Whether the database is SQLite
+
+    Returns:
+        List of columns that were added
+    """
+    added_columns: List[str] = []
+
+    # Check if table exists first
+    if not await table_exists(conn, "users", is_sqlite):
+        logger.debug("users table does not exist, skipping auth migration")
+        return added_columns
+
+    # ==================== PASSWORD HASH ====================
+
+    if not await check_column_exists(conn, "users", "password_hash", is_sqlite):
+        logger.info("Adding password_hash column to users table")
+        await conn.execute(
+            text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)")
+        )
+        added_columns.append("password_hash")
+
+    # ==================== REFRESH TOKEN JTI ====================
+
+    if not await check_column_exists(conn, "users", "refresh_token_jti", is_sqlite):
+        logger.info("Adding refresh_token_jti column to users table")
+        await conn.execute(
+            text("ALTER TABLE users ADD COLUMN refresh_token_jti VARCHAR(36)")
+        )
+        added_columns.append("refresh_token_jti")
+
+    if added_columns:
+        logger.info(
+            f"✓ Added {len(added_columns)} authentication columns for JWT auth flow"
         )
 
     return added_columns
