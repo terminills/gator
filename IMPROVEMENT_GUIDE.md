@@ -1112,15 +1112,18 @@ async def test_persona_crud_api():
 
 ### Phase 4: ACD Evolution (Weeks 5-8)
 
-- [ ] Implement `ACDCorrelationEngine`
-- [ ] Implement `ACDMemorySystem`
+- [x] Implement `ACDCorrelationEngine` (find similar contexts, extract success patterns, learn from outcomes)
+- [x] Implement `ACDMemorySystem` (hierarchical memory: working, short-term, long-term, episodic)
 - [ ] Implement `ACDSelfImprovement`
 - [ ] Implement `ACDCrossThinking`
 - [x] Add new ACD database fields (HIL Rating, Learning, Memory, Cross-domain)
-- [x] Create new ACD API endpoints (HIL Rating: /rate, /ratings, /ratings/stats, /workflow-effectiveness, /best-configs, /flag-incompatibility, /misgeneration-patterns)
+- [x] Create new ACD API endpoints (HIL Rating + Correlation Engine + Memory System)
+  - /rate, /ratings, /ratings/stats, /workflow-effectiveness, /best-configs, /flag-incompatibility, /misgeneration-patterns
+  - /correlations/similar/{id}, /correlations/patterns, /correlations/learn/{id}, /correlations/insights
+  - /memory, /memory/recall, /memory/consolidate, /memory/stats, /memory/{id}/reinforce
 - [x] Implement `HILRatingService` for human-in-the-loop feedback
 - [ ] Add ACD learning background tasks
-- [ ] Implement memory consolidation job
+- [x] Implement memory consolidation job (via /memory/consolidate endpoint)
 
 ### Phase 5: Testing Improvements (Week 9)
 

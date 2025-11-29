@@ -25,6 +25,9 @@ from backend.models.acd import (
     HILRatingResponse,
     HILRatingStats,
     LoRAIncompatibilityFlag,
+    MemoryCreate,
+    MemoryRecallRequest,
+    MemoryResponse,
     MisgenerationPattern,
     MisgenerationTag,
     RecommendedConfiguration,
@@ -616,4 +619,423 @@ async def get_misgeneration_patterns(
         return results
     except Exception as e:
         logger.error(f"Failed to get misgeneration patterns: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Correlation Engine Endpoints
+# ============================================================
+
+
+@router.get("/correlations/similar/{context_id}", tags=["correlations"])
+async def find_similar_contexts(
+    context_id: UUID,
+    similarity_threshold: float = Query(
+        0.7, ge=0.0, le=1.0, description="Minimum similarity score"
+    ),
+    max_results: int = Query(10, ge=1, le=50, description="Maximum results to return"),
+    time_window_hours: Optional[int] = Query(
+        None, ge=1, description="Optional time window in hours"
+    ),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Find historically similar contexts to inform decisions.
+
+    Uses domain/subdomain matching, phase matching, model/workflow matching,
+    and outcome correlation to find similar contexts.
+
+    Args:
+        context_id: UUID of the context to find similar ones for
+        similarity_threshold: Minimum similarity score (0-1)
+        max_results: Maximum number of results
+        time_window_hours: Optional time window filter
+
+    Returns:
+        List of similar contexts with similarity scores
+    """
+    from backend.services.acd_correlation_engine import ACDCorrelationEngine
+
+    try:
+        # Get the source context
+        service = ACDService(db)
+        source_context = await service.get_context(context_id)
+        if not source_context:
+            raise HTTPException(status_code=404, detail="Context not found")
+
+        # Get source context model for correlation engine
+        from sqlalchemy import select
+        from backend.models.acd import ACDContextModel
+
+        stmt = select(ACDContextModel).where(ACDContextModel.id == context_id)
+        result = await db.execute(stmt)
+        context_model = result.scalar_one_or_none()
+
+        if not context_model:
+            raise HTTPException(status_code=404, detail="Context not found")
+
+        correlation_engine = ACDCorrelationEngine(db)
+        similar = await correlation_engine.find_similar_contexts(
+            context_model,
+            similarity_threshold=similarity_threshold,
+            max_results=max_results,
+            time_window_hours=time_window_hours,
+        )
+
+        return {
+            "source_context_id": str(context_id),
+            "similar_contexts": similar,
+            "count": len(similar),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to find similar contexts: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/correlations/patterns", tags=["correlations"])
+async def get_success_patterns(
+    domain: Optional[str] = Query(None, description="Domain filter"),
+    time_window_hours: int = Query(
+        168, ge=1, description="Time window in hours (default 1 week)"
+    ),
+    min_rating: int = Query(
+        4, ge=1, le=5, description="Minimum HIL rating for success"
+    ),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Analyze successful contexts to extract winning patterns.
+
+    Returns:
+    - Common prompt structures
+    - Optimal parameter combinations
+    - Best-performing model/quality settings
+    - Recommendations based on patterns
+
+    Args:
+        domain: Optional domain filter
+        time_window_hours: Time window for analysis
+        min_rating: Minimum HIL rating to consider successful
+
+    Returns:
+        Success patterns and recommendations
+    """
+    from backend.services.acd_correlation_engine import ACDCorrelationEngine
+    from backend.models.acd import AIDomain
+
+    try:
+        correlation_engine = ACDCorrelationEngine(db)
+
+        # Convert domain string to enum if provided
+        domain_enum = None
+        if domain:
+            try:
+                domain_enum = AIDomain(domain)
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid domain: {domain}. Valid domains: {[d.value for d in AIDomain]}"
+                )
+
+        patterns = await correlation_engine.extract_success_patterns(
+            domain=domain_enum,
+            time_window_hours=time_window_hours,
+            min_rating=min_rating,
+        )
+
+        return patterns
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get success patterns: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/correlations/learn/{context_id}", tags=["correlations"])
+async def learn_from_outcome(
+    context_id: UUID,
+    outcome: dict,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Update ACD's knowledge base from generation outcomes.
+
+    Learns:
+    - What prompts lead to high engagement
+    - Which model combinations work best
+    - Failure patterns to avoid
+
+    Args:
+        context_id: UUID of the context to learn from
+        outcome: Outcome data including engagement_metrics, quality_score, success
+
+    Returns:
+        Learning results and insights
+    """
+    from backend.services.acd_correlation_engine import ACDCorrelationEngine
+
+    try:
+        correlation_engine = ACDCorrelationEngine(db)
+        results = await correlation_engine.learn_from_outcome(context_id, outcome)
+        return results
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to learn from outcome: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/correlations/insights", tags=["correlations"])
+async def get_correlation_insights(
+    domain: Optional[str] = Query(None, description="Domain filter"),
+    time_window_hours: int = Query(
+        168, ge=1, description="Time window in hours (default 1 week)"
+    ),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get cross-context correlation insights.
+
+    Returns correlation statistics, high-correlation pairs,
+    and domain-level analysis.
+
+    Args:
+        domain: Optional domain filter
+        time_window_hours: Time window for analysis
+
+    Returns:
+        Correlation insights and patterns
+    """
+    from backend.services.acd_correlation_engine import ACDCorrelationEngine
+    from backend.models.acd import AIDomain
+
+    try:
+        correlation_engine = ACDCorrelationEngine(db)
+
+        # Convert domain string to enum if provided
+        domain_enum = None
+        if domain:
+            try:
+                domain_enum = AIDomain(domain)
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid domain: {domain}"
+                )
+
+        insights = await correlation_engine.get_correlation_insights(
+            domain=domain_enum,
+            time_window_hours=time_window_hours,
+        )
+
+        return insights
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get correlation insights: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Memory System Endpoints
+# ============================================================
+
+
+@router.post("/memory", response_model=MemoryResponse, tags=["memory"])
+async def store_memory(
+    memory_data: MemoryCreate,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Store a memory with importance weighting.
+
+    Memory types:
+    - WORKING: Current task context
+    - SHORT_TERM: Recent generations (24h)
+    - LONG_TERM: Persistent patterns
+    - EPISODIC: Specific memorable outcomes
+
+    Args:
+        memory_data: Memory data to store
+
+    Returns:
+        Stored memory response
+    """
+    from backend.services.acd_memory_system import ACDMemorySystem
+
+    try:
+        memory_system = ACDMemorySystem(db)
+        result = await memory_system.store_memory(memory_data)
+        return result
+
+    except Exception as e:
+        logger.error(f"Failed to store memory: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/memory/recall", tags=["memory"])
+async def recall_memories(
+    recall_request: MemoryRecallRequest,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Recall relevant memories using semantic search.
+
+    Prioritizes:
+    - Recency (recent memories weighted higher)
+    - Importance (marked important memories)
+    - Relevance (semantic similarity to query)
+
+    Args:
+        recall_request: Recall request with query and filters
+
+    Returns:
+        List of relevant memories
+    """
+    from backend.services.acd_memory_system import ACDMemorySystem
+
+    try:
+        memory_system = ACDMemorySystem(db)
+        results = await memory_system.recall(recall_request)
+        return {
+            "query": recall_request.query,
+            "memories": results,
+            "count": len(results),
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to recall memories: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/memory/consolidate", tags=["memory"])
+async def consolidate_memories(
+    batch_size: int = Query(100, ge=1, le=1000, description="Max memories to process"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Trigger memory consolidation.
+
+    Consolidation:
+    - Promotes frequently accessed short-term memories to long-term
+    - Promotes high-importance memories to episodic
+    - Marks low-value memories as consolidated
+
+    Args:
+        batch_size: Maximum memories to process per consolidation
+
+    Returns:
+        Consolidation results
+    """
+    from backend.services.acd_memory_system import ACDMemorySystem
+
+    try:
+        memory_system = ACDMemorySystem(db)
+        results = await memory_system.consolidate(batch_size=batch_size)
+        return results
+
+    except Exception as e:
+        logger.error(f"Failed to consolidate memories: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/memory/stats", tags=["memory"])
+async def get_memory_stats(
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get statistics about the memory system.
+
+    Returns counts by memory type, consolidation status,
+    and other memory system metrics.
+
+    Returns:
+        Memory system statistics
+    """
+    from backend.services.acd_memory_system import ACDMemorySystem
+
+    try:
+        memory_system = ACDMemorySystem(db)
+        stats = await memory_system.get_memory_stats()
+        return stats
+
+    except Exception as e:
+        logger.error(f"Failed to get memory stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/memory/{memory_id}/reinforce", tags=["memory"])
+async def reinforce_memory(
+    memory_id: UUID,
+    boost: float = Query(0.1, ge=0.01, le=0.5, description="Importance boost amount"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Reinforce a memory by increasing its importance.
+
+    Used when a memory proves useful or relevant.
+
+    Args:
+        memory_id: UUID of the memory to reinforce
+        boost: Amount to increase importance
+
+    Returns:
+        Updated memory
+    """
+    from backend.services.acd_memory_system import ACDMemorySystem
+
+    try:
+        memory_system = ACDMemorySystem(db)
+        result = await memory_system.reinforce(memory_id, boost=boost)
+
+        if not result:
+            raise HTTPException(status_code=404, detail="Memory not found")
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to reinforce memory: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/memory/{memory_id}", tags=["memory"])
+async def forget_memory(
+    memory_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Mark a memory as forgotten (reduce importance to 0).
+
+    The memory is not deleted, but its importance is reduced
+    so it won't appear in recalls.
+
+    Args:
+        memory_id: UUID of the memory to forget
+
+    Returns:
+        Success status
+    """
+    from backend.services.acd_memory_system import ACDMemorySystem
+
+    try:
+        memory_system = ACDMemorySystem(db)
+        success = await memory_system.forget(memory_id)
+
+        if not success:
+            raise HTTPException(status_code=404, detail="Memory not found")
+
+        return {"status": "forgotten", "memory_id": str(memory_id)}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to forget memory: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
