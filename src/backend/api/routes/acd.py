@@ -1451,3 +1451,346 @@ async def trigger_learning_cycle(
     except Exception as e:
         logger.error(f"Failed to trigger learning cycle: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Schema Exchange Endpoints
+# ============================================================
+
+
+@router.post("/schema/validate", tags=["schema-exchange"])
+async def validate_schema(
+    data: dict,
+    expected_version: Optional[str] = Query(None, description="Expected schema version"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Validate an ACD schema against standards.
+
+    Checks:
+    - Required fields presence
+    - Field value validity
+    - Schema version compatibility
+
+    Args:
+        data: Schema data to validate
+        expected_version: Expected schema version (auto-detect if None)
+
+    Returns:
+        Validation result with issues and compatibility score
+    """
+    from backend.services.acd_schema_exchange import ACDSchemaExchange
+    from dataclasses import asdict
+
+    try:
+        exchange = ACDSchemaExchange(db)
+        result = exchange.validate_schema(data, expected_version)
+
+        return {
+            "is_valid": result.is_valid,
+            "issues": [asdict(i) for i in result.issues],
+            "schema_version": result.schema_version,
+            "compatibility_score": result.compatibility_score,
+            "transformations_needed": result.transformations_needed,
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to validate schema: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/schema/transform", tags=["schema-exchange"])
+async def transform_schema(
+    data: dict,
+    source_version: str = Query(..., description="Source schema version"),
+    target_version: str = Query(..., description="Target schema version"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Transform a schema from one version to another.
+
+    Supports transformations between:
+    - v1.0 <-> v1.1 <-> v2.0
+
+    Args:
+        data: Schema data to transform
+        source_version: Source schema version
+        target_version: Target schema version
+
+    Returns:
+        Transformed schema data
+    """
+    from backend.services.acd_schema_exchange import ACDSchemaExchange
+
+    try:
+        exchange = ACDSchemaExchange(db)
+        result = exchange.transform_schema(data, source_version, target_version)
+
+        return {
+            "transformed": result,
+            "source_version": source_version,
+            "target_version": target_version,
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to transform schema: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/schema/export", tags=["schema-exchange"])
+async def export_contexts(
+    context_ids: Optional[List[UUID]] = None,
+    domain: Optional[str] = Query(None, description="Filter by domain"),
+    format_type: str = Query("json", description="Export format: json, yaml, jsonld, ndjson"),
+    include_relationships: bool = Query(True, description="Include relationship data"),
+    schema_version: str = Query("2.0", description="Target schema version"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Export ACD contexts to a portable format.
+
+    Supports export formats:
+    - json: Standard JSON
+    - yaml: YAML-like format
+    - jsonld: JSON-LD for linked data
+    - ndjson: Newline-delimited JSON for streaming
+
+    Args:
+        context_ids: Specific context IDs to export (None for all)
+        domain: Filter by domain
+        format_type: Export format
+        include_relationships: Include relationship data
+        schema_version: Target schema version
+
+    Returns:
+        Exported schema with contexts and metadata
+    """
+    from backend.services.acd_schema_exchange import (
+        ACDSchemaExchange,
+        ACDExportFormat,
+    )
+    from backend.models.acd import AIDomain
+    from dataclasses import asdict
+
+    try:
+        exchange = ACDSchemaExchange(db)
+
+        # Parse domain
+        domain_enum = None
+        if domain:
+            try:
+                domain_enum = AIDomain(domain)
+            except ValueError:
+                valid_domains = [d.value for d in AIDomain]
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid domain: {domain}. Valid domains: {valid_domains}"
+                )
+
+        # Parse format
+        try:
+            format_enum = ACDExportFormat(format_type)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid format: {format_type}. Valid: json, yaml, jsonld, ndjson"
+            )
+
+        exported = await exchange.export_contexts(
+            context_ids=context_ids,
+            domain=domain_enum,
+            format_type=format_enum,
+            include_relationships=include_relationships,
+            schema_version=schema_version,
+        )
+
+        # Return formatted output
+        formatted = exchange.format_export(exported, format_enum)
+
+        return {
+            "metadata": asdict(exported.metadata),
+            "contexts_count": len(exported.contexts),
+            "relationships_count": len(exported.relationships),
+            "correlation_hints": exported.correlation_hints,
+            "formatted_output": formatted,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to export contexts: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/schema/import", tags=["schema-exchange"])
+async def import_schema(
+    data: dict,
+    source_system: str = Query(..., description="Source system identifier"),
+    validate: bool = Query(True, description="Validate before importing"),
+    transform: bool = Query(True, description="Transform to current version"),
+    merge_strategy: str = Query(
+        "skip_existing",
+        description="Merge strategy: skip_existing, update_existing, create_new"
+    ),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Import ACD schema from external system.
+
+    Supports:
+    - Schema validation
+    - Version transformation
+    - Multiple merge strategies
+
+    Args:
+        data: Schema data to import (full export or raw contexts)
+        source_system: Identifier of source system
+        validate: Validate before importing
+        transform: Transform to current version
+        merge_strategy: How to handle existing contexts
+
+    Returns:
+        Import result with counts and any errors
+    """
+    from backend.services.acd_schema_exchange import ACDSchemaExchange
+    from dataclasses import asdict
+
+    try:
+        exchange = ACDSchemaExchange(db)
+
+        if merge_strategy not in ["skip_existing", "update_existing", "create_new"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid merge_strategy: {merge_strategy}"
+            )
+
+        result = await exchange.import_schema(
+            data=data,
+            source_system=source_system,
+            validate=validate,
+            transform=transform,
+            merge_strategy=merge_strategy,
+        )
+
+        return {
+            "success": result.success,
+            "contexts_imported": result.contexts_imported,
+            "contexts_skipped": result.contexts_skipped,
+            "contexts_failed": result.contexts_failed,
+            "transformations_applied": result.transformations_applied,
+            "imported_ids": result.imported_ids,
+            "errors": result.errors,
+            "validation_result": (
+                asdict(result.validation_result)
+                if result.validation_result
+                else None
+            ),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to import schema: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/schema/correlate", tags=["schema-exchange"])
+async def correlate_with_external(
+    external_contexts: List[dict],
+    source_system: str = Query(..., description="Source system identifier"),
+    correlation_threshold: float = Query(
+        0.5, ge=0.0, le=1.0, description="Minimum correlation score"
+    ),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Find correlations between external contexts and local ACD contexts.
+
+    Correlates based on:
+    - Domain match
+    - Phase match
+    - Model match
+    - Workflow match
+
+    Args:
+        external_contexts: Contexts from external system
+        source_system: Source system identifier
+        correlation_threshold: Minimum score for correlation
+
+    Returns:
+        List of correlations and insights
+    """
+    from backend.services.acd_schema_exchange import ACDSchemaExchange
+    from dataclasses import asdict
+
+    try:
+        exchange = ACDSchemaExchange(db)
+
+        correlations = await exchange.correlate_with_external(
+            external_contexts=external_contexts,
+            source_system=source_system,
+            correlation_threshold=correlation_threshold,
+        )
+
+        insights = await exchange.get_correlation_insights(correlations)
+
+        return {
+            "correlations": [asdict(c) for c in correlations],
+            "total_correlations": len(correlations),
+            "insights": insights,
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to correlate contexts: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/schema/info", tags=["schema-exchange"])
+async def get_schema_info(
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get information about the ACD schema system.
+
+    Returns:
+    - Supported versions
+    - Export formats
+    - System capabilities
+    - Domain mappings
+
+    Returns:
+        Schema system information
+    """
+    from backend.services.acd_schema_exchange import (
+        ACDSchemaExchange,
+        ACDSchemaVersion,
+        ACDExportFormat,
+        ACDSystemType,
+        REQUIRED_FIELDS,
+        EXTERNAL_DOMAIN_MAPPINGS,
+    )
+    from backend.models.acd import AIDomain
+
+    try:
+        return {
+            "current_version": ACDSchemaExchange.CURRENT_VERSION,
+            "supported_versions": [v.value for v in ACDSchemaVersion],
+            "export_formats": [f.value for f in ACDExportFormat],
+            "system_types": [s.value for s in ACDSystemType],
+            "system_id": ACDSchemaExchange.SYSTEM_ID,
+            "system_type": ACDSchemaExchange.SYSTEM_TYPE,
+            "required_fields_by_version": REQUIRED_FIELDS,
+            "supported_domains": [d.value for d in AIDomain],
+            "external_domain_mappings": EXTERNAL_DOMAIN_MAPPINGS,
+            "capabilities": [
+                "import",
+                "export",
+                "validation",
+                "transformation",
+                "correlation",
+            ],
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get schema info: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

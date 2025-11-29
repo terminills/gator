@@ -1130,6 +1130,8 @@ async def test_persona_crud_api():
 - [x] Implement `HILRatingService` for human-in-the-loop feedback
 - [x] Add ACD learning background tasks (Celery tasks for memory consolidation, weight updates, cross-domain analysis, HIL learning)
 - [x] Implement memory consolidation job (via /memory/consolidate endpoint and scheduled Celery task)
+- [x] Implement `ACDSchemaExchange` (cross-system schema import/export, validation, transformation, correlation)
+  - /schema/validate, /schema/transform, /schema/export, /schema/import, /schema/correlate, /schema/info
 
 ### Phase 5: Testing Improvements (Week 9)
 
