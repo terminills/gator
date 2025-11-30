@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import uvicorn
-from fastapi import Depends, FastAPI, Request, Response, WebSocket
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -532,12 +532,21 @@ def create_app() -> FastAPI:
             ],
         }
 
-    @app.exception_handler(404)
-    async def not_found_handler(request: Request, exc) -> Response:
-        """Custom 404 handler."""
-        return JSONResponse(
-            status_code=404, content={"detail": f"Path {request.url.path} not found"}
-        )
+    # Register standardized error handlers
+    from backend.api.errors import (
+        GatorHTTPException,
+        gator_exception_handler,
+        http_exception_handler,
+        generic_exception_handler,
+    )
+    from fastapi.exceptions import RequestValidationError
+    from pydantic import ValidationError
+
+    app.add_exception_handler(GatorHTTPException, gator_exception_handler)
+    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(RequestValidationError, generic_exception_handler)
+    app.add_exception_handler(ValidationError, generic_exception_handler)
+    app.add_exception_handler(Exception, generic_exception_handler)
 
     return app
 

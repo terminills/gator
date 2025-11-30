@@ -106,19 +106,28 @@ class OAuthStateStore:
         self._memory_store: Dict[str, Dict[str, Any]] = {}
         self._lock = asyncio.Lock()
         self._cache_service = None
+        self._redis_available = None  # None = not tested, True/False = tested
 
     async def _get_cache_service(self):
         """Lazy initialization of cache service."""
-        if self._cache_service is None:
+        if self._redis_available is None:
             try:
                 from backend.services.cache_service import CacheService
 
                 self._cache_service = CacheService()
                 await self._cache_service.connect()
+                # Check if Redis is actually connected
+                if self._cache_service.is_connected:
+                    self._redis_available = True
+                else:
+                    logger.warning("Redis unavailable for OAuth state storage")
+                    self._redis_available = False
+                    self._cache_service = None
             except Exception as e:
                 logger.warning(f"Redis unavailable for OAuth state: {e}")
-                self._cache_service = False  # Mark as unavailable
-        return self._cache_service if self._cache_service else None
+                self._redis_available = False
+                self._cache_service = None
+        return self._cache_service if self._redis_available else None
 
     async def store_state(
         self, state: str, platform: str, user_id: str
@@ -153,7 +162,7 @@ class OAuthStateStore:
             except Exception as e:
                 logger.warning(f"Failed to store state in Redis: {e}")
 
-        # Fallback to memory
+        # Fallback to memory (always store here as backup)
         async with self._lock:
             self._memory_store[state] = state_data
             logger.debug(f"Stored OAuth state in memory: {state[:8]}...")
