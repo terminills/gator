@@ -5,7 +5,9 @@ Implementations for various social media platform APIs including
 Instagram, Facebook, Twitter, TikTok, and LinkedIn.
 """
 
+import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict
 
 import httpx
@@ -476,81 +478,421 @@ class TwitterClient(PlatformClientBase):
 
 class TikTokClient(PlatformClientBase):
     """
-    TikTok API client (placeholder implementation).
+    TikTok Content Posting API client.
 
-    TikTok API integration requires business verification and API approval.
+    Implements TikTok's Content Posting API for video uploads and metrics.
 
     Prerequisites:
     - TikTok for Business account
     - API access approval from TikTok
-    - OAuth 2.0 credentials
-
-    Implementation Steps:
-    1. Apply for TikTok API access: https://developers.tiktok.com/
-    2. Obtain OAuth 2.0 credentials
-    3. Implement video upload endpoint
-    4. Add content validation (video format, duration, file size)
-    5. Implement engagement metrics retrieval
+    - OAuth 2.0 credentials (access_token in SocialAccount)
 
     Supported Content Types: video (MP4, MOV)
-    Max Video Size: 287.6 MB
-    Max Video Duration: 60 minutes
+    Max Video Size: 287.6 MB (287,600 KB)
+    Max Video Duration: 60 minutes (3600 seconds)
 
     References:
     - TikTok API Documentation: https://developers.tiktok.com/doc/content-posting-api-get-started
     """
 
+    # TikTok API constants
+    MAX_VIDEO_SIZE_BYTES = 287_600 * 1024  # 287.6 MB in bytes
+    MAX_VIDEO_DURATION_SECONDS = 3600  # 60 minutes
+    SUPPORTED_FORMATS = ["mp4", "mov", "webm"]
+
+    def __init__(self):
+        super().__init__()
+        self.base_url = "https://open.tiktokapis.com/v2"
+
     async def validate_credentials(self, account: SocialAccount) -> bool:
         """
-        Validate TikTok credentials.
+        Validate TikTok credentials by fetching user info.
 
-        Note: TikTok API requires business verification and special approval.
-        This is a placeholder that returns False until API access is granted.
+        Uses the User Info endpoint to verify the access token is valid.
+
+        Args:
+            account: SocialAccount with TikTok access_token
+
+        Returns:
+            bool: True if credentials are valid, False otherwise
         """
-        logger.warning(
-            "TikTok API integration requires business verification. "
-            "Apply for access at https://developers.tiktok.com/"
-        )
-        return False
+        try:
+            if not account.access_token:
+                logger.warning("TikTok account missing access_token")
+                return False
+
+            # Fetch user info to validate token
+            response = await self.http_client.get(
+                f"{self.base_url}/user/info/",
+                headers={
+                    "Authorization": f"Bearer {account.access_token}",
+                    "Content-Type": "application/json",
+                },
+                params={"fields": "open_id,display_name,avatar_url"},
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("error", {}).get("code") == "ok":
+                    user_data = data.get("data", {}).get("user", {})
+                    logger.info(
+                        f"TikTok credentials validated for user: {user_data.get('display_name', 'unknown')}"
+                    )
+                    return True
+                else:
+                    error_msg = data.get("error", {}).get("message", "Unknown error")
+                    logger.warning(f"TikTok credential validation failed: {error_msg}")
+                    return False
+            else:
+                logger.warning(
+                    f"TikTok credential validation failed: HTTP {response.status_code}"
+                )
+                return False
+
+        except Exception as e:
+            logger.error(f"TikTok credential validation error: {str(e)}")
+            return False
+
+    def _validate_video_content(self, content_data: Dict[str, Any]) -> tuple[bool, str]:
+        """
+        Validate video content meets TikTok requirements.
+
+        Args:
+            content_data: Content data containing video_url or video_path
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        # Check if video URL or path is provided
+        video_url = content_data.get("video_url")
+        video_path = content_data.get("video_path")
+
+        if not video_url and not video_path:
+            return False, "Either video_url or video_path is required"
+
+        # Check video format
+        video_source = video_url or video_path
+        video_extension = video_source.split(".")[-1].lower()
+        if video_extension not in self.SUPPORTED_FORMATS:
+            return (
+                False,
+                f"Unsupported video format: {video_extension}. Supported: {self.SUPPORTED_FORMATS}",
+            )
+
+        # Check file size if available
+        file_size = content_data.get("file_size")
+        if file_size and file_size > self.MAX_VIDEO_SIZE_BYTES:
+            return (
+                False,
+                f"Video exceeds maximum size of {self.MAX_VIDEO_SIZE_BYTES / (1024*1024):.1f} MB",
+            )
+
+        # Check duration if available
+        duration = content_data.get("duration")
+        if duration and duration > self.MAX_VIDEO_DURATION_SECONDS:
+            return (
+                False,
+                f"Video exceeds maximum duration of {self.MAX_VIDEO_DURATION_SECONDS // 60} minutes",
+            )
+
+        return True, ""
 
     async def publish_content(
         self, account: SocialAccount, content_data: Dict[str, Any]
     ) -> PostResponse:
         """
-        Publish content to TikTok.
+        Publish video content to TikTok using Content Posting API.
 
-        Note: This is a placeholder implementation. Once TikTok API access is granted:
-        1. Validate content (video format, duration, file size)
-        2. Upload video to TikTok using Content Posting API
-        3. Set video metadata (caption, privacy, allow comments, etc.)
-        4. Return post ID and status
+        Implementation follows TikTok's Direct Post flow:
+        1. Initialize video upload (get upload URL)
+        2. Upload video file
+        3. Create post with video and metadata
+
+        Args:
+            account: SocialAccount with TikTok credentials
+            content_data: Dict containing:
+                - video_url or video_path: Video source
+                - caption: Post caption/description (optional)
+                - privacy_level: PUBLIC_TO_EVERYONE, MUTUAL_FOLLOW_FRIENDS, SELF_ONLY (optional)
+                - allow_comments: Whether to allow comments (optional, default True)
+                - allow_duet: Whether to allow duets (optional, default True)
+                - allow_stitch: Whether to allow stitching (optional, default True)
+
+        Returns:
+            PostResponse with post status and metadata
         """
-        return PostResponse(
-            platform=PlatformType.TIKTOK,
-            post_id=None,
-            status=PostStatus.FAILED,
-            published_at=None,
-            platform_url=None,
-            error_message=(
-                "TikTok API integration requires business verification. "
-                "Apply for access at https://developers.tiktok.com/"
-            ),
-        )
+        try:
+            # Validate video content
+            is_valid, error_msg = self._validate_video_content(content_data)
+            if not is_valid:
+                return PostResponse(
+                    platform=PlatformType.TIKTOK,
+                    post_id=None,
+                    status=PostStatus.FAILED,
+                    published_at=None,
+                    platform_url=None,
+                    error_message=error_msg,
+                )
+
+            # Step 1: Initialize video upload
+            init_response = await self._initialize_video_upload(account, content_data)
+            if not init_response:
+                return PostResponse(
+                    platform=PlatformType.TIKTOK,
+                    post_id=None,
+                    status=PostStatus.FAILED,
+                    published_at=None,
+                    platform_url=None,
+                    error_message="Failed to initialize video upload",
+                )
+
+            publish_id = init_response.get("publish_id")
+            upload_url = init_response.get("upload_url")
+
+            # Step 2: Upload video file
+            upload_success = await self._upload_video_file(
+                upload_url,
+                content_data.get("video_path") or content_data.get("video_url"),
+            )
+            if not upload_success:
+                return PostResponse(
+                    platform=PlatformType.TIKTOK,
+                    post_id=None,
+                    status=PostStatus.FAILED,
+                    published_at=None,
+                    platform_url=None,
+                    error_message="Failed to upload video file",
+                )
+
+            # Step 3: Check upload status and get post URL
+            post_info = await self._check_publish_status(account, publish_id)
+
+            return PostResponse(
+                platform=PlatformType.TIKTOK,
+                post_id=publish_id,
+                status=PostStatus.PUBLISHED if post_info else PostStatus.PENDING,
+                published_at=datetime.utcnow() if post_info else None,
+                platform_url=post_info.get("share_url") if post_info else None,
+                engagement_metrics={},
+            )
+
+        except Exception as e:
+            logger.error(f"TikTok publishing failed: {str(e)}")
+            return PostResponse(
+                platform=PlatformType.TIKTOK,
+                post_id=None,
+                status=PostStatus.FAILED,
+                published_at=None,
+                platform_url=None,
+                error_message=str(e),
+            )
+
+    async def _initialize_video_upload(
+        self, account: SocialAccount, content_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Initialize video upload with TikTok Content Posting API.
+
+        Args:
+            account: SocialAccount with TikTok credentials
+            content_data: Content data with video metadata
+
+        Returns:
+            Dict with publish_id and upload_url, or None on failure
+        """
+        try:
+            # Prepare post info
+            post_info = {
+                "title": content_data.get("caption", "")[:150],  # TikTok title limit
+                "privacy_level": content_data.get(
+                    "privacy_level", "PUBLIC_TO_EVERYONE"
+                ),
+                "disable_comment": not content_data.get("allow_comments", True),
+                "disable_duet": not content_data.get("allow_duet", True),
+                "disable_stitch": not content_data.get("allow_stitch", True),
+            }
+
+            # Determine upload type based on source
+            if content_data.get("video_url"):
+                # Pull from URL
+                source_info = {
+                    "source": "PULL_FROM_URL",
+                    "video_url": content_data["video_url"],
+                }
+            else:
+                # File upload - get file size for chunked upload
+                video_path = content_data.get("video_path")
+                file_size = os.path.getsize(video_path) if video_path else 0
+                source_info = {
+                    "source": "FILE_UPLOAD",
+                    "video_size": file_size,
+                    "chunk_size": min(file_size, 10 * 1024 * 1024),  # 10MB chunks
+                    "total_chunk_count": (file_size // (10 * 1024 * 1024)) + 1,
+                }
+
+            response = await self.http_client.post(
+                f"{self.base_url}/post/publish/video/init/",
+                headers={
+                    "Authorization": f"Bearer {account.access_token}",
+                    "Content-Type": "application/json; charset=UTF-8",
+                },
+                json={
+                    "post_info": post_info,
+                    "source_info": source_info,
+                },
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("error", {}).get("code") == "ok":
+                    return data.get("data", {})
+                else:
+                    error_msg = data.get("error", {}).get("message", "Unknown error")
+                    logger.error(f"TikTok upload init failed: {error_msg}")
+                    return None
+            else:
+                logger.error(f"TikTok upload init HTTP error: {response.status_code}")
+                return None
+
+        except Exception as e:
+            logger.error(f"TikTok upload init error: {str(e)}")
+            return None
+
+    async def _upload_video_file(self, upload_url: str, video_source: str) -> bool:
+        """
+        Upload video file to TikTok's upload URL.
+
+        Args:
+            upload_url: TikTok-provided upload URL
+            video_source: Local file path or URL
+
+        Returns:
+            bool: True if upload successful
+        """
+        try:
+            # Handle local file upload
+            if video_source.startswith(("http://", "https://")):
+                # TikTok will pull from URL, no upload needed
+                return True
+
+            # Read local file using pathlib
+            video_path = Path(video_source)
+            if not video_path.exists():
+                logger.error(f"Video file not found: {video_source}")
+                return False
+
+            with open(video_path, "rb") as f:
+                video_data = f.read()
+
+            # Upload to TikTok
+            response = await self.http_client.put(
+                upload_url,
+                content=video_data,
+                headers={
+                    "Content-Type": "video/mp4",
+                    "Content-Range": f"bytes 0-{len(video_data)-1}/{len(video_data)}",
+                },
+            )
+
+            return response.status_code in [200, 201]
+
+        except Exception as e:
+            logger.error(f"TikTok video upload error: {str(e)}")
+            return False
+
+    async def _check_publish_status(
+        self, account: SocialAccount, publish_id: str
+    ) -> Dict[str, Any]:
+        """
+        Check the publish status of a video.
+
+        Args:
+            account: SocialAccount with TikTok credentials
+            publish_id: The publish ID from init response
+
+        Returns:
+            Dict with post info if published, None otherwise
+        """
+        try:
+            response = await self.http_client.post(
+                f"{self.base_url}/post/publish/status/fetch/",
+                headers={
+                    "Authorization": f"Bearer {account.access_token}",
+                    "Content-Type": "application/json",
+                },
+                json={"publish_id": publish_id},
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("error", {}).get("code") == "ok":
+                    status_data = data.get("data", {})
+                    if status_data.get("status") == "PUBLISH_COMPLETE":
+                        return status_data
+            return None
+
+        except Exception as e:
+            logger.error(f"TikTok status check error: {str(e)}")
+            return None
 
     async def get_engagement_metrics(
         self, account: SocialAccount, post_id: str
     ) -> Dict[str, int]:
         """
-        Get TikTok engagement metrics.
+        Get TikTok engagement metrics for a video.
 
-        Note: Placeholder implementation. Once API access is granted, will return:
-        - views: Total video views
-        - likes: Total likes
-        - comments: Total comments
-        - shares: Total shares
-        - play_duration: Average watch time
+        Uses the Video Query endpoint to fetch metrics.
+
+        Args:
+            account: SocialAccount with TikTok credentials
+            post_id: TikTok video ID (publish_id)
+
+        Returns:
+            Dict with engagement metrics:
+            - views: Total video views
+            - likes: Total likes
+            - comments: Total comments
+            - shares: Total shares
         """
-        return {}
+        try:
+            response = await self.http_client.post(
+                f"{self.base_url}/video/query/",
+                headers={
+                    "Authorization": f"Bearer {account.access_token}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "filters": {"video_ids": [post_id]},
+                    "fields": [
+                        "id",
+                        "title",
+                        "view_count",
+                        "like_count",
+                        "comment_count",
+                        "share_count",
+                    ],
+                },
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("error", {}).get("code") == "ok":
+                    videos = data.get("data", {}).get("videos", [])
+                    if videos:
+                        video = videos[0]
+                        return {
+                            "views": video.get("view_count", 0),
+                            "likes": video.get("like_count", 0),
+                            "comments": video.get("comment_count", 0),
+                            "shares": video.get("share_count", 0),
+                        }
+
+            logger.warning(f"TikTok metrics retrieval failed for post {post_id}")
+            return {}
+
+        except Exception as e:
+            logger.error(f"TikTok metrics error: {str(e)}")
+            return {}
 
 
 class LinkedInClient(PlatformClientBase):

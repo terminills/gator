@@ -462,17 +462,143 @@ class ReelGenerationService:
     async def _create_placeholder_video(
         self, output_path: Path, width: int, height: int, duration: float, text: str
     ) -> None:
-        """Create a placeholder video file."""
-        # Create a simple text file placeholder for now
-        # In production, would use ffmpeg or opencv to create actual video
-        output_path.write_text(
-            f"# Reel Placeholder\n"
-            f"# Resolution: {width}x{height}\n"
-            f"# Duration: {duration}s\n"
-            f"# Content: {text}\n"
-            f"# Note: Reel generation requires AI video models\n"
-        )
-        logger.info(f"Created placeholder reel: {output_path}")
+        """
+        Create a video file using AI-powered frame generation.
+
+        Uses the VideoProcessingService to generate actual video frames with
+        proper transitions instead of placeholder text files.
+
+        Args:
+            output_path: Path where the video will be saved
+            width: Video width in pixels
+            height: Video height in pixels
+            duration: Duration of the video in seconds
+            text: Description text for generating frames
+        """
+        import cv2
+
+        try:
+            # Determine video quality based on resolution
+            if width >= 1920:
+                quality = VideoQuality.HIGH
+            elif width >= 1280:
+                quality = VideoQuality.STANDARD
+            else:
+                quality = VideoQuality.DRAFT
+
+            # Use VideoProcessingService for frame generation
+            frames = []
+            fps = 30
+            num_frames = int(duration * fps)
+
+            # Generate frames using the video service's public frame generation method
+            for i in range(
+                min(num_frames, fps)
+            ):  # Generate one second of unique frames
+                frame = await self.video_service.generate_single_frame(
+                    prompt=text,
+                    quality=quality,
+                    frame_index=i,
+                )
+                frames.append(frame)
+
+            # If we need more frames, duplicate the generated frames
+            if num_frames > fps:
+                full_frames = []
+                for _ in range(int(duration)):
+                    full_frames.extend(frames)
+                frames = full_frames[:num_frames]
+
+            # Ensure output directory exists
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Write video using OpenCV
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
+
+            for frame in frames:
+                # Resize frame if needed
+                if frame.shape[1] != width or frame.shape[0] != height:
+                    frame = cv2.resize(frame, (width, height))
+                writer.write(frame)
+
+            writer.release()
+            logger.info(
+                f"Generated reel video: {output_path} ({width}x{height}, {duration}s)"
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Failed to create video, falling back to placeholder: {str(e)}"
+            )
+            # Fallback: Create minimal MP4 with colored frames
+            await self._create_fallback_video(
+                output_path, width, height, duration, text
+            )
+
+    async def _create_fallback_video(
+        self, output_path: Path, width: int, height: int, duration: float, text: str
+    ) -> None:
+        """
+        Create a basic fallback video with solid color frames and text overlay.
+
+        Used when AI frame generation fails.
+
+        Args:
+            output_path: Output video path
+            width: Video width
+            height: Video height
+            duration: Video duration in seconds
+            text: Text to overlay on video
+        """
+        import cv2
+        import numpy as np
+
+        fps = 30
+        num_frames = int(duration * fps)
+
+        # Create video writer
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
+
+        for i in range(num_frames):
+            # Create gradient background
+            frame = np.zeros((height, width, 3), dtype=np.uint8)
+
+            # Add animated gradient
+            progress = i / num_frames
+            for row in range(height):
+                color_value = int(50 + (row / height) * 100)
+                hue_shift = int(progress * 50)
+                frame[row, :] = [
+                    color_value + hue_shift,
+                    color_value // 2,
+                    color_value // 3 + hue_shift // 2,
+                ]
+
+            # Add text overlay
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            text_display = text[:50] + "..." if len(text) > 50 else text
+            text_size = cv2.getTextSize(text_display, font, 0.8, 2)[0]
+            text_x = (width - text_size[0]) // 2
+            text_y = (height + text_size[1]) // 2
+
+            cv2.putText(
+                frame,
+                text_display,
+                (text_x, text_y),
+                font,
+                0.8,
+                (255, 255, 255),
+                2,
+                cv2.LINE_AA,
+            )
+
+            writer.write(frame)
+
+        writer.release()
+        logger.info(f"Created fallback reel video: {output_path}")
 
     async def _get_persona(self, persona_id: UUID) -> Optional[PersonaModel]:
         """Get persona by ID."""
