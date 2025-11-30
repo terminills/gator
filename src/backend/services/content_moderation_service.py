@@ -491,8 +491,6 @@ class ContentModerationPipeline:
         content_preview: Any,
     ) -> str:
         """Add content to human review queue."""
-        import json
-
         queue_item = ModerationQueueModel(
             id=str(uuid4()),
             content_id=result.content_id,

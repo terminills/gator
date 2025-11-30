@@ -7,6 +7,7 @@ Provides endpoints for the content moderation pipeline including:
 - Moderation statistics
 """
 
+import uuid
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -137,8 +138,6 @@ async def analyze_text_content(
     Returns:
         ModerationResult for the text
     """
-    import uuid
-
     result = await moderation_service.moderate_content(
         content_id=content_id or str(uuid.uuid4()),
         content_type=ContentType.TEXT,

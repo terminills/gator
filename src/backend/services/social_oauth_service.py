@@ -6,6 +6,7 @@ Supports Instagram, Facebook, Twitter, TikTok, and LinkedIn.
 """
 
 import secrets
+import uuid
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Dict, Optional
@@ -98,9 +99,16 @@ class SocialOAuthService:
     - Twitter (OAuth 2.0)
     - TikTok
     - LinkedIn
+
+    Note on State Storage:
+        OAuth states are stored in-memory with 10-minute expiration for simplicity.
+        For production horizontal scaling, states should be stored in Redis using
+        the CacheService. The current implementation is suitable for single-instance
+        deployments and development environments.
     """
 
-    # In-memory state storage (should be Redis in production)
+    # In-memory state storage with 10-minute TTL
+    # TODO: Migrate to Redis (CacheService) for horizontal scaling
     _oauth_states: Dict[str, Dict[str, Any]] = {}
 
     def __init__(self, db_session: AsyncSession):
@@ -407,8 +415,6 @@ class SocialOAuthService:
             platform: Social media platform
             token: Token response to store
         """
-        import uuid
-
         expires_at = None
         if token.expires_in:
             expires_at = datetime.utcnow() + timedelta(seconds=token.expires_in)
