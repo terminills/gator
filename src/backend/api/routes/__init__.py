@@ -11,6 +11,8 @@ from . import (
     friend_groups,
     gator_agent,
     interactive,
+    moderation,
+    oauth,
     public,
     segments,
 )
@@ -22,6 +24,8 @@ __all__ = [
     "friend_groups",
     "gator_agent",
     "interactive",
+    "moderation",
+    "oauth",
     "public",
     "segments",
 ]
