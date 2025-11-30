@@ -122,7 +122,13 @@ class CircuitBreaker:
                     )
 
     def _should_attempt_recovery(self) -> bool:
-        """Check if enough time has passed for recovery attempt."""
+        """
+        Check if enough time has passed for recovery attempt.
+
+        Note: Returns True if last_failure_time is None, which handles the edge case
+        where the circuit somehow entered OPEN state without recording a failure time.
+        This allows immediate recovery attempts in such scenarios.
+        """
         if self.last_failure_time is None:
             return True
         return time.time() - self.last_failure_time > self.recovery_timeout

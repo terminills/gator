@@ -180,7 +180,7 @@ class ACDEnforcer:
                     ai_started=datetime.now(timezone.utc),
                     ai_context={
                         "persona_id": str(persona_id) if persona_id else None,
-                        "correlation_id": correlation_id.get(""),
+                        "correlation_id": correlation_id.get("") or None,
                         **metadata,
                     },
                 )
@@ -228,7 +228,7 @@ class ACDEnforcer:
                             environment={
                                 "phase": phase,
                                 "complexity": complexity,
-                                "correlation_id": correlation_id.get(""),
+                                "correlation_id": correlation_id.get("") or None,
                             },
                         )
                     )
@@ -260,14 +260,15 @@ class ACDEnforcer:
             return
 
         try:
+            corr = correlation_id.get("") or None
             await self.acd_service.create_trace_artifact(
                 ACDTraceArtifactCreate(
-                    session_id=str(context_id) if context_id else correlation_id.get(""),
+                    session_id=str(context_id) if context_id else corr or "unknown",
                     event_type=event_type,
                     error_message=message,
                     acd_context_id=context_id,
                     environment={
-                        "correlation_id": correlation_id.get(""),
+                        "correlation_id": corr,
                         **metadata,
                     },
                 )

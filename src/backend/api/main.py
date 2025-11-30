@@ -244,10 +244,18 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def request_context_middleware(request: Request, call_next):
-        """Add correlation IDs to each request for tracing."""
-        # Get or generate request ID
+        """
+        Add correlation IDs to each request for tracing.
+
+        Design Note: When X-Correlation-ID is not provided, we use the request ID
+        as the correlation ID. This is intentional for single-service scenarios.
+        In multi-service architectures, the upstream service should pass
+        X-Correlation-ID to maintain the trace across services.
+        """
+        # Get or generate request ID (unique to this request)
         req_id = request.headers.get("X-Request-ID") or generate_request_id()
-        # Get or use request ID as correlation ID
+        # Get correlation ID from header, or use request ID for new traces
+        # In distributed systems, correlation ID should be passed from upstream
         corr_id = request.headers.get("X-Correlation-ID") or req_id
 
         # Set context for logging

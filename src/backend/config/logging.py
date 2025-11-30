@@ -45,11 +45,15 @@ class StructuredFormatter(logging.Formatter):
         # Build context string
         context_parts = []
         if hasattr(record, "request_id") and record.request_id:
-            context_parts.append(f"req={record.request_id[:8]}")
+            # Safe truncation - handle short IDs gracefully
+            req_id = str(record.request_id)
+            context_parts.append(f"req={req_id[:8] if len(req_id) >= 8 else req_id}")
         if hasattr(record, "correlation_id") and record.correlation_id:
-            context_parts.append(f"cor={record.correlation_id[:8]}")
+            corr_id = str(record.correlation_id)
+            context_parts.append(f"cor={corr_id[:8] if len(corr_id) >= 8 else corr_id}")
         if hasattr(record, "user_id") and record.user_id:
-            context_parts.append(f"usr={record.user_id[:8]}")
+            usr_id = str(record.user_id)
+            context_parts.append(f"usr={usr_id[:8] if len(usr_id) >= 8 else usr_id}")
 
         context_str = f"[{' '.join(context_parts)}] " if context_parts else ""
 

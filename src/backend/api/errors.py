@@ -156,13 +156,17 @@ def create_error_response(
     Returns:
         JSONResponse with standardized error format
     """
+    # Get context IDs, using empty string default if not set
+    trace = request_id.get("") or None
+    corr = correlation_id.get("") or None
+
     response = ErrorResponse(
         error=error,
         code=code,
         message=message,
         details=details,
-        trace_id=request_id.get(""),
-        correlation_id=correlation_id.get(""),
+        trace_id=trace,
+        correlation_id=corr,
         path=path,
     )
 
