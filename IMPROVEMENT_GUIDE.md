@@ -1173,8 +1173,25 @@ async def test_persona_crud_api():
   - [x] Added database migration for auth columns
   - [x] Created get_current_user dependency for protected routes
   - [x] Added 19 unit tests for auth functionality
-- [ ] Implement WebSocket real-time updates
-- [ ] Add Redis caching layer
+- [x] Implement WebSocket real-time updates
+  - [x] ConnectionManager for managing WebSocket connections per user
+  - [x] Conversation-specific connection tracking
+  - [x] Real-time typing indicators
+  - [x] Online presence broadcasting
+  - [x] Direct messaging via WebSocket
+  - [x] AI response generation with WebSocket broadcast
+- [x] Add Redis caching layer
+  - [x] Created CacheService with comprehensive caching functionality
+  - [x] Persona-specific caching (get/set/invalidate)
+  - [x] User session caching
+  - [x] Rate limiting with sliding window algorithm
+  - [x] Generation queue tracking
+  - [x] ACD context and pattern caching
+  - [x] API response caching with key generation
+  - [x] Distributed locking for concurrent operations
+  - [x] Created cache management API routes (/api/v1/cache/*)
+  - [x] @cached decorator for function result caching
+  - [x] Added 36 unit tests for cache service
 - [x] Implement API rate limiting
   - [x] Created SlidingWindowRateLimiter with configurable limits
   - [x] Created RateLimitMiddleware for FastAPI

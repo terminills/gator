@@ -5,6 +5,7 @@ Exports all API route modules for the Gator AI Influencer Platform.
 """
 
 from . import (
+    cache,
     civitai,
     enhanced_persona,
     friend_groups,
@@ -15,11 +16,12 @@ from . import (
 )
 
 __all__ = [
-    "public",
+    "cache",
+    "civitai",
+    "enhanced_persona",
+    "friend_groups",
     "gator_agent",
     "interactive",
+    "public",
     "segments",
-    "friend_groups",
-    "enhanced_persona",
-    "civitai",
 ]
