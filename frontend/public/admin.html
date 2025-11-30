@@ -967,7 +967,7 @@
         
         <!-- Personas Tab -->
         <div class="tab-content" id="personas">
-            <div class="card">
+            <div class="card" style="margin-bottom: 25px;">
                 <div class="card-header">
                     <div class="card-icon">🎭</div>
                     <div class="card-title">AI Personas</div>
@@ -975,9 +975,37 @@
                 <div class="card-description">
                     Create and manage AI influencer personas. Each persona defines the appearance, personality, and content style for your AI influencer.
                 </div>
-                <button class="btn" onclick="createPersona()">Create New Persona</button>
-                <button class="btn btn-secondary" onclick="loadPersonas()">Refresh List</button>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+                    <button class="btn" onclick="createPersona()">Quick Create</button>
+                    <button class="btn" onclick="openEnhancedPersonaWizard()">✨ Enhanced Wizard</button>
+                    <button class="btn btn-secondary" onclick="loadPersonas()">Refresh List</button>
+                </div>
                 <div id="personas-list" class="mt-3"></div>
+            </div>
+            
+            <!-- Presets Card -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📋</div>
+                    <div class="card-title">Quick Create from Preset</div>
+                </div>
+                <div class="card-description">
+                    Choose a preset template to quickly create a persona with recommended settings for different content niches.
+                </div>
+                <div style="margin-top: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Select Preset</label>
+                        <select id="quick-create-preset" class="form-control" style="max-width: 300px;">
+                            <option value="">Loading presets...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Persona Name</label>
+                        <input type="text" id="quick-create-name" class="form-control" placeholder="Enter persona name..." style="max-width: 300px;">
+                    </div>
+                    <button class="btn" onclick="quickCreateFromPreset()">Create from Preset</button>
+                </div>
+                <div id="preset-description" style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; display: none;"></div>
             </div>
         </div>
         
@@ -5766,7 +5794,436 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Pre-load persona select for reels
             loadReelPersonaSelect();
+            // Load presets for quick create
+            loadPresetsForQuickCreate();
         });
+        
+        // ========================================
+        // Enhanced Persona Wizard Functions
+        // ========================================
+        
+        let wizardCurrentStep = 1;
+        let wizardSelectedPreset = null;
+        let wizardSelectedPreviewId = null;
+        let wizardPreviewPath = null;
+        let wizardThemes = ['lifestyle', 'general'];
+        let wizardPresets = [];
+        
+        async function loadPresetsForQuickCreate() {
+            try {
+                const response = await apiRequest('/api/v1/enhanced-persona/presets');
+                wizardPresets = response.presets || [];
+                
+                const select = document.getElementById('quick-create-preset');
+                if (select && wizardPresets.length > 0) {
+                    select.innerHTML = '<option value="">-- Select a preset --</option>' + 
+                        wizardPresets.map(p => `<option value="${p.id}">${p.icon || '📋'} ${p.name}</option>`).join('');
+                    
+                    // Show preset description on change
+                    select.addEventListener('change', function() {
+                        const presetId = this.value;
+                        const descDiv = document.getElementById('preset-description');
+                        if (presetId) {
+                            const preset = wizardPresets.find(p => p.id === presetId);
+                            if (preset) {
+                                descDiv.innerHTML = `
+                                    <strong>${preset.name}</strong>
+                                    <p style="margin: 8px 0 0 0;">${preset.description || 'No description available.'}</p>
+                                    <p style="margin: 8px 0 0 0; font-size: 0.9rem; color: #888;">Themes: ${(preset.content_themes || []).join(', ')}</p>
+                                `;
+                                descDiv.style.display = 'block';
+                            }
+                        } else {
+                            descDiv.style.display = 'none';
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load presets:', error);
+            }
+        }
+        
+        async function quickCreateFromPreset() {
+            const presetId = document.getElementById('quick-create-preset').value;
+            const name = document.getElementById('quick-create-name').value.trim();
+            
+            if (!presetId) {
+                showAlert('Please select a preset', 'error');
+                return;
+            }
+            if (!name) {
+                showAlert('Please enter a persona name', 'error');
+                return;
+            }
+            
+            try {
+                const result = await apiRequest(`/api/v1/enhanced-persona/quick-create?name=${encodeURIComponent(name)}&preset_id=${encodeURIComponent(presetId)}&generate_previews=false`, {
+                    method: 'POST'
+                });
+                showAlert(`Persona "${result.name}" created successfully!`, 'success');
+                loadPersonas();
+                document.getElementById('quick-create-name').value = '';
+                document.getElementById('quick-create-preset').value = '';
+                document.getElementById('preset-description').style.display = 'none';
+            } catch (error) {
+                showAlert(`Failed to create persona: ${error.message}`, 'error');
+            }
+        }
+        
+        async function openEnhancedPersonaWizard() {
+            wizardCurrentStep = 1;
+            wizardSelectedPreset = null;
+            wizardSelectedPreviewId = null;
+            wizardPreviewPath = null;
+            wizardThemes = ['lifestyle', 'general'];
+            
+            // Reset wizard UI
+            updateWizardStep();
+            document.getElementById('wizard-persona-name').value = '';
+            document.getElementById('wizard-lock-appearance').checked = true;
+            renderWizardThemes();
+            
+            // Load presets
+            await loadWizardPresets();
+            
+            // Show modal
+            document.getElementById('enhancedPersonaWizard').classList.add('active');
+        }
+        
+        function closeEnhancedWizard() {
+            document.getElementById('enhancedPersonaWizard').classList.remove('active');
+        }
+        
+        async function loadWizardPresets() {
+            const container = document.getElementById('wizard-presets-grid');
+            
+            try {
+                const response = await apiRequest('/api/v1/enhanced-persona/presets');
+                const presets = response.presets || [];
+                wizardPresets = presets;
+                
+                // Add "Custom" option first
+                let html = `
+                    <div class="preset-card ${!wizardSelectedPreset ? 'selected' : ''}" onclick="selectWizardPreset(null)">
+                        <h4>✨ Custom</h4>
+                        <p>Start from scratch with full customization options</p>
+                    </div>
+                `;
+                
+                presets.forEach(preset => {
+                    html += `
+                        <div class="preset-card ${wizardSelectedPreset === preset.id ? 'selected' : ''}" onclick="selectWizardPreset('${preset.id}')">
+                            <h4>${preset.icon || '📋'} ${preset.name}</h4>
+                            <p>${preset.description || 'No description'}</p>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = `<p style="color: #666;">Failed to load presets. You can still create a custom persona.</p>`;
+            }
+        }
+        
+        function selectWizardPreset(presetId) {
+            wizardSelectedPreset = presetId;
+            
+            // Update UI
+            document.querySelectorAll('#wizard-presets-grid .preset-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            
+            // If preset selected, apply defaults
+            if (presetId && wizardPresets) {
+                const preset = wizardPresets.find(p => p.id === presetId);
+                if (preset && preset.content_themes) {
+                    wizardThemes = [...preset.content_themes];
+                    renderWizardThemes();
+                }
+            }
+        }
+        
+        function updateWizardStep() {
+            // Update step indicators
+            document.querySelectorAll('.wizard-step').forEach((step, index) => {
+                const stepNum = index + 1;
+                step.classList.remove('active', 'completed');
+                if (stepNum === wizardCurrentStep) {
+                    step.classList.add('active');
+                } else if (stepNum < wizardCurrentStep) {
+                    step.classList.add('completed');
+                }
+            });
+            
+            // Show/hide panels
+            document.querySelectorAll('.wizard-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            document.getElementById(`wizard-step-${wizardCurrentStep}`).classList.add('active');
+            
+            // Update buttons
+            document.getElementById('wizard-prev-btn').style.display = wizardCurrentStep > 1 ? 'block' : 'none';
+            document.getElementById('wizard-next-btn').style.display = wizardCurrentStep < 5 ? 'block' : 'none';
+            document.getElementById('wizard-create-btn').style.display = wizardCurrentStep === 5 ? 'block' : 'none';
+            
+            // Special actions for certain steps
+            if (wizardCurrentStep === 4) {
+                generateAppearancePreview();
+            }
+            if (wizardCurrentStep === 5) {
+                updateWizardSummary();
+            }
+        }
+        
+        function wizardNextStep() {
+            if (wizardCurrentStep < 5) {
+                wizardCurrentStep++;
+                updateWizardStep();
+            }
+        }
+        
+        function wizardPrevStep() {
+            if (wizardCurrentStep > 1) {
+                wizardCurrentStep--;
+                updateWizardStep();
+            }
+        }
+        
+        function generateAppearancePreview() {
+            const gender = document.getElementById('wizard-gender').value;
+            const ageRange = document.getElementById('wizard-age-range').value;
+            const bodyType = document.getElementById('wizard-body-type').value;
+            const hairColor = document.getElementById('wizard-hair-color').value;
+            const hairStyle = document.getElementById('wizard-hair-style').value;
+            const eyeColor = document.getElementById('wizard-eye-color').value;
+            const skinTone = document.getElementById('wizard-skin-tone').value;
+            const ethnicity = document.getElementById('wizard-ethnicity').value;
+            
+            let description = `A ${ageRange} year old ${gender} with a ${bodyType} build. `;
+            description += `${hairStyle.charAt(0).toUpperCase() + hairStyle.slice(1)} ${hairColor} hair and ${eyeColor} eyes. `;
+            description += `${skinTone.charAt(0).toUpperCase() + skinTone.slice(1)} skin tone`;
+            if (ethnicity) {
+                description += `, ${ethnicity} ethnicity`;
+            }
+            description += '.';
+            
+            document.getElementById('wizard-appearance-text').textContent = description;
+        }
+        
+        async function generateWizardPreviews() {
+            const container = document.getElementById('wizard-previews-container');
+            container.innerHTML = '<div class="loading"></div>Generating face previews... This may take a moment.';
+            
+            const physicalFeatures = {
+                body_type: document.getElementById('wizard-body-type').value,
+                hair_color: document.getElementById('wizard-hair-color').value,
+                hair_style: document.getElementById('wizard-hair-style').value,
+                eye_color: document.getElementById('wizard-eye-color').value,
+                skin_tone: document.getElementById('wizard-skin-tone').value,
+                age_range: document.getElementById('wizard-age-range').value,
+                gender: document.getElementById('wizard-gender').value,
+                ethnicity: document.getElementById('wizard-ethnicity').value || null
+            };
+            
+            try {
+                let url = '/api/v1/enhanced-persona/generate-face-previews';
+                if (wizardSelectedPreset) {
+                    url += `?preset_id=${encodeURIComponent(wizardSelectedPreset)}`;
+                }
+                
+                const previews = await apiRequest(url, {
+                    method: 'POST',
+                    body: JSON.stringify(physicalFeatures)
+                });
+                
+                if (!previews || previews.length === 0) {
+                    container.innerHTML = `
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 30px;">
+                            <p style="color: #666;">No previews generated. This feature requires AI image generation models to be configured.</p>
+                            <p style="margin-top: 10px; font-size: 0.9rem; color: #888;">You can still create the persona - the appearance will be used for text-based generation.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = previews.map((preview, index) => `
+                    <div class="preview-card ${wizardSelectedPreviewId === preview.id ? 'selected' : ''}" onclick="selectWizardPreview(${preview.id}, '${preview.image_path || ''}')">
+                        ${preview.image_url ? 
+                            `<img src="${preview.image_url}" alt="Preview ${index + 1}">` : 
+                            `<div style="height: 200px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 8px;">Preview ${index + 1}</div>`
+                        }
+                        <p style="margin: 0; font-weight: 500;">Option ${index + 1}</p>
+                        <p style="margin: 5px 0 0 0; font-size: 0.8rem; color: #666;">Seed: ${preview.seed || 'N/A'}</p>
+                    </div>
+                `).join('');
+            } catch (error) {
+                container.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 30px;">
+                        <p style="color: #dc3545;">Failed to generate previews: ${error.message}</p>
+                        <p style="margin-top: 10px; font-size: 0.9rem; color: #888;">You can still continue without a preview image.</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function selectWizardPreview(previewId, imagePath) {
+            wizardSelectedPreviewId = previewId;
+            wizardPreviewPath = imagePath;
+            
+            document.querySelectorAll('#wizard-previews-container .preview-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+        }
+        
+        function addWizardTheme() {
+            const input = document.getElementById('wizard-theme-input');
+            const theme = input.value.trim().toLowerCase();
+            
+            if (!theme) return;
+            if (wizardThemes.includes(theme)) {
+                showAlert('Theme already added', 'error');
+                return;
+            }
+            
+            wizardThemes.push(theme);
+            renderWizardThemes();
+            input.value = '';
+        }
+        
+        function removeWizardTheme(theme) {
+            wizardThemes = wizardThemes.filter(t => t !== theme);
+            renderWizardThemes();
+        }
+        
+        function renderWizardThemes() {
+            const container = document.getElementById('wizard-themes-container');
+            container.innerHTML = wizardThemes.map(theme => `
+                <span class="theme-chip">
+                    ${theme}
+                    <span class="remove-chip" onclick="removeWizardTheme('${theme}')">&times;</span>
+                </span>
+            `).join('');
+        }
+        
+        function updateWizardSummary() {
+            const name = document.getElementById('wizard-persona-name').value || '(Not set)';
+            const preset = wizardSelectedPreset ? 
+                (wizardPresets.find(p => p.id === wizardSelectedPreset)?.name || wizardSelectedPreset) : 
+                'Custom';
+            const gender = document.getElementById('wizard-gender').value;
+            const ageRange = document.getElementById('wizard-age-range').value;
+            const energyLevel = document.getElementById('wizard-energy-level').value;
+            const commStyle = document.getElementById('wizard-communication-style').value;
+            
+            document.getElementById('wizard-summary-content').innerHTML = `
+                <div style="display: grid; gap: 10px;">
+                    <div><strong>Name:</strong> ${escapeHtml(name)}</div>
+                    <div><strong>Preset:</strong> ${escapeHtml(preset)}</div>
+                    <div><strong>Gender/Age:</strong> ${gender}, ${ageRange}</div>
+                    <div><strong>Personality:</strong> ${energyLevel}, ${commStyle}</div>
+                    <div><strong>Themes:</strong> ${wizardThemes.join(', ')}</div>
+                    <div><strong>Preview Selected:</strong> ${wizardSelectedPreviewId !== null ? 'Yes' : 'No'}</div>
+                </div>
+            `;
+        }
+        
+        async function createWizardPersona() {
+            const name = document.getElementById('wizard-persona-name').value.trim();
+            
+            if (!name) {
+                showAlert('Please enter a persona name', 'error');
+                return;
+            }
+            
+            // Build appearance description
+            const gender = document.getElementById('wizard-gender').value;
+            const ageRange = document.getElementById('wizard-age-range').value;
+            const bodyType = document.getElementById('wizard-body-type').value;
+            const hairColor = document.getElementById('wizard-hair-color').value;
+            const hairStyle = document.getElementById('wizard-hair-style').value;
+            const eyeColor = document.getElementById('wizard-eye-color').value;
+            const skinTone = document.getElementById('wizard-skin-tone').value;
+            
+            let appearance = `A ${ageRange} year old ${gender} with a ${bodyType} build. `;
+            appearance += `${hairStyle} ${hairColor} hair and ${eyeColor} eyes. ${skinTone} skin tone.`;
+            
+            // Build personality description
+            const energyLevel = document.getElementById('wizard-energy-level').value;
+            const commStyle = document.getElementById('wizard-communication-style').value;
+            const expertise = document.getElementById('wizard-expertise-level').value;
+            const engagement = document.getElementById('wizard-engagement-style').value;
+            
+            let personality = `${energyLevel.charAt(0).toUpperCase() + energyLevel.slice(1)} energy level with a ${commStyle} communication style. `;
+            personality += `${expertise.charAt(0).toUpperCase() + expertise.slice(1)} level expertise. Primary engagement style: ${engagement}.`;
+            
+            const contentRating = document.getElementById('wizard-content-rating').value;
+            const lockAppearance = document.getElementById('wizard-lock-appearance').checked;
+            
+            try {
+                // If preview was selected, use create-with-preview
+                if (wizardSelectedPreviewId !== null && wizardPreviewPath) {
+                    const creationData = {
+                        name: name,
+                        content_themes: wizardThemes,
+                        default_content_rating: contentRating,
+                        allowed_content_ratings: [contentRating],
+                        physical_features: {
+                            body_type: bodyType,
+                            hair_color: hairColor,
+                            hair_style: hairStyle,
+                            eye_color: eyeColor,
+                            skin_tone: skinTone,
+                            age_range: ageRange,
+                            gender: gender
+                        },
+                        personality_selection: {
+                            energy_level: energyLevel,
+                            communication_style: commStyle,
+                            expertise_level: expertise,
+                            engagement_style: engagement
+                        }
+                    };
+                    
+                    const result = await apiRequest(`/api/v1/enhanced-persona/create-with-preview?selected_preview_id=${wizardSelectedPreviewId}&preview_image_path=${encodeURIComponent(wizardPreviewPath)}`, {
+                        method: 'POST',
+                        body: JSON.stringify(creationData)
+                    });
+                    
+                    showAlert(`Persona "${result.name}" created successfully with locked appearance!`, 'success');
+                } else {
+                    // Standard persona creation
+                    const personaData = {
+                        name: name,
+                        personality: personality,
+                        appearance: appearance,
+                        content_themes: wizardThemes,
+                        style_preferences: {
+                            tone: commStyle,
+                            format: 'casual'
+                        },
+                        default_content_rating: contentRating,
+                        allowed_content_ratings: [contentRating],
+                        platform_restrictions: {},
+                        appearance_locked: lockAppearance
+                    };
+                    
+                    const result = await apiRequest('/api/v1/personas/', {
+                        method: 'POST',
+                        body: JSON.stringify(personaData)
+                    });
+                    
+                    showAlert(`Persona "${result.name}" created successfully!`, 'success');
+                }
+                
+                closeEnhancedWizard();
+                loadPersonas();
+                
+            } catch (error) {
+                showAlert(`Failed to create persona: ${error.message}`, 'error');
+            }
+        }
         
     </script>
     
@@ -6019,5 +6476,373 @@
             </div>
         </div>
     </div>
+    
+    <!-- Enhanced Persona Wizard Modal -->
+    <div id="enhancedPersonaWizard" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <div class="modal-title">✨ Enhanced Persona Creator</div>
+                <button class="modal-close" onclick="closeEnhancedWizard()">&times;</button>
+            </div>
+            <div class="modal-body" style="min-height: 500px;">
+                <!-- Wizard Steps Indicator -->
+                <div style="display: flex; justify-content: center; margin-bottom: 30px;">
+                    <div class="wizard-steps" style="display: flex; gap: 10px;">
+                        <div class="wizard-step active" data-step="1">
+                            <span class="step-number">1</span>
+                            <span class="step-label">Preset</span>
+                        </div>
+                        <div class="wizard-step" data-step="2">
+                            <span class="step-number">2</span>
+                            <span class="step-label">Features</span>
+                        </div>
+                        <div class="wizard-step" data-step="3">
+                            <span class="step-number">3</span>
+                            <span class="step-label">Personality</span>
+                        </div>
+                        <div class="wizard-step" data-step="4">
+                            <span class="step-number">4</span>
+                            <span class="step-label">Preview</span>
+                        </div>
+                        <div class="wizard-step" data-step="5">
+                            <span class="step-number">5</span>
+                            <span class="step-label">Finalize</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Step 1: Preset Selection -->
+                <div class="wizard-panel active" id="wizard-step-1">
+                    <h3 style="margin-bottom: 20px;">📋 Choose a Preset (Optional)</h3>
+                    <p style="color: #666; margin-bottom: 20px;">
+                        Select a preset template to pre-fill recommended settings, or skip to customize everything manually.
+                    </p>
+                    <div id="wizard-presets-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                        <!-- Presets will be loaded here -->
+                        <div class="loading"></div>Loading presets...
+                    </div>
+                </div>
+                
+                <!-- Step 2: Physical Features -->
+                <div class="wizard-panel" id="wizard-step-2">
+                    <h3 style="margin-bottom: 20px;">👤 Physical Features</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                        <div class="form-group">
+                            <label class="form-label">Gender</label>
+                            <select id="wizard-gender" class="form-control">
+                                <option value="female">Female</option>
+                                <option value="male">Male</option>
+                                <option value="non-binary">Non-binary</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Age Range</label>
+                            <select id="wizard-age-range" class="form-control">
+                                <option value="18-24">18-24</option>
+                                <option value="25-35" selected>25-35</option>
+                                <option value="36-45">36-45</option>
+                                <option value="46-55">46-55</option>
+                                <option value="56+">56+</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Body Type</label>
+                            <select id="wizard-body-type" class="form-control">
+                                <option value="slim">Slim</option>
+                                <option value="average" selected>Average</option>
+                                <option value="athletic">Athletic</option>
+                                <option value="muscular">Muscular</option>
+                                <option value="curvy">Curvy</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Hair Color</label>
+                            <select id="wizard-hair-color" class="form-control">
+                                <option value="black">Black</option>
+                                <option value="brown" selected>Brown</option>
+                                <option value="blonde">Blonde</option>
+                                <option value="red">Red</option>
+                                <option value="auburn">Auburn</option>
+                                <option value="gray">Gray</option>
+                                <option value="colorful">Colorful</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Hair Style</label>
+                            <select id="wizard-hair-style" class="form-control">
+                                <option value="short">Short</option>
+                                <option value="shoulder-length" selected>Shoulder-length</option>
+                                <option value="long">Long</option>
+                                <option value="pixie">Pixie Cut</option>
+                                <option value="curly">Curly</option>
+                                <option value="braided">Braided</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Eye Color</label>
+                            <select id="wizard-eye-color" class="form-control">
+                                <option value="brown" selected>Brown</option>
+                                <option value="blue">Blue</option>
+                                <option value="green">Green</option>
+                                <option value="hazel">Hazel</option>
+                                <option value="gray">Gray</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Skin Tone</label>
+                            <select id="wizard-skin-tone" class="form-control">
+                                <option value="fair">Fair</option>
+                                <option value="light">Light</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="olive">Olive</option>
+                                <option value="tan">Tan</option>
+                                <option value="dark">Dark</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Ethnicity</label>
+                            <select id="wizard-ethnicity" class="form-control">
+                                <option value="">Not specified</option>
+                                <option value="caucasian">Caucasian</option>
+                                <option value="asian">Asian</option>
+                                <option value="african">African</option>
+                                <option value="latino">Latino</option>
+                                <option value="middle-eastern">Middle Eastern</option>
+                                <option value="mixed">Mixed</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Step 3: Personality Traits -->
+                <div class="wizard-panel" id="wizard-step-3">
+                    <h3 style="margin-bottom: 20px;">💭 Personality Traits</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                        <div class="form-group">
+                            <label class="form-label">Energy Level</label>
+                            <select id="wizard-energy-level" class="form-control">
+                                <option value="calm">Calm & Relaxed</option>
+                                <option value="balanced" selected>Balanced</option>
+                                <option value="energetic">Energetic & Dynamic</option>
+                                <option value="high-energy">High Energy</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Communication Style</label>
+                            <select id="wizard-communication-style" class="form-control">
+                                <option value="formal">Formal & Professional</option>
+                                <option value="casual" selected>Casual & Friendly</option>
+                                <option value="playful">Playful & Fun</option>
+                                <option value="inspiring">Inspiring & Motivational</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Expertise Level</label>
+                            <select id="wizard-expertise-level" class="form-control">
+                                <option value="beginner">Beginner / Learner</option>
+                                <option value="intermediate" selected>Intermediate</option>
+                                <option value="expert">Expert / Specialist</option>
+                                <option value="guru">Industry Guru</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Engagement Style</label>
+                            <select id="wizard-engagement-style" class="form-control">
+                                <option value="educator">Educator</option>
+                                <option value="entertainer">Entertainer</option>
+                                <option value="curator" selected>Curator</option>
+                                <option value="community">Community Builder</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label class="form-label">Content Themes</label>
+                        <div id="wizard-themes-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;"></div>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="wizard-theme-input" class="form-control" placeholder="Add a theme (e.g., technology, fitness)" style="flex: 1;">
+                            <button type="button" class="btn btn-secondary" onclick="addWizardTheme()">Add</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Step 4: Preview Generation -->
+                <div class="wizard-panel" id="wizard-step-4">
+                    <h3 style="margin-bottom: 20px;">🎨 Generate Face Previews</h3>
+                    <div id="wizard-appearance-preview" style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;">
+                        <strong>Generated Appearance:</strong>
+                        <p id="wizard-appearance-text" style="margin-top: 10px; color: #666;"></p>
+                    </div>
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <button class="btn" onclick="generateWizardPreviews()">🎲 Generate Face Previews</button>
+                        <p style="margin-top: 10px; color: #888; font-size: 0.9rem;">
+                            This generates 4 face options based on your feature selections. Select one to use as your persona's base image.
+                        </p>
+                    </div>
+                    <div id="wizard-previews-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <!-- Previews will be displayed here -->
+                    </div>
+                </div>
+                
+                <!-- Step 5: Finalize -->
+                <div class="wizard-panel" id="wizard-step-5">
+                    <h3 style="margin-bottom: 20px;">✅ Finalize Persona</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                        <div>
+                            <div class="form-group">
+                                <label class="form-label">Persona Name *</label>
+                                <input type="text" id="wizard-persona-name" class="form-control" placeholder="Enter a name for your persona">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Default Content Rating</label>
+                                <select id="wizard-content-rating" class="form-control">
+                                    <option value="sfw" selected>SFW (Safe for Work)</option>
+                                    <option value="moderate">Moderate</option>
+                                    <option value="nsfw">NSFW</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="wizard-lock-appearance" checked>
+                                    <label for="wizard-lock-appearance">Lock appearance for consistency</label>
+                                </div>
+                                <div class="help-text">Recommended: Keeps generated content visually consistent</div>
+                            </div>
+                        </div>
+                        <div>
+                            <div id="wizard-summary" style="padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                                <h4 style="margin-bottom: 15px;">📋 Summary</h4>
+                                <div id="wizard-summary-content">
+                                    <!-- Summary will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <button type="button" class="btn btn-secondary" id="wizard-prev-btn" onclick="wizardPrevStep()" style="display: none;">← Previous</button>
+                <div></div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeEnhancedWizard()">Cancel</button>
+                    <button type="button" class="btn" id="wizard-next-btn" onclick="wizardNextStep()">Next →</button>
+                    <button type="button" class="btn" id="wizard-create-btn" onclick="createWizardPersona()" style="display: none;">✨ Create Persona</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        /* Enhanced Persona Wizard Styles */
+        .wizard-steps {
+            display: flex;
+            gap: 5px;
+        }
+        .wizard-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: #e9ecef;
+            border-radius: 20px;
+            transition: all 0.3s;
+        }
+        .wizard-step.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .wizard-step.completed {
+            background: #4caf50;
+            color: white;
+        }
+        .step-number {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        .step-label {
+            font-size: 0.85rem;
+        }
+        .wizard-panel {
+            display: none;
+        }
+        .wizard-panel.active {
+            display: block;
+        }
+        .preset-card {
+            padding: 20px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .preset-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+        .preset-card.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        .preset-card h4 {
+            margin: 0 0 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .preset-card p {
+            margin: 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .preview-card {
+            padding: 10px;
+            background: white;
+            border: 3px solid #e0e0e0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        .preview-card:hover {
+            border-color: #667eea;
+        }
+        .preview-card.selected {
+            border-color: #4caf50;
+            background: #f0fff4;
+        }
+        .preview-card img {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .theme-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            background: #e9ecef;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        .theme-chip .remove-chip {
+            cursor: pointer;
+            color: #666;
+        }
+        .theme-chip .remove-chip:hover {
+            color: #dc3545;
+        }
+        @media (max-width: 600px) {
+            .wizard-step .step-label {
+                display: none;
+            }
+        }
+    </style>
 </body>
 </html>
