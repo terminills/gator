@@ -204,3 +204,61 @@ async def get_filesystem_health(
         ServiceHealth for filesystem
     """
     return await health_service.check_filesystem_health()
+
+
+@router.get("/circuit-breakers")
+async def get_circuit_breaker_status():
+    """
+    Get status of all circuit breakers.
+
+    Returns the state of each circuit breaker for monitoring external
+    service dependencies and identifying failing integrations.
+
+    Returns:
+        Dict with circuit breaker statuses
+    """
+    from backend.utils.circuit_breaker import CircuitBreaker
+
+    return {
+        "circuit_breakers": CircuitBreaker.get_all_status(),
+        "summary": {
+            "total": len(CircuitBreaker._registry),
+            "open": sum(
+                1 for cb in CircuitBreaker._registry.values() if cb.state.value == "open"
+            ),
+            "half_open": sum(
+                1
+                for cb in CircuitBreaker._registry.values()
+                if cb.state.value == "half_open"
+            ),
+            "closed": sum(
+                1
+                for cb in CircuitBreaker._registry.values()
+                if cb.state.value == "closed"
+            ),
+        },
+    }
+
+
+@router.post("/circuit-breakers/reset")
+async def reset_circuit_breakers():
+    """
+    Reset all circuit breakers to closed state.
+
+    Use this endpoint to recover from transient failures after
+    the underlying issues have been resolved.
+
+    Returns:
+        Dict with reset confirmation
+    """
+    from backend.utils.circuit_breaker import CircuitBreaker
+
+    count = len(CircuitBreaker._registry)
+    CircuitBreaker.reset_all()
+
+    logger.info(f"Reset {count} circuit breakers")
+
+    return {
+        "message": f"Reset {count} circuit breakers",
+        "status": "success",
+    }

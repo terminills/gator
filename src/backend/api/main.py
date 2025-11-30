@@ -235,6 +235,33 @@ def create_app() -> FastAPI:
         enabled=not settings.debug,  # Disabled in debug mode
     )
 
+    # Request context middleware for correlation IDs
+    from backend.config.logging import (
+        set_request_context,
+        clear_request_context,
+        generate_request_id,
+    )
+
+    @app.middleware("http")
+    async def request_context_middleware(request: Request, call_next):
+        """Add correlation IDs to each request for tracing."""
+        # Get or generate request ID
+        req_id = request.headers.get("X-Request-ID") or generate_request_id()
+        # Get or use request ID as correlation ID
+        corr_id = request.headers.get("X-Correlation-ID") or req_id
+
+        # Set context for logging
+        set_request_context(req_id=req_id, corr_id=corr_id)
+
+        try:
+            response = await call_next(request)
+            # Add IDs to response headers for client tracing
+            response.headers["X-Request-ID"] = req_id
+            response.headers["X-Correlation-ID"] = corr_id
+            return response
+        finally:
+            clear_request_context()
+
     # Mount static files using centralized paths
     frontend_path = paths.frontend_dir
     if frontend_path.exists():

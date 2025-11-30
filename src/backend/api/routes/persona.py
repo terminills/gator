@@ -6,7 +6,6 @@ Handles AI persona creation, management, and configuration.
 
 import base64
 import json
-import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -17,6 +16,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
+from backend.config.settings import get_settings
 from backend.database.connection import get_db_session
 from backend.models.persona import (
     BaseImageStatus,
@@ -29,11 +29,12 @@ from backend.services.persona_service import PersonaService
 
 logger = get_logger(__name__)
 
-# Ollama configuration for chat image generation
-# These can be overridden via environment variables
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_CONNECT_TIMEOUT = float(os.environ.get("OLLAMA_CONNECT_TIMEOUT", "5.0"))
-OLLAMA_GENERATE_TIMEOUT = float(os.environ.get("OLLAMA_GENERATE_TIMEOUT", "60.0"))
+# Ollama configuration now uses centralized settings
+# Environment variables can still override via GATOR_ prefix
+settings = get_settings()
+OLLAMA_BASE_URL = settings.ollama_base_url
+OLLAMA_CONNECT_TIMEOUT = settings.ollama_connect_timeout
+OLLAMA_GENERATE_TIMEOUT = settings.ollama_generate_timeout
 
 # Maximum image upload size (10MB)
 MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024

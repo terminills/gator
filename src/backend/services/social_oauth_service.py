@@ -5,9 +5,11 @@ Handles OAuth2 authentication flows for various social media platforms.
 Supports Instagram, Facebook, Twitter, TikTok, and LinkedIn.
 """
 
+import asyncio
+import json
 import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode
@@ -89,6 +91,158 @@ class OAuthTokenResponse(BaseModel):
     account_name: Optional[str] = None
 
 
+class OAuthStateStore:
+    """
+    OAuth state storage with Redis backend for horizontal scaling.
+
+    Falls back to in-memory storage when Redis is unavailable.
+    Thread-safe for concurrent access.
+    """
+
+    STATE_TTL_SECONDS = 600  # 10 minutes
+    STATE_PREFIX = "oauth_state:"
+
+    def __init__(self):
+        self._memory_store: Dict[str, Dict[str, Any]] = {}
+        self._lock = asyncio.Lock()
+        self._cache_service = None
+
+    async def _get_cache_service(self):
+        """Lazy initialization of cache service."""
+        if self._cache_service is None:
+            try:
+                from backend.services.cache_service import CacheService
+
+                self._cache_service = CacheService()
+                await self._cache_service.connect()
+            except Exception as e:
+                logger.warning(f"Redis unavailable for OAuth state: {e}")
+                self._cache_service = False  # Mark as unavailable
+        return self._cache_service if self._cache_service else None
+
+    async def store_state(
+        self, state: str, platform: str, user_id: str
+    ) -> None:
+        """
+        Store OAuth state with metadata.
+
+        Args:
+            state: State token
+            platform: Platform name
+            user_id: User ID
+        """
+        state_data = {
+            "platform": platform,
+            "user_id": user_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": (
+                datetime.now(timezone.utc) + timedelta(seconds=self.STATE_TTL_SECONDS)
+            ).isoformat(),
+        }
+
+        cache = await self._get_cache_service()
+        if cache:
+            try:
+                await cache.set(
+                    f"{self.STATE_PREFIX}{state}",
+                    json.dumps(state_data),
+                    ttl=self.STATE_TTL_SECONDS,
+                )
+                logger.debug(f"Stored OAuth state in Redis: {state[:8]}...")
+                return
+            except Exception as e:
+                logger.warning(f"Failed to store state in Redis: {e}")
+
+        # Fallback to memory
+        async with self._lock:
+            self._memory_store[state] = state_data
+            logger.debug(f"Stored OAuth state in memory: {state[:8]}...")
+
+    async def get_state(self, state: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve OAuth state data.
+
+        Args:
+            state: State token
+
+        Returns:
+            State data if valid and not expired, None otherwise
+        """
+        cache = await self._get_cache_service()
+        if cache:
+            try:
+                data = await cache.get(f"{self.STATE_PREFIX}{state}")
+                if data:
+                    state_data = json.loads(data)
+                    expires_at = datetime.fromisoformat(state_data["expires_at"])
+                    if datetime.now(timezone.utc) < expires_at:
+                        return state_data
+                    logger.debug(f"OAuth state expired: {state[:8]}...")
+                return None
+            except Exception as e:
+                logger.warning(f"Failed to get state from Redis: {e}")
+
+        # Fallback to memory
+        async with self._lock:
+            state_data = self._memory_store.get(state)
+            if state_data:
+                expires_at = datetime.fromisoformat(state_data["expires_at"])
+                if datetime.now(timezone.utc) < expires_at:
+                    return state_data
+                # Clean up expired state
+                del self._memory_store[state]
+            return None
+
+    async def delete_state(self, state: str) -> None:
+        """
+        Delete OAuth state after use.
+
+        Args:
+            state: State token to delete
+        """
+        cache = await self._get_cache_service()
+        if cache:
+            try:
+                await cache.delete(f"{self.STATE_PREFIX}{state}")
+                return
+            except Exception as e:
+                logger.warning(f"Failed to delete state from Redis: {e}")
+
+        # Fallback to memory
+        async with self._lock:
+            self._memory_store.pop(state, None)
+
+    async def cleanup_expired(self) -> int:
+        """
+        Clean up expired states from memory store.
+
+        Returns:
+            Number of states cleaned up
+        """
+        async with self._lock:
+            now = datetime.now(timezone.utc)
+            expired = [
+                state
+                for state, data in self._memory_store.items()
+                if datetime.fromisoformat(data["expires_at"]) < now
+            ]
+            for state in expired:
+                del self._memory_store[state]
+            return len(expired)
+
+
+# Global state store instance
+_oauth_state_store: Optional[OAuthStateStore] = None
+
+
+def get_oauth_state_store() -> OAuthStateStore:
+    """Get or create OAuth state store singleton."""
+    global _oauth_state_store
+    if _oauth_state_store is None:
+        _oauth_state_store = OAuthStateStore()
+    return _oauth_state_store
+
+
 class SocialOAuthService:
     """
     Service for handling OAuth2 flows with social media platforms.
@@ -101,15 +255,10 @@ class SocialOAuthService:
     - LinkedIn
 
     Note on State Storage:
-        OAuth states are stored in-memory with 10-minute expiration for simplicity.
-        For production horizontal scaling, states should be stored in Redis using
-        the CacheService. The current implementation is suitable for single-instance
-        deployments and development environments.
+        OAuth states are now stored in Redis when available for horizontal
+        scaling support. Falls back to thread-safe in-memory storage when
+        Redis is unavailable.
     """
-
-    # In-memory state storage with 10-minute TTL
-    # TODO: Migrate to Redis (CacheService) for horizontal scaling
-    _oauth_states: Dict[str, Dict[str, Any]] = {}
 
     def __init__(self, db_session: AsyncSession):
         """
@@ -119,7 +268,8 @@ class SocialOAuthService:
             db_session: Database session for token storage
         """
         self.db = db_session
-        self.http_client = httpx.AsyncClient(timeout=30.0)
+        self.http_client = httpx.AsyncClient(timeout=settings.http_client_timeout)
+        self._state_store = get_oauth_state_store()
 
     async def close(self):
         """Clean up resources."""
@@ -193,7 +343,7 @@ class SocialOAuthService:
 
         return configs[platform]
 
-    def generate_authorization_url(
+    async def generate_authorization_url(
         self, platform: PlatformType, user_id: str
     ) -> OAuthAuthorizationResponse:
         """
@@ -217,13 +367,12 @@ class SocialOAuthService:
         # Generate secure state token
         state = secrets.token_urlsafe(32)
 
-        # Store state with metadata (TTL: 10 minutes)
-        self._oauth_states[state] = {
-            "platform": platform,
-            "user_id": user_id,
-            "created_at": datetime.utcnow(),
-            "expires_at": datetime.utcnow() + timedelta(minutes=10),
-        }
+        # Store state with metadata using Redis-backed store
+        await self._state_store.store_state(
+            state=state,
+            platform=platform.value,
+            user_id=user_id,
+        )
 
         # Build authorization URL
         params = {
@@ -268,21 +417,17 @@ class SocialOAuthService:
             ValueError: If state is invalid or expired
             httpx.HTTPError: If token exchange fails
         """
-        # Validate state
-        state_data = self._oauth_states.get(state)
+        # Validate state using Redis-backed store
+        state_data = await self._state_store.get_state(state)
         if not state_data:
-            raise ValueError("Invalid OAuth state")
+            raise ValueError("Invalid or expired OAuth state")
 
-        if datetime.utcnow() > state_data["expires_at"]:
-            del self._oauth_states[state]
-            raise ValueError("OAuth state has expired")
-
-        if state_data["platform"] != platform:
+        if state_data["platform"] != platform.value:
             raise ValueError("OAuth state platform mismatch")
 
         # Clean up used state
         user_id = state_data["user_id"]
-        del self._oauth_states[state]
+        await self._state_store.delete_state(state)
 
         config = self._get_platform_config(platform)
 
