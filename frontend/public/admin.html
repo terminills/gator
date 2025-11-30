@@ -3186,15 +3186,7 @@
         }
         
         // Enhanced tab management to handle chat initialization
-        const originalShowTab = showTab;
-        showTab = function(tabName) {
-            originalShowTab(tabName);
-            
-            // Initialize chat when Gator tab is shown
-            if (tabName === 'gator-help') {
-                initializeGatorChat();
-            }
-        };
+        // (tab handler extensions are added via DOMContentLoaded below)
         
         // Chat form submission
         document.addEventListener('DOMContentLoaded', () => {
@@ -4130,6 +4122,32 @@
             window.showTab = function(tabName) {
                 if (originalShowTab) {
                     originalShowTab(tabName);
+                }
+                
+                // Initialize chat when Gator tab is shown
+                if (tabName === 'gator-help') {
+                    initializeGatorChat();
+                }
+                
+                // Load data for new tabs
+                if (tabName === 'scheduling') {
+                    loadScheduledPosts();
+                    loadSchedulingStats();
+                }
+                if (tabName === 'moderation') {
+                    loadModerationQueue();
+                }
+                if (tabName === 'monitoring') {
+                    loadGPUStatus();
+                }
+                if (tabName === 'agents') {
+                    loadAgents();
+                }
+                if (tabName === 'ml-learning') {
+                    loadABTests();
+                }
+                if (tabName === 'auth') {
+                    loadOAuthConnections();
                 }
                 
                 // Load database info when database tab is shown
@@ -5220,61 +5238,6 @@
                 document.getElementById('oauth-connections').innerHTML = `<p style="color: #666;">OAuth: ${error.message}</p>`;
             }
         }
-        
-        // Load new tab data when tabs are shown
-        const originalShowTab = window.showTab;
-        window.showTab = function(tabName) {
-            // Call original showTab
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            document.querySelectorAll('.tab-link').forEach(link => {
-                link.classList.remove('active');
-            });
-            document.getElementById(tabName).classList.add('active');
-            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-            
-            // Load data for new tabs
-            if (tabName === 'scheduling') {
-                loadScheduledPosts();
-                loadSchedulingStats();
-            }
-            if (tabName === 'moderation') {
-                loadModerationQueue();
-            }
-            if (tabName === 'monitoring') {
-                loadGPUStatus();
-            }
-            if (tabName === 'agents') {
-                loadAgents();
-            }
-            if (tabName === 'ml-learning') {
-                loadABTests();
-            }
-            if (tabName === 'auth') {
-                loadOAuthConnections();
-            }
-            
-            // Existing tab handlers
-            if (tabName === 'database') {
-                loadDatabaseInfo();
-                checkSchemaStatus();
-                loadBackupsList();
-            }
-            if (tabName === 'interactive') {
-                loadInteractiveContent();
-            }
-            if (tabName === 'segments') {
-                loadAudienceSegments();
-            }
-            if (tabName === 'sentiment') {
-                loadPersonasForSentiment();
-            }
-            if (tabName === 'plugins') {
-                loadMarketplacePlugins();
-                loadInstalledPlugins();
-            }
-        };
         
     </script>
     
