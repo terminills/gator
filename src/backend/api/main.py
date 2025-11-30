@@ -163,10 +163,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         print(f"⚠️  Warning: Failed to initialize AI models: {str(e)}")
         print("  Content generation may use fallback mechanisms.")
 
+    # Start scheduled tasks
+    try:
+        from backend.services.scheduled_tasks import start_scheduler
+
+        await start_scheduler()
+        print("✓ Scheduled tasks started")
+    except Exception as e:
+        print(f"⚠️  Warning: Failed to start scheduled tasks: {str(e)}")
+
     yield
 
     # Shutdown
     print("Shutting down Gator AI Platform...")
+
+    # Stop scheduled tasks
+    try:
+        from backend.services.scheduled_tasks import stop_scheduler
+
+        await stop_scheduler()
+        print("Scheduled tasks stopped.")
+    except Exception as e:
+        print(f"Warning: Error stopping scheduled tasks: {str(e)}")
 
     # Close Redis cache connection
     try:
