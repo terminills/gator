@@ -531,9 +531,14 @@ class ACDService:
 
             if previous_assignee:
                 context.ai_previous_assignee = previous_assignee
-                # Update history
+                # Update history with structured dict entries (matches model type List[Dict])
                 history = context.ai_assignment_history or []
-                history.append(f"{previous_assignee} -> {agent_name}")
+                history.append({
+                    "from": previous_assignee,
+                    "to": agent_name,
+                    "reason": reason,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                })
                 context.ai_assignment_history = history
 
             await self.db.commit()

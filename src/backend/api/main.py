@@ -22,6 +22,7 @@ from backend.api.routes import (
     analytics,
     auth,
     branding,
+    cache,
     civitai,
     content,
     creator,
@@ -81,6 +82,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     await database_manager.connect()
     print("Database connection established.")
+
+    # Initialize Redis cache connection
+    try:
+        from backend.services.cache_service import init_cache
+
+        await init_cache()
+        print("Redis cache connection established.")
+    except Exception as e:
+        print(f"⚠️  Warning: Redis cache unavailable: {str(e)}")
+        print("  Application will continue without caching.")
 
     # Run database migrations automatically (if AUTO_MIGRATE is enabled)
     migration_results = await run_migrations(database_manager.engine)
@@ -153,6 +164,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     print("Shutting down Gator AI Platform...")
+
+    # Close Redis cache connection
+    try:
+        from backend.services.cache_service import close_cache
+
+        await close_cache()
+        print("Redis cache connection closed.")
+    except Exception as e:
+        print(f"Warning: Error closing cache connection: {str(e)}")
 
     # Clean up AI models
     try:
@@ -279,6 +299,7 @@ def create_app() -> FastAPI:
     app.include_router(installed_models.router)
     app.include_router(huggingface.router)
     app.include_router(scheduled_posts.router)
+    app.include_router(cache.router)  # Redis cache management
 
     # WebSocket endpoint for real-time communication
     @app.websocket("/ws/{user_id}")
