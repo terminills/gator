@@ -10,6 +10,7 @@
 
 ### [Guides](./guides/)
 Core functionality and usage guides:
+- [New Features Guide](./guides/new-features-guide.md) - Guide to new admin panel features
 - [Content Generation](./guides/content-generation.md) - AI-powered content creation
 - [Content Generation Settings](./guides/content-generation-settings.md) - Persona-based generation settings
 - [Appearance Locking](./guides/appearance-locking.md) - Maintain consistent persona appearance
@@ -58,6 +59,7 @@ System design and technical architecture:
 
 ### [API Reference](./api/)
 API documentation and endpoint references:
+- [Complete API Reference](./api/api-reference.md) - Comprehensive API documentation
 - [Endpoints Overview](./api/endpoints.md) - Complete API endpoint list
 - [AI Models Setup](./api/ai-models-setup.md) - AI model setup endpoints
 - [Setup Endpoints](./api/setup-endpoints.md) - Platform setup endpoints
