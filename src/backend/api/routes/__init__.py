@@ -10,7 +10,10 @@ from . import (
     enhanced_persona,
     friend_groups,
     gator_agent,
+    health,
     interactive,
+    moderation,
+    oauth,
     public,
     segments,
 )
@@ -21,7 +24,10 @@ __all__ = [
     "enhanced_persona",
     "friend_groups",
     "gator_agent",
+    "health",
     "interactive",
+    "moderation",
+    "oauth",
     "public",
     "segments",
 ]

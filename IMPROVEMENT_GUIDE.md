@@ -1151,6 +1151,8 @@ async def test_persona_crud_api():
   - [x] Tests for ModelCache (initialization, put/get, remove, stats)
   - [x] Tests for model_loader utilities (ANSI stripping, FLUX detection, size estimation)
   - [x] Tests for AIModelManager (singleton, handlers, system info)
+  - [x] tests/unit/test_social_oauth_service.py - 23 tests for OAuth flow
+  - [x] tests/unit/test_content_moderation_service.py - 27 tests for content moderation
 - [ ] Create integration test suite
 - [ ] Add E2E API tests
 - [ ] Set up CI test runner
@@ -1164,8 +1166,22 @@ async def test_persona_crud_api():
   - [x] Created API endpoints (create, list, get, update, cancel, pause, resume, retry, delete)
   - [x] Integrated with Celery task queue for scheduled execution
   - [x] Added comprehensive unit tests
-- [ ] Complete social media OAuth flows
-- [ ] Add content moderation pipeline
+- [x] Complete social media OAuth flows
+  - [x] Created SocialOAuthService with support for 5 platforms (Instagram, Facebook, Twitter, TikTok, LinkedIn)
+  - [x] Implemented OAuth2 authorization code flow
+  - [x] Created OAuthTokenModel for secure token storage
+  - [x] Added token refresh functionality
+  - [x] Created OAuth API routes (/api/v1/oauth/*)
+  - [x] Added OAuth configuration settings
+  - [x] Added 23 unit tests for OAuth functionality
+- [x] Add content moderation pipeline
+  - [x] Created ContentModerationPipeline service with multi-stage analysis
+  - [x] Implemented text content analysis (toxicity, hate speech, adult, violence, spam)
+  - [x] Implemented image content analysis (nudity, violence, graphic content)
+  - [x] Implemented video and audio analysis placeholders with ML integration points
+  - [x] Created ModerationQueueModel for human review workflow
+  - [x] Created moderation API routes (/api/v1/moderation/*)
+  - [x] Added 27 unit tests for moderation functionality
 - [x] Complete user authentication flow
   - [x] Created AuthService with password hashing (bcrypt) and JWT management
   - [x] Created auth routes (register, login, refresh, logout, change password, verify)
@@ -1207,7 +1223,13 @@ async def test_persona_crud_api():
 - [ ] Load testing
 - [ ] Documentation review
 - [ ] Deployment automation
-- [ ] Monitoring and alerting setup
+- [x] Monitoring and alerting setup
+  - [x] Created HealthMonitoringService with comprehensive health checks
+  - [x] Database, Redis, Ollama, and filesystem health monitoring
+  - [x] Kubernetes-compatible liveness and readiness probes
+  - [x] System resource metrics (CPU, memory, disk)
+  - [x] Created health API routes (/health/*, /health/live, /health/ready, /health/detailed)
+  - [x] Added 22 unit tests for health monitoring
 
 ---
 

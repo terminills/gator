@@ -162,11 +162,47 @@ class Settings(BaseSettings):
         default=300, description="Timeout for content generation in seconds"
     )
 
-    # Social media API settings
+    # Social media API settings (legacy)
     facebook_api_key: Optional[str] = Field(default=None)
     facebook_api_secret: Optional[str] = Field(default=None)
     instagram_api_key: Optional[str] = Field(default=None)
     instagram_api_secret: Optional[str] = Field(default=None)
+
+    # OAuth configuration
+    base_url: str = Field(
+        default="http://localhost:8000",
+        description="Base URL for OAuth callbacks",
+    )
+    instagram_client_id: Optional[str] = Field(
+        default=None, description="Instagram OAuth client ID"
+    )
+    instagram_client_secret: Optional[str] = Field(
+        default=None, description="Instagram OAuth client secret"
+    )
+    facebook_client_id: Optional[str] = Field(
+        default=None, description="Facebook OAuth client ID"
+    )
+    facebook_client_secret: Optional[str] = Field(
+        default=None, description="Facebook OAuth client secret"
+    )
+    twitter_client_id: Optional[str] = Field(
+        default=None, description="Twitter/X OAuth 2.0 client ID"
+    )
+    twitter_client_secret: Optional[str] = Field(
+        default=None, description="Twitter/X OAuth 2.0 client secret"
+    )
+    tiktok_client_id: Optional[str] = Field(
+        default=None, description="TikTok OAuth client ID"
+    )
+    tiktok_client_secret: Optional[str] = Field(
+        default=None, description="TikTok OAuth client secret"
+    )
+    linkedin_client_id: Optional[str] = Field(
+        default=None, description="LinkedIn OAuth client ID"
+    )
+    linkedin_client_secret: Optional[str] = Field(
+        default=None, description="LinkedIn OAuth client secret"
+    )
 
     # DNS Management (GoDaddy)
     godaddy_api_key: Optional[str] = Field(
