@@ -5470,10 +5470,28 @@
                     </div>
                 `;
             } catch (error) {
+                const isConnectionError = error.message.toLowerCase().includes('connect') || 
+                                          error.message.toLowerCase().includes('refused') ||
+                                          error.message.toLowerCase().includes('network');
                 statusDiv.innerHTML = `
                     <div class="alert alert-error">
-                        <strong>Cache Status:</strong> ${error.message}
-                        <p style="margin-top: 10px; font-size: 0.9rem;">Note: Application runs without caching if Redis is not available.</p>
+                        <strong>Cache Status:</strong> Unable to connect
+                        <p style="margin-top: 10px; font-size: 0.9rem;">
+                            ${isConnectionError ? 
+                                'Redis server is not running or not accessible. To enable caching:' :
+                                `Error: ${error.message}`
+                            }
+                        </p>
+                        ${isConnectionError ? `
+                            <ul style="margin: 10px 0 0 20px; font-size: 0.9rem; color: #666;">
+                                <li>Install Redis: <code>apt install redis-server</code> or <code>brew install redis</code></li>
+                                <li>Start Redis: <code>redis-server</code></li>
+                                <li>Configure REDIS_URL in your .env file</li>
+                            </ul>
+                        ` : ''}
+                        <p style="margin-top: 10px; font-size: 0.85rem; color: #888; font-style: italic;">
+                            Note: The application runs normally without Redis - caching improves performance but is not required.
+                        </p>
                     </div>
                 `;
             }
@@ -5857,7 +5875,12 @@
             }
             
             try {
-                const result = await apiRequest(`/api/v1/enhanced-persona/quick-create?name=${encodeURIComponent(name)}&preset_id=${encodeURIComponent(presetId)}&generate_previews=false`, {
+                const params = new URLSearchParams({
+                    name: name,
+                    preset_id: presetId,
+                    generate_previews: 'false'
+                });
+                const result = await apiRequest(`/api/v1/enhanced-persona/quick-create?${params.toString()}`, {
                     method: 'POST'
                 });
                 showAlert(`Persona "${result.name}" created successfully!`, 'success');
@@ -6186,7 +6209,11 @@
                         }
                     };
                     
-                    const result = await apiRequest(`/api/v1/enhanced-persona/create-with-preview?selected_preview_id=${wizardSelectedPreviewId}&preview_image_path=${encodeURIComponent(wizardPreviewPath)}`, {
+                    const previewParams = new URLSearchParams({
+                        selected_preview_id: wizardSelectedPreviewId.toString(),
+                        preview_image_path: wizardPreviewPath
+                    });
+                    const result = await apiRequest(`/api/v1/enhanced-persona/create-with-preview?${previewParams.toString()}`, {
                         method: 'POST',
                         body: JSON.stringify(creationData)
                     });
