@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import uvicorn
-from fastapi import Depends, FastAPI, Request, Response, WebSocket
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -163,10 +163,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         print(f"⚠️  Warning: Failed to initialize AI models: {str(e)}")
         print("  Content generation may use fallback mechanisms.")
 
+    # Start scheduled tasks
+    try:
+        from backend.services.scheduled_tasks import start_scheduler
+
+        await start_scheduler()
+        print("✓ Scheduled tasks started")
+    except Exception as e:
+        print(f"⚠️  Warning: Failed to start scheduled tasks: {str(e)}")
+
     yield
 
     # Shutdown
     print("Shutting down Gator AI Platform...")
+
+    # Stop scheduled tasks
+    try:
+        from backend.services.scheduled_tasks import stop_scheduler
+
+        await stop_scheduler()
+        print("Scheduled tasks stopped.")
+    except Exception as e:
+        print(f"Warning: Error stopping scheduled tasks: {str(e)}")
 
     # Close Redis cache connection
     try:
@@ -234,6 +252,41 @@ def create_app() -> FastAPI:
         config=DEFAULT_RATE_LIMIT_CONFIG,
         enabled=not settings.debug,  # Disabled in debug mode
     )
+
+    # Request context middleware for correlation IDs
+    from backend.config.logging import (
+        set_request_context,
+        clear_request_context,
+        generate_request_id,
+    )
+
+    @app.middleware("http")
+    async def request_context_middleware(request: Request, call_next):
+        """
+        Add correlation IDs to each request for tracing.
+
+        Design Note: When X-Correlation-ID is not provided, we use the request ID
+        as the correlation ID. This is intentional for single-service scenarios.
+        In multi-service architectures, the upstream service should pass
+        X-Correlation-ID to maintain the trace across services.
+        """
+        # Get or generate request ID (unique to this request)
+        req_id = request.headers.get("X-Request-ID") or generate_request_id()
+        # Get correlation ID from header, or use request ID for new traces
+        # In distributed systems, correlation ID should be passed from upstream
+        corr_id = request.headers.get("X-Correlation-ID") or req_id
+
+        # Set context for logging
+        set_request_context(req_id=req_id, corr_id=corr_id)
+
+        try:
+            response = await call_next(request)
+            # Add IDs to response headers for client tracing
+            response.headers["X-Request-ID"] = req_id
+            response.headers["X-Correlation-ID"] = corr_id
+            return response
+        finally:
+            clear_request_context()
 
     # Mount static files using centralized paths
     frontend_path = paths.frontend_dir
@@ -505,12 +558,21 @@ def create_app() -> FastAPI:
             ],
         }
 
-    @app.exception_handler(404)
-    async def not_found_handler(request: Request, exc) -> Response:
-        """Custom 404 handler."""
-        return JSONResponse(
-            status_code=404, content={"detail": f"Path {request.url.path} not found"}
-        )
+    # Register standardized error handlers
+    from backend.api.errors import (
+        GatorHTTPException,
+        gator_exception_handler,
+        http_exception_handler,
+        generic_exception_handler,
+    )
+    from fastapi.exceptions import RequestValidationError
+    from pydantic import ValidationError
+
+    app.add_exception_handler(GatorHTTPException, gator_exception_handler)
+    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(RequestValidationError, generic_exception_handler)
+    app.add_exception_handler(ValidationError, generic_exception_handler)
+    app.add_exception_handler(Exception, generic_exception_handler)
 
     return app
 

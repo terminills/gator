@@ -375,4 +375,47 @@ The Gator platform has a robust backend with 366 API endpoints and 55+ services,
 
 **Priority 3:** Consider migrating to a modern frontend framework for long-term maintainability.
 
+---
+
+## v3 Production Hardening (November 2024)
+
+For detailed architect-grade evaluation and production hardening recommendations, see **[docs/v3-enhancement-guide.md](docs/v3-enhancement-guide.md)**.
+
+### Key v3 Improvements Implemented
+
+| Feature | Status | Location |
+|---------|--------|----------|
+| Configurable Timeouts | ✅ | `config/settings.py` |
+| Circuit Breaker Pattern | ✅ | `utils/circuit_breaker.py` |
+| Correlation ID Logging | ✅ | `config/logging.py` |
+| Request Context Middleware | ✅ | `api/main.py` |
+| Redis OAuth State Store | ✅ | `services/social_oauth_service.py` |
+| ACD Enforcer Wrapper | ✅ | `utils/acd_enforcer.py` |
+| Standardized Error Responses | ✅ | `api/errors.py` |
+| Circuit Breaker Health Endpoint | ✅ | `api/routes/health.py` |
+
+### New Configuration Options
+
+```bash
+# Timeout configuration (via GATOR_ prefix)
+GATOR_OLLAMA_CONNECT_TIMEOUT=5.0
+GATOR_OLLAMA_GENERATE_TIMEOUT=60.0
+GATOR_HTTP_CLIENT_TIMEOUT=30.0
+GATOR_SUBPROCESS_DEFAULT_TIMEOUT=30
+GATOR_MODEL_DOWNLOAD_TIMEOUT=300
+GATOR_GPU_DETECTION_TIMEOUT=5
+GATOR_ORCHESTRATOR_INVOKE_TIMEOUT=5.0
+
+# Circuit breaker configuration
+GATOR_CIRCUIT_BREAKER_FAILURE_THRESHOLD=5
+GATOR_CIRCUIT_BREAKER_RECOVERY_TIMEOUT=60
+```
+
+### New Health Endpoints
+
+- `GET /health/circuit-breakers` - Circuit breaker status
+- `POST /health/circuit-breakers/reset` - Reset all circuit breakers
+
+---
+
 **Remember: Gator don't play no shit. Let's complete this platform properly.**

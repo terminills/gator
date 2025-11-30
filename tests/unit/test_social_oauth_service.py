@@ -126,12 +126,16 @@ class TestSocialOAuthService:
 
     @pytest.fixture
     def oauth_service(self, mock_db_session):
-        """Create OAuth service instance."""
+        """Create OAuth service instance with fresh state store."""
+        # Reset the singleton state store for each test
+        import backend.services.social_oauth_service as mod
+        mod._oauth_state_store = None
         return SocialOAuthService(mock_db_session)
 
-    def test_generate_authorization_url_instagram(self, oauth_service):
+    @pytest.mark.asyncio
+    async def test_generate_authorization_url_instagram(self, oauth_service):
         """Test generating Instagram authorization URL."""
-        result = oauth_service.generate_authorization_url(
+        result = await oauth_service.generate_authorization_url(
             PlatformType.INSTAGRAM, "user123"
         )
 
@@ -141,52 +145,57 @@ class TestSocialOAuthService:
         assert "state=" in result.authorization_url
         assert len(result.state) > 0
 
-    def test_generate_authorization_url_facebook(self, oauth_service):
+    @pytest.mark.asyncio
+    async def test_generate_authorization_url_facebook(self, oauth_service):
         """Test generating Facebook authorization URL."""
-        result = oauth_service.generate_authorization_url(
+        result = await oauth_service.generate_authorization_url(
             PlatformType.FACEBOOK, "user123"
         )
 
         assert result.platform == PlatformType.FACEBOOK
         assert "facebook.com" in result.authorization_url
 
-    def test_generate_authorization_url_twitter(self, oauth_service):
+    @pytest.mark.asyncio
+    async def test_generate_authorization_url_twitter(self, oauth_service):
         """Test generating Twitter authorization URL."""
-        result = oauth_service.generate_authorization_url(
+        result = await oauth_service.generate_authorization_url(
             PlatformType.TWITTER, "user123"
         )
 
         assert result.platform == PlatformType.TWITTER
         assert "twitter.com" in result.authorization_url
 
-    def test_generate_authorization_url_tiktok(self, oauth_service):
+    @pytest.mark.asyncio
+    async def test_generate_authorization_url_tiktok(self, oauth_service):
         """Test generating TikTok authorization URL."""
-        result = oauth_service.generate_authorization_url(
+        result = await oauth_service.generate_authorization_url(
             PlatformType.TIKTOK, "user123"
         )
 
         assert result.platform == PlatformType.TIKTOK
         assert "tiktok.com" in result.authorization_url
 
-    def test_generate_authorization_url_linkedin(self, oauth_service):
+    @pytest.mark.asyncio
+    async def test_generate_authorization_url_linkedin(self, oauth_service):
         """Test generating LinkedIn authorization URL."""
-        result = oauth_service.generate_authorization_url(
+        result = await oauth_service.generate_authorization_url(
             PlatformType.LINKEDIN, "user123"
         )
 
         assert result.platform == PlatformType.LINKEDIN
         assert "linkedin.com" in result.authorization_url
 
-    def test_generate_authorization_stores_state(self, oauth_service):
+    @pytest.mark.asyncio
+    async def test_generate_authorization_stores_state(self, oauth_service):
         """Test that state is stored for validation."""
-        result = oauth_service.generate_authorization_url(
+        result = await oauth_service.generate_authorization_url(
             PlatformType.INSTAGRAM, "user123"
         )
 
-        # State should be stored
-        assert result.state in oauth_service._oauth_states
-        state_data = oauth_service._oauth_states[result.state]
-        assert state_data["platform"] == PlatformType.INSTAGRAM
+        # State should be retrievable from the state store
+        state_data = await oauth_service._state_store.get_state(result.state)
+        assert state_data is not None
+        assert state_data["platform"] == PlatformType.INSTAGRAM.value
         assert state_data["user_id"] == "user123"
 
     def test_unsupported_platform_raises_error(self, oauth_service):
@@ -197,7 +206,7 @@ class TestSocialOAuthService:
     @pytest.mark.asyncio
     async def test_exchange_code_invalid_state(self, oauth_service):
         """Test code exchange with invalid state."""
-        with pytest.raises(ValueError, match="Invalid OAuth state"):
+        with pytest.raises(ValueError, match="Invalid or expired OAuth state"):
             await oauth_service.exchange_code_for_token(
                 PlatformType.INSTAGRAM, "code123", "invalid_state"
             )
@@ -205,15 +214,14 @@ class TestSocialOAuthService:
     @pytest.mark.asyncio
     async def test_exchange_code_expired_state(self, oauth_service):
         """Test code exchange with expired state."""
-        # Generate state then manually expire it
-        result = oauth_service.generate_authorization_url(
+        # Generate state then manually expire it by deleting
+        result = await oauth_service.generate_authorization_url(
             PlatformType.INSTAGRAM, "user123"
         )
-        oauth_service._oauth_states[result.state]["expires_at"] = (
-            datetime.utcnow() - timedelta(minutes=1)
-        )
+        # Delete the state to simulate expiration
+        await oauth_service._state_store.delete_state(result.state)
 
-        with pytest.raises(ValueError, match="expired"):
+        with pytest.raises(ValueError, match="Invalid or expired"):
             await oauth_service.exchange_code_for_token(
                 PlatformType.INSTAGRAM, "code123", result.state
             )
@@ -221,7 +229,7 @@ class TestSocialOAuthService:
     @pytest.mark.asyncio
     async def test_exchange_code_platform_mismatch(self, oauth_service):
         """Test code exchange with platform mismatch."""
-        result = oauth_service.generate_authorization_url(
+        result = await oauth_service.generate_authorization_url(
             PlatformType.INSTAGRAM, "user123"
         )
 

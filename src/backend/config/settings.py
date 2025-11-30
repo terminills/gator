@@ -162,6 +162,37 @@ class Settings(BaseSettings):
         default=300, description="Timeout for content generation in seconds"
     )
 
+    # Timeout Configuration (centralized for production hardening)
+    ollama_connect_timeout: float = Field(
+        default=5.0, description="Ollama connection timeout in seconds"
+    )
+    ollama_generate_timeout: float = Field(
+        default=60.0, description="Ollama generation timeout in seconds"
+    )
+    subprocess_default_timeout: int = Field(
+        default=30, description="Default subprocess timeout in seconds"
+    )
+    model_download_timeout: int = Field(
+        default=300, description="Model download timeout in seconds"
+    )
+    gpu_detection_timeout: int = Field(
+        default=5, description="GPU detection timeout in seconds"
+    )
+    http_client_timeout: float = Field(
+        default=30.0, description="Default HTTP client timeout in seconds"
+    )
+    orchestrator_invoke_timeout: float = Field(
+        default=5.0, description="ACD orchestrator invocation timeout in seconds"
+    )
+
+    # Circuit Breaker Configuration
+    circuit_breaker_failure_threshold: int = Field(
+        default=5, description="Number of failures before circuit breaker opens"
+    )
+    circuit_breaker_recovery_timeout: int = Field(
+        default=60, description="Seconds before attempting recovery after circuit opens"
+    )
+
     # Social media API settings (legacy)
     facebook_api_key: Optional[str] = Field(default=None)
     facebook_api_secret: Optional[str] = Field(default=None)

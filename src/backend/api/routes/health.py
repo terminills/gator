@@ -11,7 +11,7 @@ Provides production health check endpoints:
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.logging import get_logger
@@ -204,3 +204,108 @@ async def get_filesystem_health(
         ServiceHealth for filesystem
     """
     return await health_service.check_filesystem_health()
+
+
+@router.get("/circuit-breakers")
+async def get_circuit_breaker_status():
+    """
+    Get status of all circuit breakers.
+
+    Returns the state of each circuit breaker for monitoring external
+    service dependencies and identifying failing integrations.
+
+    Returns:
+        Dict with circuit breaker statuses
+    """
+    from backend.utils.circuit_breaker import CircuitBreaker
+
+    return {
+        "circuit_breakers": CircuitBreaker.get_all_status(),
+        "summary": {
+            "total": len(CircuitBreaker._registry),
+            "open": sum(
+                1 for cb in CircuitBreaker._registry.values() if cb.state.value == "open"
+            ),
+            "half_open": sum(
+                1
+                for cb in CircuitBreaker._registry.values()
+                if cb.state.value == "half_open"
+            ),
+            "closed": sum(
+                1
+                for cb in CircuitBreaker._registry.values()
+                if cb.state.value == "closed"
+            ),
+        },
+    }
+
+
+@router.post("/circuit-breakers/reset")
+async def reset_circuit_breakers():
+    """
+    Reset all circuit breakers to closed state.
+
+    Use this endpoint to recover from transient failures after
+    the underlying issues have been resolved.
+
+    Returns:
+        Dict with reset confirmation
+    """
+    from backend.utils.circuit_breaker import CircuitBreaker
+
+    count = len(CircuitBreaker._registry)
+    CircuitBreaker.reset_all()
+
+    logger.info(f"Reset {count} circuit breakers")
+
+    return {
+        "message": f"Reset {count} circuit breakers",
+        "status": "success",
+    }
+
+
+@router.get("/scheduled-tasks")
+async def get_scheduled_tasks_status():
+    """
+    Get status of all scheduled background tasks.
+
+    Returns information about:
+    - Memory consolidation
+    - OAuth state cleanup
+    - Adaptive weight adjustment
+    - Health checks
+
+    Returns:
+        Dict with task statuses
+    """
+    from backend.services.scheduled_tasks import scheduler
+
+    return scheduler.get_status()
+
+
+@router.post("/scheduled-tasks/{task_name}/toggle")
+async def toggle_scheduled_task(task_name: str, enabled: bool):
+    """
+    Enable or disable a scheduled task.
+
+    Args:
+        task_name: Name of the task to toggle
+        enabled: Whether to enable or disable the task
+
+    Returns:
+        Dict with updated task status
+    """
+    from backend.services.scheduled_tasks import scheduler
+
+    task = scheduler.get_task(task_name)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task '{task_name}' not found")
+
+    task.enabled = enabled
+    logger.info(f"Scheduled task '{task_name}' {'enabled' if enabled else 'disabled'}")
+
+    return {
+        "task": task_name,
+        "enabled": enabled,
+        "status": task.get_status(),
+    }
