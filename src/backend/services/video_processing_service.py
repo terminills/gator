@@ -177,6 +177,28 @@ class VideoProcessingService:
             logger.error(f"Frame-by-frame video generation failed: {str(e)}")
             raise
 
+    async def generate_single_frame(
+        self, prompt: str, quality: VideoQuality, frame_index: int = 0, **kwargs
+    ) -> np.ndarray:
+        """
+        Generate a single video frame (public interface).
+
+        Uses AI image generation to create frames from prompts.
+        Falls back to placeholder frames if AI generation fails or is disabled.
+
+        Args:
+            prompt: Text prompt for frame generation
+            quality: Video quality preset
+            frame_index: Index of the frame in sequence
+            **kwargs: Additional generation parameters
+                - use_ai_generation (bool): Whether to use AI for frame generation (default: True)
+                - ai_model_manager: AIModelManager instance to use for generation
+
+        Returns:
+            Numpy array representing the frame
+        """
+        return await self._generate_single_frame(prompt, quality, frame_index, **kwargs)
+
     async def _generate_single_frame(
         self, prompt: str, quality: VideoQuality, frame_index: int = 0, **kwargs
     ) -> np.ndarray:

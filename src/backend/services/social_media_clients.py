@@ -5,7 +5,9 @@ Implementations for various social media platform APIs including
 Instagram, Facebook, Twitter, TikTok, and LinkedIn.
 """
 
+import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict
 
 import httpx
@@ -720,8 +722,6 @@ class TikTokClient(PlatformClientBase):
             else:
                 # File upload - get file size for chunked upload
                 video_path = content_data.get("video_path")
-                import os
-
                 file_size = os.path.getsize(video_path) if video_path else 0
                 source_info = {
                     "source": "FILE_UPLOAD",
@@ -775,14 +775,13 @@ class TikTokClient(PlatformClientBase):
                 # TikTok will pull from URL, no upload needed
                 return True
 
-            # Read local file
-            import os
-
-            if not os.path.exists(video_source):
+            # Read local file using pathlib
+            video_path = Path(video_source)
+            if not video_path.exists():
                 logger.error(f"Video file not found: {video_source}")
                 return False
 
-            with open(video_source, "rb") as f:
+            with open(video_path, "rb") as f:
                 video_data = f.read()
 
             # Upload to TikTok

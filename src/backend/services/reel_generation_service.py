@@ -491,11 +491,11 @@ class ReelGenerationService:
             fps = 30
             num_frames = int(duration * fps)
 
-            # Generate frames using the video service's frame generation
+            # Generate frames using the video service's public frame generation method
             for i in range(
                 min(num_frames, fps)
             ):  # Generate one second of unique frames
-                frame = await self.video_service._generate_single_frame(
+                frame = await self.video_service.generate_single_frame(
                     prompt=text,
                     quality=quality,
                     frame_index=i,

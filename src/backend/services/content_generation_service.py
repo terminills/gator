@@ -1354,10 +1354,8 @@ class ContentGenerationService:
             with open(tmp_path, "rb") as f:
                 audio_data = f.read()
 
-            # Cleanup
-            import os
-
-            os.unlink(tmp_path)
+            # Cleanup using pathlib
+            Path(tmp_path).unlink(missing_ok=True)
 
             return {
                 "audio_data": audio_data,
