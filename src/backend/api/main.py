@@ -47,6 +47,7 @@ from backend.api.routes import (
 )
 from backend.api.routes import settings as settings_routes
 from backend.api.routes import (
+    health,
     moderation,
     oauth,
     setup,
@@ -304,6 +305,7 @@ def create_app() -> FastAPI:
     app.include_router(scheduled_posts.router)
     app.include_router(cache.router)  # Redis cache management
     app.include_router(moderation.router)  # Content moderation pipeline
+    app.include_router(health.router)  # Production health monitoring
 
     # WebSocket endpoint for real-time communication
     @app.websocket("/ws/{user_id}")

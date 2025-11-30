@@ -1223,7 +1223,13 @@ async def test_persona_crud_api():
 - [ ] Load testing
 - [ ] Documentation review
 - [ ] Deployment automation
-- [ ] Monitoring and alerting setup
+- [x] Monitoring and alerting setup
+  - [x] Created HealthMonitoringService with comprehensive health checks
+  - [x] Database, Redis, Ollama, and filesystem health monitoring
+  - [x] Kubernetes-compatible liveness and readiness probes
+  - [x] System resource metrics (CPU, memory, disk)
+  - [x] Created health API routes (/health/*, /health/live, /health/ready, /health/detailed)
+  - [x] Added 22 unit tests for health monitoring
 
 ---
 
