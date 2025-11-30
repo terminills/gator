@@ -6750,22 +6750,33 @@
                 
                 const result = await apiRequest(url, { method: 'POST' });
                 
+                // Store export data safely in a global variable for download
+                window._acdExportData = result.formatted_output || '';
+                window._acdExportFormat = format;
+                
                 displayDiv.innerHTML = `
                     <div class="alert alert-success">
                         <strong>Export Complete!</strong><br>
                         Contexts exported: ${result.contexts_count || 0}<br>
                         Relationships: ${result.relationships_count || 0}<br>
-                        <button class="btn btn-sm btn-secondary" style="margin-top: 10px;" onclick="downloadExport('${format}', \`${encodeURIComponent(result.formatted_output || '')}\`)">Download</button>
+                        <button class="btn btn-sm btn-secondary" style="margin-top: 10px;" onclick="downloadACDExport()">Download</button>
                     </div>
                 `;
             } catch (error) {
-                displayDiv.innerHTML = `<div class="alert alert-error">Export failed: ${error.message}</div>`;
+                displayDiv.innerHTML = `<div class="alert alert-error">Export failed: ${escapeHtml(error.message)}</div>`;
             }
         }
         
-        function downloadExport(format, encodedData) {
+        function downloadACDExport() {
             try {
-                const data = decodeURIComponent(encodedData);
+                const data = window._acdExportData;
+                const format = window._acdExportFormat;
+                
+                if (!data) {
+                    alert('No export data available. Please run export again.');
+                    return;
+                }
+                
                 const blob = new Blob([data], { type: format === 'json' ? 'application/json' : 'text/plain' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -6775,6 +6786,10 @@
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
+                
+                // Clean up global variable
+                delete window._acdExportData;
+                delete window._acdExportFormat;
             } catch (e) {
                 alert('Download failed: ' + e.message);
             }
