@@ -778,6 +778,8 @@
                 <li class="tab-link" data-tab="monitoring">📊 Monitoring</li>
                 <li class="tab-link" data-tab="agents">🤖 Agents</li>
                 <li class="tab-link" data-tab="ml-learning">🧠 ML Learning</li>
+                <li class="tab-link" data-tab="cache">💾 Cache</li>
+                <li class="tab-link" data-tab="friend-groups">👥 Groups & Reels</li>
                 <li class="tab-link" data-tab="plugins">Plugins</li>
                 <li class="tab-link" data-tab="dns">DNS</li>
                 <li class="tab-link" data-tab="settings">Settings</li>
@@ -2033,6 +2035,172 @@
                 </div>
                 <button class="btn" onclick="loadCrossPersonaLearning()">Load Insights</button>
                 <div id="cross-persona-insights" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+        
+        <!-- Cache Management Tab -->
+        <div class="tab-content" id="cache">
+            <h2 style="margin-bottom: 1.5rem;">💾 Cache Management</h2>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <div class="card-title">Cache Status</div>
+                </div>
+                <div class="card-description">
+                    Monitor cache connection status and statistics
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn" onclick="loadCacheStatus()">Refresh Status</button>
+                    <button class="btn btn-secondary" onclick="checkCacheHealth()">Health Check</button>
+                </div>
+                <div id="cache-status" style="margin-top: 15px;"></div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🗑️</div>
+                    <div class="card-title">Invalidate Cache</div>
+                </div>
+                <div class="card-description">
+                    Clear cached data by category to refresh stale information
+                </div>
+                <div style="margin-top: 15px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                        <button class="btn btn-secondary" onclick="invalidateCache('persona')">Clear Personas</button>
+                        <button class="btn btn-secondary" onclick="invalidateCache('user')">Clear Users</button>
+                        <button class="btn btn-secondary" onclick="invalidateCache('session')">Clear Sessions</button>
+                        <button class="btn btn-secondary" onclick="invalidateCache('generation')">Clear Generation</button>
+                        <button class="btn btn-secondary" onclick="invalidateCache('acd')">Clear ACD</button>
+                        <button class="btn btn-secondary" onclick="invalidateCache('api')">Clear API</button>
+                    </div>
+                </div>
+                <div id="cache-invalidation-result" style="margin-top: 15px;"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🔑</div>
+                    <div class="card-title">Key Management</div>
+                </div>
+                <div class="card-description">
+                    Look up TTL for specific cache keys or delete individual keys
+                </div>
+                <div style="margin-top: 15px;">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="cache-key-input" class="form-control" placeholder="Enter cache key..." style="flex: 1;">
+                        <button class="btn" onclick="checkCacheKeyTTL()">Check TTL</button>
+                        <button class="btn btn-secondary" onclick="deleteCacheKey()">Delete Key</button>
+                    </div>
+                </div>
+                <div id="cache-key-result" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+        
+        <!-- Friend Groups & Reels Tab -->
+        <div class="tab-content" id="friend-groups">
+            <h2 style="margin-bottom: 1.5rem;">👥 Friend Groups & Reels</h2>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">👥</div>
+                    <div class="card-title">Persona Groups</div>
+                </div>
+                <div class="card-description">
+                    Create groups of personas that can interact and collaborate on content
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn" onclick="showCreateGroupModal()">Create Group</button>
+                    <button class="btn btn-secondary" onclick="loadFriendGroups()">Refresh</button>
+                </div>
+                <div id="friend-groups-list" style="margin-top: 15px;"></div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🎬</div>
+                    <div class="card-title">Duet Generation</div>
+                </div>
+                <div class="card-description">
+                    Create duet/reaction content between personas. Select a group and generate collaborative content.
+                </div>
+                <div style="margin-top: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Select Group</label>
+                        <select id="duet-group-select" class="form-control" style="max-width: 300px;">
+                            <option value="">-- Select a group --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Duet Style</label>
+                        <select id="duet-style-select" class="form-control" style="max-width: 300px;">
+                            <option value="side_by_side">Side by Side</option>
+                            <option value="reaction">Reaction Overlay</option>
+                            <option value="grid_2x2">Grid (2x2)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Content Prompt</label>
+                        <textarea id="duet-prompt" class="form-control" rows="3" placeholder="Describe the duet content..."></textarea>
+                    </div>
+                    <button class="btn" onclick="generateDuet()">Generate Duet</button>
+                </div>
+                <div id="duet-result" style="margin-top: 15px;"></div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🎥</div>
+                    <div class="card-title">Reel Generation</div>
+                </div>
+                <div class="card-description">
+                    Generate short-form vertical video content (reels) for a persona
+                </div>
+                <div style="margin-top: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Select Persona</label>
+                        <select id="reel-persona-select" class="form-control" style="max-width: 300px;">
+                            <option value="">-- Select a persona --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Duration (seconds)</label>
+                        <select id="reel-duration-select" class="form-control" style="max-width: 150px;">
+                            <option value="15">15s</option>
+                            <option value="30">30s</option>
+                            <option value="60">60s</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Reel Prompt</label>
+                        <textarea id="reel-prompt" class="form-control" rows="3" placeholder="Describe the reel content..."></textarea>
+                    </div>
+                    <button class="btn" onclick="generateReel()">Generate Reel</button>
+                </div>
+                <div id="reel-result" style="margin-top: 15px;"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🔄</div>
+                    <div class="card-title">Auto-Interaction</div>
+                </div>
+                <div class="card-description">
+                    Enable automatic interactions between personas in a group (likes, comments, shares)
+                </div>
+                <div style="margin-top: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Select Group for Auto-Interaction</label>
+                        <select id="auto-interact-group-select" class="form-control" style="max-width: 300px;">
+                            <option value="">-- Select a group --</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn" onclick="startAutoInteraction()">Start Auto-Interact</button>
+                        <button class="btn btn-secondary" onclick="stopAutoInteraction()">Stop</button>
+                    </div>
+                </div>
+                <div id="auto-interaction-status" style="margin-top: 15px;"></div>
             </div>
         </div>
         
@@ -5238,6 +5406,367 @@
                 document.getElementById('oauth-connections').innerHTML = `<p style="color: #666;">OAuth: ${error.message}</p>`;
             }
         }
+        
+        // ========================================
+        // Cache Management Functions
+        // ========================================
+        
+        async function loadCacheStatus() {
+            const statusDiv = document.getElementById('cache-status');
+            statusDiv.innerHTML = '<div class="loading"></div>Loading cache status...';
+            
+            try {
+                const status = await apiRequest('/api/v1/cache/status');
+                statusDiv.innerHTML = `
+                    <div style="padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                            <div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e0e0e0;">
+                                <div style="font-size: 0.8rem; color: #666;">Status</div>
+                                <div style="font-size: 1.2rem; font-weight: 600; color: ${status.status === 'connected' ? '#4caf50' : '#f44336'};">
+                                    ${status.status === 'connected' ? '🟢 Connected' : '🔴 Disconnected'}
+                                </div>
+                            </div>
+                            <div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e0e0e0;">
+                                <div style="font-size: 0.8rem; color: #666;">Memory Used</div>
+                                <div style="font-size: 1.2rem; font-weight: 600;">${status.used_memory_human || 'N/A'}</div>
+                            </div>
+                            <div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e0e0e0;">
+                                <div style="font-size: 0.8rem; color: #666;">Total Keys</div>
+                                <div style="font-size: 1.2rem; font-weight: 600;">${status.total_keys || 0}</div>
+                            </div>
+                            <div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e0e0e0;">
+                                <div style="font-size: 0.8rem; color: #666;">Hit Rate</div>
+                                <div style="font-size: 1.2rem; font-weight: 600;">${status.hit_rate || 'N/A'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <strong>Cache Status:</strong> ${error.message}
+                        <p style="margin-top: 10px; font-size: 0.9rem;">Note: Application runs without caching if Redis is not available.</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function checkCacheHealth() {
+            const statusDiv = document.getElementById('cache-status');
+            try {
+                const health = await apiRequest('/api/v1/cache/health');
+                const alertClass = health.status === 'healthy' ? 'alert-success' : 'alert-error';
+                statusDiv.innerHTML = `
+                    <div class="alert ${alertClass}">
+                        <strong>Cache Health:</strong> ${health.status}
+                        <p style="margin-top: 5px;">${health.message}</p>
+                    </div>
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="alert alert-error">Health check failed: ${error.message}</div>`;
+            }
+        }
+        
+        async function invalidateCache(prefix) {
+            const resultDiv = document.getElementById('cache-invalidation-result');
+            try {
+                const result = await apiRequest(`/api/v1/cache/invalidate/${prefix}`, { method: 'DELETE' });
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>Success!</strong> Cleared ${result.keys_deleted} keys from "${prefix}" cache.
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">Failed to invalidate cache: ${error.message}</div>`;
+            }
+        }
+        
+        async function checkCacheKeyTTL() {
+            const key = document.getElementById('cache-key-input').value.trim();
+            const resultDiv = document.getElementById('cache-key-result');
+            
+            if (!key) {
+                resultDiv.innerHTML = '<div class="alert alert-error">Please enter a cache key</div>';
+                return;
+            }
+            
+            try {
+                const result = await apiRequest(`/api/v1/cache/ttl/${encodeURIComponent(key)}`);
+                resultDiv.innerHTML = `
+                    <div class="alert ${result.exists ? 'alert-success' : 'alert-error'}">
+                        <strong>Key:</strong> ${escapeHtml(key)}<br>
+                        <strong>Exists:</strong> ${result.exists ? 'Yes' : 'No'}<br>
+                        ${result.exists ? `<strong>TTL:</strong> ${result.ttl} seconds` : ''}
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">TTL lookup failed: ${error.message}</div>`;
+            }
+        }
+        
+        async function deleteCacheKey() {
+            const key = document.getElementById('cache-key-input').value.trim();
+            const resultDiv = document.getElementById('cache-key-result');
+            
+            if (!key) {
+                resultDiv.innerHTML = '<div class="alert alert-error">Please enter a cache key</div>';
+                return;
+            }
+            
+            try {
+                const result = await apiRequest(`/api/v1/cache/key/${encodeURIComponent(key)}`, { method: 'DELETE' });
+                resultDiv.innerHTML = `
+                    <div class="alert ${result.deleted ? 'alert-success' : 'alert-error'}">
+                        <strong>Key:</strong> ${escapeHtml(key)}<br>
+                        <strong>Status:</strong> ${result.deleted ? 'Deleted successfully' : 'Key not found'}
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">Delete failed: ${error.message}</div>`;
+            }
+        }
+        
+        // ========================================
+        // Friend Groups & Reels Functions
+        // ========================================
+        
+        async function loadFriendGroups() {
+            const listDiv = document.getElementById('friend-groups-list');
+            listDiv.innerHTML = '<div class="loading"></div>Loading friend groups...';
+            
+            try {
+                const groups = await apiRequest('/api/v1/friend-groups/');
+                
+                // Also populate the select dropdowns
+                const duetSelect = document.getElementById('duet-group-select');
+                const autoSelect = document.getElementById('auto-interact-group-select');
+                
+                if (!groups || groups.length === 0) {
+                    listDiv.innerHTML = '<p style="color: #666;">No friend groups yet. Create one to enable persona collaboration!</p>';
+                    duetSelect.innerHTML = '<option value="">-- No groups available --</option>';
+                    autoSelect.innerHTML = '<option value="">-- No groups available --</option>';
+                    return;
+                }
+                
+                // Update select dropdowns
+                const options = groups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
+                duetSelect.innerHTML = '<option value="">-- Select a group --</option>' + options;
+                autoSelect.innerHTML = '<option value="">-- Select a group --</option>' + options;
+                
+                // Display groups
+                listDiv.innerHTML = groups.map(group => `
+                    <div style="padding: 20px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h4 style="margin: 0 0 5px 0;">${escapeHtml(group.name)}</h4>
+                                <p style="color: #666; margin: 0 0 10px 0;">${escapeHtml(group.description || 'No description')}</p>
+                                <div style="display: flex; gap: 15px; font-size: 0.9rem;">
+                                    <span>👥 ${group.member_count || 0} members</span>
+                                    <span style="color: ${group.is_active ? '#4caf50' : '#f44336'};">
+                                        ${group.is_active ? '🟢 Active' : '🔴 Inactive'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn btn-sm btn-secondary" onclick="viewFriendGroup('${group.id}')">View</button>
+                                <button class="btn btn-sm btn-secondary" onclick="deleteFriendGroup('${group.id}', '${escapeHtml(group.name)}')">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                listDiv.innerHTML = `<div class="alert alert-error">Failed to load groups: ${error.message}</div>`;
+            }
+        }
+        
+        async function showCreateGroupModal() {
+            const groupName = prompt('Enter group name:');
+            if (!groupName) return;
+            
+            const description = prompt('Enter group description (optional):') || '';
+            
+            try {
+                const result = await apiRequest('/api/v1/friend-groups/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: groupName,
+                        description: description
+                    })
+                });
+                alert(`Group "${result.name}" created successfully!`);
+                loadFriendGroups();
+            } catch (error) {
+                alert('Failed to create group: ' + error.message);
+            }
+        }
+        
+        async function viewFriendGroup(groupId) {
+            try {
+                const group = await apiRequest(`/api/v1/friend-groups/${groupId}`);
+                alert(`Group: ${group.name}\nDescription: ${group.description || 'N/A'}\nMembers: ${group.member_count || 0}\nActive: ${group.is_active}`);
+            } catch (error) {
+                alert('Failed to view group: ' + error.message);
+            }
+        }
+        
+        async function deleteFriendGroup(groupId, groupName) {
+            if (!confirm(`Are you sure you want to delete the group "${groupName}"?`)) return;
+            
+            try {
+                await apiRequest(`/api/v1/friend-groups/${groupId}`, { method: 'DELETE' });
+                alert('Group deleted successfully!');
+                loadFriendGroups();
+            } catch (error) {
+                alert('Failed to delete group: ' + error.message);
+            }
+        }
+        
+        async function generateDuet() {
+            const groupId = document.getElementById('duet-group-select').value;
+            const style = document.getElementById('duet-style-select').value;
+            const prompt = document.getElementById('duet-prompt').value.trim();
+            const resultDiv = document.getElementById('duet-result');
+            
+            if (!groupId) {
+                resultDiv.innerHTML = '<div class="alert alert-error">Please select a group</div>';
+                return;
+            }
+            if (!prompt) {
+                resultDiv.innerHTML = '<div class="alert alert-error">Please enter a content prompt</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="loading"></div>Generating duet content... This may take a moment.';
+            
+            try {
+                const result = await apiRequest('/api/v1/friend-groups/duets', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        group_id: groupId,
+                        layout_type: style,
+                        prompt: prompt
+                    })
+                });
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>Duet Generated!</strong><br>
+                        Status: ${result.status || 'Created'}<br>
+                        ${result.output_path ? `File: ${result.output_path}` : ''}
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">Duet generation failed: ${error.message}</div>`;
+            }
+        }
+        
+        async function loadReelPersonaSelect() {
+            try {
+                const personas = await apiRequest('/api/v1/personas/?skip=0&limit=50&active_only=true');
+                const select = document.getElementById('reel-persona-select');
+                if (personas && personas.length > 0) {
+                    select.innerHTML = '<option value="">-- Select a persona --</option>' + 
+                        personas.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+                }
+            } catch (error) {
+                console.error('Failed to load personas for reel select:', error);
+            }
+        }
+        
+        async function generateReel() {
+            const personaId = document.getElementById('reel-persona-select').value;
+            const duration = parseFloat(document.getElementById('reel-duration-select').value);
+            const prompt = document.getElementById('reel-prompt').value.trim();
+            const resultDiv = document.getElementById('reel-result');
+            
+            if (!personaId) {
+                resultDiv.innerHTML = '<div class="alert alert-error">Please select a persona</div>';
+                return;
+            }
+            if (!prompt) {
+                resultDiv.innerHTML = '<div class="alert alert-error">Please enter a reel prompt</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="loading"></div>Generating reel content... This may take a moment.';
+            
+            try {
+                const result = await apiRequest('/api/v1/friend-groups/reels/generate', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        persona_id: personaId,
+                        prompt: prompt,
+                        duration: duration
+                    })
+                });
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>Reel Generated!</strong><br>
+                        Status: ${result.status || 'Created'}<br>
+                        Duration: ${result.duration || duration}s<br>
+                        ${result.output_path ? `File: ${result.output_path}` : ''}
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">Reel generation failed: ${error.message}</div>`;
+            }
+        }
+        
+        async function startAutoInteraction() {
+            const groupId = document.getElementById('auto-interact-group-select').value;
+            const statusDiv = document.getElementById('auto-interaction-status');
+            
+            if (!groupId) {
+                statusDiv.innerHTML = '<div class="alert alert-error">Please select a group</div>';
+                return;
+            }
+            
+            try {
+                const result = await apiRequest('/api/v1/friend-groups/auto-interaction/start', {
+                    method: 'POST',
+                    body: JSON.stringify({ group_id: groupId })
+                });
+                statusDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>Auto-interaction started!</strong><br>
+                        Group: ${result.group_name || groupId}<br>
+                        Status: ${result.status || 'Running'}
+                    </div>
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="alert alert-error">Failed to start: ${error.message}</div>`;
+            }
+        }
+        
+        async function stopAutoInteraction() {
+            const groupId = document.getElementById('auto-interact-group-select').value;
+            const statusDiv = document.getElementById('auto-interaction-status');
+            
+            if (!groupId) {
+                statusDiv.innerHTML = '<div class="alert alert-error">Please select a group</div>';
+                return;
+            }
+            
+            try {
+                const result = await apiRequest('/api/v1/friend-groups/auto-interaction/stop', {
+                    method: 'POST',
+                    body: JSON.stringify({ group_id: groupId })
+                });
+                statusDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>Auto-interaction stopped!</strong><br>
+                        Status: ${result.status || 'Stopped'}
+                    </div>
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="alert alert-error">Failed to stop: ${error.message}</div>`;
+            }
+        }
+        
+        // Load friend groups data when tab is selected
+        document.addEventListener('DOMContentLoaded', function() {
+            // Pre-load persona select for reels
+            loadReelPersonaSelect();
+        });
         
     </script>
     
