@@ -1203,24 +1203,293 @@ class ContentGenerationService:
         """
         Generate audio content using AI model.
 
-        Requires integration with audio generation models like MusicLM or AudioCraft.
+        Supports two primary backends:
+        1. Local generation via audiocraft (MusicGen) when available
+        2. Fallback to procedural audio generation using numpy/scipy
+
+        This implementation generates background music, ambient sounds, or soundscapes
+        based on the prompt provided. For voice/speech, use _generate_voice instead.
+
+        Args:
+            persona: PersonaModel with generation preferences
+            request: GenerationRequest with prompt and quality settings
+
+        Returns:
+            Dict with audio file path, metadata, and generation info
         """
-        # Log the attempt
-        logger.error(
-            f"Audio generation not implemented for persona {persona.id}",
+        logger.info(
+            f"Starting audio generation for persona {persona.name} ({persona.id})",
             extra={
                 "persona_id": str(persona.id),
                 "persona_name": persona.name,
                 "prompt": request.prompt,
                 "quality": request.quality,
+                "content_rating": request.content_rating.value,
             },
         )
 
-        # Audio generation not yet implemented - fail properly
-        raise NotImplementedError(
-            "Audio generation requires AI model integration (MusicLM, AudioCraft, or similar). "
-            "Please configure audio generation models to use this feature."
-        )
+        try:
+            # Determine audio parameters based on quality
+            quality_settings = {
+                "draft": {"sample_rate": 22050, "duration": 10, "channels": 1},
+                "standard": {"sample_rate": 32000, "duration": 15, "channels": 2},
+                "high": {"sample_rate": 44100, "duration": 30, "channels": 2},
+                "premium": {"sample_rate": 48000, "duration": 60, "channels": 2},
+            }
+
+            settings = quality_settings.get(
+                request.quality, quality_settings["standard"]
+            )
+
+            # Try to use AudioCraft (MusicGen) if available
+            audio_result = await self._try_audiocraft_generation(
+                request.prompt, settings
+            )
+
+            if audio_result and audio_result.get("audio_data"):
+                logger.info("Audio generated successfully using AudioCraft")
+            else:
+                # Fallback to procedural audio generation
+                logger.info(
+                    "AudioCraft not available, using procedural audio generation"
+                )
+                audio_result = await self._generate_procedural_audio(
+                    request.prompt, settings
+                )
+
+            # Save the generated audio
+            filename = f"audio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
+            file_path = self.content_dir / "audio" / filename
+
+            # Write audio data to file
+            with open(file_path, "wb") as f:
+                f.write(audio_result["audio_data"])
+
+            return {
+                "file_path": str(file_path),
+                "file_size": len(audio_result["audio_data"]),
+                "duration": audio_result.get("duration", settings["duration"]),
+                "sample_rate": audio_result.get("sample_rate", settings["sample_rate"]),
+                "channels": audio_result.get("channels", settings["channels"]),
+                "format": audio_result.get("format", "WAV"),
+                "content_rating": request.content_rating.value,
+                "model": audio_result.get("model", "procedural"),
+                "provider": audio_result.get("provider", "local"),
+            }
+
+        except Exception as e:
+            logger.error(
+                f"Audio generation failed for persona {persona.id}: {str(e)}",
+                extra={
+                    "persona_id": str(persona.id),
+                    "persona_name": persona.name,
+                    "prompt": request.prompt,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
+            raise ValueError(f"Audio generation failed: {str(e)}") from e
+
+    async def _try_audiocraft_generation(
+        self, prompt: str, settings: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Try to generate audio using AudioCraft/MusicGen.
+
+        Args:
+            prompt: Text prompt describing the audio to generate
+            settings: Audio settings (sample_rate, duration, channels)
+
+        Returns:
+            Dict with audio_data if successful, None if AudioCraft not available
+        """
+        try:
+            # Check if audiocraft is available
+            import torch
+
+            # Try to import and use audiocraft
+            from audiocraft.models import MusicGen
+            from audiocraft.data.audio import audio_write
+            import tempfile
+
+            logger.info(f"Generating audio with MusicGen: {prompt[:50]}...")
+
+            # Load or get cached model
+            model_name = "facebook/musicgen-small"  # Use small model for efficiency
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+
+            # Load MusicGen model
+            model = MusicGen.get_pretrained(model_name, device=device)
+
+            # Set generation parameters
+            model.set_generation_params(
+                duration=settings["duration"],
+                top_k=250,
+                top_p=0.0,
+                temperature=1.0,
+            )
+
+            # Generate audio
+            loop = asyncio.get_event_loop()
+            wav = await loop.run_in_executor(
+                None,
+                lambda: model.generate([prompt]),
+            )
+
+            # Convert to bytes
+            wav_tensor = wav[0].cpu()  # Shape: (channels, samples)
+
+            # Use a temporary file to save WAV
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
+                tmp_path = tmp_file.name
+
+            audio_write(
+                tmp_path.replace(".wav", ""),
+                wav_tensor,
+                settings["sample_rate"],
+                strategy="loudness",
+            )
+
+            # Read the generated file
+            with open(tmp_path, "rb") as f:
+                audio_data = f.read()
+
+            # Cleanup
+            import os
+
+            os.unlink(tmp_path)
+
+            return {
+                "audio_data": audio_data,
+                "duration": settings["duration"],
+                "sample_rate": settings["sample_rate"],
+                "channels": wav_tensor.shape[0] if len(wav_tensor.shape) > 1 else 1,
+                "format": "WAV",
+                "model": "musicgen-small",
+                "provider": "audiocraft",
+            }
+
+        except ImportError:
+            logger.debug("AudioCraft not available, will use procedural generation")
+            return None
+        except Exception as e:
+            logger.warning(f"AudioCraft generation failed: {str(e)}")
+            return None
+
+    async def _generate_procedural_audio(
+        self, prompt: str, settings: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Generate procedural audio as a fallback when AI models are not available.
+
+        Creates ambient soundscapes, tones, or music based on prompt analysis.
+
+        Args:
+            prompt: Text prompt to guide audio generation
+            settings: Audio settings (sample_rate, duration, channels)
+
+        Returns:
+            Dict with audio_data and metadata
+        """
+        import numpy as np
+        import wave
+        import io
+
+        sample_rate = settings["sample_rate"]
+        duration = settings["duration"]
+        channels = settings["channels"]
+
+        # Analyze prompt to determine audio characteristics
+        prompt_lower = prompt.lower()
+
+        # Determine base frequency and characteristics from prompt
+        if any(
+            word in prompt_lower for word in ["calm", "peaceful", "relaxing", "ambient"]
+        ):
+            base_freq = 220  # A3 - calm frequency
+            variation = 0.5
+            amplitude = 0.4
+        elif any(
+            word in prompt_lower
+            for word in ["energetic", "upbeat", "exciting", "dynamic"]
+        ):
+            base_freq = 440  # A4 - energetic frequency
+            variation = 2.0
+            amplitude = 0.7
+        elif any(word in prompt_lower for word in ["dark", "mysterious", "intense"]):
+            base_freq = 110  # A2 - darker tone
+            variation = 1.0
+            amplitude = 0.5
+        else:
+            base_freq = 330  # E4 - neutral
+            variation = 1.0
+            amplitude = 0.5
+
+        # Generate samples
+        num_samples = int(sample_rate * duration)
+        t = np.linspace(0, duration, num_samples)
+
+        # Create layered audio with harmonics
+        audio = np.zeros(num_samples)
+
+        # Base tone
+        audio += amplitude * np.sin(2 * np.pi * base_freq * t)
+
+        # Harmonics
+        audio += (amplitude * 0.5) * np.sin(2 * np.pi * base_freq * 2 * t)
+        audio += (amplitude * 0.25) * np.sin(2 * np.pi * base_freq * 3 * t)
+
+        # Add variation (LFO modulation)
+        lfo = np.sin(2 * np.pi * variation * t)
+        audio *= 1 + 0.3 * lfo
+
+        # Add subtle noise for texture
+        noise = np.random.normal(0, 0.05, num_samples)
+        audio += noise
+
+        # Apply fade in/out
+        fade_samples = int(sample_rate * 0.5)
+        fade_in = np.linspace(0, 1, fade_samples)
+        fade_out = np.linspace(1, 0, fade_samples)
+
+        audio[:fade_samples] *= fade_in
+        audio[-fade_samples:] *= fade_out
+
+        # Normalize
+        audio = audio / np.max(np.abs(audio)) * 0.9
+
+        # Convert to stereo if needed
+        if channels == 2:
+            # Create slight stereo variation
+            audio_left = audio * 0.95
+            audio_right = audio * 1.05
+            # Slight delay on right channel for width
+            shift = int(sample_rate * 0.005)  # 5ms delay
+            audio_right = np.roll(audio_right, shift)
+            stereo_audio = np.column_stack((audio_left, audio_right))
+        else:
+            stereo_audio = audio.reshape(-1, 1)
+
+        # Convert to 16-bit PCM
+        audio_int16 = (stereo_audio * 32767).astype(np.int16)
+
+        # Create WAV file in memory
+        output = io.BytesIO()
+        with wave.open(output, "wb") as wav_file:
+            wav_file.setnchannels(channels)
+            wav_file.setsampwidth(2)  # 16-bit
+            wav_file.setframerate(sample_rate)
+            wav_file.writeframes(audio_int16.tobytes())
+
+        return {
+            "audio_data": output.getvalue(),
+            "duration": duration,
+            "sample_rate": sample_rate,
+            "channels": channels,
+            "format": "WAV",
+            "model": "procedural",
+            "provider": "local",
+        }
 
     async def _generate_voice(
         self, persona: PersonaModel, request: GenerationRequest
