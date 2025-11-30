@@ -56,8 +56,12 @@ class TestCacheServiceNotConnected:
     def cache_service(self):
         """Create a cache service without Redis connection."""
         service = CacheService()
+        # Store original state for cleanup
+        original_redis = service._redis
         service._redis = None
-        return service
+        yield service
+        # Restore original state to avoid affecting other tests
+        service._redis = original_redis
 
     @pytest.mark.asyncio
     async def test_get_returns_none_when_disconnected(self, cache_service):
@@ -102,8 +106,11 @@ class TestCacheServiceConnected:
     def cache_service(self, mock_redis):
         """Create a cache service with mocked Redis."""
         service = CacheService()
+        original_redis = service._redis
         service._redis = mock_redis
-        return service
+        yield service
+        # Restore original state
+        service._redis = original_redis
 
     @pytest.mark.asyncio
     async def test_get_success(self, cache_service, mock_redis):
@@ -225,8 +232,10 @@ class TestCacheServicePersonaMethods:
     def cache_service(self, mock_redis):
         """Create a cache service with mocked Redis."""
         service = CacheService()
+        original_redis = service._redis
         service._redis = mock_redis
-        return service
+        yield service
+        service._redis = original_redis
 
     @pytest.mark.asyncio
     async def test_get_persona(self, cache_service, mock_redis):
@@ -270,8 +279,10 @@ class TestCacheServiceSessionMethods:
     def cache_service(self, mock_redis):
         """Create a cache service with mocked Redis."""
         service = CacheService()
+        original_redis = service._redis
         service._redis = mock_redis
-        return service
+        yield service
+        service._redis = original_redis
 
     @pytest.mark.asyncio
     async def test_get_user_session(self, cache_service, mock_redis):
@@ -315,8 +326,10 @@ class TestCacheServiceLocking:
     def cache_service(self, mock_redis):
         """Create a cache service with mocked Redis."""
         service = CacheService()
+        original_redis = service._redis
         service._redis = mock_redis
-        return service
+        yield service
+        service._redis = original_redis
 
     @pytest.mark.asyncio
     async def test_acquire_lock_success(self, cache_service, mock_redis):
@@ -377,8 +390,10 @@ class TestCacheServiceRateLimiting:
     def cache_service(self, mock_redis):
         """Create a cache service with mocked Redis."""
         service = CacheService()
+        original_redis = service._redis
         service._redis = mock_redis
-        return service
+        yield service
+        service._redis = original_redis
 
     @pytest.mark.asyncio
     async def test_rate_limit_allowed(self, cache_service, mock_redis):
@@ -431,8 +446,10 @@ class TestCacheServiceStats:
     def cache_service(self, mock_redis):
         """Create a cache service with mocked Redis."""
         service = CacheService()
+        original_redis = service._redis
         service._redis = mock_redis
-        return service
+        yield service
+        service._redis = original_redis
 
     @pytest.mark.asyncio
     async def test_get_stats_connected(self, cache_service, mock_redis):

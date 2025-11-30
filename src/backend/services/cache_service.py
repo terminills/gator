@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 
 T = TypeVar("T")
 
-# Try to import redis.asyncio (redis-py 4.2+)
+# Import redis.asyncio (requires redis-py 5.0+)
 try:
     import redis.asyncio as redis_async
     REDIS_AVAILABLE = True
