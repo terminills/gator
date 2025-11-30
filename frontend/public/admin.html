@@ -764,14 +764,20 @@
                 <li class="tab-link active" data-tab="dashboard">Dashboard</li>
                 <li class="tab-link" data-tab="personas">Personas</li>
                 <li class="tab-link" data-tab="content">Content</li>
+                <li class="tab-link" data-tab="scheduling">📅 Scheduling</li>
                 <li class="tab-link" data-tab="interactive">Interactive</li>
                 <li class="tab-link" data-tab="segments">Segments</li>
                 <li class="tab-link" data-tab="feeds">RSS Feeds</li>
                 <li class="tab-link" data-tab="social">Social Media</li>
                 <li class="tab-link" data-tab="messaging">Messaging</li>
+                <li class="tab-link" data-tab="moderation">🛡️ Moderation</li>
                 <li class="tab-link" data-tab="sentiment">Sentiment</li>
                 <li class="tab-link" data-tab="users">Users</li>
+                <li class="tab-link" data-tab="auth">🔐 Auth</li>
                 <li class="tab-link" data-tab="analytics">Analytics</li>
+                <li class="tab-link" data-tab="monitoring">📊 Monitoring</li>
+                <li class="tab-link" data-tab="agents">🤖 Agents</li>
+                <li class="tab-link" data-tab="ml-learning">🧠 ML Learning</li>
                 <li class="tab-link" data-tab="plugins">Plugins</li>
                 <li class="tab-link" data-tab="dns">DNS</li>
                 <li class="tab-link" data-tab="settings">Settings</li>
@@ -1720,6 +1726,313 @@
                         <p style="color: #666;">Loading backups...</p>
                     </div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Scheduling Tab -->
+        <div class="tab-content" id="scheduling">
+            <h2 style="margin-bottom: 1.5rem;">📅 Content Scheduling</h2>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">📅</div>
+                    <div class="card-title">Scheduled Posts</div>
+                </div>
+                <div class="card-description">
+                    Schedule content to be published at optimal times across platforms
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn" onclick="createScheduledPost()">Schedule New Post</button>
+                    <button class="btn btn-secondary" onclick="loadScheduledPosts()">Refresh</button>
+                </div>
+                <div id="scheduled-posts-list" class="mt-3"></div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <div class="card-title">Scheduling Statistics</div>
+                </div>
+                <div class="card-description">
+                    View scheduling performance and upcoming posts
+                </div>
+                <button class="btn" onclick="loadSchedulingStats()">Load Stats</button>
+                <div id="scheduling-stats" style="margin-top: 15px;"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">⏰</div>
+                    <div class="card-title">Upcoming Posts</div>
+                </div>
+                <button class="btn" onclick="loadUpcomingPosts()">Load Upcoming</button>
+                <div id="upcoming-posts" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+        
+        <!-- Moderation Tab -->
+        <div class="tab-content" id="moderation">
+            <h2 style="margin-bottom: 1.5rem;">🛡️ Content Moderation</h2>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🔍</div>
+                    <div class="card-title">Moderation Queue</div>
+                </div>
+                <div class="card-description">
+                    Review and moderate content before publication
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn" onclick="loadModerationQueue()">Load Queue</button>
+                    <button class="btn btn-secondary" onclick="loadModerationStats()">View Stats</button>
+                </div>
+                <div id="moderation-queue" class="mt-3"></div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">✅</div>
+                    <div class="card-title">Analyze Content</div>
+                </div>
+                <div class="card-description">
+                    Analyze content for potential issues before publishing
+                </div>
+                <div style="margin-top: 15px;">
+                    <textarea 
+                        id="moderation-text-input" 
+                        class="form-control" 
+                        rows="4" 
+                        placeholder="Enter text content to analyze..."
+                        style="width: 100%; padding: 10px; margin-bottom: 10px;"
+                    ></textarea>
+                    <button class="btn" onclick="analyzeContentModeration()">Analyze Content</button>
+                </div>
+                <div id="moderation-analysis-result" style="margin-top: 15px;"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📋</div>
+                    <div class="card-title">Moderation History</div>
+                </div>
+                <button class="btn" onclick="loadModerationHistory()">Load History</button>
+                <div id="moderation-history" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+        
+        <!-- Auth Tab -->
+        <div class="tab-content" id="auth">
+            <h2 style="margin-bottom: 1.5rem;">🔐 Authentication & OAuth</h2>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🔑</div>
+                    <div class="card-title">User Authentication</div>
+                </div>
+                <div class="card-description">
+                    Manage user login and registration settings
+                </div>
+                <div id="auth-status" style="margin-top: 15px;">
+                    <p style="color: #666;">Authentication system ready. Use the API to register and login users.</p>
+                    <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <h4 style="margin-bottom: 10px;">API Endpoints:</h4>
+                        <ul style="margin-left: 20px; color: #555;">
+                            <li><code>POST /api/v1/auth/register</code> - Register new user</li>
+                            <li><code>POST /api/v1/auth/login</code> - Login user</li>
+                            <li><code>POST /api/v1/auth/refresh</code> - Refresh token</li>
+                            <li><code>POST /api/v1/auth/logout</code> - Logout user</li>
+                            <li><code>POST /api/v1/auth/change-password</code> - Change password</li>
+                            <li><code>GET /api/v1/auth/verify</code> - Verify token</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🔗</div>
+                    <div class="card-title">OAuth Connections</div>
+                </div>
+                <div class="card-description">
+                    Connect social media platforms via OAuth
+                </div>
+                <button class="btn" onclick="loadOAuthConnections()">View Connections</button>
+                <div id="oauth-connections" style="margin-top: 15px;"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🌐</div>
+                    <div class="card-title">Supported OAuth Platforms</div>
+                </div>
+                <div id="oauth-platforms" style="margin-top: 15px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2rem;">📸</div>
+                            <div style="font-weight: 600;">Instagram</div>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2rem;">👤</div>
+                            <div style="font-weight: 600;">Facebook</div>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2rem;">🐦</div>
+                            <div style="font-weight: 600;">Twitter</div>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2rem;">🎵</div>
+                            <div style="font-weight: 600;">TikTok</div>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2rem;">💼</div>
+                            <div style="font-weight: 600;">LinkedIn</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Monitoring Tab -->
+        <div class="tab-content" id="monitoring">
+            <h2 style="margin-bottom: 1.5rem;">📊 System Monitoring</h2>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🎮</div>
+                    <div class="card-title">GPU Status</div>
+                </div>
+                <div class="card-description">
+                    Monitor GPU temperature and utilization
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn" onclick="loadGPUStatus()">Refresh Status</button>
+                    <button class="btn btn-secondary" onclick="loadGPUHistory()">View History</button>
+                </div>
+                <div id="gpu-status" style="margin-top: 15px;"></div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🌀</div>
+                    <div class="card-title">Fan Control</div>
+                </div>
+                <div class="card-description">
+                    Manage system fan settings and thresholds
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn" onclick="loadFanStatus()">Fan Status</button>
+                    <button class="btn btn-secondary" onclick="setFanAuto()">Auto Mode</button>
+                </div>
+                <div id="fan-control" style="margin-top: 15px;"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">💻</div>
+                    <div class="card-title">System Health</div>
+                </div>
+                <button class="btn" onclick="loadSystemHealth()">Check Health</button>
+                <div id="system-health-detail" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+        
+        <!-- Agents Tab -->
+        <div class="tab-content" id="agents">
+            <h2 style="margin-bottom: 1.5rem;">🤖 Multi-Agent System</h2>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🤖</div>
+                    <div class="card-title">Active Agents</div>
+                </div>
+                <div class="card-description">
+                    Manage AI agents for content generation and automation
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn" onclick="createAgent()">Create Agent</button>
+                    <button class="btn btn-secondary" onclick="loadAgents()">Refresh</button>
+                </div>
+                <div id="agents-list" class="mt-3"></div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🏪</div>
+                    <div class="card-title">Agent Marketplace</div>
+                </div>
+                <div class="card-description">
+                    Browse and install agents from the marketplace
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <input type="text" id="agent-search" class="form-control" placeholder="Search agents..." style="max-width: 300px;">
+                    <button class="btn" onclick="searchAgentMarketplace()">Search</button>
+                </div>
+                <div id="agent-marketplace" class="mt-3"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <div class="card-title">Workload Distribution</div>
+                </div>
+                <button class="btn" onclick="loadAgentWorkload()">View Workload</button>
+                <div id="agent-workload" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+        
+        <!-- ML Learning Tab -->
+        <div class="tab-content" id="ml-learning">
+            <h2 style="margin-bottom: 1.5rem;">🧠 ML Learning System</h2>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">📈</div>
+                    <div class="card-title">Model Training</div>
+                </div>
+                <div class="card-description">
+                    Train engagement prediction and success classification models
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn" onclick="trainEngagementModel()">Train Engagement Model</button>
+                    <button class="btn btn-secondary" onclick="trainSuccessClassifier()">Train Success Classifier</button>
+                </div>
+                <div id="training-status" class="mt-3"></div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">🧪</div>
+                    <div class="card-title">A/B Testing</div>
+                </div>
+                <div class="card-description">
+                    Create and manage A/B tests for content optimization
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn" onclick="createABTest()">Create Test</button>
+                    <button class="btn btn-secondary" onclick="loadABTests()">View Tests</button>
+                </div>
+                <div id="ab-tests-list" class="mt-3"></div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 25px;">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <div class="card-title">Feature Importance</div>
+                </div>
+                <button class="btn" onclick="loadFeatureImportance()">Load Feature Analysis</button>
+                <div id="feature-importance" style="margin-top: 15px;"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">👥</div>
+                    <div class="card-title">Cross-Persona Learning</div>
+                </div>
+                <div class="card-description">
+                    View aggregated learning insights across personas
+                </div>
+                <button class="btn" onclick="loadCrossPersonaLearning()">Load Insights</button>
+                <div id="cross-persona-insights" style="margin-top: 15px;"></div>
             </div>
         </div>
         
@@ -2873,15 +3186,7 @@
         }
         
         // Enhanced tab management to handle chat initialization
-        const originalShowTab = showTab;
-        showTab = function(tabName) {
-            originalShowTab(tabName);
-            
-            // Initialize chat when Gator tab is shown
-            if (tabName === 'gator-help') {
-                initializeGatorChat();
-            }
-        };
+        // (tab handler extensions are added via DOMContentLoaded below)
         
         // Chat form submission
         document.addEventListener('DOMContentLoaded', () => {
@@ -3819,6 +4124,32 @@
                     originalShowTab(tabName);
                 }
                 
+                // Initialize chat when Gator tab is shown
+                if (tabName === 'gator-help') {
+                    initializeGatorChat();
+                }
+                
+                // Load data for new tabs
+                if (tabName === 'scheduling') {
+                    loadScheduledPosts();
+                    loadSchedulingStats();
+                }
+                if (tabName === 'moderation') {
+                    loadModerationQueue();
+                }
+                if (tabName === 'monitoring') {
+                    loadGPUStatus();
+                }
+                if (tabName === 'agents') {
+                    loadAgents();
+                }
+                if (tabName === 'ml-learning') {
+                    loadABTests();
+                }
+                if (tabName === 'auth') {
+                    loadOAuthConnections();
+                }
+                
                 // Load database info when database tab is shown
                 if (tabName === 'database') {
                     loadDatabaseInfo();
@@ -4413,6 +4744,498 @@
                 document.getElementById('plugin-manager-status').innerHTML = statusHtml;
             } catch (error) {
                 showAlert(`Failed to check status: ${error.message}`, 'error');
+            }
+        }
+        
+        // ========================================
+        // Scheduling Functions
+        // ========================================
+        
+        async function loadScheduledPosts() {
+            const listDiv = document.getElementById('scheduled-posts-list');
+            listDiv.innerHTML = '<div class="loading"></div>Loading scheduled posts...';
+            
+            try {
+                const response = await apiRequest('/api/v1/scheduled-posts/');
+                const posts = response.posts || response || [];
+                
+                if (posts.length === 0) {
+                    listDiv.innerHTML = '<p style="color: #666;">No scheduled posts yet. Create your first scheduled post!</p>';
+                    return;
+                }
+                
+                listDiv.innerHTML = posts.map(post => `
+                    <div style="padding: 15px; background: white; border-radius: 8px; margin-bottom: 10px; border: 1px solid #e0e0e0;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <div style="font-weight: 600;">${escapeHtml(post.title || 'Untitled Post')}</div>
+                                <div style="font-size: 0.9rem; color: #666;">Scheduled: ${new Date(post.scheduled_for).toLocaleString()}</div>
+                                <span style="background: ${post.status === 'scheduled' ? '#c8e6c9' : '#fff3e0'}; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">${post.status}</span>
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                ${post.status === 'scheduled' ? `<button class="btn btn-secondary btn-sm" onclick="pauseScheduledPost('${post.id}')">Pause</button>` : ''}
+                                ${post.status === 'paused' ? `<button class="btn btn-sm" onclick="resumeScheduledPost('${post.id}')">Resume</button>` : ''}
+                                <button class="btn btn-secondary btn-sm" onclick="cancelScheduledPost('${post.id}')">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                listDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function createScheduledPost() {
+            showAlert('Use the Content tab to generate content, then schedule it for publishing.', 'info');
+        }
+        
+        async function loadSchedulingStats() {
+            try {
+                const stats = await apiRequest('/api/v1/scheduled-posts/stats');
+                document.getElementById('scheduling-stats').innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2rem; font-weight: bold; color: #667eea;">${stats.total || 0}</div>
+                            <div style="color: #666;">Total Posts</div>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2rem; font-weight: bold; color: #28a745;">${stats.scheduled || 0}</div>
+                            <div style="color: #666;">Scheduled</div>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2rem; font-weight: bold; color: #ffc107;">${stats.paused || 0}</div>
+                            <div style="color: #666;">Paused</div>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2rem; font-weight: bold; color: #17a2b8;">${stats.published || 0}</div>
+                            <div style="color: #666;">Published</div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                showAlert(`Failed to load stats: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadUpcomingPosts() {
+            try {
+                const posts = await apiRequest('/api/v1/scheduled-posts/upcoming');
+                const listDiv = document.getElementById('upcoming-posts');
+                
+                if (!posts || posts.length === 0) {
+                    listDiv.innerHTML = '<p style="color: #666;">No upcoming posts scheduled.</p>';
+                    return;
+                }
+                
+                listDiv.innerHTML = posts.map(post => `
+                    <div style="padding: 10px; background: #f8f9fa; border-radius: 6px; margin-bottom: 8px;">
+                        <strong>${escapeHtml(post.title || 'Untitled')}</strong>
+                        <div style="font-size: 0.85rem; color: #666;">${new Date(post.scheduled_for).toLocaleString()}</div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                showAlert(`Failed to load upcoming posts: ${error.message}`, 'error');
+            }
+        }
+        
+        async function pauseScheduledPost(postId) {
+            try {
+                await apiRequest(`/api/v1/scheduled-posts/${postId}/pause`, { method: 'POST' });
+                showAlert('Post paused!', 'success');
+                loadScheduledPosts();
+            } catch (error) {
+                showAlert(`Failed to pause: ${error.message}`, 'error');
+            }
+        }
+        
+        async function resumeScheduledPost(postId) {
+            try {
+                await apiRequest(`/api/v1/scheduled-posts/${postId}/resume`, { method: 'POST' });
+                showAlert('Post resumed!', 'success');
+                loadScheduledPosts();
+            } catch (error) {
+                showAlert(`Failed to resume: ${error.message}`, 'error');
+            }
+        }
+        
+        async function cancelScheduledPost(postId) {
+            if (!confirm('Are you sure you want to cancel this scheduled post?')) return;
+            try {
+                await apiRequest(`/api/v1/scheduled-posts/${postId}/cancel`, { method: 'POST' });
+                showAlert('Post cancelled!', 'success');
+                loadScheduledPosts();
+            } catch (error) {
+                showAlert(`Failed to cancel: ${error.message}`, 'error');
+            }
+        }
+        
+        // ========================================
+        // Moderation Functions
+        // ========================================
+        
+        async function loadModerationQueue() {
+            const queueDiv = document.getElementById('moderation-queue');
+            queueDiv.innerHTML = '<div class="loading"></div>Loading moderation queue...';
+            
+            try {
+                const response = await apiRequest('/api/v1/moderation/queue');
+                const items = response.items || response || [];
+                
+                if (items.length === 0) {
+                    queueDiv.innerHTML = '<p style="color: #666;">No items pending moderation.</p>';
+                    return;
+                }
+                
+                queueDiv.innerHTML = items.map(item => `
+                    <div style="padding: 15px; background: white; border-radius: 8px; margin-bottom: 10px; border: 1px solid #e0e0e0;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <div style="font-weight: 600;">${escapeHtml(item.content_type || 'Content')}</div>
+                                <div style="font-size: 0.85rem; color: #666;">${escapeHtml((item.content || '').substring(0, 100))}...</div>
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn btn-sm" onclick="approveContent('${item.id}')">Approve</button>
+                                <button class="btn btn-secondary btn-sm" onclick="rejectContent('${item.id}')">Reject</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                queueDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function loadModerationStats() {
+            showAlert('Moderation statistics loaded from /api/v1/moderation/stats', 'info');
+        }
+        
+        async function analyzeContentModeration() {
+            const text = document.getElementById('moderation-text-input').value;
+            if (!text) {
+                showAlert('Please enter text to analyze', 'error');
+                return;
+            }
+            
+            try {
+                const result = await apiRequest('/api/v1/moderation/analyze', {
+                    method: 'POST',
+                    body: JSON.stringify({ content: text, content_type: 'text' })
+                });
+                
+                const resultDiv = document.getElementById('moderation-analysis-result');
+                resultDiv.innerHTML = `
+                    <div style="padding: 20px; background: white; border-radius: 8px; border: 1px solid #e0e0e0;">
+                        <h3>Analysis Result</h3>
+                        <p><strong>Safe:</strong> ${result.is_safe ? '✅ Yes' : '❌ No'}</p>
+                        <p><strong>Confidence:</strong> ${result.confidence ? (result.confidence * 100).toFixed(1) + '%' : 'N/A'}</p>
+                        ${result.flags?.length ? `<p><strong>Flags:</strong> ${result.flags.join(', ')}</p>` : ''}
+                    </div>
+                `;
+            } catch (error) {
+                showAlert(`Analysis failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function approveContent(contentId) {
+            try {
+                await apiRequest(`/api/v1/moderation/${contentId}/approve`, { method: 'POST' });
+                showAlert('Content approved!', 'success');
+                loadModerationQueue();
+            } catch (error) {
+                showAlert(`Failed to approve: ${error.message}`, 'error');
+            }
+        }
+        
+        async function rejectContent(contentId) {
+            try {
+                await apiRequest(`/api/v1/moderation/${contentId}/reject`, { method: 'POST' });
+                showAlert('Content rejected!', 'success');
+                loadModerationQueue();
+            } catch (error) {
+                showAlert(`Failed to reject: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadModerationHistory() {
+            showAlert('Moderation history available via /api/v1/moderation/history', 'info');
+        }
+        
+        // ========================================
+        // Monitoring Functions
+        // ========================================
+        
+        async function loadGPUStatus() {
+            const statusDiv = document.getElementById('gpu-status');
+            statusDiv.innerHTML = '<div class="loading"></div>Loading GPU status...';
+            
+            try {
+                const status = await apiRequest('/api/v1/system-monitoring/gpu/status');
+                statusDiv.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="font-weight: 600; color: #667eea;">Temperature</div>
+                            <div style="font-size: 1.5rem;">${status.temperature || 'N/A'}°C</div>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="font-weight: 600; color: #667eea;">Utilization</div>
+                            <div style="font-size: 1.5rem;">${status.utilization || 'N/A'}%</div>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="font-weight: 600; color: #667eea;">Memory</div>
+                            <div style="font-size: 1.5rem;">${status.memory_used || 'N/A'} / ${status.memory_total || 'N/A'}</div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `<p style="color: #666;">GPU monitoring not available: ${error.message}</p>`;
+            }
+        }
+        
+        async function loadGPUHistory() {
+            showAlert('GPU temperature history available via /api/v1/system-monitoring/gpu/temperature/history', 'info');
+        }
+        
+        async function loadFanStatus() {
+            try {
+                const fans = await apiRequest('/api/v1/system-monitoring/fans');
+                document.getElementById('fan-control').innerHTML = `
+                    <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <pre>${JSON.stringify(fans, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('fan-control').innerHTML = `<p style="color: #666;">Fan control not available: ${error.message}</p>`;
+            }
+        }
+        
+        async function setFanAuto() {
+            try {
+                await apiRequest('/api/v1/system-monitoring/fans/auto-adjust', { method: 'POST' });
+                showAlert('Fan set to auto mode!', 'success');
+            } catch (error) {
+                showAlert(`Failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadSystemHealth() {
+            try {
+                const health = await apiRequest('/api/v1/health/detailed');
+                document.getElementById('system-health-detail').innerHTML = `
+                    <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <pre>${JSON.stringify(health, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                showAlert(`Failed to load health: ${error.message}`, 'error');
+            }
+        }
+        
+        // ========================================
+        // Agent Functions
+        // ========================================
+        
+        async function loadAgents() {
+            const listDiv = document.getElementById('agents-list');
+            listDiv.innerHTML = '<div class="loading"></div>Loading agents...';
+            
+            try {
+                const agents = await apiRequest('/api/v1/multi-agent/agents/');
+                
+                if (!agents || agents.length === 0) {
+                    listDiv.innerHTML = '<p style="color: #666;">No agents created yet.</p>';
+                    return;
+                }
+                
+                listDiv.innerHTML = agents.map(agent => `
+                    <div style="padding: 15px; background: white; border-radius: 8px; margin-bottom: 10px; border: 1px solid #e0e0e0;">
+                        <div style="font-weight: 600;">${escapeHtml(agent.name)}</div>
+                        <div style="font-size: 0.9rem; color: #666;">${escapeHtml(agent.type || 'General')}</div>
+                        <span style="background: ${agent.status === 'active' ? '#c8e6c9' : '#ffcdd2'}; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">${agent.status}</span>
+                    </div>
+                `).join('');
+            } catch (error) {
+                listDiv.innerHTML = `<p style="color: #666;">Agent system: ${error.message}</p>`;
+            }
+        }
+        
+        async function createAgent() {
+            const name = prompt('Enter agent name:');
+            if (!name) return;
+            
+            try {
+                await apiRequest('/api/v1/multi-agent/agents/', {
+                    method: 'POST',
+                    body: JSON.stringify({ name: name, type: 'content_generator' })
+                });
+                showAlert('Agent created!', 'success');
+                loadAgents();
+            } catch (error) {
+                showAlert(`Failed to create agent: ${error.message}`, 'error');
+            }
+        }
+        
+        async function searchAgentMarketplace() {
+            const query = document.getElementById('agent-search').value;
+            try {
+                const agents = await apiRequest(`/api/v1/multi-agent/marketplace/search?query=${encodeURIComponent(query)}`);
+                const marketDiv = document.getElementById('agent-marketplace');
+                
+                if (!agents || agents.length === 0) {
+                    marketDiv.innerHTML = '<p style="color: #666;">No agents found in marketplace.</p>';
+                    return;
+                }
+                
+                marketDiv.innerHTML = agents.map(agent => `
+                    <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;">
+                        <div style="font-weight: 600;">${escapeHtml(agent.name)}</div>
+                        <div style="font-size: 0.9rem; color: #666;">${escapeHtml(agent.description || '')}</div>
+                        <button class="btn btn-sm" onclick="installAgent('${agent.id}')" style="margin-top: 10px;">Install</button>
+                    </div>
+                `).join('');
+            } catch (error) {
+                showAlert(`Search failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function installAgent(agentId) {
+            try {
+                await apiRequest(`/api/v1/multi-agent/marketplace/install/${agentId}`, { method: 'POST' });
+                showAlert('Agent installed!', 'success');
+                loadAgents();
+            } catch (error) {
+                showAlert(`Install failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadAgentWorkload() {
+            try {
+                const workload = await apiRequest('/api/v1/multi-agent/workload/');
+                document.getElementById('agent-workload').innerHTML = `
+                    <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <pre>${JSON.stringify(workload, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                showAlert(`Failed to load workload: ${error.message}`, 'error');
+            }
+        }
+        
+        // ========================================
+        // ML Learning Functions
+        // ========================================
+        
+        async function trainEngagementModel() {
+            try {
+                const result = await apiRequest('/api/v1/ml-learning/models/train-engagement', { method: 'POST' });
+                showAlert('Engagement model training started!', 'success');
+                document.getElementById('training-status').innerHTML = `
+                    <div class="alert alert-success">Training started: ${result.message || 'Processing...'}</div>
+                `;
+            } catch (error) {
+                showAlert(`Training failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function trainSuccessClassifier() {
+            try {
+                const result = await apiRequest('/api/v1/ml-learning/models/train-success-classifier', { method: 'POST' });
+                showAlert('Success classifier training started!', 'success');
+                document.getElementById('training-status').innerHTML = `
+                    <div class="alert alert-success">Training started: ${result.message || 'Processing...'}</div>
+                `;
+            } catch (error) {
+                showAlert(`Training failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function createABTest() {
+            const name = prompt('Enter A/B test name:');
+            if (!name) return;
+            
+            try {
+                await apiRequest('/api/v1/ml-learning/ab-tests/create', {
+                    method: 'POST',
+                    body: JSON.stringify({ name: name })
+                });
+                showAlert('A/B test created!', 'success');
+                loadABTests();
+            } catch (error) {
+                showAlert(`Failed to create test: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadABTests() {
+            try {
+                const tests = await apiRequest('/api/v1/ml-learning/ab-tests/');
+                const listDiv = document.getElementById('ab-tests-list');
+                
+                if (!tests || tests.length === 0) {
+                    listDiv.innerHTML = '<p style="color: #666;">No A/B tests created yet.</p>';
+                    return;
+                }
+                
+                listDiv.innerHTML = tests.map(test => `
+                    <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;">
+                        <div style="font-weight: 600;">${escapeHtml(test.name)}</div>
+                        <span style="background: ${test.status === 'running' ? '#c8e6c9' : '#e0e0e0'}; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">${test.status}</span>
+                    </div>
+                `).join('');
+            } catch (error) {
+                showAlert(`Failed to load tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadFeatureImportance() {
+            try {
+                const features = await apiRequest('/api/v1/ml-learning/models/feature-importance');
+                document.getElementById('feature-importance').innerHTML = `
+                    <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <pre>${JSON.stringify(features, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('feature-importance').innerHTML = `<p style="color: #666;">Feature analysis not available: ${error.message}</p>`;
+            }
+        }
+        
+        async function loadCrossPersonaLearning() {
+            try {
+                const insights = await apiRequest('/api/v1/ml-learning/cross-persona/aggregate');
+                document.getElementById('cross-persona-insights').innerHTML = `
+                    <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <pre>${JSON.stringify(insights, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('cross-persona-insights').innerHTML = `<p style="color: #666;">Cross-persona learning not available: ${error.message}</p>`;
+            }
+        }
+        
+        // ========================================
+        // OAuth Functions
+        // ========================================
+        
+        async function loadOAuthConnections() {
+            try {
+                const connections = await apiRequest('/api/v1/oauth/connections');
+                const listDiv = document.getElementById('oauth-connections');
+                
+                if (!connections || connections.length === 0) {
+                    listDiv.innerHTML = `
+                        <p style="color: #666;">No OAuth connections yet.</p>
+                        <p style="font-size: 0.9rem; color: #888;">Configure OAuth settings and then authorize platforms.</p>
+                    `;
+                    return;
+                }
+                
+                listDiv.innerHTML = connections.map(conn => `
+                    <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;">
+                        <div style="font-weight: 600;">${escapeHtml(conn.platform)}</div>
+                        <span style="background: ${conn.connected ? '#c8e6c9' : '#ffcdd2'}; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">${conn.connected ? 'Connected' : 'Disconnected'}</span>
+                    </div>
+                `).join('');
+            } catch (error) {
+                document.getElementById('oauth-connections').innerHTML = `<p style="color: #666;">OAuth: ${error.message}</p>`;
             }
         }
         
