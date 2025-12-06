@@ -194,8 +194,8 @@ class TestSystemEndpoints:
 
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/html")
-        assert b"AI Model Setup" in response.content
-        assert b"Gator Platform" in response.content
+        assert b"AI Models Setup" in response.content
+        assert b"AI Models - Gator AI Admin" in response.content
 
     def test_admin_dashboard_page(self, test_client):
         """Test admin dashboard page endpoint."""
