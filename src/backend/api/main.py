@@ -491,7 +491,7 @@ def create_app() -> FastAPI:
     @app.get("/ai-models-setup", tags=["system"])
     async def ai_models_setup():
         """Serve AI models setup page."""
-        setup_path = paths.project_root / "ai_models_setup.html"
+        setup_path = paths.frontend_dir / "ai_models_setup.html"
         if setup_path.exists():
             return FileResponse(str(setup_path))
         return {"error": "AI models setup page not found"}
