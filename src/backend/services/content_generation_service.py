@@ -1038,7 +1038,18 @@ class ContentGenerationService:
                 )
 
                 # Log the failure comprehensively
-                logger.error(
+                logger.error("=" * 80)
+                logger.error("❌ IMAGE GENERATION FAILED")
+                logger.error(f"   Persona: {persona.name} ({persona.id})")
+                logger.error(f"   Error: {str(e)}")
+                logger.error("")
+                logger.error("   💡 To enable AI-powered image generation:")
+                logger.error("      1. Download image models: python setup_ai_models.py")
+                logger.error("      2. Or enable cloud APIs: ENABLE_CLOUD_APIS=true with OPENAI_API_KEY or DALLE_API_KEY")
+                logger.error("=" * 80)
+                
+                # Log detailed error for debugging
+                logger.debug(
                     f"Image generation failed for persona {persona.id}: {str(e)}",
                     extra={
                         "persona_id": str(persona.id),
@@ -1051,8 +1062,11 @@ class ContentGenerationService:
                     },
                 )
 
-                # Re-raise the exception instead of creating placeholder
-                raise ValueError(f"Image generation failed: {str(e)}") from e
+                # Re-raise with helpful message
+                raise ValueError(
+                    f"Image generation failed: {str(e)}. "
+                    "To fix: Download AI models with 'python setup_ai_models.py' or enable cloud APIs."
+                ) from e
 
     async def _generate_video(
         self, persona: PersonaModel, request: GenerationRequest
@@ -1706,11 +1720,15 @@ Generate the social media content now:"""
                 )
 
                 # Enhanced fallback generation using persona characteristics
-                logger.warning(
-                    "⚠️  AI text generation unavailable, using fallback method"
-                )
+                logger.warning("=" * 80)
+                logger.warning("⚠️  AI TEXT GENERATION UNAVAILABLE")
                 logger.warning(f"   Reason: {str(e)}")
-                logger.warning("   Fallback: Template-based generation")
+                logger.warning("   Fallback: Using template-based generation")
+                logger.warning("")
+                logger.warning("   💡 To enable AI-powered content generation:")
+                logger.warning("      1. Download AI models: python setup_ai_models.py")
+                logger.warning("      2. Or enable cloud APIs: ENABLE_CLOUD_APIS=true with API keys")
+                logger.warning("=" * 80)
                 logger.info("   🔄 Generating content using template fallback...")
 
                 await asyncio.sleep(0.05)  # Simulate processing time
