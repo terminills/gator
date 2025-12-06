@@ -1042,11 +1042,11 @@ class ContentGenerationService:
                 logger.error("❌ IMAGE GENERATION FAILED")
                 logger.error(f"   Persona: {persona.name} ({persona.id})")
                 logger.error(f"   Error: {str(e)}")
-                logger.error("")
-                logger.error("   💡 To enable AI-powered image generation:")
-                logger.error("      1. Download image models: python setup_ai_models.py")
-                logger.error("      2. Or enable cloud APIs: ENABLE_CLOUD_APIS=true with OPENAI_API_KEY or DALLE_API_KEY")
                 logger.error("=" * 80)
+                logger.warning("")
+                logger.warning("   💡 To enable AI-powered image generation:")
+                logger.warning("      1. Download image models: python setup_ai_models.py")
+                logger.warning("      2. Or enable cloud APIs: ENABLE_CLOUD_APIS=true with OPENAI_API_KEY or DALLE_API_KEY")
                 
                 # Log detailed error for debugging
                 logger.debug(
@@ -1720,15 +1720,17 @@ Generate the social media content now:"""
                 )
 
                 # Enhanced fallback generation using persona characteristics
-                logger.warning("=" * 80)
-                logger.warning("⚠️  AI TEXT GENERATION UNAVAILABLE")
-                logger.warning(f"   Reason: {str(e)}")
-                logger.warning("   Fallback: Using template-based generation")
-                logger.warning("")
-                logger.warning("   💡 To enable AI-powered content generation:")
-                logger.warning("      1. Download AI models: python setup_ai_models.py")
-                logger.warning("      2. Or enable cloud APIs: ENABLE_CLOUD_APIS=true with API keys")
-                logger.warning("=" * 80)
+                logger.warning(
+                    "=" * 80 + "\n"
+                    "⚠️  AI TEXT GENERATION UNAVAILABLE\n"
+                    f"   Reason: {str(e)}\n"
+                    "   Fallback: Using template-based generation\n"
+                    "\n"
+                    "   💡 To enable AI-powered content generation:\n"
+                    "      1. Download AI models: python setup_ai_models.py\n"
+                    "      2. Or enable cloud APIs: ENABLE_CLOUD_APIS=true with API keys\n"
+                    "=" * 80
+                )
                 logger.info("   🔄 Generating content using template fallback...")
 
                 await asyncio.sleep(0.05)  # Simulate processing time

@@ -69,8 +69,9 @@ async def generate_content(
         result = await content_service.generate_content(request)
 
         # Check if AI models were used or if fallback was triggered
-        is_fallback = result.generation_params.get("fallback", False) if result.generation_params else False
-        ai_generated = result.generation_params.get("ai_generated", True) if result.generation_params else True
+        generation_params = result.generation_params or {}
+        is_fallback = generation_params.get("fallback", False)
+        ai_generated = generation_params.get("ai_generated", True)
         
         response = {
             "status": "accepted",
@@ -88,7 +89,7 @@ async def generate_content(
         # Add warning if fallback was used
         if is_fallback:
             response["warning"] = "AI models not available - using template-based fallback"
-            response["fallback_reason"] = result.generation_params.get("fallback_reason", "Unknown")
+            response["fallback_reason"] = generation_params.get("fallback_reason", "Unknown")
             response["setup_help"] = "To enable AI-powered content generation, run: python setup_ai_models.py or set ENABLE_CLOUD_APIS=true with API keys"
         
         return response
