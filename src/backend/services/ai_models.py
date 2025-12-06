@@ -3273,6 +3273,29 @@ class AIModelManager:
                     f"Run 'pip uninstall xformers' to fix. "
                     f"Original error: {error_str}"
                 ) from e
+            elif "libamdhip64" in error_str or "hsa_amd" in error_str or "ROCR_" in error_str:
+                logger.error(
+                    "=" * 80 + "\n"
+                    "ROCm library compatibility issue detected!\n"
+                    f"Error: {error_str}\n\n"
+                    "This typically indicates:\n"
+                    "  1. ROCm installation is incomplete or corrupted\n"
+                    "  2. Version mismatch between ROCm components\n"
+                    "  3. Custom ROCm installation path not properly configured\n\n"
+                    "Recommended fixes:\n"
+                    "  1. Verify ROCm installation: rocminfo\n"
+                    "  2. Check environment variables (LD_LIBRARY_PATH, ROCM_PATH)\n"
+                    "  3. Reinstall PyTorch for your ROCm version:\n"
+                    "     pip install --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/rocm6.2\n"
+                    "  4. If using ROCm 7.x, ensure all components are installed:\n"
+                    "     sudo apt install rocm-hip-runtime rocm-hip-sdk\n"
+                    "=" * 80
+                )
+                raise RuntimeError(
+                    f"ROCm library error: Failed to import diffusers due to missing or incompatible ROCm libraries. "
+                    f"This typically means ROCm installation is incomplete. Check logs for detailed guidance. "
+                    f"Original error: {error_str}"
+                ) from e
             else:
                 raise
 
